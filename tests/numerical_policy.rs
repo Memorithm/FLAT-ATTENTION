@@ -5,7 +5,10 @@ use flat_attention::{
 
 fn assert_finite(values: &[f32], name: &str) {
     for (index, value) in values.iter().enumerate() {
-        assert!(value.is_finite(), "{name}[{index}] is not finite: {value}");
+        assert!(
+            value.is_finite(),
+            "{name}[{index}] is not finite: {value}"
+        );
     }
 }
 
