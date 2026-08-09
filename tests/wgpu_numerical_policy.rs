@@ -1,8 +1,9 @@
 #![cfg(feature = "wgpu")]
 
 use flat_attention::{
-    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError, NumericalBackendKind,
-    NumericalError, NumericalExecutor, NumericalMode, WgpuFlatAttentionError, WgpuKernelVariant,
+    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError,
+    NumericalBackendKind, NumericalError, NumericalExecutor, NumericalMode, WgpuFlatAttentionError,
+    WgpuKernelVariant,
 };
 
 const ATOL: f32 = 5.0e-5;
@@ -35,9 +36,7 @@ fn fixture(shape: AttentionShape) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
             sign * (((i as f32) * 0.019).cos() * 2.75 - 0.0625)
         })
         .collect();
-    let v = (0..len)
-        .map(|i| ((i as f32) * 0.013).sin() * 4.0)
-        .collect();
+    let v = (0..len).map(|i| ((i as f32) * 0.013).sin() * 4.0).collect();
     (q, k, v)
 }
 
@@ -70,10 +69,7 @@ fn deterministic_mode_forces_fixed_tree_kernel_family() {
     let Some(executor) = executor(NumericalMode::DeterministicPortable) else {
         return;
     };
-    assert_eq!(
-        executor.backend_kind(),
-        NumericalBackendKind::Wgpu
-    );
+    assert_eq!(executor.backend_kind(), NumericalBackendKind::Wgpu);
     assert_eq!(executor.mode(), NumericalMode::DeterministicPortable);
     assert!(executor.guarantees().repeatable_same_backend_device);
     assert!(!executor.guarantees().allows_subgroup);
@@ -123,11 +119,7 @@ fn deterministic_mode_is_bit_repeatable_on_same_context() {
             }
 
             let reference = forward_reference(&q, &k, &v, shape, config).unwrap();
-            assert_close(
-                "deterministic O parity",
-                &first.output,
-                &reference.output,
-            );
+            assert_close("deterministic O parity", &first.output, &reference.output);
             assert_close("deterministic LSE parity", &first.lse, &reference.lse);
         }
     }
@@ -138,10 +130,7 @@ fn fast_mode_remains_explicit_gpu_execution() {
     let Some(executor) = executor(NumericalMode::FastPortable) else {
         return;
     };
-    assert_eq!(
-        executor.backend_kind(),
-        NumericalBackendKind::Wgpu
-    );
+    assert_eq!(executor.backend_kind(), NumericalBackendKind::Wgpu);
     assert!(executor.guarantees().allows_subgroup);
     assert!(!executor.guarantees().repeatable_same_backend_device);
 
@@ -159,11 +148,7 @@ fn fast_mode_remains_explicit_gpu_execution() {
     let actual = executor.forward(&q, &k, &v, shape, config).unwrap();
     let reference = forward_reference(&q, &k, &v, shape, config).unwrap();
     assert_close("fast O parity", &actual.output, &reference.output);
-    assert_close(
-        "fast LSE parity",
-        &actual.lse,
-        &reference.lse,
-    );
+    assert_close("fast LSE parity", &actual.lse, &reference.lse);
 }
 
 #[test]
