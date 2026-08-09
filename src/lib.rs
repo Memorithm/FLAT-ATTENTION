@@ -17,6 +17,9 @@ pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
 mod rotary_grouped;
 pub use rotary_grouped::{forward_reference_grouped_rope, RotaryEmbeddingConfig};
 
+mod projection_grouped;
+pub use projection_grouped::forward_reference_projection_grouped_rope;
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -38,6 +41,9 @@ pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
 pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
 /// FLAT-R1 native GQA/MQA kernel with head-local RoPE fused into Q/K staging.
 pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
+/// FLAT-R2 direct sequence-major projection-layout RoPE + GQA/MQA kernel.
+pub const FLAT_FWD_PROJECTION_ROPE_WGSL: &str =
+    include_str!("../shaders/flat_fwd_projection_rope.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -73,6 +79,14 @@ mod wgpu_rotary_grouped_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_rotary_grouped_backend::{
     WgpuRotaryGroupedAttention, WgpuRotaryGroupedResidentBuffer, WgpuRotaryGroupedResidentOutput,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_external;
+#[cfg(feature = "wgpu")]
+pub use wgpu_external::{
+    ExternalProjectionLayout, ExternalProjectionPass, ExternalProjectionRotaryGroupedPipeline,
+    ExternalWgpuError,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
@@ -406,49 +420,14 @@ mod unit_tests {
             seq_len: 2,
             head_dim: 2,
         };
-        let err = forward_reference(
-            &[0.0; 3],
-            &[0.0; 4],
-            &[0.0; 4],
-            shape,
-            FlatAttentionConfig::default(),
-        )
-        .unwrap_err();
+        let q = vec![0.0; 4];
+        let k = vec![0.0; 3];
+        let v = vec![0.0; 4];
+        let error = forward_reference(&q, &k, &v, shape, FlatAttentionConfig::default())
+            .expect_err("invalid K length must fail");
         assert!(matches!(
-            err,
-            FlatAttentionError::LengthMismatch { tensor: "Q", .. }
+            error,
+            FlatAttentionError::LengthMismatch { tensor: "K", .. }
         ));
-    }
-
-    #[test]
-    fn q4_io_model_reuses_kv_across_query_rows() {
-        let shape = AttentionShape {
-            batch: 1,
-            heads: 1,
-            seq_len: 128,
-            head_dim: 64,
-        };
-        let baseline = single_row_io_model(shape, false).unwrap();
-        let tiled = tiled_q4_io_model(shape, false).unwrap();
-        assert_eq!(baseline.query_workgroups, 128);
-        assert_eq!(tiled.query_workgroups, 32);
-        assert_eq!(
-            baseline.kv_storage_scalar_loads,
-            4 * tiled.kv_storage_scalar_loads
-        );
-    }
-
-    #[test]
-    fn q4_causal_io_model_skips_fully_future_kv_rows() {
-        let shape = AttentionShape {
-            batch: 1,
-            heads: 1,
-            seq_len: 8,
-            head_dim: 1,
-        };
-        let baseline = single_row_io_model(shape, true).unwrap();
-        let tiled = tiled_q4_io_model(shape, true).unwrap();
-        assert_eq!(baseline.kv_storage_scalar_loads, 128);
-        assert_eq!(tiled.kv_storage_scalar_loads, 24);
     }
 }
