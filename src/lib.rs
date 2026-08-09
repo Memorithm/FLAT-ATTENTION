@@ -11,6 +11,9 @@ use core::fmt;
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
+mod grouped;
+pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -28,6 +31,8 @@ pub const WGSL_QUERY_ROWS: usize = 4;
 
 /// Qualified M4 portable fused forward kernel: four query rows per workgroup.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
+/// M10 native GQA/MQA kernel without physical K/V head expansion.
+pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -49,6 +54,13 @@ mod wgpu_f16_backend;
 pub use wgpu_f16_backend::{
     WgpuF16Attention, WgpuF16AttentionError, WgpuIoPrecision, WgpuPreferredAttention,
     WgpuResidentF16AttentionOutput, WgpuResidentF16Buffer,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_grouped_backend::{
+    WgpuGroupedAttention, WgpuGroupedResidentAttentionOutput, WgpuGroupedResidentBuffer,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
@@ -208,6 +220,10 @@ pub struct FlatAttentionOutput {
 pub enum FlatAttentionError {
     ZeroDimension,
     ShapeOverflow,
+    InvalidHeadGrouping {
+        q_heads: usize,
+        kv_heads: usize,
+    },
     LengthMismatch {
         tensor: &'static str,
         actual: usize,
@@ -225,6 +241,10 @@ impl fmt::Display for FlatAttentionError {
         match self {
             Self::ZeroDimension => write!(f, "attention dimensions must all be non-zero"),
             Self::ShapeOverflow => write!(f, "attention shape overflows the address space"),
+            Self::InvalidHeadGrouping { q_heads, kv_heads } => write!(
+                f,
+                "q_heads ({q_heads}) must be exactly divisible by kv_heads ({kv_heads})"
+            ),
             Self::LengthMismatch {
                 tensor,
                 actual,
