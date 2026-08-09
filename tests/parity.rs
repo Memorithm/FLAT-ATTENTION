@@ -18,11 +18,7 @@ fn naive_forward(
             let base = bh * head_stride;
             for qi in 0..shape.seq_len {
                 let q_base = base + qi * shape.head_dim;
-                let keys = if config.causal {
-                    qi + 1
-                } else {
-                    shape.seq_len
-                };
+                let keys = if config.causal { qi + 1 } else { shape.seq_len };
                 let mut scores = Vec::with_capacity(keys);
                 for kj in 0..keys {
                     let k_base = base + kj * shape.head_dim;
