@@ -41,14 +41,18 @@ fn measure(
     iterations: usize,
 ) -> Duration {
     for _ in 0..3 {
-        let output = context.forward(q, k, v, shape, config).expect("warm-up forward");
+        let output = context
+            .forward(q, k, v, shape, config)
+            .expect("warm-up forward");
         black_box(output.output[0]);
     }
 
     let mut samples = Vec::with_capacity(iterations);
     for _ in 0..iterations {
         let start = Instant::now();
-        let output = context.forward(q, k, v, shape, config).expect("measured forward");
+        let output = context
+            .forward(q, k, v, shape, config)
+            .expect("measured forward");
         black_box(output.output[0]);
         samples.push(start.elapsed());
     }
@@ -92,8 +96,14 @@ fn main() {
     println!("shape=B1 H2 N128 D64 causal=true");
     println!("measurement=end-to-end upload + fused dispatch + readback");
     println!("iterations={iterations} warmup=3 statistic=median");
-    println!("q4_portable_median_ms={:.3}", portable_median.as_secs_f64() * 1_000.0);
-    println!("q4_subgroup_median_ms={:.3}", subgroup_median.as_secs_f64() * 1_000.0);
+    println!(
+        "q4_portable_median_ms={:.3}",
+        portable_median.as_secs_f64() * 1_000.0
+    );
+    println!(
+        "q4_subgroup_median_ms={:.3}",
+        subgroup_median.as_secs_f64() * 1_000.0
+    );
     println!(
         "portable_over_subgroup_ratio={:.3}x",
         portable_median.as_secs_f64() / subgroup_median.as_secs_f64()
