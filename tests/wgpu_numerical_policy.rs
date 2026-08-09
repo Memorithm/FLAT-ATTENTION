@@ -70,7 +70,10 @@ fn deterministic_mode_forces_fixed_tree_kernel_family() {
     let Some(executor) = executor(NumericalMode::DeterministicPortable) else {
         return;
     };
-    assert_eq!(executor.backend_kind(), NumericalBackendKind::Wgpu);
+    assert_eq!(
+        executor.backend_kind(),
+        NumericalBackendKind::Wgpu
+    );
     assert_eq!(executor.mode(), NumericalMode::DeterministicPortable);
     assert!(executor.guarantees().repeatable_same_backend_device);
     assert!(!executor.guarantees().allows_subgroup);
@@ -135,7 +138,10 @@ fn fast_mode_remains_explicit_gpu_execution() {
     let Some(executor) = executor(NumericalMode::FastPortable) else {
         return;
     };
-    assert_eq!(executor.backend_kind(), NumericalBackendKind::Wgpu);
+    assert_eq!(
+        executor.backend_kind(),
+        NumericalBackendKind::Wgpu
+    );
     assert!(executor.guarantees().allows_subgroup);
     assert!(!executor.guarantees().repeatable_same_backend_device);
 
