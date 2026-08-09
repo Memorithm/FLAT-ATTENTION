@@ -14,8 +14,7 @@ use super::{
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
-const FLAT_FWD_DOUBLE_BUFFER_WGSL: &str =
-    include_str!("../shaders/flat_fwd_double_buffer.wgsl");
+const FLAT_FWD_DOUBLE_BUFFER_WGSL: &str = include_str!("../shaders/flat_fwd_double_buffer.wgsl");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WgpuSubgroupPolicy {
@@ -188,11 +187,7 @@ impl WgpuFlatAttention {
         policy: WgpuSubgroupPolicy,
         vectorization_enabled: bool,
     ) -> Result<Self, WgpuFlatAttentionError> {
-        Self::with_subgroup_vectorization_and_double_buffering(
-            policy,
-            vectorization_enabled,
-            false,
-        )
+        Self::with_subgroup_vectorization_and_double_buffering(policy, vectorization_enabled, false)
     }
 
     /// Construct a context with the experimental M7 candidate explicitly set.
