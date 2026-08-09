@@ -1,21 +1,41 @@
 //! Real portable GPU execution for the fused FLAT-ATTENTION forward kernel.
 //!
-//! The M4 default maps one workgroup to up to four consecutive query rows, so
-//! each staged K/V tile is reused across those rows. No CPU fallback is hidden
-//! in this backend and no N x N score/probability matrix is allocated.
+//! M5 adds an optional subgroup-assisted dot-product reduction. The qualified
+//! M4 Q4 kernel remains the GPU fallback. Selection is explicit and based only
+//! on features reported by the WGPU adapter; no CPU fallback is hidden here.
 
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
 use super::{
     validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
-    FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
+
+/// Runtime policy controlling whether the M5 subgroup kernel may be selected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WgpuSubgroupPolicy {
+    /// Select subgroup when the adapter reports it; otherwise use Q4 portable.
+    #[default]
+    Auto,
+    /// Always use the qualified portable Q4 GPU kernel.
+    Disable,
+    /// Require native subgroup support and a valid subgroup pipeline.
+    Require,
+}
+
+/// Concrete fused kernel selected for this WGPU context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WgpuKernelVariant {
+    Q4Portable,
+    Q4Subgroup,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WgpuFlatAttentionError {
     Core(FlatAttentionError),
     Unavailable,
+    RequiredSubgroupUnavailable,
     UnsupportedHeadDim {
         actual: usize,
         maximum: usize,
@@ -42,6 +62,10 @@ impl fmt::Display for WgpuFlatAttentionError {
         match self {
             Self::Core(err) => write!(f, "{err}"),
             Self::Unavailable => write!(f, "no compatible WGPU adapter/device is available"),
+            Self::RequiredSubgroupUnavailable => write!(
+                f,
+                "the selected WGPU adapter does not provide required subgroup support"
+            ),
             Self::UnsupportedHeadDim { actual, maximum } => write!(
                 f,
                 "head_dim {actual} exceeds portable WGSL maximum {maximum}"
@@ -126,6 +150,9 @@ struct WgpuFlatAttentionInner {
     pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
+    subgroup_supported: bool,
+    subgroup_size_range: Option<(u32, u32)>,
+    kernel_variant: WgpuKernelVariant,
 }
 
 #[derive(Clone)]
@@ -134,7 +161,15 @@ pub struct WgpuFlatAttention {
 }
 
 impl WgpuFlatAttention {
+    /// Create a context using automatic subgroup capability selection.
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
+        Self::with_subgroup_policy(WgpuSubgroupPolicy::Auto)
+    }
+
+    /// Create a context with explicit subgroup selection semantics.
+    pub fn with_subgroup_policy(
+        policy: WgpuSubgroupPolicy,
+    ) -> Result<Self, WgpuFlatAttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
@@ -146,28 +181,60 @@ impl WgpuFlatAttention {
         }))
         .ok_or(WgpuFlatAttentionError::Unavailable)?;
 
+        let adapter_features = adapter.features();
+        let subgroup_supported = adapter_features.contains(wgpu::Features::SUBGROUP);
+        if policy == WgpuSubgroupPolicy::Require && !subgroup_supported {
+            return Err(WgpuFlatAttentionError::RequiredSubgroupUnavailable);
+        }
+
+        let adapter_limits = adapter.limits();
+        let subgroup_size_range = subgroup_supported.then_some((
+            adapter_limits.min_subgroup_size,
+            adapter_limits.max_subgroup_size,
+        ));
+        let request_subgroup = subgroup_supported && policy != WgpuSubgroupPolicy::Disable;
+        let required_features = if request_subgroup {
+            wgpu::Features::SUBGROUP
+        } else {
+            wgpu::Features::empty()
+        };
+
         let adapter_name = adapter.get_info().name;
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("flat-attention-q4"),
-                required_features: wgpu::Features::empty(),
+                required_features,
                 required_limits: wgpu::Limits::downlevel_defaults(),
             },
             None,
         ))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-attention-forward-q4"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_WGSL)),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-attention-forward-q4"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
+        let (pipeline, kernel_variant) = if request_subgroup {
+            match create_pipeline(
+                &device,
+                FLAT_FWD_SUBGROUP_WGSL,
+                "flat-attention-forward-q4-subgroup",
+            ) {
+                Ok(pipeline) => (pipeline, WgpuKernelVariant::Q4Subgroup),
+                Err(_error) if policy == WgpuSubgroupPolicy::Auto => (
+                    create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")
+                        .map_err(WgpuFlatAttentionError::Execution)?,
+                    WgpuKernelVariant::Q4Portable,
+                ),
+                Err(error) => {
+                    return Err(WgpuFlatAttentionError::Execution(format!(
+                        "required subgroup pipeline: {error}"
+                    )))
+                }
+            }
+        } else {
+            (
+                create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")
+                    .map_err(WgpuFlatAttentionError::Execution)?,
+                WgpuKernelVariant::Q4Portable,
+            )
+        };
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
 
         Ok(Self {
@@ -177,6 +244,9 @@ impl WgpuFlatAttention {
                 pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
+                subgroup_supported,
+                subgroup_size_range,
+                kernel_variant,
             }),
         })
     }
@@ -187,6 +257,18 @@ impl WgpuFlatAttention {
 
     pub fn max_workgroups_per_dimension(&self) -> u32 {
         self.inner.max_workgroups_per_dimension
+    }
+
+    pub fn subgroup_supported(&self) -> bool {
+        self.inner.subgroup_supported
+    }
+
+    pub fn subgroup_size_range(&self) -> Option<(u32, u32)> {
+        self.inner.subgroup_size_range
+    }
+
+    pub fn kernel_variant(&self) -> WgpuKernelVariant {
+        self.inner.kernel_variant
     }
 
     pub fn forward(
@@ -477,6 +559,30 @@ impl WgpuFlatAttention {
         drop(mapped);
         staging.unmap();
         Ok(decoded)
+    }
+}
+
+fn create_pipeline(
+    device: &wgpu::Device,
+    source: &'static str,
+    label: &'static str,
+) -> Result<wgpu::ComputePipeline, String> {
+    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(label),
+        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(label),
+        layout: None,
+        module: &shader,
+        entry_point: "flat_attention_forward",
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+    });
+    let validation_error = pollster::block_on(device.pop_error_scope());
+    match validation_error {
+        Some(error) => Err(error.to_string()),
+        None => Ok(pipeline),
     }
 }
 
