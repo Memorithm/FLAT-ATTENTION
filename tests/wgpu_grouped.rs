@@ -89,8 +89,7 @@ fn grouped_wgpu_matches_oracle_for_mha_gqa_and_mqa() {
                 causal,
                 softmax_scale: None,
             };
-            let expected =
-                forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
+            let expected = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
             let actual = context.forward(&q, &k, &v, shape, config).unwrap();
             assert_close("grouped O", &actual.output, &expected.output);
             assert_close("grouped LSE", &actual.lse, &expected.lse);
