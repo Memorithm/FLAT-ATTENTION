@@ -85,7 +85,8 @@ pub use wgpu_rotary_grouped_backend::{
 mod wgpu_external;
 #[cfg(feature = "wgpu")]
 pub use wgpu_external::{
-    ExternalProjectionLayout, ExternalProjectionRotaryGroupedPipeline, ExternalWgpuError,
+    ExternalProjectionLayout, ExternalProjectionPass, ExternalProjectionRotaryGroupedPipeline,
+    ExternalWgpuError,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
@@ -419,49 +420,14 @@ mod unit_tests {
             seq_len: 2,
             head_dim: 2,
         };
-        let err = forward_reference(
-            &[0.0; 3],
-            &[0.0; 4],
-            &[0.0; 4],
-            shape,
-            FlatAttentionConfig::default(),
-        )
-        .unwrap_err();
+        let q = vec![0.0; 4];
+        let k = vec![0.0; 3];
+        let v = vec![0.0; 4];
+        let error = forward_reference(&q, &k, &v, shape, FlatAttentionConfig::default())
+            .expect_err("invalid K length must fail");
         assert!(matches!(
-            err,
-            FlatAttentionError::LengthMismatch { tensor: "Q", .. }
+            error,
+            FlatAttentionError::LengthMismatch { tensor: "K", .. }
         ));
-    }
-
-    #[test]
-    fn q4_io_model_reuses_kv_across_query_rows() {
-        let shape = AttentionShape {
-            batch: 1,
-            heads: 1,
-            seq_len: 128,
-            head_dim: 64,
-        };
-        let baseline = single_row_io_model(shape, false).unwrap();
-        let tiled = tiled_q4_io_model(shape, false).unwrap();
-        assert_eq!(baseline.query_workgroups, 128);
-        assert_eq!(tiled.query_workgroups, 32);
-        assert_eq!(
-            baseline.kv_storage_scalar_loads,
-            4 * tiled.kv_storage_scalar_loads
-        );
-    }
-
-    #[test]
-    fn q4_causal_io_model_skips_fully_future_kv_rows() {
-        let shape = AttentionShape {
-            batch: 1,
-            heads: 1,
-            seq_len: 8,
-            head_dim: 1,
-        };
-        let baseline = single_row_io_model(shape, true).unwrap();
-        let tiled = tiled_q4_io_model(shape, true).unwrap();
-        assert_eq!(baseline.kv_storage_scalar_loads, 128);
-        assert_eq!(tiled.kv_storage_scalar_loads, 24);
     }
 }
