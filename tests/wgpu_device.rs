@@ -48,7 +48,10 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32], atol: f32, rtol: f
     assert_eq!(actual.len(), expected.len(), "{name}: length mismatch");
     for (index, (&a, &b)) in actual.iter().zip(expected).enumerate() {
         assert!(a.is_finite(), "{name}[{index}] is not finite: {a}");
-        assert!(b.is_finite(), "{name} reference[{index}] is not finite: {b}");
+        assert!(
+            b.is_finite(),
+            "{name} reference[{index}] is not finite: {b}"
+        );
         let tolerance = atol + rtol * b.abs();
         let error = (a - b).abs();
         assert!(
@@ -73,13 +76,7 @@ fn assert_forward_parity(
     let expected = forward_reference(q, k, v, shape, config).unwrap();
     let actual = context.forward(q, k, v, shape, config).unwrap();
     assert_close("O", &actual.output, &expected.output, O_ATOL, O_RTOL);
-    assert_close(
-        "LSE",
-        &actual.lse,
-        &expected.lse,
-        LSE_ATOL,
-        LSE_RTOL,
-    );
+    assert_close("LSE", &actual.lse, &expected.lse, LSE_ATOL, LSE_RTOL);
 }
 
 fn context() -> Option<WgpuFlatAttention> {
@@ -173,8 +170,20 @@ fn m3_large_score_range_remains_finite_and_matches_reference() {
         };
         let expected = forward_reference(&q, &k, &v, shape, config).unwrap();
         let actual = context.forward(&q, &k, &v, shape, config).unwrap();
-        assert_close("adversarial O", &actual.output, &expected.output, 8.0e-5, 8.0e-4);
-        assert_close("adversarial LSE", &actual.lse, &expected.lse, 2.0e-4, 8.0e-4);
+        assert_close(
+            "adversarial O",
+            &actual.output,
+            &expected.output,
+            8.0e-5,
+            8.0e-4,
+        );
+        assert_close(
+            "adversarial LSE",
+            &actual.lse,
+            &expected.lse,
+            2.0e-4,
+            8.0e-4,
+        );
     }
 }
 
