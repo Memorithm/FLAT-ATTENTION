@@ -1,0 +1,17 @@
+[package]
+name = "flat-attention"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "FLAT-ATTENTION — Rust-native fused linear-memory attention kernels for SciRust"
+repository = "https://github.com/Memorithm/FLAT-ATTENTION"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+
+[dev-dependencies]
+naga = { version = "0.20", features = ["wgsl-in"] }
