@@ -5,10 +5,7 @@ use flat_attention::{
 
 fn assert_finite(values: &[f32], name: &str) {
     for (index, value) in values.iter().enumerate() {
-        assert!(
-            value.is_finite(),
-            "{name}[{index}] is not finite: {value}"
-        );
+        assert!(value.is_finite(), "{name}[{index}] is not finite: {value}");
     }
 }
 
@@ -19,9 +16,7 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
         0 => (
             vec![0.0; len],
             vec![1.0; len],
-            (0..len)
-                .map(|i| (i % 17) as f32 * 0.125 - 1.0)
-                .collect(),
+            (0..len).map(|i| (i % 17) as f32 * 0.125 - 1.0).collect(),
         ),
         // Near-tied scores and small values around zero.
         1 => (
@@ -31,9 +26,7 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
             (0..len)
                 .map(|i| (i as f32 * 1.0e-5).cos() * 1.0e-2)
                 .collect(),
-            (0..len)
-                .map(|i| ((i as f32) * 0.031).sin())
-                .collect(),
+            (0..len).map(|i| ((i as f32) * 0.031).sin()).collect(),
         ),
         // Alternating signs exercise cancellation in QK and P*V.
         2 => (
@@ -55,9 +48,7 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
             (0..len)
                 .map(|i| if (i / 2) % 2 == 0 { 22.0 } else { -22.0 })
                 .collect(),
-            (0..len)
-                .map(|i| ((i as f32) * 0.017).cos() * 4.0)
-                .collect(),
+            (0..len).map(|i| ((i as f32) * 0.017).cos() * 4.0).collect(),
         ),
         _ => unreachable!(),
     }
@@ -66,10 +57,7 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
 #[test]
 fn exact_reference_corpus_is_finite_and_bit_repeatable() {
     let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
-    assert_eq!(
-        executor.backend_kind(),
-        NumericalBackendKind::ReferenceCpu
-    );
+    assert_eq!(executor.backend_kind(), NumericalBackendKind::ReferenceCpu);
 
     let shape = AttentionShape {
         batch: 1,
