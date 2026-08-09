@@ -134,7 +134,10 @@ impl fmt::Display for FlatAttentionError {
                 write!(f, "softmax scale must be finite and positive, got {scale}")
             }
             Self::NonFiniteInput { tensor, index } => {
-                write!(f, "tensor {tensor} contains a non-finite value at index {index}")
+                write!(
+                    f,
+                    "tensor {tensor} contains a non-finite value at index {index}"
+                )
             }
         }
     }
