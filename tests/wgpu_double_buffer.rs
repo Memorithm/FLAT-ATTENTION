@@ -72,8 +72,7 @@ fn m7_is_not_selected_by_existing_m6_constructor() {
         WgpuSubgroupPolicy::Disable,
         true,
     )
-    .ok()
-    else {
+    .ok() else {
         assert!(std::env::var_os("FLAT_REQUIRE_WGPU").is_none());
         return;
     };
