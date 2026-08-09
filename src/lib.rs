@@ -16,10 +16,17 @@ pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
 pub const WGSL_WORKGROUP_SIZE: usize = 64;
 /// Number of K/V rows staged in workgroup memory at once.
-pub const WGSL_KV_TILE: usize = 16;
+pub const WGSL_KV_TILE: usize = 8;
 
 /// Portable fused forward kernel source.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
+
+#[cfg(feature = "wgpu")]
+mod wgpu_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_backend::{
+    WgpuFlatAttention, WgpuFlatAttentionError, WgpuResidentAttentionOutput, WgpuResidentBuffer,
+};
 
 /// Contiguous tensor shape used by FLAT-ATTENTION.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

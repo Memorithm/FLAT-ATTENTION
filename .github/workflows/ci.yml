@@ -16,3 +16,19 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-features
+
+  wgpu-device:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.89.0
+      - name: Install software Vulkan device
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers
+      - name: Execute fused attention on WGPU device
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --features wgpu --test wgpu_device -- --nocapture
