@@ -17,8 +17,10 @@ pub const WGSL_KV_TILE: usize = 8;
 /// Number of query rows sharing each K/V tile in the M4 default kernel.
 pub const WGSL_QUERY_ROWS: usize = 4;
 
-/// M4 portable fused forward kernel: four query rows per workgroup.
+/// Qualified M4 portable fused forward kernel: four query rows per workgroup.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
+/// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
+pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// Qualified M2/M3 one-query-row kernel retained as a baseline source.
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
@@ -26,7 +28,8 @@ pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.
 mod wgpu_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_backend::{
-    WgpuFlatAttention, WgpuFlatAttentionError, WgpuResidentAttentionOutput, WgpuResidentBuffer,
+    WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuResidentAttentionOutput,
+    WgpuResidentBuffer, WgpuSubgroupPolicy,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
