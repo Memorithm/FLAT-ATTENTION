@@ -277,7 +277,10 @@ fn packed_upload_rejects_odd_scalar_counts() {
     let Some(context) = context() else {
         return;
     };
-    let error = context.upload_f16(&[F16::ZERO; 3]).unwrap_err();
+    let error = match context.upload_f16(&[F16::ZERO; 3]) {
+        Ok(_) => panic!("odd packed-f16 scalar count unexpectedly accepted"),
+        Err(error) => error,
+    };
     assert!(matches!(
         error,
         WgpuF16AttentionError::OddPackedLength { actual: 3 }
