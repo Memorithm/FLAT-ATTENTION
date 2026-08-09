@@ -1,10 +1,9 @@
 //! Real portable GPU execution for the fused FLAT-ATTENTION forward kernels.
 //!
-//! M5 adds an optional subgroup-assisted dot-product reduction. M6 adds a
-//! portable `vec4<f32>` Q/K/V storage path for head dimensions 64 and 128.
-//! Subgroup reduction keeps priority when selected; otherwise M6 chooses vec4
-//! only for the two qualified dimensions and preserves the M4 scalar Q4 GPU
-//! kernel as the fallback. No path silently falls back to CPU.
+//! M5 adds optional subgroup reduction. M6 adds portable `vec4<f32>` Q/K/V
+//! storage for D64/D128. M7 adds an opt-in ping/pong K/V workgroup staging
+//! variant. Subgroup keeps priority, and M7 deliberately stays non-default
+//! until a physical-GPU benchmark demonstrates an improvement.
 
 use std::fmt;
 use std::sync::{mpsc, Arc};
@@ -15,27 +14,23 @@ use super::{
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
+const FLAT_FWD_DOUBLE_BUFFER_WGSL: &str = include_str!("../shaders/flat_fwd_double_buffer.wgsl");
 
-/// Runtime policy controlling whether the M5 subgroup kernel may be selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WgpuSubgroupPolicy {
-    /// Select subgroup when the adapter reports it; otherwise use portable Q4.
     #[default]
     Auto,
-    /// Always use a qualified portable Q4 GPU kernel.
     Disable,
-    /// Require native subgroup support and a valid subgroup pipeline.
     Require,
 }
 
 /// Concrete fused kernel generation selected for a dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WgpuKernelVariant {
-    /// Qualified M4 scalar-storage Q4 kernel.
     Q4Portable,
-    /// M6 portable Q4 kernel using `vec4<f32>` Q/K/V storage transactions.
     Q4Vec4Portable,
-    /// M5 native-subgroup Q4 reduction kernel.
+    /// Experimental M7 D64/D128 ping/pong workgroup K/V staging.
+    Q4Vec4DoubleBuffered,
     Q4Subgroup,
 }
 
@@ -112,7 +107,6 @@ impl From<FlatAttentionError> for WgpuFlatAttentionError {
     }
 }
 
-/// An f32 storage buffer owned by one FLAT WGPU context.
 pub struct WgpuResidentBuffer {
     buffer: Arc<wgpu::Buffer>,
     len: usize,
@@ -133,7 +127,6 @@ impl WgpuResidentBuffer {
     }
 }
 
-/// Packed resident `[O | LSE]` result.
 pub struct WgpuResidentAttentionOutput {
     combined: WgpuResidentBuffer,
     output_len: usize,
@@ -159,12 +152,14 @@ struct WgpuFlatAttentionInner {
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
     vec4_pipeline: wgpu::ComputePipeline,
+    double_buffer_pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
     subgroup_supported: bool,
     subgroup_size_range: Option<(u32, u32)>,
     kernel_variant: WgpuKernelVariant,
     vectorization_enabled: bool,
+    double_buffering_enabled: bool,
 }
 
 #[derive(Clone)]
@@ -173,25 +168,37 @@ pub struct WgpuFlatAttention {
 }
 
 impl WgpuFlatAttention {
-    /// Create a context using automatic subgroup selection and M6 vectorization.
+    /// Default remains M5/M6 only. M7 is not selected without benchmark proof.
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
-        Self::with_subgroup_policy_and_vectorization(WgpuSubgroupPolicy::Auto, true)
+        Self::with_subgroup_vectorization_and_double_buffering(
+            WgpuSubgroupPolicy::Auto,
+            true,
+            false,
+        )
     }
 
-    /// Create a context with explicit subgroup policy and M6 vectorization on.
     pub fn with_subgroup_policy(
         policy: WgpuSubgroupPolicy,
     ) -> Result<Self, WgpuFlatAttentionError> {
-        Self::with_subgroup_policy_and_vectorization(policy, true)
+        Self::with_subgroup_vectorization_and_double_buffering(policy, true, false)
     }
 
-    /// Create a context with independently controlled subgroup and vec4 paths.
-    ///
-    /// `vectorization_enabled = false` is intentionally public so the M4 scalar
-    /// baseline can be reproduced and benchmarked against M6 on the same device.
     pub fn with_subgroup_policy_and_vectorization(
         policy: WgpuSubgroupPolicy,
         vectorization_enabled: bool,
+    ) -> Result<Self, WgpuFlatAttentionError> {
+        Self::with_subgroup_vectorization_and_double_buffering(policy, vectorization_enabled, false)
+    }
+
+    /// Construct a context with the experimental M7 candidate explicitly set.
+    ///
+    /// Double buffering currently depends on the M6 vec4 layout and therefore
+    /// only becomes effective when `vectorization_enabled` is true and the head
+    /// dimension is 64 or 128. Subgroup selection always has higher priority.
+    pub fn with_subgroup_vectorization_and_double_buffering(
+        policy: WgpuSubgroupPolicy,
+        vectorization_enabled: bool,
+        double_buffering_enabled: bool,
     ) -> Result<Self, WgpuFlatAttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -265,6 +272,14 @@ impl WgpuFlatAttention {
             "flat-attention-forward-q4-vec4",
         )
         .map_err(|error| WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}")))?;
+        let double_buffer_pipeline = create_pipeline(
+            &device,
+            FLAT_FWD_DOUBLE_BUFFER_WGSL,
+            "flat-attention-forward-q4-double-buffer",
+        )
+        .map_err(|error| {
+            WgpuFlatAttentionError::Execution(format!("M7 double-buffer pipeline: {error}"))
+        })?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
 
         Ok(Self {
@@ -273,12 +288,14 @@ impl WgpuFlatAttention {
                 queue,
                 pipeline,
                 vec4_pipeline,
+                double_buffer_pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
                 subgroup_supported,
                 subgroup_size_range,
                 kernel_variant,
                 vectorization_enabled,
+                double_buffering_enabled,
             }),
         })
     }
@@ -299,7 +316,6 @@ impl WgpuFlatAttention {
         self.inner.subgroup_size_range
     }
 
-    /// M5 context-level reduction selection. Kept stable for M5 callers/tests.
     pub fn kernel_variant(&self) -> WgpuKernelVariant {
         self.inner.kernel_variant
     }
@@ -308,10 +324,18 @@ impl WgpuFlatAttention {
         self.inner.vectorization_enabled
     }
 
-    /// Effective kernel generation that will be used for `head_dim`.
+    pub fn double_buffering_enabled(&self) -> bool {
+        self.inner.double_buffering_enabled
+    }
+
     pub fn kernel_variant_for_head_dim(&self, head_dim: usize) -> WgpuKernelVariant {
         if self.inner.kernel_variant == WgpuKernelVariant::Q4Subgroup {
             WgpuKernelVariant::Q4Subgroup
+        } else if self.inner.double_buffering_enabled
+            && self.inner.vectorization_enabled
+            && matches!(head_dim, 64 | 128)
+        {
+            WgpuKernelVariant::Q4Vec4DoubleBuffered
         } else if self.inner.vectorization_enabled && matches!(head_dim, 64 | 128) {
             WgpuKernelVariant::Q4Vec4Portable
         } else {
@@ -332,7 +356,6 @@ impl WgpuFlatAttention {
         validate_input("Q", q, tensor_len)?;
         validate_input("K", k, tensor_len)?;
         validate_input("V", v, tensor_len)?;
-
         let q_gpu = self.upload(q)?;
         let k_gpu = self.upload(k)?;
         let v_gpu = self.upload(v)?;
@@ -490,6 +513,10 @@ impl WgpuFlatAttention {
             WgpuKernelVariant::Q4Subgroup => {
                 (&self.inner.pipeline, "flat-attention-forward-q4-subgroup")
             }
+            WgpuKernelVariant::Q4Vec4DoubleBuffered => (
+                &self.inner.double_buffer_pipeline,
+                "flat-attention-forward-q4-double-buffer",
+            ),
             WgpuKernelVariant::Q4Vec4Portable => {
                 (&self.inner.vec4_pipeline, "flat-attention-forward-q4-vec4")
             }
