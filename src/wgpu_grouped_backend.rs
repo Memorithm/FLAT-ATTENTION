@@ -210,7 +210,9 @@ impl WgpuGroupedAttention {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.inner.queue.write_buffer(&params_buffer, 0, &params_bytes);
+        self.inner
+            .queue
+            .write_buffer(&params_buffer, 0, &params_bytes);
 
         let bind_group = self
             .inner
@@ -242,12 +244,12 @@ impl WgpuGroupedAttention {
                 ],
             });
 
-        let mut encoder = self
-            .inner
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("flat-attention-grouped-forward"),
-            });
+        let mut encoder =
+            self.inner
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("flat-attention-grouped-forward"),
+                });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flat-attention-grouped-forward"),
