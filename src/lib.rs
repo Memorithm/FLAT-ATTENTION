@@ -365,7 +365,10 @@ mod unit_tests {
         let tiled = tiled_q4_io_model(shape, false).unwrap();
         assert_eq!(baseline.query_workgroups, 128);
         assert_eq!(tiled.query_workgroups, 32);
-        assert_eq!(baseline.kv_storage_scalar_loads, 4 * tiled.kv_storage_scalar_loads);
+        assert_eq!(
+            baseline.kv_storage_scalar_loads,
+            4 * tiled.kv_storage_scalar_loads
+        );
     }
 
     #[test]
