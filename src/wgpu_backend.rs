@@ -1,8 +1,10 @@
-//! Real portable GPU execution for the fused FLAT-ATTENTION forward kernel.
+//! Real portable GPU execution for the fused FLAT-ATTENTION forward kernels.
 //!
-//! M5 adds an optional subgroup-assisted dot-product reduction. The qualified
-//! M4 Q4 kernel remains the GPU fallback. Selection is explicit and based only
-//! on features reported by the WGPU adapter; no CPU fallback is hidden here.
+//! M5 adds an optional subgroup-assisted dot-product reduction. M6 adds a
+//! portable `vec4<f32>` Q/K/V storage path for head dimensions 64 and 128.
+//! Subgroup reduction keeps priority when selected; otherwise M6 chooses vec4
+//! only for the two qualified dimensions and preserves the M4 scalar Q4 GPU
+//! kernel as the fallback. No path silently falls back to CPU.
 
 use std::fmt;
 use std::sync::{mpsc, Arc};
@@ -12,22 +14,28 @@ use super::{
     FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
+const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
+
 /// Runtime policy controlling whether the M5 subgroup kernel may be selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WgpuSubgroupPolicy {
-    /// Select subgroup when the adapter reports it; otherwise use Q4 portable.
+    /// Select subgroup when the adapter reports it; otherwise use portable Q4.
     #[default]
     Auto,
-    /// Always use the qualified portable Q4 GPU kernel.
+    /// Always use a qualified portable Q4 GPU kernel.
     Disable,
     /// Require native subgroup support and a valid subgroup pipeline.
     Require,
 }
 
-/// Concrete fused kernel selected for this WGPU context.
+/// Concrete fused kernel generation selected for a dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WgpuKernelVariant {
+    /// Qualified M4 scalar-storage Q4 kernel.
     Q4Portable,
+    /// M6 portable Q4 kernel using `vec4<f32>` Q/K/V storage transactions.
+    Q4Vec4Portable,
+    /// M5 native-subgroup Q4 reduction kernel.
     Q4Subgroup,
 }
 
@@ -104,6 +112,7 @@ impl From<FlatAttentionError> for WgpuFlatAttentionError {
     }
 }
 
+/// An f32 storage buffer owned by one FLAT WGPU context.
 pub struct WgpuResidentBuffer {
     buffer: Arc<wgpu::Buffer>,
     len: usize,
@@ -124,6 +133,7 @@ impl WgpuResidentBuffer {
     }
 }
 
+/// Packed resident `[O | LSE]` result.
 pub struct WgpuResidentAttentionOutput {
     combined: WgpuResidentBuffer,
     output_len: usize,
@@ -148,11 +158,13 @@ struct WgpuFlatAttentionInner {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
+    vec4_pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
     subgroup_supported: bool,
     subgroup_size_range: Option<(u32, u32)>,
     kernel_variant: WgpuKernelVariant,
+    vectorization_enabled: bool,
 }
 
 #[derive(Clone)]
@@ -161,14 +173,25 @@ pub struct WgpuFlatAttention {
 }
 
 impl WgpuFlatAttention {
-    /// Create a context using automatic subgroup capability selection.
+    /// Create a context using automatic subgroup selection and M6 vectorization.
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
-        Self::with_subgroup_policy(WgpuSubgroupPolicy::Auto)
+        Self::with_subgroup_policy_and_vectorization(WgpuSubgroupPolicy::Auto, true)
     }
 
-    /// Create a context with explicit subgroup selection semantics.
+    /// Create a context with explicit subgroup policy and M6 vectorization on.
     pub fn with_subgroup_policy(
         policy: WgpuSubgroupPolicy,
+    ) -> Result<Self, WgpuFlatAttentionError> {
+        Self::with_subgroup_policy_and_vectorization(policy, true)
+    }
+
+    /// Create a context with independently controlled subgroup and vec4 paths.
+    ///
+    /// `vectorization_enabled = false` is intentionally public so the M4 scalar
+    /// baseline can be reproduced and benchmarked against M6 on the same device.
+    pub fn with_subgroup_policy_and_vectorization(
+        policy: WgpuSubgroupPolicy,
+        vectorization_enabled: bool,
     ) -> Result<Self, WgpuFlatAttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -235,6 +258,15 @@ impl WgpuFlatAttention {
                 WgpuKernelVariant::Q4Portable,
             )
         };
+
+        let vec4_pipeline = create_pipeline(
+            &device,
+            FLAT_FWD_VEC4_WGSL,
+            "flat-attention-forward-q4-vec4",
+        )
+        .map_err(|error| {
+            WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}"))
+        })?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
 
         Ok(Self {
@@ -242,11 +274,13 @@ impl WgpuFlatAttention {
                 device,
                 queue,
                 pipeline,
+                vec4_pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
                 subgroup_supported,
                 subgroup_size_range,
                 kernel_variant,
+                vectorization_enabled,
             }),
         })
     }
@@ -267,8 +301,24 @@ impl WgpuFlatAttention {
         self.inner.subgroup_size_range
     }
 
+    /// M5 context-level reduction selection. Kept stable for M5 callers/tests.
     pub fn kernel_variant(&self) -> WgpuKernelVariant {
         self.inner.kernel_variant
+    }
+
+    pub fn vectorization_enabled(&self) -> bool {
+        self.inner.vectorization_enabled
+    }
+
+    /// Effective kernel generation that will be used for `head_dim`.
+    pub fn kernel_variant_for_head_dim(&self, head_dim: usize) -> WgpuKernelVariant {
+        if self.inner.kernel_variant == WgpuKernelVariant::Q4Subgroup {
+            WgpuKernelVariant::Q4Subgroup
+        } else if self.inner.vectorization_enabled && matches!(head_dim, 64 | 128) {
+            WgpuKernelVariant::Q4Vec4Portable
+        } else {
+            WgpuKernelVariant::Q4Portable
+        }
     }
 
     pub fn forward(
@@ -339,11 +389,7 @@ impl WgpuFlatAttention {
 
         let params = [
             dispatch.seq_len,
-            u32::try_from(shape.head_dim).map_err(|_| {
-                WgpuFlatAttentionError::IndexSpaceExceeded {
-                    elements: shape.head_dim,
-                }
-            })?,
+            checked_u32(shape.head_dim)?,
             dispatch.batch_heads,
             u32::from(config.causal),
             scale.to_bits(),
@@ -362,12 +408,13 @@ impl WgpuFlatAttention {
             .queue
             .write_buffer(&params_buffer, 0, &params_bytes);
 
+        let (pipeline, label) = self.pipeline_for_head_dim(shape.head_dim);
         let bind_group = self
             .inner
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("flat-attention-forward-q4"),
-                layout: &self.inner.pipeline.get_bind_group_layout(0),
+                label: Some(label),
+                layout: &pipeline.get_bind_group_layout(0),
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -392,18 +439,16 @@ impl WgpuFlatAttention {
                 ],
             });
 
-        let mut encoder =
-            self.inner
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("flat-attention-forward-q4"),
-                });
+        let mut encoder = self
+            .inner
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("flat-attention-forward-q4"),
+                label: Some(label),
                 timestamp_writes: None,
             });
-            pass.set_pipeline(&self.inner.pipeline);
+            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.batch_heads, 1);
         }
@@ -440,6 +485,22 @@ impl WgpuFlatAttention {
             output: values,
             lse,
         })
+    }
+
+    fn pipeline_for_head_dim(&self, head_dim: usize) -> (&wgpu::ComputePipeline, &'static str) {
+        match self.kernel_variant_for_head_dim(head_dim) {
+            WgpuKernelVariant::Q4Subgroup => (
+                &self.inner.pipeline,
+                "flat-attention-forward-q4-subgroup",
+            ),
+            WgpuKernelVariant::Q4Vec4Portable => (
+                &self.inner.vec4_pipeline,
+                "flat-attention-forward-q4-vec4",
+            ),
+            WgpuKernelVariant::Q4Portable => {
+                (&self.inner.pipeline, "flat-attention-forward-q4")
+            }
+        }
     }
 
     fn validate_dispatch(
@@ -534,12 +595,12 @@ impl WgpuFlatAttention {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        let mut encoder =
-            self.inner
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("flat-attention-readback"),
-                });
+        let mut encoder = self
+            .inner
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-attention-readback"),
+            });
         encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
         self.inner.queue.submit(Some(encoder.finish()));
 
