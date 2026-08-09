@@ -173,13 +173,7 @@ fn preferred_router_uses_packed_f16_only_for_qualified_shapes_and_never_cpu() {
                     5e-5,
                     5e-4,
                 );
-                assert_close(
-                    "preferred f32 LSE",
-                    &actual.lse,
-                    &reference.lse,
-                    5e-5,
-                    5e-4,
-                );
+                assert_close("preferred f32 LSE", &actual.lse, &reference.lse, 5e-5, 5e-4);
             }
             WgpuIoPrecision::PackedF16 => {
                 let q16 = quantize(&q);
