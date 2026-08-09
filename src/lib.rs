@@ -69,6 +69,13 @@ pub use wgpu_grouped_backend::{
     WgpuGroupedAttention, WgpuGroupedResidentAttentionOutput, WgpuGroupedResidentBuffer,
 };
 
+#[cfg(feature = "wgpu")]
+mod wgpu_rotary_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_rotary_grouped_backend::{
+    WgpuRotaryGroupedAttention, WgpuRotaryGroupedResidentBuffer, WgpuRotaryGroupedResidentOutput,
+};
+
 /// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
