@@ -4,9 +4,7 @@
 //! Query head `qh` reads KV head `qh / group_size`, where
 //! `group_size = q_heads / kv_heads`.
 
-use super::{
-    validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
-};
+use super::{validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput};
 
 /// Canonical equal-length GQA/MQA shape for M10.
 ///
