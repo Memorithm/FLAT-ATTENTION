@@ -38,13 +38,6 @@ var<workgroup> running_sum_shared: array<f32, 4>;
 var<workgroup> alpha_shared: array<f32, 4>;
 var<workgroup> p_shared: array<f32, 4>;
 
-fn store_shared4(base: u32, value: vec4<f32>, target: ptr<workgroup, array<f32, 1024>>) {
-    (*target)[base] = value.x;
-    (*target)[base + 1u] = value.y;
-    (*target)[base + 2u] = value.z;
-    (*target)[base + 3u] = value.w;
-}
-
 @compute @workgroup_size(64, 1, 1)
 fn flat_attention_forward(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
