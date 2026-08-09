@@ -1,17 +1,10 @@
-// FLAT-ATTENTION M8 mixed-precision forward kernel.
+// FLAT-ATTENTION M8 packed-binary16 forward kernel.
 //
-// WGPU/Naga 0.20 accepts f16 types directly when the device is created with
-// SHADER_F16; the later `enable f16;` WGSL directive is not parsed by Naga
-// 0.20. Q/K/V are stored as IEEE binary16 and promoted to f32 immediately after
-// loading. QK dot products, online-softmax state, probability weights and O
-// accumulation remain f32. O is quantized to binary16 only at final writeback;
-// LSE remains f32. The packed output buffer is:
-//
-//   [ ceil(O_elements / 2) u32 words containing vec2<f16> | LSE as f32 bits ]
-//
-// This first mixed-precision specialization is intentionally limited to D64
-// and D128 so every row is naturally divisible by vec4<f16> input loads and
-// vec2<f16> output stores.
+// WGPU/Naga 0.20 does not parse native WGSL f16. M8 therefore stores two
+// IEEE-754 binary16 values in each u32 and converts at the storage boundary
+// with WGSL's pack2x16float/unpack2x16float builtins. All arithmetic remains
+// f32: QK accumulation, score scaling, online-softmax state, exponentials and
+// PV accumulation. O is packed back to binary16; LSE remains f32 bits.
 
 const WORKGROUP_SIZE: u32 = 64u;
 const QUERY_ROWS: u32 = 4u;
@@ -30,9 +23,11 @@ struct Params {
     _pad2: u32,
 };
 
-@group(0) @binding(0) var<storage, read> q: array<vec4<f16>>;
-@group(0) @binding(1) var<storage, read> k: array<vec4<f16>>;
-@group(0) @binding(2) var<storage, read> v: array<vec4<f16>>;
+// Each input word contains two consecutive binary16 scalars.
+@group(0) @binding(0) var<storage, read> q: array<u32>;
+@group(0) @binding(1) var<storage, read> k: array<u32>;
+@group(0) @binding(2) var<storage, read> v: array<u32>;
+// [O binary16 pairs | LSE f32 bit patterns].
 @group(0) @binding(3) var<storage, read_write> out_and_lse: array<u32>;
 @group(0) @binding(4) var<uniform> params: Params;
 
@@ -63,9 +58,9 @@ fn flat_attention_forward(
     let scale = bitcast<f32>(params.scale_bits);
     let head_stride = params.seq_len * params.head_dim;
     let head_base = bh * head_stride;
-    let head_dim4 = params.head_dim / 4u;
-    let head_stride4 = params.seq_len * head_dim4;
-    let head_base4 = bh * head_stride4;
+    let head_dim2 = params.head_dim / 2u;
+    let head_stride2 = params.seq_len * head_dim2;
+    let head_base2 = bh * head_stride2;
     let output_words = (params.batch_heads * head_stride) / 2u;
     let d0 = lane;
     let d1 = lane + WORKGROUP_SIZE;
@@ -79,25 +74,23 @@ fn flat_attention_forward(
     var acc30 = 0.0;
     var acc31 = 0.0;
 
-    // Stage Q as f16 storage -> f32 workgroup memory.
-    var q_linear4 = lane;
-    let q_tile_vec4 = QUERY_ROWS * head_dim4;
+    // Stage Q: one u32 storage load yields two f32 workgroup scalars.
+    var q_pair = lane;
+    let q_tile_pairs = QUERY_ROWS * head_dim2;
     loop {
-        if (q_linear4 >= q_tile_vec4) {
+        if (q_pair >= q_tile_pairs) {
             break;
         }
-        let qr = q_linear4 / head_dim4;
-        let vec_col = q_linear4 - qr * head_dim4;
+        let qr = q_pair / head_dim2;
+        let pair_col = q_pair - qr * head_dim2;
         let query_pos = query_start + qr;
         if (query_pos < params.seq_len) {
-            let packed = q[head_base4 + query_pos * head_dim4 + vec_col];
-            let shared_base = qr * MAX_HEAD_DIM + vec_col * 4u;
-            q_shared[shared_base] = f32(packed.x);
-            q_shared[shared_base + 1u] = f32(packed.y);
-            q_shared[shared_base + 2u] = f32(packed.z);
-            q_shared[shared_base + 3u] = f32(packed.w);
+            let packed = unpack2x16float(q[head_base2 + query_pos * head_dim2 + pair_col]);
+            let shared_base = qr * MAX_HEAD_DIM + pair_col * 2u;
+            q_shared[shared_base] = packed.x;
+            q_shared[shared_base + 1u] = packed.y;
         }
-        q_linear4 += WORKGROUP_SIZE;
+        q_pair += WORKGROUP_SIZE;
     }
 
     if (lane == 0u) {
@@ -124,29 +117,25 @@ fn flat_attention_forward(
             break;
         }
         let tile_rows = min(KV_TILE, kv_limit - tile_start);
-        let tile_vec4 = tile_rows * head_dim4;
+        let tile_pairs = tile_rows * head_dim2;
 
-        // Stage K/V as f16 storage -> f32 workgroup memory.
-        var linear4 = lane;
+        // Stage K/V: each u32 load yields two adjacent f32 values.
+        var linear_pair = lane;
         loop {
-            if (linear4 >= tile_vec4) {
+            if (linear_pair >= tile_pairs) {
                 break;
             }
-            let tile_row = linear4 / head_dim4;
-            let vec_col = linear4 - tile_row * head_dim4;
-            let global4 = head_base4 + (tile_start + tile_row) * head_dim4 + vec_col;
-            let shared_base = tile_row * MAX_HEAD_DIM + vec_col * 4u;
-            let packed_k = k[global4];
-            let packed_v = v[global4];
-            k_shared[shared_base] = f32(packed_k.x);
-            k_shared[shared_base + 1u] = f32(packed_k.y);
-            k_shared[shared_base + 2u] = f32(packed_k.z);
-            k_shared[shared_base + 3u] = f32(packed_k.w);
-            v_shared[shared_base] = f32(packed_v.x);
-            v_shared[shared_base + 1u] = f32(packed_v.y);
-            v_shared[shared_base + 2u] = f32(packed_v.z);
-            v_shared[shared_base + 3u] = f32(packed_v.w);
-            linear4 += WORKGROUP_SIZE;
+            let tile_row = linear_pair / head_dim2;
+            let pair_col = linear_pair - tile_row * head_dim2;
+            let global_pair = head_base2 + (tile_start + tile_row) * head_dim2 + pair_col;
+            let shared_base = tile_row * MAX_HEAD_DIM + pair_col * 2u;
+            let packed_k = unpack2x16float(k[global_pair]);
+            let packed_v = unpack2x16float(v[global_pair]);
+            k_shared[shared_base] = packed_k.x;
+            k_shared[shared_base + 1u] = packed_k.y;
+            v_shared[shared_base] = packed_v.x;
+            v_shared[shared_base + 1u] = packed_v.y;
+            linear_pair += WORKGROUP_SIZE;
         }
         workgroupBarrier();
 
@@ -255,9 +244,7 @@ fn flat_attention_forward(
         tile_start += KV_TILE;
     }
 
-    // Normalize in f32, stage one query row, then let each active lane pack two
-    // adjacent outputs into one u32 containing vec2<f16>. This avoids any race
-    // between lanes while keeping the existing four-storage-buffer contract.
+    // Normalize in f32, then pack two adjacent output scalars into binary16.
     var qr = 0u;
     loop {
         if (qr >= QUERY_ROWS) {
@@ -268,30 +255,45 @@ fn flat_attention_forward(
             let inv_sum = 1.0 / running_sum_shared[qr];
             let shared_base = qr * MAX_HEAD_DIM;
             if (qr == 0u) {
-                if (d0 < params.head_dim) { output_shared[shared_base + d0] = acc00 * inv_sum; }
-                if (d1 < params.head_dim) { output_shared[shared_base + d1] = acc01 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    output_shared[shared_base + d0] = acc00 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    output_shared[shared_base + d1] = acc01 * inv_sum;
+                }
             } else if (qr == 1u) {
-                if (d0 < params.head_dim) { output_shared[shared_base + d0] = acc10 * inv_sum; }
-                if (d1 < params.head_dim) { output_shared[shared_base + d1] = acc11 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    output_shared[shared_base + d0] = acc10 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    output_shared[shared_base + d1] = acc11 * inv_sum;
+                }
             } else if (qr == 2u) {
-                if (d0 < params.head_dim) { output_shared[shared_base + d0] = acc20 * inv_sum; }
-                if (d1 < params.head_dim) { output_shared[shared_base + d1] = acc21 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    output_shared[shared_base + d0] = acc20 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    output_shared[shared_base + d1] = acc21 * inv_sum;
+                }
             } else {
-                if (d0 < params.head_dim) { output_shared[shared_base + d0] = acc30 * inv_sum; }
-                if (d1 < params.head_dim) { output_shared[shared_base + d1] = acc31 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    output_shared[shared_base + d0] = acc30 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    output_shared[shared_base + d1] = acc31 * inv_sum;
+                }
             }
             workgroupBarrier();
 
             let pair = lane;
-            if (pair < params.head_dim / 2u) {
+            if (pair < head_dim2) {
                 let dim = pair * 2u;
-                let packed = vec2<f16>(
-                    f16(output_shared[shared_base + dim]),
-                    f16(output_shared[shared_base + dim + 1u]),
-                );
-                let output_scalar_base = bh * head_stride + query_pos * params.head_dim;
-                let output_word_index = (output_scalar_base + dim) / 2u;
-                out_and_lse[output_word_index] = bitcast<u32>(packed);
+                let packed = pack2x16float(vec2<f32>(
+                    output_shared[shared_base + dim],
+                    output_shared[shared_base + dim + 1u],
+                ));
+                let output_word_base = (head_base + query_pos * params.head_dim) / 2u;
+                out_and_lse[output_word_base + pair] = packed;
             }
             if (lane == 0u) {
                 let lse_index = output_words + bh * params.seq_len + query_pos;
