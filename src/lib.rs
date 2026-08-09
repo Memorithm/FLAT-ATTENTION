@@ -8,6 +8,9 @@
 
 use core::fmt;
 
+mod f16;
+pub use f16::{FlatAttentionF16Output, F16};
+
 /// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
@@ -21,6 +24,8 @@ pub const WGSL_QUERY_ROWS: usize = 4;
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
+/// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
+pub const FLAT_FWD_F16_WGSL: &str = include_str!("../shaders/flat_fwd_f16.wgsl");
 /// Qualified M2/M3 one-query-row kernel retained as a baseline source.
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
@@ -30,6 +35,14 @@ mod wgpu_backend;
 pub use wgpu_backend::{
     WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuResidentAttentionOutput,
     WgpuResidentBuffer, WgpuSubgroupPolicy,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_f16_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_f16_backend::{
+    WgpuF16Attention, WgpuF16AttentionError, WgpuIoPrecision, WgpuPreferredAttention,
+    WgpuResidentF16AttentionOutput, WgpuResidentF16Buffer,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.

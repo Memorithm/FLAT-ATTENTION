@@ -1,4 +1,6 @@
-use flat_attention::{FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL};
+use flat_attention::{
+    FLAT_FWD_F16_WGSL, FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
+};
 use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
@@ -36,6 +38,11 @@ fn vec4_q4_shader_parses_and_validates() {
 #[test]
 fn double_buffer_q4_shader_parses_and_validates() {
     validate_shader("Q4 double-buffer", FLAT_FWD_DOUBLE_BUFFER_WGSL);
+}
+
+#[test]
+fn f16_q4_shader_parses_and_validates_with_naga_020() {
+    validate_shader("Q4 f16", FLAT_FWD_F16_WGSL);
 }
 
 #[test]
