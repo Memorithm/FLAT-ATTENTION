@@ -150,8 +150,12 @@ fn caller_can_encode_two_flat_passes_then_submit_once() {
     let q_gpu = input_buffer(&harness.device, &harness.queue, &q);
     let k_gpu = input_buffer(&harness.device, &harness.queue, &k);
     let v_gpu = input_buffer(&harness.device, &harness.queue, &v);
-    let out_causal = pipeline.create_output_buffer(&harness.device, shape).unwrap();
-    let out_full = pipeline.create_output_buffer(&harness.device, shape).unwrap();
+    let out_causal = pipeline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
+    let out_full = pipeline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
     let rotary = RotaryEmbeddingConfig {
         theta: 10_000.0,
         position_offset: 13,
@@ -257,7 +261,9 @@ fn external_pipeline_handles_mqa_and_rejects_short_buffers() {
     let q_gpu = input_buffer(&harness.device, &harness.queue, &q);
     let k_gpu = input_buffer(&harness.device, &harness.queue, &k);
     let v_gpu = input_buffer(&harness.device, &harness.queue, &v);
-    let output = pipeline.create_output_buffer(&harness.device, shape).unwrap();
+    let output = pipeline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
     let rotary = RotaryEmbeddingConfig {
         theta: 500_000.0,
         position_offset: 21,
