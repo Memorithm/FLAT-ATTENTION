@@ -136,8 +136,8 @@ pub fn forward_reference_grouped_rope(
                     let probability_numerator = (score - new_max).exp();
 
                     for dim in 0..shape.head_dim {
-                        output[q_base + dim] = output[q_base + dim] * alpha
-                            + probability_numerator * v[kv_base + dim];
+                        output[q_base + dim] =
+                            output[q_base + dim] * alpha + probability_numerator * v[kv_base + dim];
                     }
                     running_sum = running_sum * alpha + probability_numerator;
                     running_max = new_max;
