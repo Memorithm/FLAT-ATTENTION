@@ -264,9 +264,7 @@ impl WgpuFlatAttention {
             FLAT_FWD_VEC4_WGSL,
             "flat-attention-forward-q4-vec4",
         )
-        .map_err(|error| {
-            WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}"))
-        })?;
+        .map_err(|error| WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}")))?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
 
         Ok(Self {
@@ -489,17 +487,13 @@ impl WgpuFlatAttention {
 
     fn pipeline_for_head_dim(&self, head_dim: usize) -> (&wgpu::ComputePipeline, &'static str) {
         match self.kernel_variant_for_head_dim(head_dim) {
-            WgpuKernelVariant::Q4Subgroup => (
-                &self.inner.pipeline,
-                "flat-attention-forward-q4-subgroup",
-            ),
-            WgpuKernelVariant::Q4Vec4Portable => (
-                &self.inner.vec4_pipeline,
-                "flat-attention-forward-q4-vec4",
-            ),
-            WgpuKernelVariant::Q4Portable => {
-                (&self.inner.pipeline, "flat-attention-forward-q4")
+            WgpuKernelVariant::Q4Subgroup => {
+                (&self.inner.pipeline, "flat-attention-forward-q4-subgroup")
             }
+            WgpuKernelVariant::Q4Vec4Portable => {
+                (&self.inner.vec4_pipeline, "flat-attention-forward-q4-vec4")
+            }
+            WgpuKernelVariant::Q4Portable => (&self.inner.pipeline, "flat-attention-forward-q4"),
         }
     }
 
@@ -595,12 +589,12 @@ impl WgpuFlatAttention {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        let mut encoder = self
-            .inner
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("flat-attention-readback"),
-            });
+        let mut encoder =
+            self.inner
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("flat-attention-readback"),
+                });
         encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
         self.inner.queue.submit(Some(encoder.finish()));
 
