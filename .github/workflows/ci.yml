@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
-      - name: Execute fused attention on WGPU device
+      - name: Execute full fused-attention WGPU test matrix
         env:
           FLAT_REQUIRE_WGPU: "1"
-        run: cargo test --features wgpu --test wgpu_device -- --nocapture
+        run: cargo test --features wgpu --tests -- --nocapture
