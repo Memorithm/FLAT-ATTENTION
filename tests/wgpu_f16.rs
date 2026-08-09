@@ -1,8 +1,8 @@
 #![cfg(feature = "wgpu")]
 
 use flat_attention::{
-    forward_reference, AttentionShape, F16, FlatAttentionConfig, WgpuF16Attention,
-    WgpuF16AttentionError, WgpuIoPrecision, WgpuPreferredAttention,
+    forward_reference, AttentionShape, FlatAttentionConfig, WgpuF16Attention,
+    WgpuF16AttentionError, WgpuIoPrecision, WgpuPreferredAttention, F16,
 };
 
 const O_ATOL: f32 = 2.0e-3;
@@ -35,14 +35,33 @@ fn expand(values: &[F16]) -> Vec<f32> {
 fn assert_close(name: &str, actual: &[f32], expected: &[f32], atol: f32, rtol: f32) {
     assert_eq!(actual.len(), expected.len(), "{name}: length mismatch");
     for (index, (&actual, &expected)) in actual.iter().zip(expected).enumerate() {
-        assert!(actual.is_finite(), "{name}[{index}] is not finite: {actual}");
-        assert!(expected.is_finite(), "{name} reference[{index}] is not finite");
+        assert!(
+            actual.is_finite(),
+            "{name}[{index}] is not finite: {actual}"
+        );
+        assert!(
+            expected.is_finite(),
+            "{name} reference[{index}] is not finite"
+        );
         let tolerance = atol + rtol * expected.abs();
         let error = (actual - expected).abs();
         assert!(
             error <= tolerance,
             "{name}[{index}]: actual={actual}, expected={expected}, abs_error={error}, tolerance={tolerance}"
         );
+    }
+}
+
+fn context() -> Option<WgpuF16Attention> {
+    match WgpuF16Attention::new() {
+        Ok(context) => Some(context),
+        Err(WgpuF16AttentionError::Unavailable)
+            if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
+        {
+            eprintln!("WGPU adapter unavailable; optional packed-f16 test skipped");
+            None
+        }
+        Err(error) => panic!("required M8 packed-f16 context failed: {error}"),
     }
 }
 
@@ -70,50 +89,46 @@ fn check_raw_f16_parity(context: &WgpuF16Attention, shape: AttentionShape) {
             .collect();
         let actual = context.forward(&q16, &k16, &v16, shape, config).unwrap();
         let actual_o = expand(&actual.output);
-        assert_close("f16 O", &actual_o, &expected_o, O_ATOL, O_RTOL);
-        assert_close("f16 LSE", &actual.lse, &reference.lse, LSE_ATOL, LSE_RTOL);
+        assert_close("packed-f16 O", &actual_o, &expected_o, O_ATOL, O_RTOL);
+        assert_close(
+            "packed-f16 LSE",
+            &actual.lse,
+            &reference.lse,
+            LSE_ATOL,
+            LSE_RTOL,
+        );
     }
 }
 
 #[test]
-fn raw_f16_path_is_capability_gated_and_matches_reference_when_available() {
-    match WgpuF16Attention::new() {
-        Ok(context) => {
-            eprintln!("FLAT M8 f16 adapter: {}", context.adapter_name());
-            assert_eq!(context.io_precision(), WgpuIoPrecision::F16);
-            check_raw_f16_parity(
-                &context,
-                AttentionShape {
-                    batch: 1,
-                    heads: 2,
-                    seq_len: 17,
-                    head_dim: 64,
-                },
-            );
-            check_raw_f16_parity(
-                &context,
-                AttentionShape {
-                    batch: 1,
-                    heads: 1,
-                    seq_len: 9,
-                    head_dim: 128,
-                },
-            );
-        }
-        Err(WgpuF16AttentionError::RequiredF16Unavailable) => {
-            eprintln!("selected WGPU adapter exposes no SHADER_F16; explicit f32 fallback remains qualified");
-        }
-        Err(WgpuF16AttentionError::Unavailable)
-            if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
-        {
-            eprintln!("WGPU adapter unavailable; optional M8 device path skipped");
-        }
-        Err(error) => panic!("M8 f16 context failed unexpectedly: {error}"),
-    }
+fn packed_f16_path_is_baseline_wgsl_and_matches_reference() {
+    let Some(context) = context() else {
+        return;
+    };
+    eprintln!("FLAT M8 packed-f16 adapter: {}", context.adapter_name());
+    assert_eq!(context.io_precision(), WgpuIoPrecision::PackedF16);
+    check_raw_f16_parity(
+        &context,
+        AttentionShape {
+            batch: 1,
+            heads: 2,
+            seq_len: 17,
+            head_dim: 64,
+        },
+    );
+    check_raw_f16_parity(
+        &context,
+        AttentionShape {
+            batch: 1,
+            heads: 1,
+            seq_len: 9,
+            head_dim: 128,
+        },
+    );
 }
 
 #[test]
-fn preferred_router_uses_f16_only_for_qualified_shapes_and_never_cpu_fallback() {
+fn preferred_router_uses_packed_f16_only_for_qualified_shapes_and_never_cpu() {
     let context = match WgpuPreferredAttention::new() {
         Ok(context) => context,
         Err(WgpuF16AttentionError::F32(_)) | Err(WgpuF16AttentionError::Unavailable)
@@ -125,6 +140,14 @@ fn preferred_router_uses_f16_only_for_qualified_shapes_and_never_cpu_fallback() 
     };
 
     assert_eq!(context.io_precision_for_head_dim(80), WgpuIoPrecision::F32);
+    assert_eq!(
+        context.io_precision_for_head_dim(64),
+        WgpuIoPrecision::PackedF16
+    );
+    assert_eq!(
+        context.io_precision_for_head_dim(128),
+        WgpuIoPrecision::PackedF16
+    );
 
     for head_dim in [64, 80, 128] {
         let shape = AttentionShape {
@@ -143,21 +166,28 @@ fn preferred_router_uses_f16_only_for_qualified_shapes_and_never_cpu_fallback() 
         match context.io_precision_for_head_dim(head_dim) {
             WgpuIoPrecision::F32 => {
                 let reference = forward_reference(&q, &k, &v, shape, config).unwrap();
-                assert_close("preferred f32 O", &actual.output, &reference.output, 5e-5, 5e-4);
-                assert_close("preferred f32 LSE", &actual.lse, &reference.lse, 5e-5, 5e-4);
+                assert_close(
+                    "preferred f32 O",
+                    &actual.output,
+                    &reference.output,
+                    5e-5,
+                    5e-4,
+                );
+                assert_close(
+                    "preferred f32 LSE",
+                    &actual.lse,
+                    &reference.lse,
+                    5e-5,
+                    5e-4,
+                );
             }
-            WgpuIoPrecision::F16 => {
+            WgpuIoPrecision::PackedF16 => {
                 let q16 = quantize(&q);
                 let k16 = quantize(&k);
                 let v16 = quantize(&v);
-                let reference = forward_reference(
-                    &expand(&q16),
-                    &expand(&k16),
-                    &expand(&v16),
-                    shape,
-                    config,
-                )
-                .unwrap();
+                let reference =
+                    forward_reference(&expand(&q16), &expand(&k16), &expand(&v16), shape, config)
+                        .unwrap();
                 let expected_o: Vec<f32> = reference
                     .output
                     .iter()
@@ -165,8 +195,20 @@ fn preferred_router_uses_f16_only_for_qualified_shapes_and_never_cpu_fallback() 
                     .map(F16::from_f32)
                     .map(F16::to_f32)
                     .collect();
-                assert_close("preferred f16 O", &actual.output, &expected_o, O_ATOL, O_RTOL);
-                assert_close("preferred f16 LSE", &actual.lse, &reference.lse, LSE_ATOL, LSE_RTOL);
+                assert_close(
+                    "preferred packed-f16 O",
+                    &actual.output,
+                    &expected_o,
+                    O_ATOL,
+                    O_RTOL,
+                );
+                assert_close(
+                    "preferred packed-f16 LSE",
+                    &actual.lse,
+                    &reference.lse,
+                    LSE_ATOL,
+                    LSE_RTOL,
+                );
             }
         }
     }
@@ -174,15 +216,8 @@ fn preferred_router_uses_f16_only_for_qualified_shapes_and_never_cpu_fallback() 
 
 #[test]
 fn resident_f16_output_keeps_binary16_o_and_fp32_lse_lengths() {
-    let context = match WgpuF16Attention::new() {
-        Ok(context) => context,
-        Err(WgpuF16AttentionError::RequiredF16Unavailable) => return,
-        Err(WgpuF16AttentionError::Unavailable)
-            if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
-        {
-            return;
-        }
-        Err(error) => panic!("M8 f16 context failed: {error}"),
+    let Some(context) = context() else {
+        return;
     };
     let shape = AttentionShape {
         batch: 1,
@@ -218,15 +253,8 @@ fn resident_f16_output_keeps_binary16_o_and_fp32_lse_lengths() {
 
 #[test]
 fn raw_f16_rejects_non_finite_input_before_dispatch() {
-    let context = match WgpuF16Attention::new() {
-        Ok(context) => context,
-        Err(WgpuF16AttentionError::RequiredF16Unavailable) => return,
-        Err(WgpuF16AttentionError::Unavailable)
-            if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
-        {
-            return;
-        }
-        Err(error) => panic!("M8 f16 context failed: {error}"),
+    let Some(context) = context() else {
+        return;
     };
     let shape = AttentionShape {
         batch: 1,
@@ -247,5 +275,17 @@ fn raw_f16_rejects_non_finite_input_before_dispatch() {
             tensor: "Q",
             index: 3
         })
+    ));
+}
+
+#[test]
+fn packed_upload_rejects_odd_scalar_counts() {
+    let Some(context) = context() else {
+        return;
+    };
+    let error = context.upload_f16(&[F16::ZERO; 3]).unwrap_err();
+    assert!(matches!(
+        error,
+        WgpuF16AttentionError::OddPackedLength { actual: 3 }
     ));
 }
