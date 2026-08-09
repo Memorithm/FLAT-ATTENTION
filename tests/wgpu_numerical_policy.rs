@@ -120,7 +120,11 @@ fn deterministic_mode_is_bit_repeatable_on_same_context() {
             }
 
             let reference = forward_reference(&q, &k, &v, shape, config).unwrap();
-            assert_close("deterministic O parity", &first.output, &reference.output);
+            assert_close(
+                "deterministic O parity",
+                &first.output,
+                &reference.output,
+            );
             assert_close("deterministic LSE parity", &first.lse, &reference.lse);
         }
     }
