@@ -117,6 +117,12 @@ fn resident_forward_is_one_packed_linear_memory_result() {
         },
     )
     .unwrap();
-    assert_close("resident O", &actual.output, &expected.output, 2.0e-5, 2.0e-4);
+    assert_close(
+        "resident O",
+        &actual.output,
+        &expected.output,
+        2.0e-5,
+        2.0e-4,
+    );
     assert_close("resident LSE", &actual.lse, &expected.lse, 2.0e-5, 2.0e-4);
 }
