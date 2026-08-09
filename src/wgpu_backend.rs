@@ -539,7 +539,7 @@ fn encode_f32(values: &[f32]) -> Result<Vec<u8>, WgpuFlatAttentionError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(values.len() * std::mem::size_of::<u32>());
+    let mut bytes = Vec::with_capacity(std::mem::size_of_val(values));
     for &value in values {
         bytes.extend_from_slice(&value.to_ne_bytes());
     }
