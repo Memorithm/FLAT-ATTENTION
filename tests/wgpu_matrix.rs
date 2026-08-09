@@ -8,11 +8,14 @@ use flat_attention::{
 const ATOL: f32 = 5.0e-5;
 const RTOL: f32 = 5.0e-4;
 
-fn required_context() -> WgpuFlatAttention {
+fn context() -> Option<WgpuFlatAttention> {
     match WgpuFlatAttention::new() {
-        Ok(context) => context,
-        Err(error) if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() => {
-            panic!("WGPU matrix tests require a device: {error}")
+        Ok(context) => Some(context),
+        Err(WgpuFlatAttentionError::Unavailable)
+            if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
+        {
+            eprintln!("WGPU adapter unavailable; optional matrix test skipped");
+            None
         }
         Err(error) => panic!("required WGPU context failed: {error}"),
     }
@@ -63,7 +66,9 @@ fn check_case(
 
 #[test]
 fn every_supported_head_dimension_matches_reference() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
     eprintln!("FLAT-ATTENTION WGPU adapter: {}", context.adapter_name());
 
     for (case, head_dim) in [1usize, 8, 16, 32, 64, 80, 96, 128]
@@ -83,7 +88,9 @@ fn every_supported_head_dimension_matches_reference() {
 
 #[test]
 fn sequence_tile_boundaries_match_reference() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
 
     for (case, seq_len) in [1usize, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 65, 127, 128, 129]
         .into_iter()
@@ -102,7 +109,9 @@ fn sequence_tile_boundaries_match_reference() {
 
 #[test]
 fn multiple_batches_and_heads_match_reference() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
     let shape = AttentionShape {
         batch: 3,
         heads: 4,
@@ -115,7 +124,9 @@ fn multiple_batches_and_heads_match_reference() {
 
 #[test]
 fn high_dynamic_range_scores_remain_finite_and_match_reference() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
     let shape = AttentionShape {
         batch: 1,
         heads: 2,
@@ -154,7 +165,9 @@ fn high_dynamic_range_scores_remain_finite_and_match_reference() {
 
 #[test]
 fn causal_first_query_cannot_observe_future_values() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
     let shape = AttentionShape {
         batch: 1,
         heads: 1,
@@ -191,7 +204,9 @@ fn causal_first_query_cannot_observe_future_values() {
 
 #[test]
 fn unsupported_head_dimension_is_rejected_before_dispatch() {
-    let context = required_context();
+    let Some(context) = context() else {
+        return;
+    };
     let shape = AttentionShape {
         batch: 1,
         heads: 1,
