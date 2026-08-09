@@ -47,12 +47,7 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
     }
 }
 
-fn check_case(
-    context: &WgpuFlatAttention,
-    shape: AttentionShape,
-    causal: bool,
-    phase: f32,
-) {
+fn check_case(context: &WgpuFlatAttention, shape: AttentionShape, causal: bool, phase: f32) {
     let (q, k, v) = fixture(shape, phase);
     let config = FlatAttentionConfig {
         causal,
@@ -71,10 +66,7 @@ fn every_supported_head_dimension_matches_reference() {
     };
     eprintln!("FLAT-ATTENTION WGPU adapter: {}", context.adapter_name());
 
-    for (case, head_dim) in [1usize, 8, 16, 32, 64, 80, 96, 128]
-        .into_iter()
-        .enumerate()
-    {
+    for (case, head_dim) in [1usize, 8, 16, 32, 64, 80, 96, 128].into_iter().enumerate() {
         let shape = AttentionShape {
             batch: 1,
             heads: 2,
@@ -92,9 +84,11 @@ fn sequence_tile_boundaries_match_reference() {
         return;
     };
 
-    for (case, seq_len) in [1usize, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 65, 127, 128, 129]
-        .into_iter()
-        .enumerate()
+    for (case, seq_len) in [
+        1usize, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 65, 127, 128, 129,
+    ]
+    .into_iter()
+    .enumerate()
     {
         let shape = AttentionShape {
             batch: 1,
@@ -216,13 +210,7 @@ fn unsupported_head_dimension_is_rejected_before_dispatch() {
     let len = shape.batch * shape.heads * shape.seq_len * shape.head_dim;
     let data = vec![0.0; len];
     let error = context
-        .forward(
-            &data,
-            &data,
-            &data,
-            shape,
-            FlatAttentionConfig::default(),
-        )
+        .forward(&data, &data, &data, shape, FlatAttentionConfig::default())
         .unwrap_err();
     assert_eq!(
         error,
