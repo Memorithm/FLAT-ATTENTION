@@ -122,7 +122,8 @@ pub fn forward_reference_grouped_rope(
                             key_position,
                             rotary.theta,
                         );
-                        dot += qe * ke + qo * ko;
+                        dot += qe * ke;
+                        dot += qo * ko;
                     }
 
                     let score = dot * scale;
