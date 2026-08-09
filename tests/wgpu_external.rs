@@ -3,8 +3,9 @@
 use std::sync::mpsc;
 
 use flat_attention::{
-    forward_reference_projection_grouped_rope, ExternalProjectionRotaryGroupedPipeline,
-    ExternalWgpuError, FlatAttentionConfig, GroupedAttentionShape, RotaryEmbeddingConfig,
+    forward_reference_projection_grouped_rope, ExternalProjectionPass,
+    ExternalProjectionRotaryGroupedPipeline, ExternalWgpuError, FlatAttentionConfig,
+    GroupedAttentionShape, RotaryEmbeddingConfig,
 };
 
 const ATOL: f32 = 1.5e-4;
@@ -178,30 +179,33 @@ fn caller_can_encode_two_flat_passes_then_submit_once() {
         .encode(
             &harness.device,
             &mut encoder,
-            &q_gpu,
-            &k_gpu,
-            &v_gpu,
-            &out_causal,
-            shape,
-            causal,
-            rotary,
+            ExternalProjectionPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                out_and_lse: &out_causal,
+                shape,
+                config: causal,
+                rotary,
+            },
         )
         .unwrap();
     pipeline
         .encode(
             &harness.device,
             &mut encoder,
-            &q_gpu,
-            &k_gpu,
-            &v_gpu,
-            &out_full,
-            shape,
-            full,
-            rotary,
+            ExternalProjectionPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                out_and_lse: &out_full,
+                shape,
+                config: full,
+                rotary,
+            },
         )
         .unwrap();
 
-    // FLAT records only. The caller chooses the single submission boundary.
     harness.queue.submit(Some(encoder.finish()));
 
     let causal_values = read_f32(
@@ -281,13 +285,15 @@ fn external_pipeline_handles_mqa_and_rejects_short_buffers() {
         .encode(
             &harness.device,
             &mut encoder,
-            &q_gpu,
-            &k_gpu,
-            &v_gpu,
-            &output,
-            shape,
-            config,
-            rotary,
+            ExternalProjectionPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                out_and_lse: &output,
+                shape,
+                config,
+                rotary,
+            },
         )
         .unwrap();
     harness.queue.submit(Some(encoder.finish()));
@@ -325,13 +331,15 @@ fn external_pipeline_handles_mqa_and_rejects_short_buffers() {
         .encode(
             &harness.device,
             &mut encoder,
-            &short,
-            &k_gpu,
-            &v_gpu,
-            &output,
-            shape,
-            config,
-            rotary,
+            ExternalProjectionPass {
+                q: &short,
+                k: &k_gpu,
+                v: &v_gpu,
+                out_and_lse: &output,
+                shape,
+                config,
+                rotary,
+            },
         )
         .unwrap_err();
     assert!(matches!(
