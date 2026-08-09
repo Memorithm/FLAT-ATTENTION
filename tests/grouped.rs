@@ -12,10 +12,7 @@ fn fixture(len: usize, phase: f32) -> Vec<f32> {
         .collect()
 }
 
-fn expand_kv_to_query_heads(
-    source: &[f32],
-    shape: GroupedAttentionShape,
-) -> Vec<f32> {
+fn expand_kv_to_query_heads(source: &[f32], shape: GroupedAttentionShape) -> Vec<f32> {
     let head_stride = shape.seq_len * shape.head_dim;
     let group_size = shape.q_heads / shape.kv_heads;
     let mut expanded = vec![0.0f32; shape.q_tensor_len().unwrap()];
@@ -59,8 +56,7 @@ fn grouped_oracle_matches_expanded_mha_oracle_bit_exactly() {
                     causal,
                     softmax_scale,
                 };
-                let grouped =
-                    forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
+                let grouped = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
                 let expanded =
                     forward_reference(&q, &expanded_k, &expanded_v, mha_shape, config).unwrap();
 
