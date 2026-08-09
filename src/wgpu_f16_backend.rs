@@ -1,22 +1,24 @@
-//! M8 capability-gated binary16 I/O for FLAT-ATTENTION.
+//! M8 portable packed-binary16 I/O for FLAT-ATTENTION.
 //!
-//! This backend is deliberately separate from the already-qualified f32
-//! executor. It stores Q/K/V and O as IEEE binary16 while the shader promotes
-//! inputs to f32 before all arithmetic and keeps LSE in f32.
+//! WGPU/Naga 0.20 does not expose native WGSL `f16`, so this backend stores two
+//! IEEE-754 binary16 scalars in each `u32`. The shader converts those pairs to
+//! `f32` with WGSL pack/unpack builtins. All attention arithmetic and LSE remain
+//! `f32`. The already-qualified f32 executor stays independent and is the only
+//! fallback; no path silently executes on CPU.
 
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
 use super::{
-    AttentionShape, F16, FlatAttentionConfig, FlatAttentionError, FlatAttentionF16Output,
-    FlatAttentionOutput, WgpuFlatAttention, WgpuFlatAttentionError, FLAT_FWD_F16_WGSL,
+    AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionF16Output,
+    FlatAttentionOutput, WgpuFlatAttention, WgpuFlatAttentionError, F16, FLAT_FWD_F16_WGSL,
     WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WgpuIoPrecision {
     F32,
-    F16,
+    PackedF16,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,8 +26,11 @@ pub enum WgpuF16AttentionError {
     Core(FlatAttentionError),
     F32(WgpuFlatAttentionError),
     Unavailable,
-    RequiredF16Unavailable,
+    PackedShaderUnsupported(String),
     UnsupportedHeadDim {
+        actual: usize,
+    },
+    OddPackedLength {
         actual: usize,
     },
     DispatchLimit {
@@ -51,12 +56,16 @@ impl fmt::Display for WgpuF16AttentionError {
             Self::Core(error) => write!(f, "{error}"),
             Self::F32(error) => write!(f, "f32 fallback failed: {error}"),
             Self::Unavailable => write!(f, "no compatible WGPU adapter/device is available"),
-            Self::RequiredF16Unavailable => {
-                write!(f, "the selected WGPU adapter does not expose SHADER_F16")
+            Self::PackedShaderUnsupported(message) => {
+                write!(f, "packed-binary16 WGSL pipeline is unsupported: {message}")
             }
             Self::UnsupportedHeadDim { actual } => write!(
                 f,
-                "M8 f16 I/O currently supports head_dim 64 or 128, got {actual}"
+                "M8 packed-binary16 I/O supports head_dim 64 or 128, got {actual}"
+            ),
+            Self::OddPackedLength { actual } => write!(
+                f,
+                "packed-binary16 storage requires an even scalar count, got {actual}"
             ),
             Self::DispatchLimit {
                 axis,
@@ -70,16 +79,19 @@ impl fmt::Display for WgpuF16AttentionError {
                 f,
                 "M8 packed index space requires {elements} elements, exceeding u32 addressing"
             ),
-            Self::ForeignBuffer => write!(f, "resident f16 buffer belongs to another WGPU context"),
+            Self::ForeignBuffer => write!(
+                f,
+                "resident packed-binary16 buffer belongs to another WGPU context"
+            ),
             Self::ResidentLength {
                 tensor,
                 actual,
                 expected,
             } => write!(
                 f,
-                "resident f16 tensor {tensor} contains {actual} elements, expected {expected}"
+                "resident packed-binary16 tensor {tensor} contains {actual} elements, expected {expected}"
             ),
-            Self::Execution(message) => write!(f, "WGPU f16 execution failed: {message}"),
+            Self::Execution(message) => write!(f, "WGPU packed-f16 execution failed: {message}"),
         }
     }
 }
@@ -158,6 +170,10 @@ pub struct WgpuF16Attention {
 }
 
 impl WgpuF16Attention {
+    /// Create the portable packed-binary16 executor.
+    ///
+    /// No native shader-f16 feature is requested: the shader only contains
+    /// baseline WGSL `u32` and `f32` types plus pack/unpack conversion builtins.
     pub fn new() -> Result<Self, WgpuF16AttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -170,15 +186,11 @@ impl WgpuF16Attention {
         }))
         .ok_or(WgpuF16AttentionError::Unavailable)?;
 
-        if !adapter.features().contains(wgpu::Features::SHADER_F16) {
-            return Err(WgpuF16AttentionError::RequiredF16Unavailable);
-        }
-
         let adapter_name = adapter.get_info().name;
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
-                label: Some("flat-attention-m8-f16"),
-                required_features: wgpu::Features::SHADER_F16,
+                label: Some("flat-attention-m8-packed-f16"),
+                required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_defaults(),
             },
             None,
@@ -203,17 +215,14 @@ impl WgpuF16Attention {
     }
 
     pub fn io_precision(&self) -> WgpuIoPrecision {
-        WgpuIoPrecision::F16
+        WgpuIoPrecision::PackedF16
     }
 
-    pub fn upload_f16(
-        &self,
-        data: &[F16],
-    ) -> Result<WgpuResidentF16Buffer, WgpuF16AttentionError> {
-        let bytes = encode_f16(data)?;
+    pub fn upload_f16(&self, data: &[F16]) -> Result<WgpuResidentF16Buffer, WgpuF16AttentionError> {
+        let bytes = encode_packed_f16(data)?;
         let size = bytes.len().max(4) as u64;
         let buffer = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-attention-m8-f16-input"),
+            label: Some("flat-attention-m8-packed-f16-input"),
             size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -267,7 +276,7 @@ impl WgpuF16Attention {
             .ok_or(FlatAttentionError::ShapeOverflow)?;
         let output_bytes = bytes_for_words(packed_words)?;
         let output = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-attention-m8-f16-o-lse"),
+            label: Some("flat-attention-m8-packed-f16-o-lse"),
             size: output_bytes,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
@@ -285,7 +294,7 @@ impl WgpuF16Attention {
         ];
         let params_bytes = encode_u32(&params);
         let params_buffer = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-attention-m8-f16-params"),
+            label: Some("flat-attention-m8-packed-f16-params"),
             size: params_bytes.len() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -298,7 +307,7 @@ impl WgpuF16Attention {
             .inner
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("flat-attention-m8-f16"),
+                label: Some("flat-attention-m8-packed-f16"),
                 layout: &self.inner.pipeline.get_bind_group_layout(0),
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -328,11 +337,11 @@ impl WgpuF16Attention {
             self.inner
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("flat-attention-m8-f16"),
+                    label: Some("flat-attention-m8-packed-f16"),
                 });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("flat-attention-m8-f16"),
+                label: Some("flat-attention-m8-packed-f16"),
                 timestamp_writes: None,
             });
             pass.set_pipeline(&self.inner.pipeline);
@@ -359,7 +368,7 @@ impl WgpuF16Attention {
         }
         let bytes = bytes_for_words(resident.packed_words)?;
         let staging = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-attention-m8-f16-readback"),
+            label: Some("flat-attention-m8-packed-f16-readback"),
             size: bytes,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
@@ -368,7 +377,7 @@ impl WgpuF16Attention {
             self.inner
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("flat-attention-m8-f16-readback"),
+                    label: Some("flat-attention-m8-packed-f16-readback"),
                 });
         encoder.copy_buffer_to_buffer(&resident.buffer, 0, &staging, 0, bytes);
         self.inner.queue.submit(Some(encoder.finish()));
@@ -461,34 +470,34 @@ impl WgpuF16Attention {
     }
 }
 
-/// Capability-based convenience router. It never falls back to CPU.
+/// Shape-based convenience router. It never falls back to CPU.
 pub struct WgpuPreferredAttention {
     f32: WgpuFlatAttention,
-    f16: Option<WgpuF16Attention>,
+    packed_f16: Option<WgpuF16Attention>,
 }
 
 impl WgpuPreferredAttention {
     pub fn new() -> Result<Self, WgpuF16AttentionError> {
         let f32 = WgpuFlatAttention::new()?;
-        let f16 = match WgpuF16Attention::new() {
+        let packed_f16 = match WgpuF16Attention::new() {
             Ok(context) => Some(context),
-            Err(WgpuF16AttentionError::RequiredF16Unavailable) => None,
-            Err(WgpuF16AttentionError::Unavailable) => None,
+            Err(WgpuF16AttentionError::Unavailable)
+            | Err(WgpuF16AttentionError::PackedShaderUnsupported(_)) => None,
             Err(error) => return Err(error),
         };
-        Ok(Self { f32, f16 })
+        Ok(Self { f32, packed_f16 })
     }
 
     pub fn io_precision_for_head_dim(&self, head_dim: usize) -> WgpuIoPrecision {
-        if self.f16.is_some() && matches!(head_dim, 64 | 128) {
-            WgpuIoPrecision::F16
+        if self.packed_f16.is_some() && matches!(head_dim, 64 | 128) {
+            WgpuIoPrecision::PackedF16
         } else {
             WgpuIoPrecision::F32
         }
     }
 
     pub fn adapter_name(&self) -> &str {
-        self.f16
+        self.packed_f16
             .as_ref()
             .map_or_else(|| self.f32.adapter_name(), WgpuF16Attention::adapter_name)
     }
@@ -501,20 +510,26 @@ impl WgpuPreferredAttention {
         shape: AttentionShape,
         config: FlatAttentionConfig,
     ) -> Result<FlatAttentionOutput, WgpuF16AttentionError> {
-        if self.io_precision_for_head_dim(shape.head_dim) == WgpuIoPrecision::F16 {
-            validate_f32_for_quantization("Q", q, shape.tensor_len()?)?;
-            validate_f32_for_quantization("K", k, shape.tensor_len()?)?;
-            validate_f32_for_quantization("V", v, shape.tensor_len()?)?;
+        if self.io_precision_for_head_dim(shape.head_dim) == WgpuIoPrecision::PackedF16 {
+            let tensor_len = shape.tensor_len()?;
+            validate_f32_for_quantization("Q", q, tensor_len)?;
+            validate_f32_for_quantization("K", k, tensor_len)?;
+            validate_f32_for_quantization("V", v, tensor_len)?;
             let q16: Vec<F16> = q.iter().copied().map(F16::from_f32).collect();
             let k16: Vec<F16> = k.iter().copied().map(F16::from_f32).collect();
             let v16: Vec<F16> = v.iter().copied().map(F16::from_f32).collect();
-            if q16.iter().chain(&k16).chain(&v16).any(|value| !value.is_finite()) {
+            if q16
+                .iter()
+                .chain(&k16)
+                .chain(&v16)
+                .any(|value| !value.is_finite())
+            {
                 return self.f32.forward(q, k, v, shape, config).map_err(Into::into);
             }
             let result = self
-                .f16
+                .packed_f16
                 .as_ref()
-                .expect("precision selection requires f16 context")
+                .expect("precision selection requires packed-f16 context")
                 .forward(&q16, &k16, &v16, shape, config)?;
             Ok(FlatAttentionOutput {
                 output: result.output.into_iter().map(F16::to_f32).collect(),
@@ -529,11 +544,11 @@ impl WgpuPreferredAttention {
 fn create_pipeline(device: &wgpu::Device) -> Result<wgpu::ComputePipeline, WgpuF16AttentionError> {
     device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("flat-attention-m8-f16"),
+        label: Some("flat-attention-m8-packed-f16"),
         source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_F16_WGSL)),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("flat-attention-m8-f16"),
+        label: Some("flat-attention-m8-packed-f16"),
         layout: None,
         module: &shader,
         entry_point: "flat_attention_forward",
@@ -541,7 +556,9 @@ fn create_pipeline(device: &wgpu::Device) -> Result<wgpu::ComputePipeline, WgpuF
     });
     let validation_error = pollster::block_on(device.pop_error_scope());
     match validation_error {
-        Some(error) => Err(WgpuF16AttentionError::Execution(error.to_string())),
+        Some(error) => Err(WgpuF16AttentionError::PackedShaderUnsupported(
+            error.to_string(),
+        )),
         None => Ok(pipeline),
     }
 }
@@ -604,18 +621,23 @@ fn bytes_for_words(words: usize) -> Result<u64, WgpuF16AttentionError> {
     let bytes = words
         .checked_mul(std::mem::size_of::<u32>())
         .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes)
-        .map_err(|_| WgpuF16AttentionError::IndexSpaceExceeded { elements: words })
+    u64::try_from(bytes).map_err(|_| WgpuF16AttentionError::IndexSpaceExceeded { elements: words })
 }
 
-fn encode_f16(values: &[F16]) -> Result<Vec<u8>, WgpuF16AttentionError> {
-    let capacity = values
-        .len()
-        .checked_mul(std::mem::size_of::<u16>())
+fn encode_packed_f16(values: &[F16]) -> Result<Vec<u8>, WgpuF16AttentionError> {
+    if values.len() % 2 != 0 {
+        return Err(WgpuF16AttentionError::OddPackedLength {
+            actual: values.len(),
+        });
+    }
+    let word_count = values.len() / 2;
+    let capacity = word_count
+        .checked_mul(std::mem::size_of::<u32>())
         .ok_or(FlatAttentionError::ShapeOverflow)?;
     let mut bytes = Vec::with_capacity(capacity);
-    for value in values {
-        bytes.extend_from_slice(&value.to_bits().to_ne_bytes());
+    for pair in values.chunks_exact(2) {
+        let word = u32::from(pair[0].to_bits()) | (u32::from(pair[1].to_bits()) << 16);
+        bytes.extend_from_slice(&word.to_ne_bytes());
     }
     Ok(bytes)
 }
