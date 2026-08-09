@@ -1,6 +1,4 @@
-use flat_attention::{
-    AttentionShape, FlatAttentionConfig, FlatAttentionOutput, forward_reference,
-};
+use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionOutput};
 
 fn naive_forward(
     q: &[f32],
@@ -20,7 +18,11 @@ fn naive_forward(
             let base = bh * head_stride;
             for qi in 0..shape.seq_len {
                 let q_base = base + qi * shape.head_dim;
-                let keys = if config.causal { qi + 1 } else { shape.seq_len };
+                let keys = if config.causal {
+                    qi + 1
+                } else {
+                    shape.seq_len
+                };
                 let mut scores = Vec::with_capacity(keys);
                 for kj in 0..keys {
                     let k_base = base + kj * shape.head_dim;
@@ -64,12 +66,8 @@ fn assert_close(actual: &[f32], expected: &[f32], tol: f32) {
 
 fn fixture(shape: AttentionShape) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
     let len = shape.batch * shape.heads * shape.seq_len * shape.head_dim;
-    let q = (0..len)
-        .map(|i| ((i as f32) * 0.173 - 0.7).sin())
-        .collect();
-    let k = (0..len)
-        .map(|i| ((i as f32) * 0.119 + 0.2).cos())
-        .collect();
+    let q = (0..len).map(|i| ((i as f32) * 0.173 - 0.7).sin()).collect();
+    let k = (0..len).map(|i| ((i as f32) * 0.119 + 0.2).cos()).collect();
     let v = (0..len)
         .map(|i| ((i as f32) * 0.071 - 0.4).sin() * 1.7)
         .collect();
