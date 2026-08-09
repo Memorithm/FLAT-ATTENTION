@@ -1,7 +1,5 @@
 use flat_attention::{FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL};
-use naga::valid::{
-    Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator,
-};
+use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
 fn validate_shader(name: &str, source: &str) {
     let module = naga::front::wgsl::parse_str(source)
