@@ -31,7 +31,10 @@ fn projection_index(
         .checked_mul(shape.seq_len)
         .and_then(|row| row.checked_add(position))
         .and_then(|row| row.checked_mul(width))
-        .and_then(|base| head.checked_mul(shape.head_dim).and_then(|h| base.checked_add(h)))
+        .and_then(|base| {
+            head.checked_mul(shape.head_dim)
+                .and_then(|h| base.checked_add(h))
+        })
         .and_then(|base| base.checked_add(dim))
         .ok_or(FlatAttentionError::ShapeOverflow)
 }
