@@ -11,8 +11,8 @@ fn main() {
         for causal in [false, true] {
             let baseline = single_row_io_model(shape, causal).expect("valid baseline model");
             let tiled = tiled_q4_io_model(shape, causal).expect("valid Q4 model");
-            let ratio = baseline.kv_storage_scalar_loads as f64
-                / tiled.kv_storage_scalar_loads as f64;
+            let ratio =
+                baseline.kv_storage_scalar_loads as f64 / tiled.kv_storage_scalar_loads as f64;
             println!(
                 "N={seq_len:>4} D=64 causal={causal:<5} baseline_wg={:>4} q4_wg={:>4} baseline_kv_loads={:>12} q4_kv_loads={:>12} logical_load_ratio={ratio:.3}x",
                 baseline.query_workgroups,
