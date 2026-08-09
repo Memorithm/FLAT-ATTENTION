@@ -19,7 +19,9 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
         0 => (
             vec![0.0; len],
             vec![1.0; len],
-            (0..len).map(|i| (i % 17) as f32 * 0.125 - 1.0).collect(),
+            (0..len)
+                .map(|i| (i % 17) as f32 * 0.125 - 1.0)
+                .collect(),
         ),
         // Near-tied scores and small values around zero.
         1 => (
@@ -64,7 +66,10 @@ fn fixture(shape: AttentionShape, kind: usize) -> (Vec<f32>, Vec<f32>, Vec<f32>)
 #[test]
 fn exact_reference_corpus_is_finite_and_bit_repeatable() {
     let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
-    assert_eq!(executor.backend_kind(), NumericalBackendKind::ReferenceCpu);
+    assert_eq!(
+        executor.backend_kind(),
+        NumericalBackendKind::ReferenceCpu
+    );
 
     let shape = AttentionShape {
         batch: 1,
