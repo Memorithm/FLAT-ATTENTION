@@ -16,13 +16,18 @@ use super::{
 pub enum WgpuFlatAttentionError {
     Core(FlatAttentionError),
     Unavailable,
-    UnsupportedHeadDim { actual: usize, maximum: usize },
+    UnsupportedHeadDim {
+        actual: usize,
+        maximum: usize,
+    },
     DispatchLimit {
         axis: &'static str,
         actual: usize,
         maximum: u32,
     },
-    IndexSpaceExceeded { elements: usize },
+    IndexSpaceExceeded {
+        elements: usize,
+    },
     ForeignBuffer,
     ResidentLength {
         tensor: &'static str,
@@ -484,8 +489,7 @@ struct DispatchGeometry {
 }
 
 fn checked_u32(value: usize) -> Result<u32, WgpuFlatAttentionError> {
-    u32::try_from(value)
-        .map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded { elements: value })
+    u32::try_from(value).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, WgpuFlatAttentionError> {
