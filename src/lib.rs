@@ -37,8 +37,7 @@ pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
 /// M10 native GQA/MQA kernel without physical K/V head expansion.
 pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
 /// FLAT-R1 native GQA/MQA kernel with head-local RoPE fused into Q/K staging.
-pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str =
-    include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
+pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
