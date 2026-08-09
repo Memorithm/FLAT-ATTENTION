@@ -11,6 +11,12 @@ use core::fmt;
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
+mod numerical;
+pub use numerical::{
+    AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
+    NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
+};
+
 /// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
