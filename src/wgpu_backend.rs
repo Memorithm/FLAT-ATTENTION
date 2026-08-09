@@ -1,44 +1,39 @@
 //! Real portable GPU execution for the fused FLAT-ATTENTION forward kernel.
 //!
-//! This backend never substitutes the CPU oracle. Construction fails explicitly
-//! when no WGPU adapter/device is available, and dispatch errors are surfaced to
-//! the caller. Q/K/V and the packed O+LSE result stay resident unless the caller
-//! explicitly requests a readback.
+//! The M4 default maps one workgroup to up to four consecutive query rows, so
+//! each staged K/V tile is reused across those rows. No CPU fallback is hidden
+//! in this backend and no N x N score/probability matrix is allocated.
 
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
 use super::{
     validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
-    FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM,
+    FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
-/// Errors produced by the real WGPU execution path.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WgpuFlatAttentionError {
-    /// Shape/input/config validation from the backend-neutral core.
     Core(FlatAttentionError),
-    /// No adapter/device satisfying the portable contract could be acquired.
     Unavailable,
-    /// The first portable kernel is intentionally bounded to 128 dimensions.
-    UnsupportedHeadDim { actual: usize, maximum: usize },
-    /// A dispatch dimension exceeds the selected device's workgroup-count limit.
+    UnsupportedHeadDim {
+        actual: usize,
+        maximum: usize,
+    },
     DispatchLimit {
         axis: &'static str,
         actual: usize,
         maximum: u32,
     },
-    /// The packed shader index space would exceed `u32` addressing.
-    IndexSpaceExceeded { elements: usize },
-    /// A resident buffer came from another WGPU context.
+    IndexSpaceExceeded {
+        elements: usize,
+    },
     ForeignBuffer,
-    /// A resident input has the wrong logical element count.
     ResidentLength {
         tensor: &'static str,
         actual: usize,
         expected: usize,
     },
-    /// Device execution, mapping, or synchronization failed.
     Execution(String),
 }
 
@@ -85,7 +80,6 @@ impl From<FlatAttentionError> for WgpuFlatAttentionError {
     }
 }
 
-/// A storage buffer resident on the context that created it.
 pub struct WgpuResidentBuffer {
     buffer: Arc<wgpu::Buffer>,
     len: usize,
@@ -93,27 +87,19 @@ pub struct WgpuResidentBuffer {
 }
 
 impl WgpuResidentBuffer {
-    /// Logical number of `f32` elements in the buffer.
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Whether the logical buffer is empty.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Raw WGPU buffer for future zero-copy SciRust integration.
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
 }
 
-/// Resident result of one fused forward dispatch.
-///
-/// The underlying storage is packed as `[O | LSE]`. Keeping one storage buffer
-/// lets the portable shader stay within the four-storage-buffer downlevel
-/// contract while preserving both outputs required by backward recomputation.
 pub struct WgpuResidentAttentionOutput {
     combined: WgpuResidentBuffer,
     output_len: usize,
@@ -121,17 +107,14 @@ pub struct WgpuResidentAttentionOutput {
 }
 
 impl WgpuResidentAttentionOutput {
-    /// Number of `f32` elements occupied by O at the start of the buffer.
     pub fn output_len(&self) -> usize {
         self.output_len
     }
 
-    /// Number of trailing `f32` elements occupied by LSE.
     pub fn lse_len(&self) -> usize {
         self.lse_len
     }
 
-    /// Total packed `[O | LSE]` storage.
     pub fn combined(&self) -> &WgpuResidentBuffer {
         &self.combined
     }
@@ -145,18 +128,12 @@ struct WgpuFlatAttentionInner {
     max_workgroups_per_dimension: u32,
 }
 
-/// WGPU device, queue, and compiled fused-attention pipeline.
 #[derive(Clone)]
 pub struct WgpuFlatAttention {
     inner: Arc<WgpuFlatAttentionInner>,
 }
 
 impl WgpuFlatAttention {
-    /// Acquire a real WGPU adapter/device and compile the fused forward shader.
-    ///
-    /// The requested limits are `downlevel_defaults`: this intentionally keeps
-    /// the baseline kernel inside a conservative portable profile. There is no
-    /// CPU fallback when adapter acquisition fails.
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -172,7 +149,7 @@ impl WgpuFlatAttention {
         let adapter_name = adapter.get_info().name;
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
-                label: Some("flat-attention"),
+                label: Some("flat-attention-q4"),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_defaults(),
             },
@@ -181,11 +158,11 @@ impl WgpuFlatAttention {
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-attention-forward"),
+            label: Some("flat-attention-forward-q4"),
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_WGSL)),
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-attention-forward"),
+            label: Some("flat-attention-forward-q4"),
             layout: None,
             module: &shader,
             entry_point: "flat_attention_forward",
@@ -204,18 +181,14 @@ impl WgpuFlatAttention {
         })
     }
 
-    /// Human-readable adapter name reported by WGPU.
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
     }
 
-    /// Device limit used to validate X/Y dispatch dimensions.
     pub fn max_workgroups_per_dimension(&self) -> u32 {
         self.inner.max_workgroups_per_dimension
     }
 
-    /// Convenience path: validate and upload Q/K/V, execute one fused dispatch,
-    /// and explicitly download O/LSE.
     pub fn forward(
         &self,
         q: &[f32],
@@ -237,7 +210,6 @@ impl WgpuFlatAttention {
         self.download_attention(&resident)
     }
 
-    /// Upload `f32` data to a storage buffer owned by this context.
     pub fn upload(&self, data: &[f32]) -> Result<WgpuResidentBuffer, WgpuFlatAttentionError> {
         let bytes = encode_f32(data)?;
         let size = bytes.len().max(4) as u64;
@@ -257,10 +229,6 @@ impl WgpuFlatAttention {
         })
     }
 
-    /// Execute the fused forward kernel on already-resident Q/K/V.
-    ///
-    /// Exactly one compute dispatch is encoded. No score/probability matrix and
-    /// no host readback are created by this method.
     pub fn forward_resident(
         &self,
         q: &WgpuResidentBuffer,
@@ -269,20 +237,16 @@ impl WgpuFlatAttention {
         shape: AttentionShape,
         config: FlatAttentionConfig,
     ) -> Result<WgpuResidentAttentionOutput, WgpuFlatAttentionError> {
-        let (tensor_len, lse_len, batch_heads, seq_len) = self.validate_dispatch(shape)?;
-        self.validate_resident("Q", q, tensor_len)?;
-        self.validate_resident("K", k, tensor_len)?;
-        self.validate_resident("V", v, tensor_len)?;
+        let dispatch = self.validate_dispatch(shape)?;
+        self.validate_resident("Q", q, dispatch.tensor_len)?;
+        self.validate_resident("K", k, dispatch.tensor_len)?;
+        self.validate_resident("V", v, dispatch.tensor_len)?;
         let scale = config.resolved_scale(shape.head_dim)?;
 
-        let combined_len = tensor_len
-            .checked_add(lse_len)
+        let combined_len = dispatch
+            .tensor_len
+            .checked_add(dispatch.lse_len)
             .ok_or(FlatAttentionError::ShapeOverflow)?;
-        if combined_len > u32::MAX as usize {
-            return Err(WgpuFlatAttentionError::IndexSpaceExceeded {
-                elements: combined_len,
-            });
-        }
         let output_bytes = bytes_for_f32_len(combined_len)?;
         let output = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-attention-o-lse"),
@@ -292,13 +256,13 @@ impl WgpuFlatAttention {
         });
 
         let params = [
-            seq_len,
+            dispatch.seq_len,
             u32::try_from(shape.head_dim).map_err(|_| {
                 WgpuFlatAttentionError::IndexSpaceExceeded {
                     elements: shape.head_dim,
                 }
             })?,
-            batch_heads,
+            dispatch.batch_heads,
             u32::from(config.causal),
             scale.to_bits(),
             0,
@@ -320,7 +284,7 @@ impl WgpuFlatAttention {
             .inner
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("flat-attention-forward"),
+                label: Some("flat-attention-forward-q4"),
                 layout: &self.inner.pipeline.get_bind_group_layout(0),
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -350,16 +314,16 @@ impl WgpuFlatAttention {
             self.inner
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("flat-attention-forward"),
+                    label: Some("flat-attention-forward-q4"),
                 });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("flat-attention-forward"),
+                label: Some("flat-attention-forward-q4"),
                 timestamp_writes: None,
             });
             pass.set_pipeline(&self.inner.pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.dispatch_workgroups(seq_len, batch_heads, 1);
+            pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.batch_heads, 1);
         }
         self.inner.queue.submit(Some(encoder.finish()));
 
@@ -369,12 +333,11 @@ impl WgpuFlatAttention {
                 len: combined_len,
                 owner: self.owner_id(),
             },
-            output_len: tensor_len,
-            lse_len,
+            output_len: dispatch.tensor_len,
+            lse_len: dispatch.lse_len,
         })
     }
 
-    /// Explicitly download and split the packed `[O | LSE]` resident result.
     pub fn download_attention(
         &self,
         resident: &WgpuResidentAttentionOutput,
@@ -400,7 +363,7 @@ impl WgpuFlatAttention {
     fn validate_dispatch(
         &self,
         shape: AttentionShape,
-    ) -> Result<(usize, usize, u32, u32), WgpuFlatAttentionError> {
+    ) -> Result<DispatchGeometry, WgpuFlatAttentionError> {
         shape.validate()?;
         if shape.head_dim > WGSL_MAX_HEAD_DIM {
             return Err(WgpuFlatAttentionError::UnsupportedHeadDim {
@@ -418,15 +381,17 @@ impl WgpuFlatAttention {
                 elements: combined_len,
             });
         }
+
         let batch_heads = shape
             .batch
             .checked_mul(shape.heads)
             .ok_or(FlatAttentionError::ShapeOverflow)?;
+        let query_workgroups = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
         let maximum = self.inner.max_workgroups_per_dimension;
-        if shape.seq_len > maximum as usize {
+        if query_workgroups > maximum as usize {
             return Err(WgpuFlatAttentionError::DispatchLimit {
-                axis: "x/sequence",
-                actual: shape.seq_len,
+                axis: "x/query_tiles",
+                actual: query_workgroups,
                 maximum,
             });
         }
@@ -437,18 +402,14 @@ impl WgpuFlatAttention {
                 maximum,
             });
         }
-        Ok((
+
+        Ok(DispatchGeometry {
             tensor_len,
             lse_len,
-            u32::try_from(batch_heads).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded {
-                elements: batch_heads,
-            })?,
-            u32::try_from(shape.seq_len).map_err(|_| {
-                WgpuFlatAttentionError::IndexSpaceExceeded {
-                    elements: shape.seq_len,
-                }
-            })?,
-        ))
+            batch_heads: checked_u32(batch_heads)?,
+            seq_len: checked_u32(shape.seq_len)?,
+            query_workgroups: checked_u32(query_workgroups)?,
+        })
     }
 
     fn validate_resident(
@@ -517,6 +478,18 @@ impl WgpuFlatAttention {
         staging.unmap();
         Ok(decoded)
     }
+}
+
+struct DispatchGeometry {
+    tensor_len: usize,
+    lse_len: usize,
+    batch_heads: u32,
+    seq_len: u32,
+    query_workgroups: u32,
+}
+
+fn checked_u32(value: usize) -> Result<u32, WgpuFlatAttentionError> {
+    u32::try_from(value).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, WgpuFlatAttentionError> {
