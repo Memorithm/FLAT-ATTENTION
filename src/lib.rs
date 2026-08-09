@@ -33,9 +33,16 @@ pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.
 mod wgpu_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_backend::{
-    WgpuFlatAttention, WgpuFlatAttentionError, WgpuIoPrecision, WgpuKernelVariant,
-    WgpuResidentAttentionOutput, WgpuResidentBuffer, WgpuResidentF16AttentionOutput,
-    WgpuResidentF16Buffer, WgpuSubgroupPolicy,
+    WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuResidentAttentionOutput,
+    WgpuResidentBuffer, WgpuSubgroupPolicy,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_f16_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_f16_backend::{
+    WgpuF16Attention, WgpuF16AttentionError, WgpuIoPrecision, WgpuPreferredAttention,
+    WgpuResidentF16AttentionOutput, WgpuResidentF16Buffer,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
