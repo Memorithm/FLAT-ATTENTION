@@ -159,7 +159,11 @@ fn fast_mode_remains_explicit_gpu_execution() {
     let actual = executor.forward(&q, &k, &v, shape, config).unwrap();
     let reference = forward_reference(&q, &k, &v, shape, config).unwrap();
     assert_close("fast O parity", &actual.output, &reference.output);
-    assert_close("fast LSE parity", &actual.lse, &reference.lse);
+    assert_close(
+        "fast LSE parity",
+        &actual.lse,
+        &reference.lse,
+    );
 }
 
 #[test]
