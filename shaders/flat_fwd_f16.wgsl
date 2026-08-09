@@ -1,8 +1,8 @@
-enable f16;
-
 // FLAT-ATTENTION M8 mixed-precision forward kernel.
 //
-// Q/K/V are stored as IEEE binary16 and promoted to f32 immediately after
+// WGPU/Naga 0.20 accepts f16 types directly when the device is created with
+// SHADER_F16; the later `enable f16;` WGSL directive is not parsed by Naga
+// 0.20. Q/K/V are stored as IEEE binary16 and promoted to f32 immediately after
 // loading. QK dot products, online-softmax state, probability weights and O
 // accumulation remain f32. O is quantized to binary16 only at final writeback;
 // LSE remains f32. The packed output buffer is:
