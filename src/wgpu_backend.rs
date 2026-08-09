@@ -293,8 +293,10 @@ impl WgpuFlatAttention {
 
         let params = [
             seq_len,
-            u32::try_from(shape.head_dim).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded {
-                elements: shape.head_dim,
+            u32::try_from(shape.head_dim).map_err(|_| {
+                WgpuFlatAttentionError::IndexSpaceExceeded {
+                    elements: shape.head_dim,
+                }
             })?,
             batch_heads,
             u32::from(config.causal),
@@ -344,12 +346,12 @@ impl WgpuFlatAttention {
                 ],
             });
 
-        let mut encoder = self
-            .inner
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("flat-attention-forward"),
-            });
+        let mut encoder =
+            self.inner
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("flat-attention-forward"),
+                });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flat-attention-forward"),
@@ -441,8 +443,10 @@ impl WgpuFlatAttention {
             u32::try_from(batch_heads).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded {
                 elements: batch_heads,
             })?,
-            u32::try_from(shape.seq_len).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded {
-                elements: shape.seq_len,
+            u32::try_from(shape.seq_len).map_err(|_| {
+                WgpuFlatAttentionError::IndexSpaceExceeded {
+                    elements: shape.seq_len,
+                }
             })?,
         ))
     }
@@ -487,12 +491,12 @@ impl WgpuFlatAttention {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        let mut encoder = self
-            .inner
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("flat-attention-readback"),
-            });
+        let mut encoder =
+            self.inner
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("flat-attention-readback"),
+                });
         encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
         self.inner.queue.submit(Some(encoder.finish()));
 
