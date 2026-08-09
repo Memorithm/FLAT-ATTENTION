@@ -100,9 +100,7 @@ fn fused_rope_grouped_wgpu_matches_oracle() {
                 };
                 let expected =
                     forward_reference_grouped_rope(&q, &k, &v, shape, config, rotary).unwrap();
-                let actual = context
-                    .forward(&q, &k, &v, shape, config, rotary)
-                    .unwrap();
+                let actual = context.forward(&q, &k, &v, shape, config, rotary).unwrap();
                 assert_close("R1 O", &actual.output, &expected.output);
                 assert_close("R1 LSE", &actual.lse, &expected.lse);
             }
