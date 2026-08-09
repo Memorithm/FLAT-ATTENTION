@@ -158,7 +158,7 @@ fn high_dynamic_range_scores_remain_finite_and_match_reference() {
 }
 
 #[test]
-fn causal_first_query_cannot_observe_future_values() {
+fn causal_first_query_uses_only_first_value_row() {
     let Some(context) = context() else {
         return;
     };
@@ -191,13 +191,11 @@ fn causal_first_query_cannot_observe_future_values() {
         )
         .unwrap();
 
-    for dim in 0..shape.head_dim {
-        assert_eq!(actual.output[dim], v[dim]);
-    }
+    assert_eq!(&actual.output[..shape.head_dim], &v[..shape.head_dim]);
 }
 
 #[test]
-fn unsupported_head_dimension_is_rejected_before_dispatch() {
+fn excessive_head_dimension_is_rejected_before_dispatch() {
     let Some(context) = context() else {
         return;
     };
