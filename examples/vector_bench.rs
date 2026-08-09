@@ -4,9 +4,7 @@ use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 #[cfg(feature = "wgpu")]
-use flat_attention::{
-    AttentionShape, FlatAttentionConfig, WgpuFlatAttention, WgpuSubgroupPolicy,
-};
+use flat_attention::{AttentionShape, FlatAttentionConfig, WgpuFlatAttention, WgpuSubgroupPolicy};
 
 #[cfg(feature = "wgpu")]
 fn fixture(shape: AttentionShape) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
@@ -91,8 +89,14 @@ fn main() {
     println!("shape=B1 H2 N128 D64 causal=true");
     println!("measurement=end-to-end upload + fused dispatch + readback");
     println!("iterations={iterations} warmup=3 statistic=median");
-    println!("scalar_variant={:?}", scalar.kernel_variant_for_head_dim(64));
-    println!("vector_variant={:?}", vector.kernel_variant_for_head_dim(64));
+    println!(
+        "scalar_variant={:?}",
+        scalar.kernel_variant_for_head_dim(64)
+    );
+    println!(
+        "vector_variant={:?}",
+        vector.kernel_variant_for_head_dim(64)
+    );
     println!(
         "q4_scalar_median_ms={:.3}",
         scalar_median.as_secs_f64() * 1_000.0
