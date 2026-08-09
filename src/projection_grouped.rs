@@ -104,22 +104,10 @@ pub fn forward_reference_projection_grouped_rope(
                     let mut dot = 0.0f32;
                     for pair in 0..shape.head_dim / 2 {
                         let dim = 2 * pair;
-                        let qe_idx = projection_index(
-                            batch,
-                            query_pos,
-                            q_head,
-                            dim,
-                            shape.q_heads,
-                            shape,
-                        )?;
-                        let ke_idx = projection_index(
-                            batch,
-                            key_pos,
-                            kv_head,
-                            dim,
-                            shape.kv_heads,
-                            shape,
-                        )?;
+                        let qe_idx =
+                            projection_index(batch, query_pos, q_head, dim, shape.q_heads, shape)?;
+                        let ke_idx =
+                            projection_index(batch, key_pos, kv_head, dim, shape.kv_heads, shape)?;
                         let (qe, qo) = rotated_pair(
                             q[qe_idx],
                             q[qe_idx + 1],
@@ -150,22 +138,10 @@ pub fn forward_reference_projection_grouped_rope(
                     let probability_numerator = (score - new_max).exp();
 
                     for dim in 0..shape.head_dim {
-                        let out_idx = projection_index(
-                            batch,
-                            query_pos,
-                            q_head,
-                            dim,
-                            shape.q_heads,
-                            shape,
-                        )?;
-                        let v_idx = projection_index(
-                            batch,
-                            key_pos,
-                            kv_head,
-                            dim,
-                            shape.kv_heads,
-                            shape,
-                        )?;
+                        let out_idx =
+                            projection_index(batch, query_pos, q_head, dim, shape.q_heads, shape)?;
+                        let v_idx =
+                            projection_index(batch, key_pos, kv_head, dim, shape.kv_heads, shape)?;
                         output[out_idx] =
                             output[out_idx] * alpha + probability_numerator * v[v_idx];
                     }
@@ -175,14 +151,8 @@ pub fn forward_reference_projection_grouped_rope(
 
                 let inv_sum = running_sum.recip();
                 for dim in 0..shape.head_dim {
-                    let out_idx = projection_index(
-                        batch,
-                        query_pos,
-                        q_head,
-                        dim,
-                        shape.q_heads,
-                        shape,
-                    )?;
+                    let out_idx =
+                        projection_index(batch, query_pos, q_head, dim, shape.q_heads, shape)?;
                     output[out_idx] *= inv_sum;
                 }
                 lse[lse_base + query_pos] = running_max + running_sum.ln();
