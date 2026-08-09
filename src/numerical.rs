@@ -290,10 +290,7 @@ mod tests {
     fn exact_executor_is_explicit_reference_execution() {
         let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
         assert_eq!(executor.mode(), NumericalMode::ExactReference);
-        assert_eq!(
-            executor.backend_kind(),
-            NumericalBackendKind::ReferenceCpu
-        );
+        assert_eq!(executor.backend_kind(), NumericalBackendKind::ReferenceCpu);
 
         let shape = AttentionShape {
             batch: 1,
