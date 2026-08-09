@@ -24,6 +24,20 @@ pub struct ExternalProjectionLayout {
     pub combined_bytes: u64,
 }
 
+/// One caller-owned FLAT-R2 dispatch description.
+///
+/// Buffers are borrowed and remain owned by the framework. The output buffer
+/// stores projection-layout O first and LSE in its tail.
+pub struct ExternalProjectionPass<'a> {
+    pub q: &'a wgpu::Buffer,
+    pub k: &'a wgpu::Buffer,
+    pub v: &'a wgpu::Buffer,
+    pub out_and_lse: &'a wgpu::Buffer,
+    pub shape: GroupedAttentionShape,
+    pub config: FlatAttentionConfig,
+    pub rotary: RotaryEmbeddingConfig,
+}
+
 /// Errors specific to caller-owned WGPU encoding.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExternalWgpuError {
@@ -170,7 +184,7 @@ impl ExternalProjectionRotaryGroupedPipeline {
 
     /// Record one fused R2 pass into an externally-owned command encoder.
     ///
-    /// Input and output buffers remain owned by the caller. Q/K/V must use the
+    /// The pass buffers remain owned by the caller. Q/K/V must use the
     /// sequence-major projection layout documented by
     /// [`crate::forward_reference_projection_grouped_rope`]. The first
     /// `output_elements` f32 values of `out_and_lse` are immediately a row-major
@@ -180,31 +194,25 @@ impl ExternalProjectionRotaryGroupedPipeline {
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
-        q: &wgpu::Buffer,
-        k: &wgpu::Buffer,
-        v: &wgpu::Buffer,
-        out_and_lse: &wgpu::Buffer,
-        shape: GroupedAttentionShape,
-        config: FlatAttentionConfig,
-        rotary: RotaryEmbeddingConfig,
+        pass: ExternalProjectionPass<'_>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
-        let dispatch = validate_dispatch(device, shape, rotary)?;
-        let layout = Self::layout(shape)?;
-        validate_buffer("Q", q, layout.q_bytes)?;
-        validate_buffer("K", k, layout.kv_bytes)?;
-        validate_buffer("V", v, layout.kv_bytes)?;
-        validate_buffer("O|LSE", out_and_lse, layout.combined_bytes)?;
-        let scale = config.resolved_scale(shape.head_dim)?;
+        let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
+        let layout = Self::layout(pass.shape)?;
+        validate_buffer("Q", pass.q, layout.q_bytes)?;
+        validate_buffer("K", pass.k, layout.kv_bytes)?;
+        validate_buffer("V", pass.v, layout.kv_bytes)?;
+        validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
+        let scale = pass.config.resolved_scale(pass.shape.head_dim)?;
 
         let params = [
             dispatch.seq_len,
-            checked_u32(shape.head_dim)?,
-            checked_u32(shape.q_heads)?,
-            checked_u32(shape.kv_heads)?,
-            checked_u32(shape.batch)?,
-            u32::from(config.causal),
+            checked_u32(pass.shape.head_dim)?,
+            checked_u32(pass.shape.q_heads)?,
+            checked_u32(pass.shape.kv_heads)?,
+            checked_u32(pass.shape.batch)?,
+            u32::from(pass.config.causal),
             scale.to_bits(),
-            rotary.theta.to_bits(),
+            pass.rotary.theta.to_bits(),
             dispatch.position_offset,
             0,
             0,
@@ -229,19 +237,19 @@ impl ExternalProjectionRotaryGroupedPipeline {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: q.as_entire_binding(),
+                    resource: pass.q.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: k.as_entire_binding(),
+                    resource: pass.k.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: v.as_entire_binding(),
+                    resource: pass.v.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: out_and_lse.as_entire_binding(),
+                    resource: pass.out_and_lse.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,
@@ -251,13 +259,17 @@ impl ExternalProjectionRotaryGroupedPipeline {
         });
 
         {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flat-r2-external-projection-rope-gqa"),
                 timestamp_writes: None,
             });
-            pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.q_batch_heads, 1);
+            compute_pass.set_pipeline(&self.pipeline);
+            compute_pass.set_bind_group(0, &bind_group, &[]);
+            compute_pass.dispatch_workgroups(
+                dispatch.query_workgroups,
+                dispatch.q_batch_heads,
+                1,
+            );
         }
 
         Ok(layout)
