@@ -14,6 +14,9 @@ pub use f16::{FlatAttentionF16Output, F16};
 mod grouped;
 pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
 
+mod rotary_grouped;
+pub use rotary_grouped::{forward_reference_grouped_rope, RotaryEmbeddingConfig};
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -33,6 +36,8 @@ pub const WGSL_QUERY_ROWS: usize = 4;
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
 /// M10 native GQA/MQA kernel without physical K/V head expansion.
 pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
+/// FLAT-R1 native GQA/MQA kernel with head-local RoPE fused into Q/K staging.
+pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -61,6 +66,13 @@ mod wgpu_grouped_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_grouped_backend::{
     WgpuGroupedAttention, WgpuGroupedResidentAttentionOutput, WgpuGroupedResidentBuffer,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_rotary_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_rotary_grouped_backend::{
+    WgpuRotaryGroupedAttention, WgpuRotaryGroupedResidentBuffer, WgpuRotaryGroupedResidentOutput,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
@@ -224,6 +236,11 @@ pub enum FlatAttentionError {
         q_heads: usize,
         kv_heads: usize,
     },
+    InvalidRotaryHeadDim {
+        head_dim: usize,
+    },
+    InvalidRotaryTheta(f32),
+    PositionOverflow,
     LengthMismatch {
         tensor: &'static str,
         actual: usize,
@@ -245,6 +262,14 @@ impl fmt::Display for FlatAttentionError {
                 f,
                 "q_heads ({q_heads}) must be exactly divisible by kv_heads ({kv_heads})"
             ),
+            Self::InvalidRotaryHeadDim { head_dim } => write!(
+                f,
+                "rotary attention head_dim must be non-zero and even, got {head_dim}"
+            ),
+            Self::InvalidRotaryTheta(theta) => {
+                write!(f, "rotary theta must be finite and positive, got {theta}")
+            }
+            Self::PositionOverflow => write!(f, "rotary position offset overflows the index space"),
             Self::LengthMismatch {
                 tensor,
                 actual,
