@@ -14,14 +14,6 @@ fn validate_shader(name: &str, source: &str) {
         .unwrap_or_else(|err| panic!("{name} WGSL validation failed: {err:?}"));
 }
 
-fn validate_f16_shader(name: &str, source: &str) {
-    let module = naga::front::wgsl::parse_str(source)
-        .unwrap_or_else(|err| panic!("{name} WGSL parse failed: {err:?}"));
-    Validator::new(ValidationFlags::all(), Capabilities::SHADER_FLOAT16)
-        .validate(&module)
-        .unwrap_or_else(|err| panic!("{name} WGSL validation failed: {err:?}"));
-}
-
 fn validate_subgroup_shader(name: &str, source: &str) {
     let module = naga::front::wgsl::parse_str(source)
         .unwrap_or_else(|err| panic!("{name} WGSL parse failed: {err:?}"));
@@ -49,8 +41,8 @@ fn double_buffer_q4_shader_parses_and_validates() {
 }
 
 #[test]
-fn f16_q4_shader_parses_and_validates_with_explicit_capability() {
-    validate_f16_shader("Q4 f16", FLAT_FWD_F16_WGSL);
+fn f16_q4_shader_parses_and_validates_with_naga_020() {
+    validate_shader("Q4 f16", FLAT_FWD_F16_WGSL);
 }
 
 #[test]
