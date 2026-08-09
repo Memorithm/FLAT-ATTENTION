@@ -293,8 +293,16 @@ fn external_pipeline_handles_mqa_and_rejects_short_buffers() {
     );
     let expected =
         forward_reference_projection_grouped_rope(&q, &k, &v, shape, config, rotary).unwrap();
-    assert_close("R2 MQA O", &values[..layout.output_elements], &expected.output);
-    assert_close("R2 MQA LSE", &values[layout.output_elements..], &expected.lse);
+    assert_close(
+        "R2 MQA O",
+        &values[..layout.output_elements],
+        &expected.output,
+    );
+    assert_close(
+        "R2 MQA LSE",
+        &values[layout.output_elements..],
+        &expected.lse,
+    );
 
     let short = harness.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-r2-short-buffer"),
