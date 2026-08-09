@@ -1,6 +1,6 @@
 use flat_attention::{
-    FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_WGSL, FLAT_FWD_SINGLE_WGSL,
-    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
+    FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_WGSL, FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL,
+    FLAT_FWD_WGSL,
 };
 use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
