@@ -432,9 +432,7 @@ fn create_pipeline(device: &wgpu::Device) -> Result<wgpu::ComputePipeline, WgpuF
     device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("flat-r1-fused-rope-gqa"),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-            FLAT_FWD_GROUPED_ROPE_WGSL,
-        )),
+        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_GROUPED_ROPE_WGSL)),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("flat-r1-fused-rope-gqa"),
