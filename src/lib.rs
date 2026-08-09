@@ -1,34 +1,36 @@
 //! FLAT-ATTENTION: Rust-native, IO-aware fused attention for SciRust.
 //!
-//! The first milestone deliberately contains no CUDA, C, C++, vendor SDK, or
-//! project-authored FFI. It establishes:
-//! - a deterministic Rust reference implementation using online softmax;
-//! - a fused WGSL forward kernel that never materializes the N x N score matrix;
-//! - a small public API whose tensor layout matches SciRust's contiguous
-//!   `[batch, heads, sequence, head_dim]` convention.
+//! The project keeps a deterministic scalar oracle and portable fused WGSL
+//! kernels under one explicit contract. Optimized generations are qualified
+//! against the oracle before becoming the default.
 
 #![forbid(unsafe_code)]
 
 use core::fmt;
 
-/// Maximum head dimension supported by the first portable WGSL kernel.
+/// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
 pub const WGSL_WORKGROUP_SIZE: usize = 64;
 /// Number of K/V rows staged in workgroup memory at once.
 pub const WGSL_KV_TILE: usize = 8;
+/// Number of query rows sharing each K/V tile in the M4 default kernel.
+pub const WGSL_QUERY_ROWS: usize = 4;
 
-/// Portable fused forward kernel source.
+/// M4 portable fused forward kernel: four query rows per workgroup.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
+/// Qualified M2/M3 one-query-row kernel retained as a baseline.
+pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
 #[cfg(feature = "wgpu")]
 mod wgpu_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_backend::{
-    WgpuFlatAttention, WgpuFlatAttentionError, WgpuResidentAttentionOutput, WgpuResidentBuffer,
+    WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuResidentAttentionOutput,
+    WgpuResidentBuffer,
 };
 
-/// Contiguous tensor shape used by FLAT-ATTENTION.
+/// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
     pub batch: usize,
@@ -87,6 +89,91 @@ impl FlatAttentionConfig {
         }
         Ok(scale)
     }
+}
+
+/// Static memory-traffic model for a fused kernel generation.
+///
+/// `kv_storage_scalar_loads` counts logical scalar loads of K plus V from
+/// storage into workgroup memory according to the kernel's explicit staging
+/// loops. It is an architectural count, not a claim about physical DRAM
+/// transactions, cache hits, bandwidth, or runtime speed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IoModel {
+    pub query_workgroups: usize,
+    pub kv_storage_scalar_loads: usize,
+}
+
+/// Analytical IO model for the qualified single-row baseline.
+pub fn single_row_io_model(
+    shape: AttentionShape,
+    _causal: bool,
+) -> Result<IoModel, FlatAttentionError> {
+    shape.validate()?;
+    let batch_heads = shape
+        .batch
+        .checked_mul(shape.heads)
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    let query_workgroups = batch_heads
+        .checked_mul(shape.seq_len)
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    // The M2/M3 baseline stages all sequence K/V tiles for every query
+    // workgroup. In causal mode its inner score loop exits on future keys, but
+    // the outer tile loop still stages the later K/V rows.
+    let loads_per_workgroup = 2usize
+        .checked_mul(shape.seq_len)
+        .and_then(|n| n.checked_mul(shape.head_dim))
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    Ok(IoModel {
+        query_workgroups,
+        kv_storage_scalar_loads: query_workgroups
+            .checked_mul(loads_per_workgroup)
+            .ok_or(FlatAttentionError::ShapeOverflow)?,
+    })
+}
+
+/// Analytical IO model for the M4 four-query-row tiled kernel.
+pub fn tiled_q4_io_model(
+    shape: AttentionShape,
+    causal: bool,
+) -> Result<IoModel, FlatAttentionError> {
+    shape.validate()?;
+    let batch_heads = shape
+        .batch
+        .checked_mul(shape.heads)
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    let query_tiles_per_head = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
+    let query_workgroups = batch_heads
+        .checked_mul(query_tiles_per_head)
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+
+    let mut kv_rows_per_head = 0usize;
+    for tile in 0..query_tiles_per_head {
+        let query_start = tile
+            .checked_mul(WGSL_QUERY_ROWS)
+            .ok_or(FlatAttentionError::ShapeOverflow)?;
+        let staged_rows = if causal {
+            query_start
+                .checked_add(WGSL_QUERY_ROWS)
+                .ok_or(FlatAttentionError::ShapeOverflow)?
+                .min(shape.seq_len)
+        } else {
+            shape.seq_len
+        };
+        kv_rows_per_head = kv_rows_per_head
+            .checked_add(staged_rows)
+            .ok_or(FlatAttentionError::ShapeOverflow)?;
+    }
+
+    let kv_storage_scalar_loads = batch_heads
+        .checked_mul(kv_rows_per_head)
+        .and_then(|n| n.checked_mul(shape.head_dim))
+        .and_then(|n| n.checked_mul(2))
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+
+    Ok(IoModel {
+        query_workgroups,
+        kv_storage_scalar_loads,
+    })
 }
 
 /// Result of a forward attention pass.
@@ -268,5 +355,34 @@ mod unit_tests {
             err,
             FlatAttentionError::LengthMismatch { tensor: "Q", .. }
         ));
+    }
+
+    #[test]
+    fn q4_io_model_reuses_kv_across_query_rows() {
+        let shape = AttentionShape {
+            batch: 1,
+            heads: 1,
+            seq_len: 128,
+            head_dim: 64,
+        };
+        let baseline = single_row_io_model(shape, false).unwrap();
+        let tiled = tiled_q4_io_model(shape, false).unwrap();
+        assert_eq!(baseline.query_workgroups, 128);
+        assert_eq!(tiled.query_workgroups, 32);
+        assert_eq!(baseline.kv_storage_scalar_loads, 4 * tiled.kv_storage_scalar_loads);
+    }
+
+    #[test]
+    fn q4_causal_io_model_skips_fully_future_kv_rows() {
+        let shape = AttentionShape {
+            batch: 1,
+            heads: 1,
+            seq_len: 8,
+            head_dim: 1,
+        };
+        let baseline = single_row_io_model(shape, true).unwrap();
+        let tiled = tiled_q4_io_model(shape, true).unwrap();
+        assert_eq!(baseline.kv_storage_scalar_loads, 128);
+        assert_eq!(tiled.kv_storage_scalar_loads, 24);
     }
 }
