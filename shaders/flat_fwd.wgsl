@@ -33,10 +33,10 @@ struct Params {
 @group(0) @binding(3) var<storage, read_write> out_and_lse: array<f32>;
 @group(0) @binding(4) var<uniform> params: Params;
 
-var<workgroup> q_shared: array<f32, 512>;       // QUERY_ROWS * MAX_HEAD_DIM
-var<workgroup> k_shared: array<f32, 1024>;      // KV_TILE * MAX_HEAD_DIM
+var<workgroup> q_shared: array<f32, 512>;
+var<workgroup> k_shared: array<f32, 1024>;
 var<workgroup> v_shared: array<f32, 1024>;
-var<workgroup> reduce_shared: array<f32, 256>;  // QUERY_ROWS * WORKGROUP_SIZE
+var<workgroup> reduce_shared: array<f32, 256>;
 var<workgroup> running_max_shared: array<f32, 4>;
 var<workgroup> running_sum_shared: array<f32, 4>;
 var<workgroup> alpha_shared: array<f32, 4>;
@@ -71,7 +71,6 @@ fn flat_attention_forward(
     var acc30 = 0.0;
     var acc31 = 0.0;
 
-    // Stage up to four Q rows once. Invalid tail rows remain unused.
     var qr = 0u;
     loop {
         if (qr >= QUERY_ROWS) {
@@ -98,8 +97,6 @@ fn flat_attention_forward(
     }
     workgroupBarrier();
 
-    // In causal mode, no query in this four-row tile can observe a key beyond
-    // the final valid query row. This avoids staging fully-future K/V tiles.
     let query_limit = min(params.seq_len, query_start + QUERY_ROWS);
     let kv_limit = select(params.seq_len, query_limit, params.causal != 0u);
 
@@ -141,15 +138,15 @@ fn flat_attention_forward(
                 }
                 let query_pos = query_start + qr;
                 let valid_query = query_pos < params.seq_len;
-                let active = valid_query && (params.causal == 0u || key_pos <= query_pos);
+                let participates = valid_query && (params.causal == 0u || key_pos <= query_pos);
                 let q_shared_base = qr * MAX_HEAD_DIM;
                 let reduce_base = qr * WORKGROUP_SIZE;
 
                 var partial = 0.0;
-                if (active && d0 < params.head_dim) {
+                if (participates && d0 < params.head_dim) {
                     partial += q_shared[q_shared_base + d0] * k_shared[shared_row + d0];
                 }
-                if (active && d1 < params.head_dim) {
+                if (participates && d1 < params.head_dim) {
                     partial += q_shared[q_shared_base + d1] * k_shared[shared_row + d1];
                 }
                 reduce_shared[reduce_base + lane] = partial;
@@ -168,7 +165,7 @@ fn flat_attention_forward(
                 }
 
                 if (lane == 0u) {
-                    if (active) {
+                    if (participates) {
                         let score = reduce_shared[reduce_base] * scale;
                         let previous_max = running_max_shared[qr];
                         let new_max = max(previous_max, score);
@@ -230,7 +227,6 @@ fn flat_attention_forward(
         tile_start += KV_TILE;
     }
 
-    // Normalize and store each valid query row.
     qr = 0u;
     loop {
         if (qr >= QUERY_ROWS) {
@@ -241,17 +237,33 @@ fn flat_attention_forward(
             let query_base = head_base + query_pos * params.head_dim;
             let inv_sum = 1.0 / running_sum_shared[qr];
             if (qr == 0u) {
-                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc00 * inv_sum; }
-                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc01 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    out_and_lse[query_base + d0] = acc00 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    out_and_lse[query_base + d1] = acc01 * inv_sum;
+                }
             } else if (qr == 1u) {
-                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc10 * inv_sum; }
-                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc11 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    out_and_lse[query_base + d0] = acc10 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    out_and_lse[query_base + d1] = acc11 * inv_sum;
+                }
             } else if (qr == 2u) {
-                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc20 * inv_sum; }
-                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc21 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    out_and_lse[query_base + d0] = acc20 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    out_and_lse[query_base + d1] = acc21 * inv_sum;
+                }
             } else {
-                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc30 * inv_sum; }
-                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc31 * inv_sum; }
+                if (d0 < params.head_dim) {
+                    out_and_lse[query_base + d0] = acc30 * inv_sum;
+                }
+                if (d1 < params.head_dim) {
+                    out_and_lse[query_base + d1] = acc31 * inv_sum;
+                }
             }
             if (lane == 0u) {
                 let lse_index = output_elems + bh * params.seq_len + query_pos;
