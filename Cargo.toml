@@ -10,8 +10,11 @@ repository = "https://github.com/Memorithm/FLAT-ATTENTION"
 [features]
 default = ["std"]
 std = []
+wgpu = ["std", "dep:wgpu", "dep:pollster"]
 
 [dependencies]
+wgpu = { version = "0.20", optional = true }
+pollster = { version = "0.3", optional = true }
 
 [dev-dependencies]
 naga = { version = "0.20", features = ["wgsl-in"] }
