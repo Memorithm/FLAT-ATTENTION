@@ -1,26 +1,17 @@
-// FLAT-ATTENTION portable fused forward kernel.
+// FLAT-ATTENTION portable fused forward kernel — Q4 tiled generation.
 //
-// Properties:
-// - Q/K/V/O layout: [batch_heads, sequence, head_dim], contiguous row-major.
-// - One workgroup computes one query row.
-// - K and V are staged in workgroup memory in tiles of 8 rows.
-// - Scores are consumed immediately by an online softmax; no N x N score or
-//   probability matrix is ever materialized in storage memory.
-// - O and LSE share one output storage buffer so the kernel requires only four
-//   storage bindings (Q, K, V, OUT), compatible with portable downlevel limits.
-// - head_dim is runtime-configurable from 1..128.
-// - f32 is used end-to-end in this portable baseline.
-//
-// Output storage layout:
-//   out_and_lse[0 .. tensor_elems] = O
-//   out_and_lse[tensor_elems .. tensor_elems + batch_heads * seq_len] = LSE
+// One workgroup computes up to four consecutive query rows. Each K/V tile is
+// staged once and reused by all four queries, reducing logical K/V storage loads
+// relative to the qualified single-row M2/M3 baseline. Scores are consumed by
+// online softmax and no N x N score/probability matrix is materialized.
 //
 // Dispatch contract:
-//   x = seq_len
+//   x = ceil(seq_len / QUERY_ROWS)
 //   y = batch_heads
 //   z = 1
 
 const WORKGROUP_SIZE: u32 = 64u;
+const QUERY_ROWS: u32 = 4u;
 const KV_TILE: u32 = 8u;
 const MAX_HEAD_DIM: u32 = 128u;
 const NEG_MAX_F32: f32 = -3.402823466e38;
@@ -42,64 +33,84 @@ struct Params {
 @group(0) @binding(3) var<storage, read_write> out_and_lse: array<f32>;
 @group(0) @binding(4) var<uniform> params: Params;
 
-var<workgroup> q_shared: array<f32, 128>;
-var<workgroup> k_shared: array<f32, 1024>; // KV_TILE * MAX_HEAD_DIM
+var<workgroup> q_shared: array<f32, 512>;       // QUERY_ROWS * MAX_HEAD_DIM
+var<workgroup> k_shared: array<f32, 1024>;      // KV_TILE * MAX_HEAD_DIM
 var<workgroup> v_shared: array<f32, 1024>;
-var<workgroup> reduce_shared: array<f32, 64>;
-var<workgroup> running_max_shared: f32;
-var<workgroup> running_sum_shared: f32;
-var<workgroup> alpha_shared: f32;
-var<workgroup> p_shared: f32;
+var<workgroup> reduce_shared: array<f32, 256>;  // QUERY_ROWS * WORKGROUP_SIZE
+var<workgroup> running_max_shared: array<f32, 4>;
+var<workgroup> running_sum_shared: array<f32, 4>;
+var<workgroup> alpha_shared: array<f32, 4>;
+var<workgroup> p_shared: array<f32, 4>;
 
 @compute @workgroup_size(64, 1, 1)
 fn flat_attention_forward(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_id) local_id: vec3<u32>,
 ) {
-    let query_pos = workgroup_id.x;
+    let query_start = workgroup_id.x * QUERY_ROWS;
     let bh = workgroup_id.y;
     let lane = local_id.x;
 
-    if (query_pos >= params.seq_len || bh >= params.batch_heads || params.head_dim == 0u || params.head_dim > MAX_HEAD_DIM) {
+    if (query_start >= params.seq_len || bh >= params.batch_heads || params.head_dim == 0u || params.head_dim > MAX_HEAD_DIM) {
         return;
     }
 
     let scale = bitcast<f32>(params.scale_bits);
     let head_stride = params.seq_len * params.head_dim;
     let head_base = bh * head_stride;
-    let query_base = head_base + query_pos * params.head_dim;
     let output_elems = params.batch_heads * head_stride;
-
-    // Each lane owns at most two output dimensions because MAX_HEAD_DIM = 128
-    // and WORKGROUP_SIZE = 64.
     let d0 = lane;
     let d1 = lane + WORKGROUP_SIZE;
-    var acc0 = 0.0;
-    var acc1 = 0.0;
 
-    if (d0 < params.head_dim) {
-        q_shared[d0] = q[query_base + d0];
-    }
-    if (d1 < params.head_dim) {
-        q_shared[d1] = q[query_base + d1];
-    }
+    var acc00 = 0.0;
+    var acc01 = 0.0;
+    var acc10 = 0.0;
+    var acc11 = 0.0;
+    var acc20 = 0.0;
+    var acc21 = 0.0;
+    var acc30 = 0.0;
+    var acc31 = 0.0;
 
-    if (lane == 0u) {
-        running_max_shared = NEG_MAX_F32;
-        running_sum_shared = 0.0;
+    // Stage up to four Q rows once. Invalid tail rows remain unused.
+    var qr = 0u;
+    loop {
+        if (qr >= QUERY_ROWS) {
+            break;
+        }
+        let query_pos = query_start + qr;
+        let q_shared_base = qr * MAX_HEAD_DIM;
+        if (query_pos < params.seq_len) {
+            let query_base = head_base + query_pos * params.head_dim;
+            if (d0 < params.head_dim) {
+                q_shared[q_shared_base + d0] = q[query_base + d0];
+            }
+            if (d1 < params.head_dim) {
+                q_shared[q_shared_base + d1] = q[query_base + d1];
+            }
+        }
+        if (lane == 0u) {
+            running_max_shared[qr] = NEG_MAX_F32;
+            running_sum_shared[qr] = 0.0;
+            alpha_shared[qr] = 1.0;
+            p_shared[qr] = 0.0;
+        }
+        qr += 1u;
     }
     workgroupBarrier();
 
+    // In causal mode, no query in this four-row tile can observe a key beyond
+    // the final valid query row. This avoids staging fully-future K/V tiles.
+    let query_limit = min(params.seq_len, query_start + QUERY_ROWS);
+    let kv_limit = select(params.seq_len, query_limit, params.causal != 0u);
+
     var tile_start = 0u;
     loop {
-        if (tile_start >= params.seq_len) {
+        if (tile_start >= kv_limit) {
             break;
         }
-        let tile_rows = min(KV_TILE, params.seq_len - tile_start);
+        let tile_rows = min(KV_TILE, kv_limit - tile_start);
         let tile_elements = tile_rows * params.head_dim;
 
-        // Cooperative K/V staging. Workgroup layout is padded to MAX_HEAD_DIM
-        // so indexing stays simple and deterministic for every head_dim.
         var linear = lane;
         loop {
             if (linear >= tile_elements) {
@@ -121,57 +132,97 @@ fn flat_attention_forward(
                 break;
             }
             let key_pos = tile_start + tile_row;
-
-            // Causal rows can stop once the tile reaches future keys. The
-            // condition is workgroup-uniform because query/key positions are.
-            if (params.causal != 0u && key_pos > query_pos) {
-                break;
-            }
-
             let shared_row = tile_row * MAX_HEAD_DIM;
-            var partial = 0.0;
-            if (d0 < params.head_dim) {
-                partial += q_shared[d0] * k_shared[shared_row + d0];
-            }
-            if (d1 < params.head_dim) {
-                partial += q_shared[d1] * k_shared[shared_row + d1];
-            }
-            reduce_shared[lane] = partial;
-            workgroupBarrier();
 
-            // Fixed tree reduction: deterministic within this kernel.
-            var offset = 32u;
+            qr = 0u;
             loop {
-                if (offset == 0u) {
+                if (qr >= QUERY_ROWS) {
                     break;
                 }
-                if (lane < offset) {
-                    reduce_shared[lane] += reduce_shared[lane + offset];
+                let query_pos = query_start + qr;
+                let valid_query = query_pos < params.seq_len;
+                let active = valid_query && (params.causal == 0u || key_pos <= query_pos);
+                let q_shared_base = qr * MAX_HEAD_DIM;
+                let reduce_base = qr * WORKGROUP_SIZE;
+
+                var partial = 0.0;
+                if (active && d0 < params.head_dim) {
+                    partial += q_shared[q_shared_base + d0] * k_shared[shared_row + d0];
+                }
+                if (active && d1 < params.head_dim) {
+                    partial += q_shared[q_shared_base + d1] * k_shared[shared_row + d1];
+                }
+                reduce_shared[reduce_base + lane] = partial;
+                workgroupBarrier();
+
+                var offset = 32u;
+                loop {
+                    if (offset == 0u) {
+                        break;
+                    }
+                    if (lane < offset) {
+                        reduce_shared[reduce_base + lane] += reduce_shared[reduce_base + lane + offset];
+                    }
+                    workgroupBarrier();
+                    offset = offset / 2u;
+                }
+
+                if (lane == 0u) {
+                    if (active) {
+                        let score = reduce_shared[reduce_base] * scale;
+                        let previous_max = running_max_shared[qr];
+                        let new_max = max(previous_max, score);
+                        let alpha = select(
+                            exp(previous_max - new_max),
+                            0.0,
+                            running_sum_shared[qr] == 0.0,
+                        );
+                        let p = exp(score - new_max);
+                        running_max_shared[qr] = new_max;
+                        running_sum_shared[qr] = running_sum_shared[qr] * alpha + p;
+                        alpha_shared[qr] = alpha;
+                        p_shared[qr] = p;
+                    } else {
+                        alpha_shared[qr] = 1.0;
+                        p_shared[qr] = 0.0;
+                    }
                 }
                 workgroupBarrier();
-                offset = offset / 2u;
-            }
 
-            if (lane == 0u) {
-                let score = reduce_shared[0] * scale;
-                let previous_max = running_max_shared;
-                let new_max = max(previous_max, score);
-                let alpha = select(exp(previous_max - new_max), 0.0, running_sum_shared == 0.0);
-                let p = exp(score - new_max);
-                running_max_shared = new_max;
-                running_sum_shared = running_sum_shared * alpha + p;
-                alpha_shared = alpha;
-                p_shared = p;
+                let alpha = alpha_shared[qr];
+                let p = p_shared[qr];
+                if (qr == 0u) {
+                    if (d0 < params.head_dim) {
+                        acc00 = acc00 * alpha + p * v_shared[shared_row + d0];
+                    }
+                    if (d1 < params.head_dim) {
+                        acc01 = acc01 * alpha + p * v_shared[shared_row + d1];
+                    }
+                } else if (qr == 1u) {
+                    if (d0 < params.head_dim) {
+                        acc10 = acc10 * alpha + p * v_shared[shared_row + d0];
+                    }
+                    if (d1 < params.head_dim) {
+                        acc11 = acc11 * alpha + p * v_shared[shared_row + d1];
+                    }
+                } else if (qr == 2u) {
+                    if (d0 < params.head_dim) {
+                        acc20 = acc20 * alpha + p * v_shared[shared_row + d0];
+                    }
+                    if (d1 < params.head_dim) {
+                        acc21 = acc21 * alpha + p * v_shared[shared_row + d1];
+                    }
+                } else {
+                    if (d0 < params.head_dim) {
+                        acc30 = acc30 * alpha + p * v_shared[shared_row + d0];
+                    }
+                    if (d1 < params.head_dim) {
+                        acc31 = acc31 * alpha + p * v_shared[shared_row + d1];
+                    }
+                }
+                workgroupBarrier();
+                qr += 1u;
             }
-            workgroupBarrier();
-
-            if (d0 < params.head_dim) {
-                acc0 = acc0 * alpha_shared + p_shared * v_shared[shared_row + d0];
-            }
-            if (d1 < params.head_dim) {
-                acc1 = acc1 * alpha_shared + p_shared * v_shared[shared_row + d1];
-            }
-            workgroupBarrier();
             tile_row += 1u;
         }
 
@@ -179,15 +230,34 @@ fn flat_attention_forward(
         tile_start += KV_TILE;
     }
 
-    let inv_sum = 1.0 / running_sum_shared;
-    if (d0 < params.head_dim) {
-        out_and_lse[query_base + d0] = acc0 * inv_sum;
-    }
-    if (d1 < params.head_dim) {
-        out_and_lse[query_base + d1] = acc1 * inv_sum;
-    }
-    if (lane == 0u) {
-        let lse_index = output_elems + bh * params.seq_len + query_pos;
-        out_and_lse[lse_index] = running_max_shared + log(running_sum_shared);
+    // Normalize and store each valid query row.
+    qr = 0u;
+    loop {
+        if (qr >= QUERY_ROWS) {
+            break;
+        }
+        let query_pos = query_start + qr;
+        if (query_pos < params.seq_len) {
+            let query_base = head_base + query_pos * params.head_dim;
+            let inv_sum = 1.0 / running_sum_shared[qr];
+            if (qr == 0u) {
+                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc00 * inv_sum; }
+                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc01 * inv_sum; }
+            } else if (qr == 1u) {
+                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc10 * inv_sum; }
+                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc11 * inv_sum; }
+            } else if (qr == 2u) {
+                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc20 * inv_sum; }
+                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc21 * inv_sum; }
+            } else {
+                if (d0 < params.head_dim) { out_and_lse[query_base + d0] = acc30 * inv_sum; }
+                if (d1 < params.head_dim) { out_and_lse[query_base + d1] = acc31 * inv_sum; }
+            }
+            if (lane == 0u) {
+                let lse_index = output_elems + bh * params.seq_len + query_pos;
+                out_and_lse[lse_index] = running_max_shared[qr] + log(running_sum_shared[qr]);
+            }
+        }
+        qr += 1u;
     }
 }
