@@ -173,7 +173,7 @@ mod tests {
             0.0,
             0.1,
             1.0,
-            3.141_592_7,
+            core::f32::consts::PI,
             1024.5,
         ] {
             let decoded = F16::from_f32(value).to_f32();
