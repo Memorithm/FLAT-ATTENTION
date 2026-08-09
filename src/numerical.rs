@@ -6,7 +6,10 @@
 
 use core::fmt;
 
-use super::{forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput};
+use super::{
+    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError,
+    FlatAttentionOutput,
+};
 
 #[cfg(feature = "wgpu")]
 use super::{WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuSubgroupPolicy};
@@ -59,9 +62,9 @@ pub struct NumericalGuarantees {
     pub accumulation: AccumulationPolicy,
     pub reduction: ReductionPolicy,
     pub softmax_update: SoftmaxUpdatePolicy,
-    /// Targeted guarantee: repeated identical calls on the same qualified
-    /// backend/device/context must reproduce identical FP32 bit patterns.
-    pub same_device_repeatable: bool,
+    /// Repeated identical calls are required to reproduce identical FP32 bit
+    /// patterns under the same qualified backend/device/context contract.
+    pub repeatable_same_backend_device: bool,
     /// Whether native subgroup reduction may be selected.
     pub allows_subgroup: bool,
 }
@@ -73,21 +76,21 @@ impl NumericalMode {
                 accumulation: AccumulationPolicy::SerialFp32,
                 reduction: ReductionPolicy::SerialReference,
                 softmax_update: SoftmaxUpdatePolicy::StableOnlineFp32,
-                same_device_repeatable: true,
+                repeatable_same_backend_device: true,
                 allows_subgroup: false,
             },
             Self::FastPortable => NumericalGuarantees {
                 accumulation: AccumulationPolicy::CapabilityOptimizedFp32,
                 reduction: ReductionPolicy::CapabilityOptimized,
                 softmax_update: SoftmaxUpdatePolicy::StableOnlineFp32,
-                same_device_repeatable: false,
+                repeatable_same_backend_device: false,
                 allows_subgroup: true,
             },
             Self::DeterministicPortable => NumericalGuarantees {
                 accumulation: AccumulationPolicy::FixedTreeFp32,
                 reduction: ReductionPolicy::FixedWorkgroupTree,
                 softmax_update: SoftmaxUpdatePolicy::StableOnlineFp32,
-                same_device_repeatable: true,
+                repeatable_same_backend_device: true,
                 allows_subgroup: false,
             },
         }
@@ -174,8 +177,8 @@ impl NumericalExecutor {
         self.mode.guarantees()
     }
 
-    pub const fn backend_kind(&self) -> NumericalBackendKind {
-        match self.backend {
+    pub fn backend_kind(&self) -> NumericalBackendKind {
+        match &self.backend {
             NumericalBackend::Reference => NumericalBackendKind::ReferenceCpu,
             #[cfg(feature = "wgpu")]
             NumericalBackend::Wgpu(_) => NumericalBackendKind::Wgpu,
@@ -220,10 +223,10 @@ impl NumericalExecutor {
     fn new_fast_portable() -> Result<Self, NumericalError> {
         #[cfg(feature = "wgpu")]
         {
-            return Ok(Self {
+            Ok(Self {
                 mode: NumericalMode::FastPortable,
                 backend: NumericalBackend::Wgpu(WgpuFlatAttention::new()?),
-            });
+            })
         }
         #[cfg(not(feature = "wgpu"))]
         {
@@ -241,10 +244,10 @@ impl NumericalExecutor {
                 true,
                 false,
             )?;
-            return Ok(Self {
+            Ok(Self {
                 mode: NumericalMode::DeterministicPortable,
                 backend: NumericalBackend::Wgpu(context),
-            });
+            })
         }
         #[cfg(not(feature = "wgpu"))]
         {
@@ -262,7 +265,7 @@ mod tests {
         let exact = NumericalMode::ExactReference.guarantees();
         assert_eq!(exact.accumulation, AccumulationPolicy::SerialFp32);
         assert_eq!(exact.reduction, ReductionPolicy::SerialReference);
-        assert!(exact.same_device_repeatable);
+        assert!(exact.repeatable_same_backend_device);
         assert!(!exact.allows_subgroup);
 
         let fast = NumericalMode::FastPortable.guarantees();
@@ -271,7 +274,7 @@ mod tests {
             AccumulationPolicy::CapabilityOptimizedFp32
         );
         assert_eq!(fast.reduction, ReductionPolicy::CapabilityOptimized);
-        assert!(!fast.same_device_repeatable);
+        assert!(!fast.repeatable_same_backend_device);
         assert!(fast.allows_subgroup);
 
         let deterministic = NumericalMode::DeterministicPortable.guarantees();
@@ -283,7 +286,7 @@ mod tests {
             deterministic.reduction,
             ReductionPolicy::FixedWorkgroupTree
         );
-        assert!(deterministic.same_device_repeatable);
+        assert!(deterministic.repeatable_same_backend_device);
         assert!(!deterministic.allows_subgroup);
     }
 
@@ -291,7 +294,10 @@ mod tests {
     fn exact_executor_is_explicit_reference_execution() {
         let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
         assert_eq!(executor.mode(), NumericalMode::ExactReference);
-        assert_eq!(executor.backend_kind(), NumericalBackendKind::ReferenceCpu);
+        assert_eq!(
+            executor.backend_kind(),
+            NumericalBackendKind::ReferenceCpu
+        );
 
         let shape = AttentionShape {
             batch: 1,
@@ -302,7 +308,8 @@ mod tests {
         let q = [1.0, 0.0, 0.0, 1.0];
         let k = [1.0, 0.0, 0.0, 1.0];
         let v = [2.0, 3.0, 5.0, 7.0];
-        let expected = forward_reference(&q, &k, &v, shape, FlatAttentionConfig::default()).unwrap();
+        let expected =
+            forward_reference(&q, &k, &v, shape, FlatAttentionConfig::default()).unwrap();
         let actual = executor
             .forward(&q, &k, &v, shape, FlatAttentionConfig::default())
             .unwrap();
