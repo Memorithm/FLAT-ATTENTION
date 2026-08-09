@@ -7,8 +7,7 @@
 use core::fmt;
 
 use super::{
-    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError,
-    FlatAttentionOutput,
+    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
 };
 
 #[cfg(feature = "wgpu")]
@@ -198,9 +197,9 @@ impl NumericalExecutor {
                 forward_reference(q, k, v, shape, config).map_err(Into::into)
             }
             #[cfg(feature = "wgpu")]
-            NumericalBackend::Wgpu(context) => context
-                .forward(q, k, v, shape, config)
-                .map_err(Into::into),
+            NumericalBackend::Wgpu(context) => {
+                context.forward(q, k, v, shape, config).map_err(Into::into)
+            }
         }
     }
 
@@ -282,10 +281,7 @@ mod tests {
             deterministic.accumulation,
             AccumulationPolicy::FixedTreeFp32
         );
-        assert_eq!(
-            deterministic.reduction,
-            ReductionPolicy::FixedWorkgroupTree
-        );
+        assert_eq!(deterministic.reduction, ReductionPolicy::FixedWorkgroupTree);
         assert!(deterministic.repeatable_same_backend_device);
         assert!(!deterministic.allows_subgroup);
     }
@@ -294,10 +290,7 @@ mod tests {
     fn exact_executor_is_explicit_reference_execution() {
         let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
         assert_eq!(executor.mode(), NumericalMode::ExactReference);
-        assert_eq!(
-            executor.backend_kind(),
-            NumericalBackendKind::ReferenceCpu
-        );
+        assert_eq!(executor.backend_kind(), NumericalBackendKind::ReferenceCpu);
 
         let shape = AttentionShape {
             batch: 1,
