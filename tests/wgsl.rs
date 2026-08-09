@@ -2,6 +2,8 @@ use flat_attention::{FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL
 use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
+const FLAT_FWD_DOUBLE_BUFFER_WGSL: &str =
+    include_str!("../shaders/flat_fwd_double_buffer.wgsl");
 
 fn validate_shader(name: &str, source: &str) {
     let module = naga::front::wgsl::parse_str(source)
@@ -30,6 +32,11 @@ fn q4_fused_forward_shader_parses_and_validates() {
 #[test]
 fn vec4_q4_shader_parses_and_validates() {
     validate_shader("Q4 vec4", FLAT_FWD_VEC4_WGSL);
+}
+
+#[test]
+fn double_buffer_q4_shader_parses_and_validates() {
+    validate_shader("Q4 double-buffer", FLAT_FWD_DOUBLE_BUFFER_WGSL);
 }
 
 #[test]
