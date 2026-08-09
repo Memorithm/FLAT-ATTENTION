@@ -1,13 +1,19 @@
-// FLAT-ATTENTION portable fused forward kernel, milestone 1.
+// FLAT-ATTENTION portable fused forward kernel.
 //
 // Properties:
 // - Q/K/V/O layout: [batch_heads, sequence, head_dim], contiguous row-major.
 // - One workgroup computes one query row.
-// - K and V are staged in workgroup memory in tiles of 16 rows.
+// - K and V are staged in workgroup memory in tiles of 8 rows.
 // - Scores are consumed immediately by an online softmax; no N x N score or
 //   probability matrix is ever materialized in storage memory.
+// - O and LSE share one output storage buffer so the kernel requires only four
+//   storage bindings (Q, K, V, OUT), compatible with portable downlevel limits.
 // - head_dim is runtime-configurable from 1..128.
 // - f32 is used end-to-end in this portable baseline.
+//
+// Output storage layout:
+//   out_and_lse[0 .. tensor_elems] = O
+//   out_and_lse[tensor_elems .. tensor_elems + batch_heads * seq_len] = LSE
 //
 // Dispatch contract:
 //   x = seq_len
@@ -15,7 +21,7 @@
 //   z = 1
 
 const WORKGROUP_SIZE: u32 = 64u;
-const KV_TILE: u32 = 16u;
+const KV_TILE: u32 = 8u;
 const MAX_HEAD_DIM: u32 = 128u;
 const NEG_MAX_F32: f32 = -3.402823466e38;
 
@@ -24,22 +30,21 @@ struct Params {
     head_dim: u32,
     batch_heads: u32,
     causal: u32,
-    scale: f32,
-    _pad0: f32,
-    _pad1: f32,
-    _pad2: f32,
+    scale_bits: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
 };
 
 @group(0) @binding(0) var<storage, read> q: array<f32>;
 @group(0) @binding(1) var<storage, read> k: array<f32>;
 @group(0) @binding(2) var<storage, read> v: array<f32>;
-@group(0) @binding(3) var<storage, read_write> o: array<f32>;
-@group(0) @binding(4) var<storage, read_write> lse: array<f32>;
-@group(0) @binding(5) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read_write> out_and_lse: array<f32>;
+@group(0) @binding(4) var<uniform> params: Params;
 
 var<workgroup> q_shared: array<f32, 128>;
-var<workgroup> k_shared: array<f32, 2048>; // KV_TILE * MAX_HEAD_DIM
-var<workgroup> v_shared: array<f32, 2048>;
+var<workgroup> k_shared: array<f32, 1024>; // KV_TILE * MAX_HEAD_DIM
+var<workgroup> v_shared: array<f32, 1024>;
 var<workgroup> reduce_shared: array<f32, 64>;
 var<workgroup> running_max_shared: f32;
 var<workgroup> running_sum_shared: f32;
@@ -59,9 +64,11 @@ fn flat_attention_forward(
         return;
     }
 
+    let scale = bitcast<f32>(params.scale_bits);
     let head_stride = params.seq_len * params.head_dim;
     let head_base = bh * head_stride;
     let query_base = head_base + query_pos * params.head_dim;
+    let output_elems = params.batch_heads * head_stride;
 
     // Each lane owns at most two output dimensions because MAX_HEAD_DIM = 128
     // and WORKGROUP_SIZE = 64.
@@ -92,7 +99,7 @@ fn flat_attention_forward(
         let tile_elements = tile_rows * params.head_dim;
 
         // Cooperative K/V staging. Workgroup layout is padded to MAX_HEAD_DIM
-        // so the indexing remains simple and deterministic for every head_dim.
+        // so indexing stays simple and deterministic for every head_dim.
         var linear = lane;
         loop {
             if (linear >= tile_elements) {
@@ -115,7 +122,8 @@ fn flat_attention_forward(
             }
             let key_pos = tile_start + tile_row;
 
-            // Causal rows can stop once the tile reaches future keys.
+            // Causal rows can stop once the tile reaches future keys. The
+            // condition is workgroup-uniform because query/key positions are.
             if (params.causal != 0u && key_pos > query_pos) {
                 break;
             }
@@ -145,7 +153,7 @@ fn flat_attention_forward(
             }
 
             if (lane == 0u) {
-                let score = reduce_shared[0] * params.scale;
+                let score = reduce_shared[0] * scale;
                 let previous_max = running_max_shared;
                 let new_max = max(previous_max, score);
                 let alpha = select(exp(previous_max - new_max), 0.0, running_sum_shared == 0.0);
@@ -173,12 +181,13 @@ fn flat_attention_forward(
 
     let inv_sum = 1.0 / running_sum_shared;
     if (d0 < params.head_dim) {
-        o[query_base + d0] = acc0 * inv_sum;
+        out_and_lse[query_base + d0] = acc0 * inv_sum;
     }
     if (d1 < params.head_dim) {
-        o[query_base + d1] = acc1 * inv_sum;
+        out_and_lse[query_base + d1] = acc1 * inv_sum;
     }
     if (lane == 0u) {
-        lse[bh * params.seq_len + query_pos] = running_max_shared + log(running_sum_shared);
+        let lse_index = output_elems + bh * params.seq_len + query_pos;
+        out_and_lse[lse_index] = running_max_shared + log(running_sum_shared);
     }
 }
