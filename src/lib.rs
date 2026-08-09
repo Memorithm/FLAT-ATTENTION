@@ -19,15 +19,14 @@ pub const WGSL_QUERY_ROWS: usize = 4;
 
 /// M4 portable fused forward kernel: four query rows per workgroup.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
-/// Qualified M2/M3 one-query-row kernel retained as a baseline.
+/// Qualified M2/M3 one-query-row kernel retained as a baseline source.
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
 #[cfg(feature = "wgpu")]
 mod wgpu_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_backend::{
-    WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuResidentAttentionOutput,
-    WgpuResidentBuffer,
+    WgpuFlatAttention, WgpuFlatAttentionError, WgpuResidentAttentionOutput, WgpuResidentBuffer,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
@@ -116,9 +115,6 @@ pub fn single_row_io_model(
     let query_workgroups = batch_heads
         .checked_mul(shape.seq_len)
         .ok_or(FlatAttentionError::ShapeOverflow)?;
-    // The M2/M3 baseline stages all sequence K/V tiles for every query
-    // workgroup. In causal mode its inner score loop exits on future keys, but
-    // the outer tile loop still stages the later K/V rows.
     let loads_per_workgroup = 2usize
         .checked_mul(shape.seq_len)
         .and_then(|n| n.checked_mul(shape.head_dim))
