@@ -56,6 +56,13 @@ pub use wgpu_f16_backend::{
     WgpuResidentF16AttentionOutput, WgpuResidentF16Buffer,
 };
 
+#[cfg(feature = "wgpu")]
+mod wgpu_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_grouped_backend::{
+    WgpuGroupedAttention, WgpuGroupedResidentAttentionOutput, WgpuGroupedResidentBuffer,
+};
+
 /// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
