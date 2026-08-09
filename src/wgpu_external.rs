@@ -265,11 +265,7 @@ impl ExternalProjectionRotaryGroupedPipeline {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            compute_pass.dispatch_workgroups(
-                dispatch.query_workgroups,
-                dispatch.q_batch_heads,
-                1,
-            );
+            compute_pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.q_batch_heads, 1);
         }
 
         Ok(layout)
