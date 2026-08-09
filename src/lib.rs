@@ -17,6 +17,9 @@ pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
 mod rotary_grouped;
 pub use rotary_grouped::{forward_reference_grouped_rope, RotaryEmbeddingConfig};
 
+mod projection_grouped;
+pub use projection_grouped::forward_reference_projection_grouped_rope;
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -38,6 +41,9 @@ pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
 pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
 /// FLAT-R1 native GQA/MQA kernel with head-local RoPE fused into Q/K staging.
 pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
+/// FLAT-R2 direct sequence-major projection-layout RoPE + GQA/MQA kernel.
+pub const FLAT_FWD_PROJECTION_ROPE_WGSL: &str =
+    include_str!("../shaders/flat_fwd_projection_rope.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -73,6 +79,13 @@ mod wgpu_rotary_grouped_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_rotary_grouped_backend::{
     WgpuRotaryGroupedAttention, WgpuRotaryGroupedResidentBuffer, WgpuRotaryGroupedResidentOutput,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_external;
+#[cfg(feature = "wgpu")]
+pub use wgpu_external::{
+    ExternalProjectionLayout, ExternalProjectionRotaryGroupedPipeline, ExternalWgpuError,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
