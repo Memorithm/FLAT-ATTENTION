@@ -59,21 +59,12 @@ impl AttentionShape {
 }
 
 /// Forward configuration shared by reference and GPU kernels.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct FlatAttentionConfig {
     /// Apply autoregressive masking (`key_position > query_position`).
     pub causal: bool,
     /// Optional score multiplier. Defaults to `1 / sqrt(head_dim)`.
     pub softmax_scale: Option<f32>,
-}
-
-impl Default for FlatAttentionConfig {
-    fn default() -> Self {
-        Self {
-            causal: false,
-            softmax_scale: None,
-        }
-    }
 }
 
 impl FlatAttentionConfig {
