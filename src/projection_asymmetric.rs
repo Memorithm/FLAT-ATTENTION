@@ -16,22 +16,19 @@ use super::{
 /// decode uses the absolute position of the new query for `query_position_offset`
 /// while the resident cache can keep its original `kv_position_offset`.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct AsymmetricRotaryEmbeddingConfig
-{
+pub struct AsymmetricRotaryEmbeddingConfig {
     pub theta: f32,
     pub query_position_offset: usize,
     pub kv_position_offset: usize,
 }
 
-impl AsymmetricRotaryEmbeddingConfig
-{
+impl AsymmetricRotaryEmbeddingConfig {
     pub fn validate(
         self,
         head_dim: usize,
         query_len: usize,
         kv_len: usize,
-    ) -> Result<(), FlatAttentionError>
-    {
+    ) -> Result<(), FlatAttentionError> {
         RotaryEmbeddingConfig {
             theta: self.theta,
             position_offset: self.query_position_offset,
@@ -54,8 +51,7 @@ fn projection_index(
     heads: usize,
     seq_len: usize,
     head_dim: usize,
-) -> Result<usize, FlatAttentionError>
-{
+) -> Result<usize, FlatAttentionError> {
     let width = heads
         .checked_mul(head_dim)
         .ok_or(FlatAttentionError::ShapeOverflow)?;
@@ -79,8 +75,7 @@ fn rotated_pair(
     head_dim: usize,
     position: usize,
     theta: f32,
-) -> (f32, f32)
-{
+) -> (f32, f32) {
     let exponent = -2.0 * pair as f32 / head_dim as f32;
     let frequency = theta.powf(exponent);
     let angle = position as f32 * frequency;
@@ -106,8 +101,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
     shape: AsymmetricGroupedAttentionShape,
     config: FlatAttentionConfig,
     rotary: AsymmetricRotaryEmbeddingConfig,
-) -> Result<FlatAttentionOutput, FlatAttentionError>
-{
+) -> Result<FlatAttentionOutput, FlatAttentionError> {
     shape.validate()?;
     rotary.validate(shape.head_dim, shape.query_len, shape.kv_len)?;
     let q_len = shape.q_tensor_len()?;
@@ -121,15 +115,12 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
     let mut output = vec![0.0f32; q_len];
     let mut lse = vec![0.0f32; shape.lse_len()?];
 
-    for batch in 0..shape.batch
-    {
-        for q_head in 0..shape.q_heads
-        {
+    for batch in 0..shape.batch {
+        for q_head in 0..shape.q_heads {
             let kv_head = q_head / group_size;
             let lse_base = (batch * shape.q_heads + q_head) * shape.query_len;
 
-            for query_pos in 0..shape.query_len
-            {
+            for query_pos in 0..shape.query_len {
                 let causal_query_position = shape
                     .query_position_offset
                     .checked_add(query_pos)
@@ -141,10 +132,8 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
                 let mut running_max = f32::NEG_INFINITY;
                 let mut running_sum = 0.0f32;
 
-                for key_pos in 0..shape.kv_len
-                {
-                    if config.causal && key_pos > causal_query_position
-                    {
+                for key_pos in 0..shape.kv_len {
+                    if config.causal && key_pos > causal_query_position {
                         break;
                     }
                     let key_rotary_position = rotary
@@ -152,8 +141,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
                         .checked_add(key_pos)
                         .ok_or(FlatAttentionError::PositionOverflow)?;
                     let mut dot = 0.0f32;
-                    for pair in 0..shape.head_dim / 2
-                    {
+                    for pair in 0..shape.head_dim / 2 {
                         let dim = 2 * pair;
                         let qe_idx = projection_index(
                             batch,
@@ -195,18 +183,14 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
 
                     let score = dot * scale;
                     let new_max = running_max.max(score);
-                    let alpha = if running_max.is_infinite()
-                    {
+                    let alpha = if running_max.is_infinite() {
                         0.0
-                    }
-                    else
-                    {
+                    } else {
                         (running_max - new_max).exp()
                     };
                     let probability_numerator = (score - new_max).exp();
 
-                    for dim in 0..shape.head_dim
-                    {
+                    for dim in 0..shape.head_dim {
                         let out_idx = projection_index(
                             batch,
                             query_pos,
@@ -233,8 +217,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
                 }
 
                 let inv_sum = running_sum.recip();
-                for dim in 0..shape.head_dim
-                {
+                for dim in 0..shape.head_dim {
                     let out_idx = projection_index(
                         batch,
                         query_pos,
@@ -255,23 +238,20 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
     use crate::{
         forward_reference_projection_grouped_rope, GroupedAttentionShape, RotaryEmbeddingConfig,
     };
 
-    fn fixture(len: usize, phase: f32) -> Vec<f32>
-    {
+    fn fixture(len: usize, phase: f32) -> Vec<f32> {
         (0..len)
             .map(|i| ((i as f32 * 0.071) + phase).sin() * 0.625)
             .collect()
     }
 
     #[test]
-    fn equal_length_is_bitwise_identical_to_r2_projection_oracle()
-    {
+    fn equal_length_is_bitwise_identical_to_r2_projection_oracle() {
         let equal = GroupedAttentionShape {
             batch: 2,
             q_heads: 4,
@@ -290,15 +270,9 @@ mod tests
             theta: 10_000.0,
             position_offset: 17,
         };
-        let expected = forward_reference_projection_grouped_rope(
-            &q,
-            &k,
-            &v,
-            equal,
-            config,
-            old_rotary,
-        )
-        .unwrap();
+        let expected =
+            forward_reference_projection_grouped_rope(&q, &k, &v, equal, config, old_rotary)
+                .unwrap();
         let shape = AsymmetricGroupedAttentionShape {
             batch: equal.batch,
             q_heads: equal.q_heads,
@@ -313,16 +287,14 @@ mod tests
             query_position_offset: old_rotary.position_offset,
             kv_position_offset: old_rotary.position_offset,
         };
-        let actual = forward_reference_projection_grouped_rope_asymmetric(
-            &q, &k, &v, shape, config, rotary,
-        )
-        .unwrap();
+        let actual =
+            forward_reference_projection_grouped_rope_asymmetric(&q, &k, &v, shape, config, rotary)
+                .unwrap();
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn decode_projection_matches_last_row_of_full_r2_forward()
-    {
+    fn decode_projection_matches_last_row_of_full_r2_forward() {
         let equal = GroupedAttentionShape {
             batch: 1,
             q_heads: 4,
@@ -341,15 +313,8 @@ mod tests
             theta: 10_000.0,
             position_offset: 11,
         };
-        let full = forward_reference_projection_grouped_rope(
-            &q,
-            &k,
-            &v,
-            equal,
-            config,
-            old_rotary,
-        )
-        .unwrap();
+        let full = forward_reference_projection_grouped_rope(&q, &k, &v, equal, config, old_rotary)
+            .unwrap();
 
         let width = equal.q_heads * equal.head_dim;
         let last_row = (equal.seq_len - 1) * width;
@@ -369,27 +334,20 @@ mod tests
             kv_position_offset: old_rotary.position_offset,
         };
         let decode = forward_reference_projection_grouped_rope_asymmetric(
-            &decode_q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary,
+            &decode_q, &k, &v, shape, config, rotary,
         )
         .unwrap();
         assert_eq!(decode.output, full.output[last_row..last_row + width]);
 
         let mut expected_lse = Vec::with_capacity(equal.q_heads);
-        for head in 0..equal.q_heads
-        {
+        for head in 0..equal.q_heads {
             expected_lse.push(full.lse[head * equal.seq_len + equal.seq_len - 1]);
         }
         assert_eq!(decode.lse, expected_lse);
     }
 
     #[test]
-    fn independent_rotary_domains_reject_position_overflow()
-    {
+    fn independent_rotary_domains_reject_position_overflow() {
         let rotary = AsymmetricRotaryEmbeddingConfig {
             theta: 10_000.0,
             query_position_offset: usize::MAX,
