@@ -204,10 +204,9 @@ fn resident_decode_matches_oracle_with_capacity_stride() {
         query_position_offset: q_position,
         kv_position_offset: 0,
     };
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q, &raw_k, &v, shape, config, rotary,
-    )
-    .unwrap();
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
 
     let rotated_k = rotate_k_projection(&raw_k, batch, kv_len, kv_heads, head_dim, theta, 0);
     let k_source = input_buffer(
@@ -224,11 +223,12 @@ fn resident_decode_matches_oracle_with_capacity_stride() {
     );
     let mut cache =
         WgpuResidentKvCache::new(&harness.device, batch, kv_heads, capacity, head_dim).unwrap();
-    let mut append_encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m15-cache-append"),
-        });
+    let mut append_encoder =
+        harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-m15-cache-append"),
+            });
     cache
         .record_append(&mut append_encoder, &k_source, &v_source, kv_len)
         .unwrap();
