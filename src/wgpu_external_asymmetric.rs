@@ -13,8 +13,7 @@ use super::{
 };
 
 /// One caller-owned rectangular projection-layout dispatch.
-pub struct ExternalAsymmetricProjectionPass<'a>
-{
+pub struct ExternalAsymmetricProjectionPass<'a> {
     pub q: &'a wgpu::Buffer,
     pub k: &'a wgpu::Buffer,
     pub v: &'a wgpu::Buffer,
@@ -28,24 +27,19 @@ pub struct ExternalAsymmetricProjectionPass<'a>
 ///
 /// The pipeline is reusable and owns only the compiled compute pipeline. Every
 /// data buffer, command encoder and submission remains caller-owned.
-pub struct ExternalAsymmetricProjectionRotaryGroupedPipeline
-{
+pub struct ExternalAsymmetricProjectionRotaryGroupedPipeline {
     pipeline: wgpu::ComputePipeline,
 }
 
-impl fmt::Debug for ExternalAsymmetricProjectionRotaryGroupedPipeline
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-    {
+impl fmt::Debug for ExternalAsymmetricProjectionRotaryGroupedPipeline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExternalAsymmetricProjectionRotaryGroupedPipeline")
             .finish_non_exhaustive()
     }
 }
 
-impl ExternalAsymmetricProjectionRotaryGroupedPipeline
-{
-    pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError>
-    {
+impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
+    pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
         device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("flat-m11-asymmetric-projection-rope-gqa"),
@@ -60,8 +54,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline
             entry_point: "flat_attention_forward",
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         });
-        match pollster::block_on(device.pop_error_scope())
-        {
+        match pollster::block_on(device.pop_error_scope()) {
             Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
             None => Ok(Self { pipeline }),
         }
@@ -69,8 +62,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline
 
     pub fn layout(
         shape: AsymmetricGroupedAttentionShape,
-    ) -> Result<ExternalProjectionLayout, ExternalWgpuError>
-    {
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         shape.validate()?;
         let q_elements = shape.q_tensor_len()?;
         let kv_elements = shape.kv_tensor_len()?;
@@ -94,8 +86,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline
         &self,
         device: &wgpu::Device,
         shape: AsymmetricGroupedAttentionShape,
-    ) -> Result<wgpu::Buffer, ExternalWgpuError>
-    {
+    ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
         Ok(device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m11-asymmetric-o-lse"),
@@ -111,8 +102,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
-    ) -> Result<ExternalProjectionLayout, ExternalWgpuError>
-    {
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
         let layout = Self::layout(pass.shape)?;
         validate_buffer("Q", pass.q, layout.q_bytes)?;
@@ -193,8 +183,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline
     }
 }
 
-struct ExternalAsymmetricDispatchGeometry
-{
+struct ExternalAsymmetricDispatchGeometry {
     q_batch_heads: u32,
     q_len: u32,
     kv_len: u32,
@@ -208,12 +197,10 @@ fn validate_dispatch(
     device: &wgpu::Device,
     shape: AsymmetricGroupedAttentionShape,
     rotary: AsymmetricRotaryEmbeddingConfig,
-) -> Result<ExternalAsymmetricDispatchGeometry, ExternalWgpuError>
-{
+) -> Result<ExternalAsymmetricDispatchGeometry, ExternalWgpuError> {
     shape.validate()?;
     rotary.validate(shape.head_dim, shape.query_len, shape.kv_len)?;
-    if shape.head_dim > WGSL_MAX_HEAD_DIM
-    {
+    if shape.head_dim > WGSL_MAX_HEAD_DIM {
         return Err(ExternalWgpuError::UnsupportedHeadDim {
             actual: shape.head_dim,
             maximum: WGSL_MAX_HEAD_DIM,
@@ -224,8 +211,7 @@ fn validate_dispatch(
         .query_position_offset
         .checked_add(shape.query_len)
         .ok_or(FlatAttentionError::PositionOverflow)?;
-    if causal_exclusive > u32::MAX as usize
-    {
+    if causal_exclusive > u32::MAX as usize {
         return Err(FlatAttentionError::PositionOverflow.into());
     }
     let q_rotary_final = rotary
@@ -236,14 +222,12 @@ fn validate_dispatch(
         .kv_position_offset
         .checked_add(shape.kv_len.saturating_sub(1))
         .ok_or(FlatAttentionError::PositionOverflow)?;
-    if q_rotary_final > u32::MAX as usize || kv_rotary_final > u32::MAX as usize
-    {
+    if q_rotary_final > u32::MAX as usize || kv_rotary_final > u32::MAX as usize {
         return Err(FlatAttentionError::PositionOverflow.into());
     }
 
     let layout = ExternalAsymmetricProjectionRotaryGroupedPipeline::layout(shape)?;
-    if layout.combined_elements > u32::MAX as usize || layout.kv_elements > u32::MAX as usize
-    {
+    if layout.combined_elements > u32::MAX as usize || layout.kv_elements > u32::MAX as usize {
         return Err(ExternalWgpuError::IndexSpaceExceeded {
             elements: layout.combined_elements.max(layout.kv_elements),
         });
@@ -255,16 +239,14 @@ fn validate_dispatch(
         .ok_or(FlatAttentionError::ShapeOverflow)?;
     let query_workgroups = shape.query_len.div_ceil(WGSL_QUERY_ROWS);
     let maximum = device.limits().max_compute_workgroups_per_dimension;
-    if query_workgroups > maximum as usize
-    {
+    if query_workgroups > maximum as usize {
         return Err(ExternalWgpuError::DispatchLimit {
             axis: "x/query_tiles",
             actual: query_workgroups,
             maximum,
         });
     }
-    if q_batch_heads > maximum as usize
-    {
+    if q_batch_heads > maximum as usize {
         return Err(ExternalWgpuError::DispatchLimit {
             axis: "y/batch_q_heads",
             actual: q_batch_heads,
@@ -287,11 +269,9 @@ fn validate_buffer(
     tensor: &'static str,
     buffer: &wgpu::Buffer,
     required_bytes: u64,
-) -> Result<(), ExternalWgpuError>
-{
+) -> Result<(), ExternalWgpuError> {
     let actual_bytes = buffer.size();
-    if actual_bytes < required_bytes
-    {
+    if actual_bytes < required_bytes {
         return Err(ExternalWgpuError::BufferTooSmall {
             tensor,
             actual_bytes,
@@ -301,24 +281,20 @@ fn validate_buffer(
     Ok(())
 }
 
-fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError>
-{
+fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError> {
     u32::try_from(value).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: value })
 }
 
-fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError>
-{
+fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
     let bytes = len
         .checked_mul(core::mem::size_of::<f32>())
         .ok_or(FlatAttentionError::ShapeOverflow)?;
     u64::try_from(bytes).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: len })
 }
 
-fn encode_u32(values: &[u32]) -> Vec<u8>
-{
+fn encode_u32(values: &[u32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values
-    {
+    for &value in values {
         bytes.extend_from_slice(&value.to_ne_bytes());
     }
     bytes
