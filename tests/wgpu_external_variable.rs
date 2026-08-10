@@ -237,27 +237,9 @@ fn run_case(
     let actual_lse = &values[layout.output_elements..];
 
     for (batch, entry) in metadata.iter().enumerate() {
-        let q_one = compact_rows(
-            &q,
-            batch,
-            shape.query_len,
-            entry.active_query_len,
-            q_width,
-        );
-        let k_one = compact_rows(
-            &k,
-            batch,
-            shape.kv_len,
-            entry.active_kv_len,
-            kv_width,
-        );
-        let v_one = compact_rows(
-            &v,
-            batch,
-            shape.kv_len,
-            entry.active_kv_len,
-            kv_width,
-        );
+        let q_one = compact_rows(&q, batch, shape.query_len, entry.active_query_len, q_width);
+        let k_one = compact_rows(&k, batch, shape.kv_len, entry.active_kv_len, kv_width);
+        let v_one = compact_rows(&v, batch, shape.kv_len, entry.active_kv_len, kv_width);
         let compact_shape = AsymmetricGroupedAttentionShape {
             batch: 1,
             q_heads: shape.q_heads,
