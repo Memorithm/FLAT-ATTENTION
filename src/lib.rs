@@ -65,6 +65,8 @@ pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL: &str =
 /// M12 padded variable-length projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_variable.wgsl");
+/// M15 q_len=1 decode kernel over fixed-capacity resident K/V storage.
+pub const FLAT_DECODE_RESIDENT_WGSL: &str = include_str!("../shaders/flat_decode_resident.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -130,6 +132,13 @@ pub use wgpu_external_variable::{
 mod wgpu_kv_cache;
 #[cfg(feature = "wgpu")]
 pub use wgpu_kv_cache::{WgpuResidentKvCache, WgpuResidentKvCacheError};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_decode;
+#[cfg(feature = "wgpu")]
+pub use wgpu_decode::{
+    ResidentDecodeError, ResidentDecodeLayout, ResidentDecodePass, WgpuResidentDecodePipeline,
+};
 
 /// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
