@@ -1,4 +1,4 @@
-// M11: rectangular sequence-major projection layout + fused RoPE + GQA/MQA.
+// M11/M15: rectangular sequence-major projection layout + fused RoPE + GQA/MQA.
 //
 // Logical storage:
 //   Q   [batch, q_len,  q_heads  * head_dim]
@@ -7,7 +7,9 @@
 //
 // The query and KV sequence lengths are independent. Causal masking uses
 // `causal_query_offset + local_query_pos`, while RoPE has independent query/KV
-// position origins. This directly represents Q=1 decode over a long K/V cache.
+// position origins. `rotate_k = 1` preserves the qualified M11 behavior.
+// `rotate_k = 0` is the M15 interoperability mode for resident caches whose K
+// rows were already RoPE-rotated when appended; Q RoPE remains fused.
 
 const WORKGROUP_SIZE: u32 = 64u;
 const QUERY_ROWS: u32 = 4u;
@@ -28,7 +30,7 @@ struct Params {
     causal_query_offset: u32,
     q_rope_offset: u32,
     kv_rope_offset: u32,
-    _pad0: u32,
+    rotate_k: u32,
     _pad1: u32,
     _pad2: u32,
     _pad3: u32,
@@ -185,27 +187,29 @@ fn flat_attention_forward(
         }
         workgroupBarrier();
 
-        let k_pair_count = tile_rows * half_dim;
-        var k_linear = lane;
-        loop {
-            if (k_linear >= k_pair_count) {
-                break;
+        if (params.rotate_k != 0u) {
+            let k_pair_count = tile_rows * half_dim;
+            var k_linear = lane;
+            loop {
+                if (k_linear >= k_pair_count) {
+                    break;
+                }
+                let tile_row = k_linear / half_dim;
+                let pair = k_linear - tile_row * half_dim;
+                let key_pos = tile_start + tile_row;
+                let base = tile_row * MAX_HEAD_DIM + 2u * pair;
+                let rotated = rope_pair(
+                    k_shared[base],
+                    k_shared[base + 1u],
+                    pair,
+                    key_pos + params.kv_rope_offset,
+                    params.head_dim,
+                    theta,
+                );
+                k_shared[base] = rotated.x;
+                k_shared[base + 1u] = rotated.y;
+                k_linear += WORKGROUP_SIZE;
             }
-            let tile_row = k_linear / half_dim;
-            let pair = k_linear - tile_row * half_dim;
-            let key_pos = tile_start + tile_row;
-            let base = tile_row * MAX_HEAD_DIM + 2u * pair;
-            let rotated = rope_pair(
-                k_shared[base],
-                k_shared[base + 1u],
-                pair,
-                key_pos + params.kv_rope_offset,
-                params.head_dim,
-                theta,
-            );
-            k_shared[base] = rotated.x;
-            k_shared[base + 1u] = rotated.y;
-            k_linear += WORKGROUP_SIZE;
         }
         workgroupBarrier();
 
