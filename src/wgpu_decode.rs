@@ -69,7 +69,10 @@ impl fmt::Display for ResidentDecodeError {
                 write!(f, "head_dim {actual} exceeds portable maximum {maximum}")
             }
             Self::IndexSpaceExceeded { elements } => {
-                write!(f, "resident decode exceeds WGPU u32 index space at {elements} elements")
+                write!(
+                    f,
+                    "resident decode exceeds WGPU u32 index space at {elements} elements"
+                )
             }
             Self::DispatchLimit { actual, maximum } => write!(
                 f,
@@ -84,7 +87,10 @@ impl fmt::Display for ResidentDecodeError {
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
             ),
             Self::InvalidTheta(theta) => {
-                write!(f, "resident decode RoPE theta must be finite and positive, got {theta}")
+                write!(
+                    f,
+                    "resident decode RoPE theta must be finite and positive, got {theta}"
+                )
             }
             Self::PipelineValidation(error) => {
                 write!(f, "resident decode pipeline validation failed: {error}")
@@ -118,9 +124,7 @@ impl WgpuResidentDecodePipeline {
         device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("flat-m15-resident-decode"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_DECODE_RESIDENT_WGSL,
-            )),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_DECODE_RESIDENT_WGSL)),
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("flat-m15-resident-decode"),
@@ -259,10 +263,7 @@ impl WgpuResidentDecodePipeline {
     }
 }
 
-fn validate_shape(
-    cache: &WgpuResidentKvCache,
-    q_heads: usize,
-) -> Result<(), ResidentDecodeError> {
+fn validate_shape(cache: &WgpuResidentKvCache, q_heads: usize) -> Result<(), ResidentDecodeError> {
     if cache.is_empty() {
         return Err(ResidentDecodeError::EmptyCache);
     }
