@@ -263,9 +263,8 @@ mod tests {
         for head in 0..equal.q_heads {
             let out_head_base = head * equal.seq_len * equal.head_dim;
             let out_row_base = out_head_base + (equal.seq_len - 1) * equal.head_dim;
-            expected_output.extend_from_slice(
-                &full.output[out_row_base..out_row_base + equal.head_dim],
-            );
+            expected_output
+                .extend_from_slice(&full.output[out_row_base..out_row_base + equal.head_dim]);
             expected_lse.push(full.lse[head * equal.seq_len + equal.seq_len - 1]);
         }
 
@@ -313,6 +312,9 @@ mod tests {
             query_len: 0,
             ..invalid_group
         };
-        assert_eq!(zero_query.group_size().unwrap_err(), FlatAttentionError::ZeroDimension);
+        assert_eq!(
+            zero_query.group_size().unwrap_err(),
+            FlatAttentionError::ZeroDimension
+        );
     }
 }
