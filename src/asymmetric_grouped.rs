@@ -103,8 +103,8 @@ impl AsymmetricGroupedAttentionShape {
         let mut output = vec![0.0f32; q_tensor_len];
         let mut lse = vec![f32::NEG_INFINITY; self.lse_len()?];
 
-        for (batch, &(active_q_len, active_kv_len, query_position_offset))
-            in active.iter().enumerate()
+        for (batch, &(active_q_len, active_kv_len, query_position_offset)) in
+            active.iter().enumerate()
         {
             if active_q_len == 0 || active_kv_len == 0 {
                 return Err(FlatAttentionError::ZeroDimension);
@@ -568,44 +568,45 @@ mod tests {
                 ..
             })
         ));
+
+        let query_too_long = shape.forward_reference_variable_lengths(
+            &q,
+            &k,
+            &v,
+            &[(5, 1, 0), (1, 1, 0)],
+            config,
+        );
         assert!(matches!(
-            shape.forward_reference_variable_lengths(
-                &q,
-                &k,
-                &v,
-                &[(5, 1, 0), (1, 1, 0)],
-                config,
-            ),
+            query_too_long,
             Err(FlatAttentionError::LengthMismatch {
                 tensor: "active query length",
                 ..
             })
         ));
+
+        let kv_too_long = shape.forward_reference_variable_lengths(
+            &q,
+            &k,
+            &v,
+            &[(1, 7, 0), (1, 1, 0)],
+            config,
+        );
         assert!(matches!(
-            shape.forward_reference_variable_lengths(
-                &q,
-                &k,
-                &v,
-                &[(1, 7, 0), (1, 1, 0)],
-                config,
-            ),
+            kv_too_long,
             Err(FlatAttentionError::LengthMismatch {
                 tensor: "active KV length",
                 ..
             })
         ));
-        assert_eq!(
-            shape
-                .forward_reference_variable_lengths(
-                    &q,
-                    &k,
-                    &v,
-                    &[(0, 1, 0), (1, 1, 0)],
-                    config,
-                )
-                .unwrap_err(),
-            FlatAttentionError::ZeroDimension
+
+        let zero_active = shape.forward_reference_variable_lengths(
+            &q,
+            &k,
+            &v,
+            &[(0, 1, 0), (1, 1, 0)],
+            config,
         );
+        assert_eq!(zero_active.unwrap_err(), FlatAttentionError::ZeroDimension);
     }
 
     #[test]
