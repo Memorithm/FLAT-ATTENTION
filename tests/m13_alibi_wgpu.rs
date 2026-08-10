@@ -2,18 +2,12 @@
 
 use std::sync::mpsc;
 
-pub use flat_attention::{
-    AsymmetricGroupedAttentionShape, AsymmetricRotaryEmbeddingConfig, FlatAttentionConfig,
-    FlatAttentionError, FlatAttentionOutput,
-};
 use flat_attention::{
+    forward_reference_projection_grouped_rope_asymmetric_biased,
+    AsymmetricGroupedAttentionShape, AsymmetricRotaryEmbeddingConfig, AttentionBias,
     ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
-    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+    FlatAttentionConfig, FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
 };
-
-#[path = "../src/attention_bias.rs"]
-mod attention_bias;
-use attention_bias::{forward_reference_projection_grouped_rope_asymmetric_biased, AttentionBias};
 
 const ATOL: f32 = 2.0e-4;
 const RTOL: f32 = 1.0e-3;
