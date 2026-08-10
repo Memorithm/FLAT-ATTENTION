@@ -93,7 +93,10 @@ fn main() {
     let capacity = env_usize("FLAT_BENCH_CAPACITY", kv_len.max(2048));
     let warmup = env_usize("FLAT_BENCH_WARMUP", 10);
     let iterations = env_usize("FLAT_BENCH_ITERS", 50);
-    assert!(capacity >= kv_len, "FLAT_BENCH_CAPACITY must be >= KV length");
+    assert!(
+        capacity >= kv_len,
+        "FLAT_BENCH_CAPACITY must be >= KV length"
+    );
 
     let (q_heads, kv_heads, head_dim) = (8usize, 2usize, 64usize);
     let theta = 10_000.0;
@@ -141,8 +144,7 @@ fn main() {
         wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
     );
 
-    let mut cache =
-        WgpuResidentKvCache::new(&device, 1, kv_heads, capacity, head_dim).unwrap();
+    let mut cache = WgpuResidentKvCache::new(&device, 1, kv_heads, capacity, head_dim).unwrap();
     let mut append_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("flat-m15-bench-cache-append"),
     });
