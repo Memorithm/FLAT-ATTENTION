@@ -115,10 +115,7 @@ impl WgpuResidentKvCache {
             .checked_mul(head_dim)
             .ok_or(WgpuResidentKvCacheError::ShapeOverflow)?;
         let row_bytes = bytes_for_f32(row_elements)?;
-        let tensor_bytes = checked_u64_mul(
-            checked_usize_mul(batch, capacity)?,
-            row_bytes,
-        )?;
+        let tensor_bytes = checked_u64_mul(checked_usize_mul(batch, capacity)?, row_bytes)?;
         let maximum_bytes = device.limits().max_buffer_size;
         if tensor_bytes > maximum_bytes {
             return Err(WgpuResidentKvCacheError::DeviceBufferLimit {
