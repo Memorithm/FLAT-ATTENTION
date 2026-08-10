@@ -1,4 +1,4 @@
-// M11/M15: rectangular sequence-major projection layout + fused RoPE + GQA/MQA.
+// M11/M13/M15: rectangular sequence-major projection layout + fused RoPE + GQA/MQA.
 //
 // Logical storage:
 //   Q   [batch, q_len,  q_heads  * head_dim]
@@ -10,6 +10,7 @@
 // position origins. `rotate_k = 1` preserves the qualified M11 behavior.
 // `rotate_k = 0` is the M15 interoperability mode for resident caches whose K
 // rows were already RoPE-rotated when appended; Q RoPE remains fused.
+// M13 ALiBi slopes live in the uniform block, preserving four storage bindings.
 
 const WORKGROUP_SIZE: u32 = 64u;
 const QUERY_ROWS: u32 = 4u;
@@ -31,9 +32,10 @@ struct Params {
     q_rope_offset: u32,
     kv_rope_offset: u32,
     rotate_k: u32,
-    _pad1: u32,
-    _pad2: u32,
-    _pad3: u32,
+    bias_mode: u32,
+    bias_q_offset: u32,
+    bias_kv_offset: u32,
+    alibi_slopes: array<vec4<f32>, 64>,
 };
 
 @group(0) @binding(0) var<storage, read> q: array<f32>;
@@ -57,6 +59,11 @@ fn rope_pair(e: f32, o: f32, pair: u32, position: u32, head_dim: u32, theta: f32
     let c = cos(angle);
     let s = sin(angle);
     return vec2<f32>(e * c - o * s, e * s + o * c);
+}
+
+fn alibi_slope(head: u32) -> f32 {
+    let packed = params.alibi_slopes[head / 4u];
+    return packed[head % 4u];
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -258,7 +265,12 @@ fn flat_attention_forward(
 
                 if (lane == 0u) {
                     if (participates) {
-                        let score = reduce_shared[reduce_base] * scale;
+                        var score = reduce_shared[reduce_base] * scale;
+                        if (params.bias_mode == 1u) {
+                            let q_position = f32(params.bias_q_offset + query_pos);
+                            let k_position = f32(params.bias_kv_offset + key_pos);
+                            score += alibi_slope(q_head) * (k_position - q_position);
+                        }
                         let previous_max = running_max_shared[qr];
                         let new_max = max(previous_max, score);
                         let alpha = select(
