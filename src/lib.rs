@@ -30,6 +30,11 @@ pub use projection_asymmetric::{
     forward_reference_projection_grouped_rope_asymmetric, AsymmetricRotaryEmbeddingConfig,
 };
 
+mod attention_bias;
+pub use attention_bias::{
+    forward_reference_projection_grouped_rope_asymmetric_biased, AttentionBias,
+};
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -110,6 +115,7 @@ mod wgpu_external_asymmetric;
 #[cfg(feature = "wgpu")]
 pub use wgpu_external_asymmetric::{
     ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
+    WGSL_ALIBI_MAX_HEADS,
 };
 
 #[cfg(feature = "wgpu")]
