@@ -280,7 +280,8 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                         dot += q_even * k_even + q_odd * k_odd;
                     }
 
-                    let score = dot * scale + bias.score(shape, batch, q_head, query_pos, key_pos)?;
+                    let score =
+                        dot * scale + bias.score(shape, batch, q_head, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0
@@ -308,8 +309,8 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             shape.kv_len,
                             shape.head_dim,
                         )?;
-                        output[output_index] = output[output_index] * alpha
-                            + probability_numerator * v[value_index];
+                        output[output_index] =
+                            output[output_index] * alpha + probability_numerator * v[value_index];
                     }
                     running_sum = running_sum * alpha + probability_numerator;
                     running_max = new_max;
