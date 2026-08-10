@@ -14,6 +14,11 @@ pub use f16::{FlatAttentionF16Output, F16};
 mod grouped;
 pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
 
+mod asymmetric_grouped;
+pub use asymmetric_grouped::{
+    forward_reference_grouped_asymmetric, AsymmetricGroupedAttentionShape,
+};
+
 mod rotary_grouped;
 pub use rotary_grouped::{forward_reference_grouped_rope, RotaryEmbeddingConfig};
 
