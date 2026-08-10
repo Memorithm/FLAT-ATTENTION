@@ -419,16 +419,10 @@ fn variable_pipeline_rejects_metadata_length_and_causal_overflow() {
         head_dim: 32,
         query_position_offset: 0,
     };
-    let q = input_buffer(
-        &harness.device,
-        &harness.queue,
-        &vec![0.0; shape.q_tensor_len().unwrap()],
-    );
-    let kv = input_buffer(
-        &harness.device,
-        &harness.queue,
-        &vec![0.0; shape.kv_tensor_len().unwrap()],
-    );
+    let q_data = vec![0.0; shape.q_tensor_len().unwrap()];
+    let kv_data = vec![0.0; shape.kv_tensor_len().unwrap()];
+    let q = input_buffer(&harness.device, &harness.queue, &q_data);
+    let kv = input_buffer(&harness.device, &harness.queue, &kv_data);
     let output = pipeline
         .create_output_buffer(&harness.device, shape)
         .unwrap();
@@ -460,7 +454,7 @@ fn variable_pipeline_rejects_metadata_length_and_causal_overflow() {
         .unwrap_err();
     assert!(matches!(
         error,
-        ExternalWgpuError::Contract(FlatAttentionError::LengthMismatch {
+        ExternalWgpuError::Core(FlatAttentionError::LengthMismatch {
             tensor: "active sequence metadata",
             ..
         })
@@ -498,6 +492,6 @@ fn variable_pipeline_rejects_metadata_length_and_causal_overflow() {
         .unwrap_err();
     assert!(matches!(
         error,
-        ExternalWgpuError::Contract(FlatAttentionError::PositionOverflow)
+        ExternalWgpuError::Core(FlatAttentionError::PositionOverflow)
     ));
 }
