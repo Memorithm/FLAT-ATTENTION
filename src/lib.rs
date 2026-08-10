@@ -126,6 +126,11 @@ pub use wgpu_external_variable::{
     VariableLengthRotaryEmbeddingConfig, VariableLengthSequenceMetadata, WGSL_VARIABLE_MAX_BATCH,
 };
 
+#[cfg(feature = "wgpu")]
+mod wgpu_kv_cache;
+#[cfg(feature = "wgpu")]
+pub use wgpu_kv_cache::{WgpuResidentKvCache, WgpuResidentKvCacheError};
+
 /// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
