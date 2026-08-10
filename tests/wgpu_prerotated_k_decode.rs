@@ -181,10 +181,9 @@ fn run_decode_case(q_heads: usize, kv_heads: usize, kv_len: usize, head_dim: usi
     let raw_k = fixture(shape.kv_tensor_len().unwrap(), 0.8);
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.4);
     let rotated_k = rotate_k_projection(&raw_k, kv_len, kv_heads, head_dim, theta, 0);
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q, &raw_k, &v, shape, config, rotary,
-    )
-    .unwrap();
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
 
     let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&harness.device).unwrap();
     let q_gpu = input_buffer(&harness.device, &harness.queue, &q);
