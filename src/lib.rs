@@ -25,6 +25,11 @@ pub use rotary_grouped::{forward_reference_grouped_rope, RotaryEmbeddingConfig};
 mod projection_grouped;
 pub use projection_grouped::forward_reference_projection_grouped_rope;
 
+mod projection_asymmetric;
+pub use projection_asymmetric::{
+    forward_reference_projection_grouped_rope_asymmetric, AsymmetricRotaryEmbeddingConfig,
+};
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -49,6 +54,9 @@ pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_g
 /// FLAT-R2 direct sequence-major projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope.wgsl");
+/// M11 rectangular sequence-major projection-layout RoPE + GQA/MQA kernel.
+pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL: &str =
+    include_str!("../shaders/flat_fwd_projection_rope_asymmetric.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -92,6 +100,13 @@ mod wgpu_external;
 pub use wgpu_external::{
     ExternalProjectionLayout, ExternalProjectionPass, ExternalProjectionRotaryGroupedPipeline,
     ExternalWgpuError,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_external_asymmetric;
+#[cfg(feature = "wgpu")]
+pub use wgpu_external_asymmetric::{
+    ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
