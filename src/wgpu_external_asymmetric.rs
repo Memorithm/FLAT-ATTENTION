@@ -12,6 +12,9 @@ use super::{
     FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
+/// Maximum query-head count carried by the portable M13 ALiBi uniform block.
+pub const WGSL_ALIBI_MAX_HEADS: usize = 256;
+
 /// One caller-owned rectangular projection-layout dispatch.
 pub struct ExternalAsymmetricProjectionPass<'a> {
     pub q: &'a wgpu::Buffer,
@@ -105,31 +108,67 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
-        self.encode_with_k_rotation(device, encoder, pass, true)
+        self.encode_with_options(device, encoder, pass, true, None)
     }
 
     /// Record one rectangular pass where K is **already RoPE-rotated** by the
     /// resident cache owner. Q RoPE remains fused; K is consumed as-is.
-    ///
-    /// This is the zero-copy decode interoperability mode for frameworks that
-    /// append rotated keys to their KV cache. It avoids both a second K rotation
-    /// and a raw-K shadow cache. V remains unrotated. The `kv_position_offset`
-    /// field in `pass.rotary` is ignored by the shader in this mode.
     pub fn encode_pre_rotated_k(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
-        self.encode_with_k_rotation(device, encoder, pass, false)
+        self.encode_with_options(device, encoder, pass, false, None)
     }
 
-    fn encode_with_k_rotation(
+    /// Record one M13 ALiBi pass while preserving the four-storage-buffer
+    /// portable contract. Per-query-head slopes are packed into the existing
+    /// uniform binding; Q/K/V/O remain caller-owned resident buffers.
+    pub fn encode_alibi(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: ExternalAsymmetricProjectionPass<'_>,
+        slopes: &[f32],
+        query_position_offset: usize,
+        kv_position_offset: usize,
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
+        self.encode_with_options(
+            device,
+            encoder,
+            pass,
+            true,
+            Some((slopes, query_position_offset, kv_position_offset)),
+        )
+    }
+
+    /// ALiBi variant for a resident cache whose K rows are already RoPE-rotated.
+    pub fn encode_pre_rotated_k_alibi(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: ExternalAsymmetricProjectionPass<'_>,
+        slopes: &[f32],
+        query_position_offset: usize,
+        kv_position_offset: usize,
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
+        self.encode_with_options(
+            device,
+            encoder,
+            pass,
+            false,
+            Some((slopes, query_position_offset, kv_position_offset)),
+        )
+    }
+
+    fn encode_with_options(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
         rotate_k: bool,
+        alibi: Option<(&[f32], usize, usize)>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
         let layout = Self::layout(pass.shape)?;
@@ -139,7 +178,21 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
         let scale = pass.config.resolved_scale(pass.shape.head_dim)?;
 
-        let params = [
+        let (bias_mode, bias_q_offset, bias_kv_offset, slopes) = match alibi {
+            Some((slopes, query_position_offset, kv_position_offset)) => {
+                validate_alibi(pass.shape, slopes, query_position_offset, kv_position_offset)?;
+                (
+                    1u32,
+                    checked_u32(query_position_offset)?,
+                    checked_u32(kv_position_offset)?,
+                    slopes,
+                )
+            }
+            None => (0u32, 0u32, 0u32, &[][..]),
+        };
+
+        let mut params = Vec::with_capacity(16 + WGSL_ALIBI_MAX_HEADS);
+        params.extend_from_slice(&[
             dispatch.q_len,
             dispatch.kv_len,
             checked_u32(pass.shape.head_dim)?,
@@ -153,13 +206,16 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
             dispatch.q_rope_offset,
             dispatch.kv_rope_offset,
             u32::from(rotate_k),
-            0,
-            0,
-            0,
-        ];
+            bias_mode,
+            bias_q_offset,
+            bias_kv_offset,
+        ]);
+        params.extend(slopes.iter().map(|slope| slope.to_bits()));
+        params.resize(16 + WGSL_ALIBI_MAX_HEADS, 0);
+
         let params_bytes = encode_u32(&params);
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m11-asymmetric-params"),
+            label: Some("flat-m13-asymmetric-params"),
             size: params_bytes.len() as u64,
             usage: wgpu::BufferUsages::UNIFORM,
             mapped_at_creation: true,
@@ -171,7 +227,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         params_buffer.unmap();
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("flat-m11-asymmetric-bind-group"),
+            label: Some("flat-m13-asymmetric-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
@@ -199,7 +255,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("flat-m11-asymmetric-projection-rope-gqa"),
+                label: Some("flat-m13-asymmetric-projection-rope-gqa"),
                 timestamp_writes: None,
             });
             compute_pass.set_pipeline(&self.pipeline);
@@ -291,6 +347,44 @@ fn validate_dispatch(
         q_rope_offset: checked_u32(rotary.query_position_offset)?,
         kv_rope_offset: checked_u32(rotary.kv_position_offset)?,
     })
+}
+
+fn validate_alibi(
+    shape: AsymmetricGroupedAttentionShape,
+    slopes: &[f32],
+    query_position_offset: usize,
+    kv_position_offset: usize,
+) -> Result<(), ExternalWgpuError> {
+    if slopes.len() != shape.q_heads {
+        return Err(FlatAttentionError::LengthMismatch {
+            tensor: "ALiBi slopes",
+            actual: slopes.len(),
+            expected: shape.q_heads,
+        }
+        .into());
+    }
+    if let Some(index) = slopes.iter().position(|slope| !slope.is_finite()) {
+        return Err(FlatAttentionError::NonFiniteInput {
+            tensor: "ALiBi slopes",
+            index,
+        }
+        .into());
+    }
+    if shape.q_heads > WGSL_ALIBI_MAX_HEADS {
+        return Err(ExternalWgpuError::IndexSpaceExceeded {
+            elements: shape.q_heads,
+        });
+    }
+    let q_final = query_position_offset
+        .checked_add(shape.query_len.saturating_sub(1))
+        .ok_or(FlatAttentionError::PositionOverflow)?;
+    let kv_final = kv_position_offset
+        .checked_add(shape.kv_len.saturating_sub(1))
+        .ok_or(FlatAttentionError::PositionOverflow)?;
+    if q_final > u32::MAX as usize || kv_final > u32::MAX as usize {
+        return Err(FlatAttentionError::PositionOverflow.into());
+    }
+    Ok(())
 }
 
 fn validate_buffer(
