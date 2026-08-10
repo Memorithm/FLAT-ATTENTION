@@ -96,12 +96,40 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         }))
     }
 
-    /// Record one rectangular pass. No submission or synchronization occurs.
+    /// Record one rectangular pass using raw projected K. Q and K are both
+    /// RoPE-rotated inside the fused kernel. No submission or synchronization
+    /// occurs.
     pub fn encode(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
+        self.encode_with_k_rotation(device, encoder, pass, true)
+    }
+
+    /// Record one rectangular pass where K is **already RoPE-rotated** by the
+    /// resident cache owner. Q RoPE remains fused; K is consumed as-is.
+    ///
+    /// This is the zero-copy decode interoperability mode for frameworks that
+    /// append rotated keys to their KV cache. It avoids both a second K rotation
+    /// and a raw-K shadow cache. V remains unrotated. The `kv_position_offset`
+    /// field in `pass.rotary` is ignored by the shader in this mode.
+    pub fn encode_pre_rotated_k(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: ExternalAsymmetricProjectionPass<'_>,
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
+        self.encode_with_k_rotation(device, encoder, pass, false)
+    }
+
+    fn encode_with_k_rotation(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: ExternalAsymmetricProjectionPass<'_>,
+        rotate_k: bool,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
         let layout = Self::layout(pass.shape)?;
@@ -124,7 +152,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
             dispatch.causal_query_offset,
             dispatch.q_rope_offset,
             dispatch.kv_rope_offset,
-            0,
+            u32::from(rotate_k),
             0,
             0,
             0,
