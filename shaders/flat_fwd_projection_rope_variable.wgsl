@@ -83,11 +83,11 @@ fn flat_attention_forward(
         return;
     }
 
-    let meta = params.metadata[batch_index];
-    let active_q_len = meta.x;
-    let active_kv_len = meta.y;
-    let causal_query_offset = meta.z;
-    let q_rope_offset = meta.w;
+    let sequence_meta = params.metadata[batch_index];
+    let active_q_len = sequence_meta.x;
+    let active_kv_len = sequence_meta.y;
+    let causal_query_offset = sequence_meta.z;
+    let q_rope_offset = sequence_meta.w;
     let q_width = params.q_heads * params.head_dim;
     let kv_width = params.kv_heads * params.head_dim;
     let output_elems = params.batch * params.padded_q_len * q_width;
