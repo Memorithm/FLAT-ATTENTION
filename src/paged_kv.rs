@@ -47,7 +47,10 @@ impl fmt::Display for PagedKvError {
         match self {
             Self::ZeroDimension => write!(f, "paged KV dimensions must be non-zero"),
             Self::CapacityOverflow => write!(f, "paged KV capacity overflows usize"),
-            Self::CapacityExceeded { requested, capacity } => write!(
+            Self::CapacityExceeded {
+                requested,
+                capacity,
+            } => write!(
                 f,
                 "paged KV append requires {requested} tokens, capacity is {capacity}"
             ),
@@ -178,7 +181,8 @@ impl PagedKvTable {
         self.live_tokens = 0;
         self.logical_pages.clear();
         self.free_pages.clear();
-        self.free_pages.extend((0..self.config.physical_pages).rev());
+        self.free_pages
+            .extend((0..self.config.physical_pages).rev());
         Ok(())
     }
 }
