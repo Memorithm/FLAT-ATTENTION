@@ -6,9 +6,7 @@ pub use flat_attention::{
 #[path = "../src/attention_bias.rs"]
 mod attention_bias;
 
-use attention_bias::{
-    forward_reference_projection_grouped_rope_asymmetric_biased, AttentionBias,
-};
+use attention_bias::{forward_reference_projection_grouped_rope_asymmetric_biased, AttentionBias};
 
 fn fixture(len: usize, phase: f32) -> Vec<f32> {
     (0..len)
@@ -46,15 +44,9 @@ fn no_bias_is_bitwise_identical_to_m11_oracle() {
         causal: false,
         softmax_scale: None,
     };
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q,
-        &k,
-        &v,
-        shape,
-        config,
-        rotary(),
-    )
-    .unwrap();
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &k, &v, shape, config, rotary())
+            .unwrap();
     let actual = forward_reference_projection_grouped_rope_asymmetric_biased(
         &q,
         &k,
@@ -121,8 +113,7 @@ fn alibi_matches_equivalent_dense_bias() {
         for &slope in &slopes {
             for query_pos in 0..shape.query_len {
                 for key_pos in 0..shape.kv_len {
-                    let delta =
-                        (kv_origin + key_pos) as f32 - (query_origin + query_pos) as f32;
+                    let delta = (kv_origin + key_pos) as f32 - (query_origin + query_pos) as f32;
                     dense.push(slope * delta);
                 }
             }
