@@ -163,7 +163,8 @@ fn run_case(pre_rotated_k: bool) {
     let Some(harness) = harness() else {
         return;
     };
-    let (q_heads, kv_heads, query_len, kv_len, head_dim) = (8usize, 2usize, 3usize, 17usize, 64usize);
+    let (q_heads, kv_heads, query_len, kv_len, head_dim) =
+        (8usize, 2usize, 3usize, 17usize, 64usize);
     let theta = 10_000.0;
     let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
@@ -183,7 +184,9 @@ fn run_case(pre_rotated_k: bool) {
         causal: true,
         softmax_scale: None,
     };
-    let slopes = [0.03125, 0.0625, 0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25];
+    let slopes = [
+        0.03125, 0.0625, 0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25,
+    ];
     let bias_q_offset = 103usize;
     let bias_kv_offset = 97usize;
 
@@ -265,8 +268,16 @@ fn run_case(pre_rotated_k: bool) {
         &output,
         layout.combined_elements,
     );
-    assert_close("M13 ALiBi O", &values[..layout.output_elements], &expected.output);
-    assert_close("M13 ALiBi LSE", &values[layout.output_elements..], &expected.lse);
+    assert_close(
+        "M13 ALiBi O",
+        &values[..layout.output_elements],
+        &expected.output,
+    );
+    assert_close(
+        "M13 ALiBi LSE",
+        &values[layout.output_elements..],
+        &expected.lse,
+    );
 }
 
 #[test]
