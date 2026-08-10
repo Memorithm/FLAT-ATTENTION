@@ -147,15 +147,31 @@ fn resident_append_preserves_prefix_and_batch_capacity_stride() {
     assert_eq!(cache.remaining_capacity(), 2);
 
     let tensor_len = batch * capacity * width;
-    let actual_k = read_f32(&harness.device, &harness.queue, cache.k_buffer(), tensor_len);
-    let actual_v = read_f32(&harness.device, &harness.queue, cache.v_buffer(), tensor_len);
+    let actual_k = read_f32(
+        &harness.device,
+        &harness.queue,
+        cache.k_buffer(),
+        tensor_len,
+    );
+    let actual_v = read_f32(
+        &harness.device,
+        &harness.queue,
+        cache.v_buffer(),
+        tensor_len,
+    );
 
     for b in 0..batch {
         for position in 0..2 {
             let source_row = b * 2 + position;
             let cache_row = b * capacity + position;
-            assert_eq!(row(&actual_k, cache_row, width), row(&first_k, source_row, width));
-            assert_eq!(row(&actual_v, cache_row, width), row(&first_v, source_row, width));
+            assert_eq!(
+                row(&actual_k, cache_row, width),
+                row(&first_k, source_row, width)
+            );
+            assert_eq!(
+                row(&actual_v, cache_row, width),
+                row(&first_v, source_row, width)
+            );
         }
         let cache_row = b * capacity + 2;
         assert_eq!(row(&actual_k, cache_row, width), row(&next_k, b, width));
@@ -197,12 +213,7 @@ fn reset_reuses_prefix_without_copying_old_cache() {
             label: Some("flat-m14-reset-reuse"),
         });
     cache
-        .record_append(
-            &mut encoder,
-            &replacement_k_gpu,
-            &replacement_v_gpu,
-            1,
-        )
+        .record_append(&mut encoder, &replacement_k_gpu, &replacement_v_gpu, 1)
         .unwrap();
     harness.queue.submit(Some(encoder.finish()));
     assert_eq!(cache.len(), 1);
@@ -221,8 +232,14 @@ fn reset_reuses_prefix_without_copying_old_cache() {
     );
     for b in 0..batch {
         let cache_row = b * capacity;
-        assert_eq!(row(&actual_k, cache_row, width), row(&replacement_k, b, width));
-        assert_eq!(row(&actual_v, cache_row, width), row(&replacement_v, b, width));
+        assert_eq!(
+            row(&actual_k, cache_row, width),
+            row(&replacement_k, b, width)
+        );
+        assert_eq!(
+            row(&actual_v, cache_row, width),
+            row(&replacement_v, b, width)
+        );
     }
 }
 
