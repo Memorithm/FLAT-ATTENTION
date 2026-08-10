@@ -41,6 +41,8 @@ pub use numerical::{
     NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
 };
 
+pub mod paged_kv;
+
 /// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
