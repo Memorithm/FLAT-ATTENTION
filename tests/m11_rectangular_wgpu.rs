@@ -125,12 +125,7 @@ mod device {
             .fold(0.0, f32::max)
     }
 
-    fn run_case(
-        query_len: usize,
-        kv_len: usize,
-        query_position_offset: usize,
-        causal: bool,
-    ) {
+    fn run_case(query_len: usize, kv_len: usize, query_position_offset: usize, causal: bool) {
         let (batch, q_heads, kv_heads, head_dim) = (1usize, 4usize, 2usize, 8usize);
         let theta = 10_000.0f32;
         let shape = AsymmetricGroupedAttentionShape {
@@ -159,31 +154,24 @@ mod device {
             theta,
             query_position_offset,
         );
-        rotate_head_major(
-            &mut k_head,
-            batch,
-            kv_heads,
-            kv_len,
-            head_dim,
-            theta,
-            0,
-        );
+        rotate_head_major(&mut k_head, batch, kv_heads, kv_len, head_dim, theta, 0);
         let config = FlatAttentionConfig {
             causal,
             softmax_scale: None,
         };
         let expected =
-            forward_reference_grouped_asymmetric(&q_head, &k_head, &v_head, shape, config)
-                .unwrap();
+            forward_reference_grouped_asymmetric(&q_head, &k_head, &v_head, shape, config).unwrap();
         let expected_projection =
             head_major_to_projection(&expected.output, batch, query_len, q_heads, head_dim);
 
         let instance = wgpu::Instance::default();
-        let Some(adapter) = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })) else {
+        let Some(adapter) =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                compatible_surface: None,
+                force_fallback_adapter: false,
+            }))
+        else {
             eprintln!("wgpu: no adapter, skipping M11 rectangular device parity");
             return;
         };
@@ -263,11 +251,26 @@ mod device {
             label: Some("bind-group"),
             layout: &pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: q_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: k_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: v_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: out_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 4, resource: params_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: q_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: k_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: v_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: out_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: params_buf.as_entire_binding(),
+                },
             ],
         });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
