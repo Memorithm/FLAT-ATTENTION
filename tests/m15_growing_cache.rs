@@ -178,11 +178,12 @@ fn one_pipeline_tracks_token_by_token_cache_growth() {
             &v_row,
             wgpu::BufferUsages::COPY_SRC,
         );
-        let mut append_encoder = harness
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("flat-m15-growing-append"),
-            });
+        let mut append_encoder =
+            harness
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("flat-m15-growing-append"),
+                });
         cache
             .record_append(&mut append_encoder, &k_gpu, &v_gpu, 1)
             .unwrap();
