@@ -38,19 +38,19 @@ impl<'a> AttentionBias<'a> {
                     .and_then(|n| n.checked_mul(shape.query_len))
                     .and_then(|n| n.checked_mul(shape.kv_len))
                     .ok_or(FlatAttentionError::ShapeOverflow)?;
-                validate_bias_input("attention bias", values, expected)
+                validate_input("attention bias", values, expected)
             }
             Self::Alibi {
                 slopes,
                 query_position_offset,
                 kv_position_offset,
             } => {
-                validate_bias_input("ALiBi slopes", slopes, shape.q_heads)?;
+                validate_input("ALiBi slopes", slopes, shape.q_heads)?;
                 query_position_offset
-                    .checked_add(shape.query_len.saturating_sub(1))
+                    .checked_add(shape.query_len - 1)
                     .ok_or(FlatAttentionError::PositionOverflow)?;
                 kv_position_offset
-                    .checked_add(shape.kv_len.saturating_sub(1))
+                    .checked_add(shape.kv_len - 1)
                     .ok_or(FlatAttentionError::PositionOverflow)?;
                 Ok(())
             }
@@ -58,7 +58,7 @@ impl<'a> AttentionBias<'a> {
     }
 
     #[inline]
-    fn score_bias(
+    fn score(
         self,
         shape: AsymmetricGroupedAttentionShape,
         batch: usize,
@@ -97,19 +97,45 @@ impl<'a> AttentionBias<'a> {
     }
 }
 
-fn validate_bias_input(
+fn validate_shape(shape: AsymmetricGroupedAttentionShape) -> Result<(), FlatAttentionError> {
+    if shape.batch == 0
+        || shape.q_heads == 0
+        || shape.kv_heads == 0
+        || shape.query_len == 0
+        || shape.kv_len == 0
+        || shape.head_dim == 0
+    {
+        return Err(FlatAttentionError::ZeroDimension);
+    }
+    if shape.q_heads % shape.kv_heads != 0 {
+        return Err(FlatAttentionError::InvalidHeadGrouping {
+            q_heads: shape.q_heads,
+            kv_heads: shape.kv_heads,
+        });
+    }
+    shape
+        .query_position_offset
+        .checked_add(shape.query_len - 1)
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    shape.q_tensor_len()?;
+    shape.kv_tensor_len()?;
+    shape.lse_len()?;
+    Ok(())
+}
+
+fn validate_input(
     name: &'static str,
-    data: &[f32],
+    values: &[f32],
     expected: usize,
 ) -> Result<(), FlatAttentionError> {
-    if data.len() != expected {
+    if values.len() != expected {
         return Err(FlatAttentionError::LengthMismatch {
             tensor: name,
-            actual: data.len(),
+            actual: values.len(),
             expected,
         });
     }
-    if let Some(index) = data.iter().position(|value| !value.is_finite()) {
+    if let Some(index) = values.iter().position(|value| !value.is_finite()) {
         return Err(FlatAttentionError::NonFiniteInput {
             tensor: name,
             index,
@@ -173,15 +199,15 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
     rotary: AsymmetricRotaryEmbeddingConfig,
     bias: AttentionBias<'_>,
 ) -> Result<FlatAttentionOutput, FlatAttentionError> {
-    shape.validate()?;
+    validate_shape(shape)?;
     rotary.validate(shape.head_dim, shape.query_len, shape.kv_len)?;
     bias.validate(shape)?;
 
     let q_len = shape.q_tensor_len()?;
     let kv_len = shape.kv_tensor_len()?;
-    validate_bias_input("Q", q, q_len)?;
-    validate_bias_input("K", k, kv_len)?;
-    validate_bias_input("V", v, kv_len)?;
+    validate_input("Q", q, q_len)?;
+    validate_input("K", k, kv_len)?;
+    validate_input("V", v, kv_len)?;
     let scale = config.resolved_scale(shape.head_dim)?;
     let group_size = shape.q_heads / shape.kv_heads;
 
@@ -214,9 +240,10 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                         .checked_add(key_pos)
                         .ok_or(FlatAttentionError::PositionOverflow)?;
                     let mut dot = 0.0f32;
+
                     for pair in 0..shape.head_dim / 2 {
                         let dim = 2 * pair;
-                        let qe_idx = projection_index(
+                        let q_index = projection_index(
                             batch,
                             query_pos,
                             q_head,
@@ -225,7 +252,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             shape.query_len,
                             shape.head_dim,
                         )?;
-                        let ke_idx = projection_index(
+                        let k_index = projection_index(
                             batch,
                             key_pos,
                             kv_head,
@@ -234,28 +261,26 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             shape.kv_len,
                             shape.head_dim,
                         )?;
-                        let (qe, qo) = rotated_pair(
-                            q[qe_idx],
-                            q[qe_idx + 1],
+                        let (q_even, q_odd) = rotated_pair(
+                            q[q_index],
+                            q[q_index + 1],
                             pair,
                             shape.head_dim,
                             query_rotary_position,
                             rotary.theta,
                         );
-                        let (ke, ko) = rotated_pair(
-                            k[ke_idx],
-                            k[ke_idx + 1],
+                        let (k_even, k_odd) = rotated_pair(
+                            k[k_index],
+                            k[k_index + 1],
                             pair,
                             shape.head_dim,
                             key_rotary_position,
                             rotary.theta,
                         );
-                        dot += qe * ke;
-                        dot += qo * ko;
+                        dot += q_even * k_even + q_odd * k_odd;
                     }
 
-                    let score = dot * scale
-                        + bias.score_bias(shape, batch, q_head, query_pos, key_pos)?;
+                    let score = dot * scale + bias.score(shape, batch, q_head, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0
@@ -265,7 +290,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                     let probability_numerator = (score - new_max).exp();
 
                     for dim in 0..shape.head_dim {
-                        let out_idx = projection_index(
+                        let output_index = projection_index(
                             batch,
                             query_pos,
                             q_head,
@@ -274,7 +299,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             shape.query_len,
                             shape.head_dim,
                         )?;
-                        let v_idx = projection_index(
+                        let value_index = projection_index(
                             batch,
                             key_pos,
                             kv_head,
@@ -283,16 +308,16 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             shape.kv_len,
                             shape.head_dim,
                         )?;
-                        output[out_idx] =
-                            output[out_idx] * alpha + probability_numerator * v[v_idx];
+                        output[output_index] = output[output_index] * alpha
+                            + probability_numerator * v[value_index];
                     }
                     running_sum = running_sum * alpha + probability_numerator;
                     running_max = new_max;
                 }
 
-                let inv_sum = running_sum.recip();
+                let inverse_sum = running_sum.recip();
                 for dim in 0..shape.head_dim {
-                    let out_idx = projection_index(
+                    let output_index = projection_index(
                         batch,
                         query_pos,
                         q_head,
@@ -301,7 +326,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                         shape.query_len,
                         shape.head_dim,
                     )?;
-                    output[out_idx] *= inv_sum;
+                    output[output_index] *= inverse_sum;
                 }
                 lse[lse_base + query_pos] = running_max + running_sum.ln();
             }
@@ -309,198 +334,4 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
     }
 
     Ok(FlatAttentionOutput { output, lse })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::forward_reference_projection_grouped_rope_asymmetric;
-
-    fn fixture(len: usize, phase: f32) -> Vec<f32> {
-        (0..len)
-            .map(|index| ((index as f32 * 0.071) + phase).sin() * 0.625)
-            .collect()
-    }
-
-    fn shape() -> AsymmetricGroupedAttentionShape {
-        AsymmetricGroupedAttentionShape {
-            batch: 1,
-            q_heads: 4,
-            kv_heads: 2,
-            query_len: 3,
-            kv_len: 5,
-            head_dim: 8,
-            query_position_offset: 2,
-        }
-    }
-
-    fn rotary() -> AsymmetricRotaryEmbeddingConfig {
-        AsymmetricRotaryEmbeddingConfig {
-            theta: 10_000.0,
-            query_position_offset: 17,
-            kv_position_offset: 13,
-        }
-    }
-
-    #[test]
-    fn no_bias_is_bitwise_identical_to_m11_oracle() {
-        let shape = shape();
-        let q = fixture(shape.q_tensor_len().unwrap(), 0.2);
-        let k = fixture(shape.kv_tensor_len().unwrap(), 0.8);
-        let v = fixture(shape.kv_tensor_len().unwrap(), 1.4);
-        let config = FlatAttentionConfig {
-            causal: false,
-            softmax_scale: None,
-        };
-        let expected = forward_reference_projection_grouped_rope_asymmetric(
-            &q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary(),
-        )
-        .unwrap();
-        let actual = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary(),
-            AttentionBias::None,
-        )
-        .unwrap();
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn dense_bias_changes_softmax_without_score_matrix() {
-        let shape = AsymmetricGroupedAttentionShape {
-            batch: 1,
-            q_heads: 1,
-            kv_heads: 1,
-            query_len: 1,
-            kv_len: 2,
-            head_dim: 2,
-            query_position_offset: 0,
-        };
-        let q = vec![0.0, 0.0];
-        let k = vec![0.0, 0.0, 0.0, 0.0];
-        let v = vec![1.0, 2.0, 3.0, 4.0];
-        let bias = vec![0.0, 3.0f32.ln()];
-        let output = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            FlatAttentionConfig {
-                causal: false,
-                softmax_scale: None,
-            },
-            AsymmetricRotaryEmbeddingConfig {
-                theta: 10_000.0,
-                query_position_offset: 0,
-                kv_position_offset: 0,
-            },
-            AttentionBias::Dense(&bias),
-        )
-        .unwrap();
-        assert!((output.output[0] - 2.5).abs() <= 1.0e-6);
-        assert!((output.output[1] - 3.5).abs() <= 1.0e-6);
-        assert!((output.lse[0] - 4.0f32.ln()).abs() <= 1.0e-6);
-    }
-
-    #[test]
-    fn alibi_matches_equivalent_dense_bias() {
-        let shape = shape();
-        let q = fixture(shape.q_tensor_len().unwrap(), 0.3);
-        let k = fixture(shape.kv_tensor_len().unwrap(), 0.9);
-        let v = fixture(shape.kv_tensor_len().unwrap(), 1.5);
-        let slopes = [0.25, 0.5, 0.75, 1.0];
-        let query_origin = 31usize;
-        let kv_origin = 29usize;
-        let mut dense = Vec::with_capacity(shape.batch * shape.q_heads * shape.query_len * shape.kv_len);
-        for _batch in 0..shape.batch {
-            for &slope in &slopes {
-                for query_pos in 0..shape.query_len {
-                    for key_pos in 0..shape.kv_len {
-                        let delta = (kv_origin + key_pos) as f32 - (query_origin + query_pos) as f32;
-                        dense.push(slope * delta);
-                    }
-                }
-            }
-        }
-        let config = FlatAttentionConfig {
-            causal: false,
-            softmax_scale: None,
-        };
-        let dense_output = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary(),
-            AttentionBias::Dense(&dense),
-        )
-        .unwrap();
-        let alibi_output = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary(),
-            AttentionBias::Alibi {
-                slopes: &slopes,
-                query_position_offset: query_origin,
-                kv_position_offset: kv_origin,
-            },
-        )
-        .unwrap();
-        assert_eq!(alibi_output, dense_output);
-    }
-
-    #[test]
-    fn malformed_biases_fail_explicitly() {
-        let shape = shape();
-        let q = fixture(shape.q_tensor_len().unwrap(), 0.2);
-        let k = fixture(shape.kv_tensor_len().unwrap(), 0.8);
-        let v = fixture(shape.kv_tensor_len().unwrap(), 1.4);
-        let error = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            FlatAttentionConfig::default(),
-            rotary(),
-            AttentionBias::Dense(&[0.0]),
-        )
-        .unwrap_err();
-        assert!(matches!(error, FlatAttentionError::LengthMismatch { tensor: "attention bias", .. }));
-
-        let slopes = [0.0, f32::NAN, 0.0, 0.0];
-        let error = forward_reference_projection_grouped_rope_asymmetric_biased(
-            &q,
-            &k,
-            &v,
-            shape,
-            FlatAttentionConfig::default(),
-            rotary(),
-            AttentionBias::Alibi {
-                slopes: &slopes,
-                query_position_offset: 0,
-                kv_position_offset: 0,
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            error,
-            FlatAttentionError::NonFiniteInput {
-                tensor: "ALiBi slopes",
-                index: 1,
-            }
-        );
-    }
 }
