@@ -180,7 +180,12 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
 
         let (bias_mode, bias_q_offset, bias_kv_offset, slopes) = match alibi {
             Some((slopes, query_position_offset, kv_position_offset)) => {
-                validate_alibi(pass.shape, slopes, query_position_offset, kv_position_offset)?;
+                validate_alibi(
+                    pass.shape,
+                    slopes,
+                    query_position_offset,
+                    kv_position_offset,
+                )?;
                 (
                     1u32,
                     checked_u32(query_position_offset)?,
