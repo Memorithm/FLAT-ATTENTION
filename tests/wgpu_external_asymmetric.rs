@@ -11,15 +11,13 @@ use flat_attention::{
 const ATOL: f32 = 1.5e-4;
 const RTOL: f32 = 1.0e-3;
 
-struct DeviceHarness
-{
+struct DeviceHarness {
     device: wgpu::Device,
     queue: wgpu::Queue,
     adapter_name: String,
 }
 
-fn harness() -> Option<DeviceHarness>
-{
+fn harness() -> Option<DeviceHarness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
         ..Default::default()
@@ -29,11 +27,8 @@ fn harness() -> Option<DeviceHarness>
         force_fallback_adapter: false,
         compatible_surface: None,
     }));
-    let Some(adapter) = adapter
-    else
-    {
-        if std::env::var_os("FLAT_REQUIRE_WGPU").is_some()
-        {
+    let Some(adapter) = adapter else {
+        if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M11 requires a WGPU adapter in the mandatory device gate");
         }
         eprintln!("WGPU adapter unavailable; optional M11 device test skipped");
@@ -56,8 +51,7 @@ fn harness() -> Option<DeviceHarness>
     })
 }
 
-fn fixture(len: usize, phase: f32) -> Vec<f32>
-{
+fn fixture(len: usize, phase: f32) -> Vec<f32> {
     (0..len)
         .map(|i| {
             let x = i as f32 * 0.023 + phase;
@@ -66,18 +60,15 @@ fn fixture(len: usize, phase: f32) -> Vec<f32>
         .collect()
 }
 
-fn encode_f32(values: &[f32]) -> Vec<u8>
-{
+fn encode_f32(values: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(std::mem::size_of_val(values));
-    for &value in values
-    {
+    for &value in values {
         bytes.extend_from_slice(&value.to_ne_bytes());
     }
     bytes
 }
 
-fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer
-{
+fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer {
     let bytes = encode_f32(values);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-m11-input"),
@@ -85,8 +76,7 @@ fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> w
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    if !bytes.is_empty()
-    {
+    if !bytes.is_empty() {
         queue.write_buffer(&buffer, 0, &bytes);
     }
     buffer
@@ -97,8 +87,7 @@ fn read_f32(
     queue: &wgpu::Queue,
     source: &wgpu::Buffer,
     len: usize,
-) -> Vec<f32>
-{
+) -> Vec<f32> {
     let bytes = (len * std::mem::size_of::<f32>()) as u64;
     let staging = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-m11-readback"),
@@ -121,8 +110,7 @@ fn read_f32(
     receiver.recv().unwrap().unwrap();
     let mapped = slice.get_mapped_range();
     let mut values = Vec::with_capacity(len);
-    for chunk in mapped.chunks_exact(4)
-    {
+    for chunk in mapped.chunks_exact(4) {
         values.push(f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
     }
     drop(mapped);
@@ -130,11 +118,9 @@ fn read_f32(
     values
 }
 
-fn assert_close(name: &str, actual: &[f32], expected: &[f32])
-{
+fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
     assert_eq!(actual.len(), expected.len(), "{name}: length mismatch");
-    for (index, (&actual, &expected)) in actual.iter().zip(expected).enumerate()
-    {
+    for (index, (&actual, &expected)) in actual.iter().zip(expected).enumerate() {
         assert!(actual.is_finite(), "{name}[{index}] is not finite");
         let tolerance = ATOL + RTOL * expected.abs();
         let error = (actual - expected).abs();
@@ -151,8 +137,7 @@ fn run_case(
     config: FlatAttentionConfig,
     rotary: AsymmetricRotaryEmbeddingConfig,
     phase: f32,
-)
-{
+) {
     let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&harness.device).unwrap();
     let q = fixture(shape.q_tensor_len().unwrap(), phase);
     let k = fixture(shape.kv_tensor_len().unwrap(), phase + 0.6);
@@ -190,28 +175,16 @@ fn run_case(
         &output,
         layout.combined_elements,
     );
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q, &k, &v, shape, config, rotary,
-    )
-    .unwrap();
-    assert_close(
-        "M11 O",
-        &values[..layout.output_elements],
-        &expected.output,
-    );
-    assert_close(
-        "M11 LSE",
-        &values[layout.output_elements..],
-        &expected.lse,
-    );
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &k, &v, shape, config, rotary)
+            .unwrap();
+    assert_close("M11 O", &values[..layout.output_elements], &expected.output);
+    assert_close("M11 LSE", &values[layout.output_elements..], &expected.lse);
 }
 
 #[test]
-fn single_query_decode_reads_long_resident_gqa_cache()
-{
-    let Some(harness) = harness()
-    else
-    {
+fn single_query_decode_reads_long_resident_gqa_cache() {
+    let Some(harness) = harness() else {
         return;
     };
     eprintln!("M11 adapter: {}", harness.adapter_name);
@@ -240,11 +213,8 @@ fn single_query_decode_reads_long_resident_gqa_cache()
 }
 
 #[test]
-fn rectangular_noncausal_mqa_matches_oracle()
-{
-    let Some(harness) = harness()
-    else
-    {
+fn rectangular_noncausal_mqa_matches_oracle() {
+    let Some(harness) = harness() else {
         return;
     };
     run_case(
@@ -272,11 +242,8 @@ fn rectangular_noncausal_mqa_matches_oracle()
 }
 
 #[test]
-fn rectangular_pipeline_rejects_short_kv_buffer()
-{
-    let Some(harness) = harness()
-    else
-    {
+fn rectangular_pipeline_rejects_short_kv_buffer() {
+    let Some(harness) = harness() else {
         return;
     };
     let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&harness.device).unwrap();
