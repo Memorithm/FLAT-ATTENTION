@@ -1,7 +1,7 @@
 use flat_attention::{
     FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_ROPE_WGSL, FLAT_FWD_GROUPED_WGSL,
-    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL, FLAT_FWD_PROJECTION_ROPE_WGSL, FLAT_FWD_SINGLE_WGSL,
-    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
+    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL, FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
+    FLAT_FWD_PROJECTION_ROPE_WGSL, FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
 };
 use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
@@ -52,6 +52,14 @@ fn asymmetric_projection_rotary_grouped_q4_shader_parses_and_validates() {
     validate_shader(
         "Q4 asymmetric projection RoPE",
         FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+    );
+}
+
+#[test]
+fn variable_projection_rotary_grouped_q4_shader_parses_and_validates() {
+    validate_shader(
+        "Q4 variable-length projection RoPE",
+        FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
     );
 }
 
