@@ -569,13 +569,8 @@ mod tests {
             })
         ));
 
-        let query_too_long = shape.forward_reference_variable_lengths(
-            &q,
-            &k,
-            &v,
-            &[(5, 1, 0), (1, 1, 0)],
-            config,
-        );
+        let query_too_long =
+            shape.forward_reference_variable_lengths(&q, &k, &v, &[(5, 1, 0), (1, 1, 0)], config);
         assert!(matches!(
             query_too_long,
             Err(FlatAttentionError::LengthMismatch {
@@ -584,13 +579,8 @@ mod tests {
             })
         ));
 
-        let kv_too_long = shape.forward_reference_variable_lengths(
-            &q,
-            &k,
-            &v,
-            &[(1, 7, 0), (1, 1, 0)],
-            config,
-        );
+        let kv_too_long =
+            shape.forward_reference_variable_lengths(&q, &k, &v, &[(1, 7, 0), (1, 1, 0)], config);
         assert!(matches!(
             kv_too_long,
             Err(FlatAttentionError::LengthMismatch {
@@ -599,13 +589,8 @@ mod tests {
             })
         ));
 
-        let zero_active = shape.forward_reference_variable_lengths(
-            &q,
-            &k,
-            &v,
-            &[(0, 1, 0), (1, 1, 0)],
-            config,
-        );
+        let zero_active =
+            shape.forward_reference_variable_lengths(&q, &k, &v, &[(0, 1, 0), (1, 1, 0)], config);
         assert_eq!(zero_active.unwrap_err(), FlatAttentionError::ZeroDimension);
     }
 
