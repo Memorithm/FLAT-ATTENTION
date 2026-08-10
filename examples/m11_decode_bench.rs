@@ -180,11 +180,7 @@ mod bench {
             .collect()
     }
 
-    fn input_buffer(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        values: &[f32],
-    ) -> wgpu::Buffer {
+    fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer {
         let bytes = encode_f32(values);
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m12-decode-bench-input"),
