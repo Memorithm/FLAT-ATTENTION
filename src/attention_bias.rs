@@ -277,7 +277,8 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
                             key_rotary_position,
                             rotary.theta,
                         );
-                        dot += q_even * k_even + q_odd * k_odd;
+                        dot += q_even * k_even;
+                        dot += q_odd * k_odd;
                     }
 
                     let score =
