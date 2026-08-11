@@ -28,7 +28,7 @@ jobs:
           lib = Path('src/lib.rs')
           text = lib.read_text()
           marker = '''#[cfg(feature = "wgpu")]\nmod wgpu_backend;\n'''
-          addition = '''#[cfg(feature = "wgpu")]\nmod runtime_telemetry;\n#[cfg(feature = "wgpu")]\npub use runtime_telemetry::{\n    AutotunerCacheStatus, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,\n    RuntimeTileGeometry,\n};\n\n'''
+          addition = '''#[cfg(feature = "wgpu")]\nmod runtime_telemetry;\n#[cfg(feature = "wgpu")]\npub use runtime_telemetry::{\n    grouped_q4_geometry, AutotunerCacheStatus, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry,\n    RuntimeKernelId, RuntimeTileGeometry,\n};\n\n'''
           if 'mod runtime_telemetry;' not in text:
               if marker not in text:
                   raise SystemExit('lib.rs WGPU marker not found')
