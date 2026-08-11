@@ -92,6 +92,14 @@ pub const FLAT_FWD_F16_WGSL: &str = include_str!("../shaders/flat_fwd_f16.wgsl")
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
 #[cfg(feature = "wgpu")]
+mod runtime_telemetry;
+#[cfg(feature = "wgpu")]
+pub use runtime_telemetry::{
+    AutotunerCacheStatus, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,
+    RuntimeTileGeometry,
+};
+
+#[cfg(feature = "wgpu")]
 mod wgpu_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_backend::{

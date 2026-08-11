@@ -155,6 +155,9 @@ mod tests {
                 .autotuner_cache,
             AutotunerCacheStatus::Hit
         );
-        assert_eq!(telemetry.autotuner_cache, AutotunerCacheStatus::NotApplicable);
+        assert_eq!(
+            telemetry.autotuner_cache,
+            AutotunerCacheStatus::NotApplicable
+        );
     }
 }

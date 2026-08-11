@@ -9,8 +9,10 @@ use std::fmt;
 use std::sync::{mpsc, Arc};
 
 use super::{
-    validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
-    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    validate_input, AttentionShape, AutotunerCacheStatus, FlatAttentionConfig, FlatAttentionError,
+    FlatAttentionOutput, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,
+    RuntimeTileGeometry, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM,
+    WGSL_QUERY_ROWS,
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
@@ -154,6 +156,8 @@ struct WgpuFlatAttentionInner {
     vec4_pipeline: wgpu::ComputePipeline,
     double_buffer_pipeline: wgpu::ComputePipeline,
     adapter_name: String,
+    device_fingerprint: RuntimeDeviceFingerprint,
+    fallback_reason: Option<String>,
     max_workgroups_per_dimension: u32,
     subgroup_supported: bool,
     subgroup_size_range: Option<(u32, u32)>,
@@ -229,7 +233,16 @@ impl WgpuFlatAttention {
             wgpu::Features::empty()
         };
 
-        let adapter_name = adapter.get_info().name;
+        let adapter_info = adapter.get_info();
+        let adapter_name = adapter_info.name.clone();
+        let device_fingerprint = RuntimeDeviceFingerprint {
+            name: adapter_info.name,
+            backend: format!("{:?}", adapter_info.backend),
+            driver: adapter_info.driver,
+            driver_info: adapter_info.driver_info,
+            vendor: adapter_info.vendor,
+            device: adapter_info.device,
+        };
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("flat-attention-q4"),
@@ -240,17 +253,18 @@ impl WgpuFlatAttention {
         ))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
-        let (pipeline, kernel_variant) = if request_subgroup {
+        let (pipeline, kernel_variant, fallback_reason) = if request_subgroup {
             match create_pipeline(
                 &device,
                 FLAT_FWD_SUBGROUP_WGSL,
                 "flat-attention-forward-q4-subgroup",
             ) {
-                Ok(pipeline) => (pipeline, WgpuKernelVariant::Q4Subgroup),
-                Err(_error) if policy == WgpuSubgroupPolicy::Auto => (
+                Ok(pipeline) => (pipeline, WgpuKernelVariant::Q4Subgroup, None),
+                Err(error) if policy == WgpuSubgroupPolicy::Auto => (
                     create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")
                         .map_err(WgpuFlatAttentionError::Execution)?,
                     WgpuKernelVariant::Q4Portable,
+                    Some(format!("subgroup pipeline validation failed: {error}")),
                 ),
                 Err(error) => {
                     return Err(WgpuFlatAttentionError::Execution(format!(
@@ -263,6 +277,7 @@ impl WgpuFlatAttention {
                 create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")
                     .map_err(WgpuFlatAttentionError::Execution)?,
                 WgpuKernelVariant::Q4Portable,
+                None,
             )
         };
 
@@ -290,6 +305,8 @@ impl WgpuFlatAttention {
                 vec4_pipeline,
                 double_buffer_pipeline,
                 adapter_name,
+                device_fingerprint,
+                fallback_reason,
                 max_workgroups_per_dimension,
                 subgroup_supported,
                 subgroup_size_range,
@@ -326,6 +343,65 @@ impl WgpuFlatAttention {
 
     pub fn double_buffering_enabled(&self) -> bool {
         self.inner.double_buffering_enabled
+    }
+
+    /// Return passive metadata for the dispatch that would be selected for
+    /// `shape`. This performs no queue submission, device polling, mapping, or
+    /// synchronization.
+    pub fn runtime_telemetry(
+        &self,
+        shape: AttentionShape,
+    ) -> Result<RuntimeDispatchTelemetry, WgpuFlatAttentionError> {
+        shape.validate()?;
+        if shape.head_dim > WGSL_MAX_HEAD_DIM {
+            return Err(WgpuFlatAttentionError::UnsupportedHeadDim {
+                actual: shape.head_dim,
+                maximum: WGSL_MAX_HEAD_DIM,
+            });
+        }
+        let query_tiles = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
+        let batch_heads = shape
+            .batch
+            .checked_mul(shape.heads)
+            .ok_or(FlatAttentionError::ShapeOverflow)?;
+        let selected = self.kernel_variant_for_head_dim(shape.head_dim);
+        let fallback_reason = self.inner.fallback_reason.clone().or_else(|| {
+            (self.inner.vectorization_enabled
+                && selected == WgpuKernelVariant::Q4Portable
+                && !matches!(shape.head_dim, 64 | 128))
+            .then(|| {
+                format!(
+                    "vec4 specialization unavailable for head_dim={}",
+                    shape.head_dim
+                )
+            })
+        });
+        Ok(RuntimeDispatchTelemetry {
+            kernel_id: RuntimeKernelId::from(selected),
+            device: self.inner.device_fingerprint.clone(),
+            tile: RuntimeTileGeometry {
+                query_rows: WGSL_QUERY_ROWS as u32,
+                kv_rows: WGSL_KV_TILE as u32,
+                workgroups: [
+                    u32::try_from(query_tiles).map_err(|_| {
+                        WgpuFlatAttentionError::IndexSpaceExceeded {
+                            elements: query_tiles,
+                        }
+                    })?,
+                    u32::try_from(batch_heads).map_err(|_| {
+                        WgpuFlatAttentionError::IndexSpaceExceeded {
+                            elements: batch_heads,
+                        }
+                    })?,
+                    1,
+                ],
+            },
+            dispatch_count: 1,
+            temporary_allocation_count: 1,
+            temporary_allocation_bytes: 8 * core::mem::size_of::<u32>() as u64,
+            fallback_reason,
+            autotuner_cache: AutotunerCacheStatus::NotApplicable,
+        })
     }
 
     pub fn kernel_variant_for_head_dim(&self, head_dim: usize) -> WgpuKernelVariant {
