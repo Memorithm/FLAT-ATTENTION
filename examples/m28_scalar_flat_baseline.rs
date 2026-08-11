@@ -176,12 +176,7 @@ fn run_case(
 
     let (scalar_median_us, scalar_p95_us) = summarize(scalar_samples);
     let (flat_median_us, flat_p95_us) = summarize(flat_samples);
-    (
-        scalar_median_us,
-        scalar_p95_us,
-        flat_median_us,
-        flat_p95_us,
-    )
+    (scalar_median_us, scalar_p95_us, flat_median_us, flat_p95_us)
 }
 
 fn main() {
@@ -208,7 +203,10 @@ fn main() {
     let pipeline = WgpuGroupedForwardPipeline::new(&device).expect("M28 pipeline creation failed");
 
     println!("benchmark=m28_scalar_flat_baseline");
-    println!("commit_sha={}", option_env!("GITHUB_SHA").unwrap_or("unknown"));
+    println!(
+        "commit_sha={}",
+        option_env!("GITHUB_SHA").unwrap_or("unknown")
+    );
     println!("device_name={}", info.name);
     println!("backend={:?}", info.backend);
     println!("driver={}", info.driver);
