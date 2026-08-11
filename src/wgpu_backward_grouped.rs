@@ -116,6 +116,33 @@ impl From<FlatAttentionError> for GroupedBackwardRecomputeError {
     }
 }
 
+/// Prevalidated grouped-backward dispatch state for a fixed buffer/shape/config tuple.
+///
+/// Construct once with [`WgpuGroupedBackwardRecomputePipeline::prepare`] and reuse
+/// with [`WgpuGroupedBackwardRecomputePipeline::encode_prepared`] to avoid rebuilding
+/// the uniform buffer and bind group on every command encoding pass.
+pub struct PreparedGroupedBackwardRecompute {
+    bind_group: wgpu::BindGroup,
+    layout: GroupedBackwardRecomputeLayout,
+    workgroups: u32,
+    _params_buffer: wgpu::Buffer,
+}
+
+impl fmt::Debug for PreparedGroupedBackwardRecompute {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PreparedGroupedBackwardRecompute")
+            .field("layout", &self.layout)
+            .field("workgroups", &self.workgroups)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PreparedGroupedBackwardRecompute {
+    pub const fn layout(&self) -> GroupedBackwardRecomputeLayout {
+        self.layout
+    }
+}
+
 pub struct WgpuGroupedBackwardRecomputePipeline {
     pipeline: wgpu::ComputePipeline,
 }
@@ -201,12 +228,11 @@ impl WgpuGroupedBackwardRecomputePipeline {
         }))
     }
 
-    pub fn encode(
+    pub fn prepare(
         &self,
         device: &wgpu::Device,
-        encoder: &mut wgpu::CommandEncoder,
         pass: GroupedBackwardRecomputePass<'_>,
-    ) -> Result<GroupedBackwardRecomputeLayout, GroupedBackwardRecomputeError> {
+    ) -> Result<PreparedGroupedBackwardRecompute, GroupedBackwardRecomputeError> {
         let layout = Self::layout(pass.shape)?;
         validate_buffer(
             "Q|K|V|dO|O|LSE",
@@ -237,7 +263,7 @@ impl WgpuGroupedBackwardRecomputePipeline {
         ];
         let params_bytes = encode_u32(&params);
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m19-grouped-backward-params"),
+            label: Some("flat-m20-grouped-backward-prepared-params"),
             size: params_bytes.len() as u64,
             usage: wgpu::BufferUsages::UNIFORM,
             mapped_at_creation: true,
@@ -247,9 +273,8 @@ impl WgpuGroupedBackwardRecomputePipeline {
             mapped.copy_from_slice(&params_bytes);
         }
         params_buffer.unmap();
-
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("flat-m19-grouped-backward-bind-group"),
+            label: Some("flat-m20-grouped-backward-prepared-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
@@ -266,15 +291,38 @@ impl WgpuGroupedBackwardRecomputePipeline {
                 },
             ],
         });
+        Ok(PreparedGroupedBackwardRecompute {
+            bind_group,
+            layout,
+            workgroups: checked_u32(workgroups)?,
+            _params_buffer: params_buffer,
+        })
+    }
+
+    pub fn encode_prepared(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        prepared: &PreparedGroupedBackwardRecompute,
+    ) -> GroupedBackwardRecomputeLayout {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("flat-m19-grouped-backward-recompute"),
+            label: Some("flat-m20-grouped-backward-prepared"),
             timestamp_writes: None,
         });
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &bind_group, &[]);
-        compute_pass.dispatch_workgroups(checked_u32(workgroups)?, 1, 1);
+        compute_pass.set_bind_group(0, &prepared.bind_group, &[]);
+        compute_pass.dispatch_workgroups(prepared.workgroups, 1, 1);
         drop(compute_pass);
-        Ok(layout)
+        prepared.layout
+    }
+
+    pub fn encode(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: GroupedBackwardRecomputePass<'_>,
+    ) -> Result<GroupedBackwardRecomputeLayout, GroupedBackwardRecomputeError> {
+        let prepared = self.prepare(device, pass)?;
+        Ok(self.encode_prepared(encoder, &prepared))
     }
 }
 
