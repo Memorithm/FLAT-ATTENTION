@@ -68,7 +68,7 @@ pub mod v1 {
             Ok(self.q_heads / self.kv_heads)
         }
 
-        pub fn as_core_shape(self) -> Result<AsymmetricGroupedAttentionShape, ApiError> {
+        pub fn to_core_shape(self) -> Result<AsymmetricGroupedAttentionShape, ApiError> {
             self.validate()?;
             Ok(AsymmetricGroupedAttentionShape {
                 batch: self.batch,
@@ -103,7 +103,7 @@ pub mod v1 {
             Ok(())
         }
 
-        pub fn as_core_config(self) -> FlatAttentionConfig {
+        pub fn to_core_config(self) -> FlatAttentionConfig {
             FlatAttentionConfig {
                 causal: self.causal,
                 softmax_scale: self.softmax_scale,
@@ -293,7 +293,7 @@ pub mod v1 {
             assert_eq!(shape.kv_elements().unwrap(), 80);
             assert_eq!(shape.lse_elements().unwrap(), 12);
             assert_eq!(shape.group_size().unwrap(), 2);
-            let core = shape.as_core_shape().unwrap();
+            let core = shape.to_core_shape().unwrap();
             assert_eq!(core.query_len, 3);
             assert_eq!(core.kv_len, 5);
             assert_eq!(core.query_position_offset, 2);
