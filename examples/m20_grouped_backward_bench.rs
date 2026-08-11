@@ -67,7 +67,7 @@ fn run_case(
     config: FlatAttentionConfig,
     warmup: usize,
     iterations: usize,
-) -> (f64, f64) {
+) -> ((f64, f64), (f64, f64)) {
     let q = fixture(shape.q_tensor_len().unwrap(), 0.1);
     let k = fixture(shape.kv_tensor_len().unwrap(), 0.7);
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.3);
@@ -77,11 +77,22 @@ fn run_case(
         pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
     let packed_gpu = input_buffer(device, queue, &packed, "flat-m20-grouped-backward-input");
     let grads_gpu = pipeline.create_gradient_buffer(device, shape).unwrap();
+    let prepared = pipeline
+        .prepare(
+            device,
+            GroupedBackwardRecomputePass {
+                packed_forward: &packed_gpu,
+                packed_grads: &grads_gpu,
+                shape,
+                config,
+            },
+        )
+        .unwrap();
 
-    let run_once = || {
+    let run_legacy_once = || {
         let start = Instant::now();
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m20-grouped-backward-bench"),
+            label: Some("flat-m20-grouped-backward-legacy"),
         });
         pipeline
             .encode(
@@ -100,12 +111,40 @@ fn run_case(
         start.elapsed().as_secs_f64() * 1.0e6
     };
 
-    for _ in 0..warmup {
-        let _ = run_once();
+    let run_prepared_once = || {
+        let start = Instant::now();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m20-grouped-backward-prepared"),
+        });
+        let _layout = pipeline.encode_prepared(&mut encoder, &prepared);
+        queue.submit(Some(encoder.finish()));
+        let _ = device.poll(wgpu::Maintain::Wait);
+        start.elapsed().as_secs_f64() * 1.0e6
+    };
+
+    for iteration in 0..warmup {
+        if iteration.is_multiple_of(2) {
+            let _ = run_legacy_once();
+            let _ = run_prepared_once();
+        } else {
+            let _ = run_prepared_once();
+            let _ = run_legacy_once();
+        }
     }
 
-    let samples = (0..iterations).map(|_| run_once()).collect();
-    summarize(samples)
+    let mut legacy_samples = Vec::with_capacity(iterations);
+    let mut prepared_samples = Vec::with_capacity(iterations);
+    for iteration in 0..iterations {
+        if iteration.is_multiple_of(2) {
+            legacy_samples.push(run_legacy_once());
+            prepared_samples.push(run_prepared_once());
+        } else {
+            prepared_samples.push(run_prepared_once());
+            legacy_samples.push(run_legacy_once());
+        }
+    }
+
+    (summarize(legacy_samples), summarize(prepared_samples))
 }
 
 fn main() {
@@ -154,8 +193,8 @@ fn main() {
     println!(
         "benchmark=m20_grouped_backward batch=1 q_heads={q_heads} seq_len={seq_len} head_dim={head_dim} warmup={warmup} iterations={iterations}"
     );
-    println!("timing_scope=command_encoder+public_encode+queue_submit+device_poll");
-    println!("kv_heads,median_us,p95_us");
+    println!("timing_scope=command_encoder+encode+queue_submit+device_poll");
+    println!("kv_heads,path,median_us,p95_us");
 
     for kv_heads in kv_head_cases {
         let shape = GroupedAttentionShape {
@@ -165,9 +204,11 @@ fn main() {
             seq_len,
             head_dim,
         };
-        let (median_us, p95_us) = run_case(
+        let ((legacy_median_us, legacy_p95_us), (prepared_median_us, prepared_p95_us)) = run_case(
             &device, &queue, &pipeline, shape, config, warmup, iterations,
         );
-        println!("{kv_heads},{median_us:.3},{p95_us:.3}");
+        println!("{kv_heads},legacy,{legacy_median_us:.3},{legacy_p95_us:.3}");
+        println!("{kv_heads},prepared,{prepared_median_us:.3},{prepared_p95_us:.3}");
     }
+    println!("performance_claim=none");
 }
