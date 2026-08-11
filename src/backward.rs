@@ -175,22 +175,22 @@ mod tests {
         let epsilon = 1.0e-3;
 
         let mut numerical_q = vec![0.0; q.len()];
-        for index in 0..q.len() {
-            numerical_q[index] = finite_difference(&mut q, index, epsilon, |candidate| {
+        for (index, numerical) in numerical_q.iter_mut().enumerate() {
+            *numerical = finite_difference(&mut q, index, epsilon, |candidate| {
                 objective(candidate, &k, &v, &d_out, shape, config)
             });
         }
 
         let mut numerical_k = vec![0.0; k.len()];
-        for index in 0..k.len() {
-            numerical_k[index] = finite_difference(&mut k, index, epsilon, |candidate| {
+        for (index, numerical) in numerical_k.iter_mut().enumerate() {
+            *numerical = finite_difference(&mut k, index, epsilon, |candidate| {
                 objective(&q, candidate, &v, &d_out, shape, config)
             });
         }
 
         let mut numerical_v = vec![0.0; v.len()];
-        for index in 0..v.len() {
-            numerical_v[index] = finite_difference(&mut v, index, epsilon, |candidate| {
+        for (index, numerical) in numerical_v.iter_mut().enumerate() {
+            *numerical = finite_difference(&mut v, index, epsilon, |candidate| {
                 objective(&q, &k, candidate, &d_out, shape, config)
             });
         }
