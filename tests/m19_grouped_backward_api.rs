@@ -139,7 +139,10 @@ fn grouped_layout_preserves_native_kv_cardinality() {
     let layout = WgpuGroupedBackwardRecomputePipeline::layout(shape).unwrap();
     assert_eq!(layout.q_elements, 2 * 8 * 5 * 16);
     assert_eq!(layout.kv_elements, 2 * 2 * 5 * 16);
-    assert_eq!(layout.gradient_elements, layout.q_elements + 2 * layout.kv_elements);
+    assert_eq!(
+        layout.gradient_elements,
+        layout.q_elements + 2 * layout.kv_elements
+    );
     assert_eq!(layout.dk_offset(), layout.q_elements);
     assert_eq!(layout.dv_offset(), layout.q_elements + layout.kv_elements);
 }
@@ -165,8 +168,7 @@ fn grouped_backward_public_api_matches_oracle() {
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.3);
     let d_out = fixture(shape.q_tensor_len().unwrap(), 1.9);
     let forward = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
-    let expected =
-        backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &forward).unwrap();
+    let expected = backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &forward).unwrap();
     let packed =
         pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
 
