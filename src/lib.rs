@@ -50,26 +50,42 @@ pub use numerical::{
 pub mod chunked_projection_prefill;
 pub mod paged_kv;
 
+/// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
+/// Number of invocations in one WGSL workgroup.
 pub const WGSL_WORKGROUP_SIZE: usize = 64;
+/// Number of K/V rows staged in workgroup memory at once.
 pub const WGSL_KV_TILE: usize = 8;
+/// Number of query rows sharing each K/V tile in the M4 default kernel.
 pub const WGSL_QUERY_ROWS: usize = 4;
 
+/// Qualified M4 portable fused forward kernel: four query rows per workgroup.
 pub const FLAT_FWD_WGSL: &str = include_str!("../shaders/flat_fwd.wgsl");
+/// M10 native GQA/MQA kernel without physical K/V head expansion.
 pub const FLAT_FWD_GROUPED_WGSL: &str = include_str!("../shaders/flat_fwd_grouped.wgsl");
+/// FLAT-R1 native GQA/MQA kernel with head-local RoPE fused into Q/K staging.
 pub const FLAT_FWD_GROUPED_ROPE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_rope.wgsl");
+/// FLAT-R2 direct sequence-major projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope.wgsl");
+/// M11 rectangular sequence-major projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_asymmetric.wgsl");
+/// M12 padded variable-length projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_variable.wgsl");
+/// M15 q_len=1 decode kernel over fixed-capacity resident K/V storage.
 pub const FLAT_DECODE_RESIDENT_WGSL: &str = include_str!("../shaders/flat_decode_resident.wgsl");
+/// M16 q_len=1 decode kernel over paged resident K/V storage.
 pub const FLAT_DECODE_PAGED_WGSL: &str = include_str!("../shaders/flat_decode_paged.wgsl");
+/// M18 portable correctness-first backward recomputation kernel.
 pub const FLAT_BACKWARD_RECOMPUTE_WGSL: &str =
     include_str!("../shaders/flat_backward_recompute.wgsl");
+/// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
+/// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
 pub const FLAT_FWD_F16_WGSL: &str = include_str!("../shaders/flat_fwd_f16.wgsl");
+/// Qualified M2/M3 one-query-row kernel retained as a baseline source.
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
 #[cfg(feature = "wgpu")]
@@ -153,6 +169,7 @@ pub use wgpu_backward::{
     BackwardRecomputePass, WgpuBackwardRecomputePipeline,
 };
 
+/// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
     pub batch: usize,
@@ -162,6 +179,7 @@ pub struct AttentionShape {
 }
 
 impl AttentionShape {
+    /// Number of scalar elements in Q, K, V, and O.
     pub fn tensor_len(self) -> Result<usize, FlatAttentionError> {
         self.batch
             .checked_mul(self.heads)
@@ -170,6 +188,7 @@ impl AttentionShape {
             .ok_or(FlatAttentionError::ShapeOverflow)
     }
 
+    /// Number of log-sum-exp statistics produced by forward.
     pub fn lse_len(self) -> Result<usize, FlatAttentionError> {
         self.batch
             .checked_mul(self.heads)
@@ -187,9 +206,12 @@ impl AttentionShape {
     }
 }
 
+/// Forward configuration shared by reference and GPU kernels.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct FlatAttentionConfig {
+    /// Apply autoregressive masking (`key_position > query_position`).
     pub causal: bool,
+    /// Optional score multiplier. Defaults to `1 / sqrt(head_dim)`.
     pub softmax_scale: Option<f32>,
 }
 
@@ -208,12 +230,19 @@ impl FlatAttentionConfig {
     }
 }
 
+/// Static memory-traffic model for a fused kernel generation.
+///
+/// `kv_storage_scalar_loads` counts logical scalar loads of K plus V from
+/// storage into workgroup memory according to the kernel's explicit staging
+/// loops. It is an architectural count, not a claim about physical DRAM
+/// transactions, cache hits, bandwidth, or runtime speed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IoModel {
     pub query_workgroups: usize,
     pub kv_storage_scalar_loads: usize,
 }
 
+/// Analytical IO model for the qualified single-row baseline.
 pub fn single_row_io_model(
     shape: AttentionShape,
     _causal: bool,
@@ -238,6 +267,7 @@ pub fn single_row_io_model(
     })
 }
 
+/// Analytical IO model for the M4 four-query-row tiled kernel.
 pub fn tiled_q4_io_model(
     shape: AttentionShape,
     causal: bool,
@@ -282,12 +312,16 @@ pub fn tiled_q4_io_model(
     })
 }
 
+/// Result of a forward attention pass.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatAttentionOutput {
+    /// Context tensor with the same shape as Q.
     pub output: Vec<f32>,
+    /// Per-query `log(sum(exp(scores)))`, shape `[batch, heads, seq_len]`.
     pub lse: Vec<f32>,
 }
 
+/// Errors are explicit: FLAT-ATTENTION never fabricates a fallback result.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatAttentionError {
     ZeroDimension,
@@ -341,10 +375,12 @@ impl fmt::Display for FlatAttentionError {
             Self::InvalidScale(scale) => {
                 write!(f, "softmax scale must be finite and positive, got {scale}")
             }
-            Self::NonFiniteInput { tensor, index } => write!(
-                f,
-                "tensor {tensor} contains a non-finite value at index {index}"
-            ),
+            Self::NonFiniteInput { tensor, index } => {
+                write!(
+                    f,
+                    "tensor {tensor} contains a non-finite value at index {index}"
+                )
+            }
         }
     }
 }
@@ -372,6 +408,11 @@ fn validate_input(
     Ok(())
 }
 
+/// Deterministic online-softmax reference forward pass.
+///
+/// This implementation is intentionally scalar and simple. It is the numerical
+/// oracle for optimized kernels. It has O(N * D) auxiliary state per active
+/// query and never allocates the O(N²) attention matrix.
 pub fn forward_reference(
     q: &[f32],
     k: &[f32],
