@@ -11,12 +11,10 @@
 use core::fmt;
 
 use crate::paged_kv::{PagedKvConfig, PagedKvError, PagedKvTable};
-use crate::{PagedDecodeError, WgpuPagedKvTable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WgpuPagedKvCacheError {
     Table(PagedKvError),
-    DecodeTable(PagedDecodeError),
     ZeroDimension,
     ShapeOverflow,
     BufferTooSmall {
@@ -38,7 +36,6 @@ impl fmt::Display for WgpuPagedKvCacheError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Table(error) => write!(f, "{error}"),
-            Self::DecodeTable(error) => write!(f, "{error}"),
             Self::ZeroDimension => write!(f, "paged resident KV dimensions must be non-zero"),
             Self::ShapeOverflow => write!(f, "paged resident KV shape overflows the address space"),
             Self::BufferTooSmall {
@@ -68,12 +65,6 @@ impl std::error::Error for WgpuPagedKvCacheError {}
 impl From<PagedKvError> for WgpuPagedKvCacheError {
     fn from(value: PagedKvError) -> Self {
         Self::Table(value)
-    }
-}
-
-impl From<PagedDecodeError> for WgpuPagedKvCacheError {
-    fn from(value: PagedDecodeError) -> Self {
-        Self::DecodeTable(value)
     }
 }
 
@@ -197,11 +188,6 @@ impl WgpuPagedKvCache {
     #[must_use]
     pub fn table(&self) -> &PagedKvTable {
         &self.table
-    }
-
-    /// Build the compact portable descriptor consumed by `WgpuPagedDecodePipeline`.
-    pub fn decode_table(&self) -> Result<WgpuPagedKvTable, WgpuPagedKvCacheError> {
-        Ok(WgpuPagedKvTable::from_table(&self.table)?)
     }
 
     /// Logical reset only. Physical bytes remain resident but the generation is
