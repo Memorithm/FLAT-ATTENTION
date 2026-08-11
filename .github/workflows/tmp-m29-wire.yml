@@ -1,0 +1,92 @@
+name: tmp-m29-wire
+
+on:
+  push:
+    branches:
+      - feat/m29-runtime-telemetry
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/m29-runtime-telemetry
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.89.0
+          components: rustfmt
+      - name: Wire telemetry into owned portable runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lib = Path('src/lib.rs')
+          text = lib.read_text()
+          marker = '''#[cfg(feature = "wgpu")]\nmod wgpu_backend;\n'''
+          addition = '''#[cfg(feature = "wgpu")]\nmod runtime_telemetry;\n#[cfg(feature = "wgpu")]\npub use runtime_telemetry::{\n    AutotunerCacheStatus, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,\n    RuntimeTileGeometry,\n};\n\n'''
+          if 'mod runtime_telemetry;' not in text:
+              if marker not in text:
+                  raise SystemExit('lib.rs WGPU marker not found')
+              text = text.replace(marker, addition + marker, 1)
+              lib.write_text(text)
+
+          backend = Path('src/wgpu_backend.rs')
+          text = backend.read_text()
+          old_use = '''use super::{\n    validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,\n    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,\n};\n'''
+          new_use = '''use super::{\n    validate_input, AttentionShape, AutotunerCacheStatus, FlatAttentionConfig, FlatAttentionError,\n    FlatAttentionOutput, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,\n    RuntimeTileGeometry, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM,\n    WGSL_QUERY_ROWS,\n};\n'''
+          if 'RuntimeDispatchTelemetry' not in text:
+              if old_use not in text:
+                  raise SystemExit('backend use marker not found')
+              text = text.replace(old_use, new_use, 1)
+
+          inner_old = '''    double_buffer_pipeline: wgpu::ComputePipeline,\n    adapter_name: String,\n    max_workgroups_per_dimension: u32,\n'''
+          inner_new = '''    double_buffer_pipeline: wgpu::ComputePipeline,\n    adapter_name: String,\n    device_fingerprint: RuntimeDeviceFingerprint,\n    fallback_reason: Option<String>,\n    max_workgroups_per_dimension: u32,\n'''
+          if 'device_fingerprint: RuntimeDeviceFingerprint' not in text:
+              if inner_old not in text:
+                  raise SystemExit('inner marker not found')
+              text = text.replace(inner_old, inner_new, 1)
+
+          info_old = '''        let adapter_name = adapter.get_info().name;\n        let (device, queue) = pollster::block_on(adapter.request_device(\n'''
+          info_new = '''        let adapter_info = adapter.get_info();\n        let adapter_name = adapter_info.name.clone();\n        let device_fingerprint = RuntimeDeviceFingerprint {\n            name: adapter_info.name,\n            backend: format!("{:?}", adapter_info.backend),\n            driver: adapter_info.driver,\n            driver_info: adapter_info.driver_info,\n            vendor: adapter_info.vendor,\n            device: adapter_info.device,\n        };\n        let (device, queue) = pollster::block_on(adapter.request_device(\n'''
+          if 'let device_fingerprint = RuntimeDeviceFingerprint' not in text:
+              if info_old not in text:
+                  raise SystemExit('adapter info marker not found')
+              text = text.replace(info_old, info_new, 1)
+
+          pipe_old = '''        let (pipeline, kernel_variant) = if request_subgroup {\n            match create_pipeline(\n                &device,\n                FLAT_FWD_SUBGROUP_WGSL,\n                "flat-attention-forward-q4-subgroup",\n            ) {\n                Ok(pipeline) => (pipeline, WgpuKernelVariant::Q4Subgroup),\n                Err(_error) if policy == WgpuSubgroupPolicy::Auto => (\n                    create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")\n                        .map_err(WgpuFlatAttentionError::Execution)?,\n                    WgpuKernelVariant::Q4Portable,\n                ),\n                Err(error) => {\n                    return Err(WgpuFlatAttentionError::Execution(format!(\n                        "required subgroup pipeline: {error}"\n                    )))\n                }\n            }\n        } else {\n            (\n                create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")\n                    .map_err(WgpuFlatAttentionError::Execution)?,\n                WgpuKernelVariant::Q4Portable,\n            )\n        };\n'''
+          pipe_new = '''        let (pipeline, kernel_variant, fallback_reason) = if request_subgroup {\n            match create_pipeline(\n                &device,\n                FLAT_FWD_SUBGROUP_WGSL,\n                "flat-attention-forward-q4-subgroup",\n            ) {\n                Ok(pipeline) => (pipeline, WgpuKernelVariant::Q4Subgroup, None),\n                Err(error) if policy == WgpuSubgroupPolicy::Auto => (\n                    create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")\n                        .map_err(WgpuFlatAttentionError::Execution)?,\n                    WgpuKernelVariant::Q4Portable,\n                    Some(format!("subgroup pipeline validation failed: {error}")),\n                ),\n                Err(error) => {\n                    return Err(WgpuFlatAttentionError::Execution(format!(\n                        "required subgroup pipeline: {error}"\n                    )))\n                }\n            }\n        } else {\n            (\n                create_pipeline(&device, FLAT_FWD_WGSL, "flat-attention-forward-q4")\n                    .map_err(WgpuFlatAttentionError::Execution)?,\n                WgpuKernelVariant::Q4Portable,\n                None,\n            )\n        };\n'''
+          if 'let (pipeline, kernel_variant, fallback_reason)' not in text:
+              if pipe_old not in text:
+                  raise SystemExit('pipeline marker not found')
+              text = text.replace(pipe_old, pipe_new, 1)
+
+          init_old = '''                double_buffer_pipeline,\n                adapter_name,\n                max_workgroups_per_dimension,\n'''
+          init_new = '''                double_buffer_pipeline,\n                adapter_name,\n                device_fingerprint,\n                fallback_reason,\n                max_workgroups_per_dimension,\n'''
+          if '                device_fingerprint,\n                fallback_reason,' not in text:
+              if init_old not in text:
+                  raise SystemExit('inner init marker not found')
+              text = text.replace(init_old, init_new, 1)
+
+          method_marker = '''    pub fn double_buffering_enabled(&self) -> bool {\n        self.inner.double_buffering_enabled\n    }\n'''
+          method_add = '''    pub fn double_buffering_enabled(&self) -> bool {\n        self.inner.double_buffering_enabled\n    }\n\n    /// Return passive metadata for the dispatch that would be selected for\n    /// `shape`. This performs no queue submission, device polling, mapping, or\n    /// synchronization.\n    pub fn runtime_telemetry(\n        &self,\n        shape: AttentionShape,\n    ) -> Result<RuntimeDispatchTelemetry, WgpuFlatAttentionError> {\n        shape.validate()?;\n        if shape.head_dim > WGSL_MAX_HEAD_DIM {\n            return Err(WgpuFlatAttentionError::UnsupportedHeadDim {\n                actual: shape.head_dim,\n                maximum: WGSL_MAX_HEAD_DIM,\n            });\n        }\n        let query_tiles = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);\n        let batch_heads = shape\n            .batch\n            .checked_mul(shape.heads)\n            .ok_or(FlatAttentionError::ShapeOverflow)?;\n        let selected = self.kernel_variant_for_head_dim(shape.head_dim);\n        let fallback_reason = self.inner.fallback_reason.clone().or_else(|| {\n            (self.inner.vectorization_enabled\n                && selected == WgpuKernelVariant::Q4Portable\n                && !matches!(shape.head_dim, 64 | 128))\n            .then(|| format!("vec4 specialization unavailable for head_dim={}", shape.head_dim))\n        });\n        Ok(RuntimeDispatchTelemetry {\n            kernel_id: RuntimeKernelId::from(selected),\n            device: self.inner.device_fingerprint.clone(),\n            tile: RuntimeTileGeometry {\n                query_rows: WGSL_QUERY_ROWS as u32,\n                kv_rows: WGSL_KV_TILE as u32,\n                workgroups: [\n                    u32::try_from(query_tiles).map_err(|_| {\n                        WgpuFlatAttentionError::IndexSpaceExceeded {\n                            elements: query_tiles,\n                        }\n                    })?,\n                    u32::try_from(batch_heads).map_err(|_| {\n                        WgpuFlatAttentionError::IndexSpaceExceeded {\n                            elements: batch_heads,\n                        }\n                    })?,\n                    1,\n                ],\n            },\n            dispatch_count: 1,\n            temporary_allocation_count: 1,\n            temporary_allocation_bytes: 8 * core::mem::size_of::<u32>() as u64,\n            fallback_reason,\n            autotuner_cache: AutotunerCacheStatus::NotApplicable,\n        })\n    }\n'''
+          if 'pub fn runtime_telemetry(' not in text:
+              if method_marker not in text:
+                  raise SystemExit('telemetry method insertion marker not found')
+              text = text.replace(method_marker, method_add, 1)
+          backend.write_text(text)
+          PY
+          cargo fmt --all
+      - name: Commit wiring and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-m29-wire.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/lib.rs src/wgpu_backend.rs src/runtime_telemetry.rs .github/workflows/tmp-m29-wire.yml
+          git commit -m 'feat(m29): wire passive telemetry into portable runtime'
+          git push origin HEAD:feat/m29-runtime-telemetry
