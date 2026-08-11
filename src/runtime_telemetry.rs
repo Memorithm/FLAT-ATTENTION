@@ -80,7 +80,9 @@ impl RuntimeDispatchTelemetry {
     }
 }
 
-pub(crate) fn grouped_q4_geometry(
+/// Derive the qualified grouped-forward Q4 workgroup geometry without creating
+/// GPU resources or synchronizing a device.
+pub fn grouped_q4_geometry(
     shape: GroupedAttentionShape,
 ) -> Result<RuntimeTileGeometry, crate::FlatAttentionError> {
     shape.validate()?;
