@@ -2,13 +2,17 @@
 //!
 //! This first device consumer deliberately qualifies the single-sequence page-table
 //! contract before adding batched page tables. K/V data buffers remain caller-owned;
-//! FLAT owns only the compact uploaded page table and compiled compute pipeline.
-//! The encode path does not submit, poll, map, synchronize, compact, or copy K/V.
+//! the compact page table is packed into the uniform block so the shader retains the
+//! portable four-storage-binding contract. The encode path does not submit, poll,
+//! map, synchronize, compact, or copy K/V.
 
 use core::fmt;
 
 use crate::paged_kv::{PagedKvError, PagedKvTable};
 use crate::{FlatAttentionConfig, FlatAttentionError, FLAT_DECODE_PAGED_WGSL, WGSL_MAX_HEAD_DIM};
+
+/// Maximum logical pages carried by the portable M16 uniform block.
+pub const WGSL_PAGED_MAX_LOGICAL_PAGES: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedDecodeLayout {
@@ -25,6 +29,10 @@ pub enum PagedDecodeError {
     Core(FlatAttentionError),
     Table(PagedKvError),
     EmptyTable,
+    TooManyMappedPages {
+        actual: usize,
+        maximum: usize,
+    },
     InvalidHeadGrouping {
         q_heads: usize,
         kv_heads: usize,
@@ -55,6 +63,10 @@ pub enum PagedDecodeError {
         required_bytes: u64,
         maximum_bytes: u64,
     },
+    UniformBindingTooLarge {
+        required_bytes: u64,
+        maximum_bytes: u64,
+    },
     PipelineValidation(String),
 }
 
@@ -64,6 +76,10 @@ impl fmt::Display for PagedDecodeError {
             Self::Core(error) => write!(f, "{error}"),
             Self::Table(error) => write!(f, "{error}"),
             Self::EmptyTable => write!(f, "paged decode requires at least one live KV token"),
+            Self::TooManyMappedPages { actual, maximum } => write!(
+                f,
+                "paged decode maps {actual} logical pages, portable maximum is {maximum}"
+            ),
             Self::InvalidHeadGrouping { q_heads, kv_heads } => write!(
                 f,
                 "q_heads ({q_heads}) must be exactly divisible by kv_heads ({kv_heads})"
@@ -104,6 +120,13 @@ impl fmt::Display for PagedDecodeError {
                 f,
                 "storage binding {tensor} requires {required_bytes} bytes, device maximum is {maximum_bytes}"
             ),
+            Self::UniformBindingTooLarge {
+                required_bytes,
+                maximum_bytes,
+            } => write!(
+                f,
+                "paged decode uniform requires {required_bytes} bytes, device maximum is {maximum_bytes}"
+            ),
             Self::PipelineValidation(error) => {
                 write!(f, "paged decode pipeline validation failed: {error}")
             }
@@ -125,23 +148,28 @@ impl From<PagedKvError> for PagedDecodeError {
     }
 }
 
-/// Device-resident compact logical-page -> physical-page table.
-#[derive(Debug)]
+/// Compact host-side page-table descriptor ready for the portable uniform block.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WgpuPagedKvTable {
-    buffer: wgpu::Buffer,
+    entries: Vec<u32>,
     live_tokens: usize,
     page_size: usize,
     physical_pages: usize,
-    mapped_pages: usize,
     generation: u64,
 }
 
 impl WgpuPagedKvTable {
-    pub fn from_table(
-        device: &wgpu::Device,
-        table: &PagedKvTable,
-    ) -> Result<Self, PagedDecodeError> {
+    pub fn from_table(table: &PagedKvTable) -> Result<Self, PagedDecodeError> {
         let telemetry = table.telemetry()?;
+        if telemetry.live_tokens == 0 || telemetry.mapped_pages == 0 {
+            return Err(PagedDecodeError::EmptyTable);
+        }
+        if telemetry.mapped_pages > WGSL_PAGED_MAX_LOGICAL_PAGES {
+            return Err(PagedDecodeError::TooManyMappedPages {
+                actual: telemetry.mapped_pages,
+                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+            });
+        }
         let config = table.config();
         let mut entries = Vec::with_capacity(telemetry.mapped_pages);
         for logical_page in 0..telemetry.mapped_pages {
@@ -153,32 +181,20 @@ impl WgpuPagedKvTable {
             let address = table
                 .address(logical_token)
                 .ok_or(PagedDecodeError::EmptyTable)?;
+            if address.physical_page >= config.physical_pages {
+                return Err(PagedDecodeError::IndexSpaceExceeded {
+                    elements: address.physical_page,
+                });
+            }
             entries.push(checked_u32(address.physical_page)?);
         }
-        let bytes = encode_u32(&entries);
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m16-paged-kv-table"),
-            size: bytes.len().max(4) as u64,
-            usage: wgpu::BufferUsages::STORAGE,
-            mapped_at_creation: true,
-        });
-        if !bytes.is_empty() {
-            let mut mapped = buffer.slice(..bytes.len() as u64).get_mapped_range_mut();
-            mapped.copy_from_slice(&bytes);
-        }
-        buffer.unmap();
         Ok(Self {
-            buffer,
+            entries,
             live_tokens: telemetry.live_tokens,
             page_size: config.page_size,
             physical_pages: config.physical_pages,
-            mapped_pages: telemetry.mapped_pages,
             generation: telemetry.generation,
         })
-    }
-
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.buffer
     }
 
     pub fn live_tokens(&self) -> usize {
@@ -194,7 +210,7 @@ impl WgpuPagedKvTable {
     }
 
     pub fn mapped_pages(&self) -> usize {
-        self.mapped_pages
+        self.entries.len()
     }
 
     pub fn generation(&self) -> u64 {
@@ -287,8 +303,14 @@ impl WgpuPagedDecodePipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: PagedDecodePass<'_>,
     ) -> Result<PagedDecodeLayout, PagedDecodeError> {
-        if pass.page_table.live_tokens == 0 || pass.page_table.mapped_pages == 0 {
+        if pass.page_table.live_tokens == 0 || pass.page_table.entries.is_empty() {
             return Err(PagedDecodeError::EmptyTable);
+        }
+        if pass.page_table.entries.len() > WGSL_PAGED_MAX_LOGICAL_PAGES {
+            return Err(PagedDecodeError::TooManyMappedPages {
+                actual: pass.page_table.entries.len(),
+                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+            });
         }
         validate_geometry(pass.q_heads, pass.kv_heads, pass.head_dim)?;
         if !pass.theta.is_finite() || pass.theta <= 0.0 {
@@ -306,17 +328,21 @@ impl WgpuPagedDecodePipeline {
                 kv_len: pass.page_table.live_tokens,
             });
         }
+        let covered_tokens = checked_mul(pass.page_table.entries.len(), pass.page_table.page_size)?;
+        if covered_tokens < pass.page_table.live_tokens {
+            return Err(PagedDecodeError::IndexSpaceExceeded {
+                elements: pass.page_table.live_tokens,
+            });
+        }
 
         let layout = Self::layout(pass.q_heads, pass.head_dim)?;
         let physical_rows = checked_mul(pass.page_table.physical_pages, pass.page_table.page_size)?;
         let kv_width = checked_mul(pass.kv_heads, pass.head_dim)?;
         let kv_elements = checked_mul(physical_rows, kv_width)?;
         let kv_bytes = bytes_for_f32(kv_elements)?;
-        let page_table_bytes = checked_bytes_u32(pass.page_table.mapped_pages)?;
         validate_buffer("Q", pass.q, layout.q_bytes)?;
         validate_buffer("K", pass.k, kv_bytes)?;
         validate_buffer("V", pass.v, kv_bytes)?;
-        validate_buffer("page_table", pass.page_table.buffer(), page_table_bytes)?;
         validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
 
         let limits = device.limits();
@@ -330,15 +356,15 @@ impl WgpuPagedDecodePipeline {
         validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;
-        validate_storage_binding_size("page_table", page_table_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("O|LSE", layout.combined_bytes, maximum_storage_bytes)?;
 
         let scale = pass.config.resolved_scale(pass.head_dim)?;
-        let params = [
+        let mut params = Vec::with_capacity(12 + WGSL_PAGED_MAX_LOGICAL_PAGES);
+        params.extend_from_slice(&[
             checked_u32(pass.page_table.live_tokens)?,
             checked_u32(pass.page_table.page_size)?,
             checked_u32(pass.page_table.physical_pages)?,
-            checked_u32(pass.page_table.mapped_pages)?,
+            checked_u32(pass.page_table.entries.len())?,
             checked_u32(pass.head_dim)?,
             checked_u32(pass.q_heads)?,
             checked_u32(pass.kv_heads)?,
@@ -347,11 +373,21 @@ impl WgpuPagedDecodePipeline {
             checked_u32(pass.q_rope_position)?,
             0,
             0,
-        ];
+        ]);
+        params.extend_from_slice(&pass.page_table.entries);
+        params.resize(12 + WGSL_PAGED_MAX_LOGICAL_PAGES, 0);
         let params_bytes = encode_u32(&params);
+        let params_len = params_bytes.len() as u64;
+        let maximum_uniform_bytes = u64::from(limits.max_uniform_buffer_binding_size);
+        if params_len > maximum_uniform_bytes {
+            return Err(PagedDecodeError::UniformBindingTooLarge {
+                required_bytes: params_len,
+                maximum_bytes: maximum_uniform_bytes,
+            });
+        }
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m16-paged-decode-params"),
-            size: params_bytes.len() as u64,
+            size: params_len,
             usage: wgpu::BufferUsages::UNIFORM,
             mapped_at_creation: true,
         });
@@ -379,14 +415,10 @@ impl WgpuPagedDecodePipeline {
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: storage_binding(pass.page_table.buffer(), page_table_bytes),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
                     resource: storage_binding(pass.out_and_lse, layout.combined_bytes),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 5,
+                    binding: 4,
                     resource: params_buffer.as_entire_binding(),
                 },
             ],
@@ -474,13 +506,6 @@ fn checked_u32(value: usize) -> Result<u32, PagedDecodeError> {
 fn bytes_for_f32(elements: usize) -> Result<u64, PagedDecodeError> {
     let bytes = elements
         .checked_mul(core::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| PagedDecodeError::IndexSpaceExceeded { elements })
-}
-
-fn checked_bytes_u32(elements: usize) -> Result<u64, PagedDecodeError> {
-    let bytes = elements
-        .checked_mul(core::mem::size_of::<u32>())
         .ok_or(FlatAttentionError::ShapeOverflow)?;
     u64::try_from(bytes).map_err(|_| PagedDecodeError::IndexSpaceExceeded { elements })
 }
