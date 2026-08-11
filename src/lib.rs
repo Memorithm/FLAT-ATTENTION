@@ -75,6 +75,9 @@ pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
 pub const FLAT_DECODE_RESIDENT_WGSL: &str = include_str!("../shaders/flat_decode_resident.wgsl");
 /// M16 q_len=1 decode kernel over paged resident K/V storage.
 pub const FLAT_DECODE_PAGED_WGSL: &str = include_str!("../shaders/flat_decode_paged.wgsl");
+/// M18 portable correctness-first backward recomputation kernel.
+pub const FLAT_BACKWARD_RECOMPUTE_WGSL: &str =
+    include_str!("../shaders/flat_backward_recompute.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -153,6 +156,14 @@ mod wgpu_paged_decode;
 #[cfg(feature = "wgpu")]
 pub use wgpu_paged_decode::{
     PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_backward;
+#[cfg(feature = "wgpu")]
+pub use wgpu_backward::{
+    pack_backward_recompute_inputs, BackwardRecomputeError, BackwardRecomputeLayout,
+    BackwardRecomputePass, WgpuBackwardRecomputePipeline,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
