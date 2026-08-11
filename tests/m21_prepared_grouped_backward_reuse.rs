@@ -133,8 +133,7 @@ fn run_case(harness: &Harness, shape: GroupedAttentionShape, config: FlatAttenti
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.3);
     let d_out = fixture(shape.q_tensor_len().unwrap(), 1.9);
     let forward = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
-    let expected =
-        backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &forward).unwrap();
+    let expected = backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &forward).unwrap();
     let packed =
         pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
 
