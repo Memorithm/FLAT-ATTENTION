@@ -5,8 +5,8 @@ use std::sync::mpsc;
 use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
-    AsymmetricRotaryEmbeddingConfig, FlatAttentionConfig, PagedDecodePass,
-    WgpuPagedDecodePipeline, WgpuPagedKvTable, FLAT_DECODE_PAGED_WGSL,
+    AsymmetricRotaryEmbeddingConfig, FlatAttentionConfig, PagedDecodePass, WgpuPagedDecodePipeline,
+    WgpuPagedKvTable, FLAT_DECODE_PAGED_WGSL,
 };
 
 const ATOL: f32 = 2.0e-4;
@@ -197,10 +197,9 @@ fn paged_decode_matches_contiguous_oracle_across_page_boundaries() {
         query_position_offset: q_position,
         kv_position_offset: 0,
     };
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q, &raw_k, &v, shape, config, rotary,
-    )
-    .unwrap();
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
 
     let rotated_k = rotate_k_projection(&raw_k, kv_len, kv_heads, head_dim, theta);
     let physical_rows = page_size * physical_pages;
@@ -219,7 +218,12 @@ fn paged_decode_matches_contiguous_oracle_across_page_boundaries() {
     assert_eq!(table.telemetry().unwrap().mapped_pages, 3);
     let device_table = WgpuPagedKvTable::from_table(&harness.device, &table).unwrap();
 
-    let q_gpu = input_buffer(&harness.device, &harness.queue, &q, wgpu::BufferUsages::STORAGE);
+    let q_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &q,
+        wgpu::BufferUsages::STORAGE,
+    );
     let k_gpu = input_buffer(
         &harness.device,
         &harness.queue,
