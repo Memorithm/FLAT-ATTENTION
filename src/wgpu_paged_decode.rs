@@ -25,12 +25,26 @@ pub enum PagedDecodeError {
     Core(FlatAttentionError),
     Table(PagedKvError),
     EmptyTable,
-    InvalidHeadGrouping { q_heads: usize, kv_heads: usize },
-    UnsupportedHeadDim { actual: usize, maximum: usize },
+    InvalidHeadGrouping {
+        q_heads: usize,
+        kv_heads: usize,
+    },
+    UnsupportedHeadDim {
+        actual: usize,
+        maximum: usize,
+    },
     InvalidTheta(f32),
-    CausalVisibilityMismatch { query_position: usize, kv_len: usize },
-    IndexSpaceExceeded { elements: usize },
-    DispatchLimit { actual: usize, maximum: u32 },
+    CausalVisibilityMismatch {
+        query_position: usize,
+        kv_len: usize,
+    },
+    IndexSpaceExceeded {
+        elements: usize,
+    },
+    DispatchLimit {
+        actual: usize,
+        maximum: u32,
+    },
     BufferTooSmall {
         tensor: &'static str,
         actual_bytes: u64,
@@ -123,17 +137,22 @@ pub struct WgpuPagedKvTable {
 }
 
 impl WgpuPagedKvTable {
-    pub fn from_table(device: &wgpu::Device, table: &PagedKvTable) -> Result<Self, PagedDecodeError> {
+    pub fn from_table(
+        device: &wgpu::Device,
+        table: &PagedKvTable,
+    ) -> Result<Self, PagedDecodeError> {
         let telemetry = table.telemetry()?;
         let config = table.config();
         let mut entries = Vec::with_capacity(telemetry.mapped_pages);
         for logical_page in 0..telemetry.mapped_pages {
-            let logical_token = logical_page
-                .checked_mul(config.page_size)
-                .ok_or(PagedDecodeError::IndexSpaceExceeded {
+            let logical_token = logical_page.checked_mul(config.page_size).ok_or(
+                PagedDecodeError::IndexSpaceExceeded {
                     elements: logical_page,
-                })?;
-            let address = table.address(logical_token).ok_or(PagedDecodeError::EmptyTable)?;
+                },
+            )?;
+            let address = table
+                .address(logical_token)
+                .ok_or(PagedDecodeError::EmptyTable)?;
             entries.push(checked_u32(address.physical_page)?);
         }
         let bytes = encode_u32(&entries);
@@ -275,7 +294,13 @@ impl WgpuPagedDecodePipeline {
         if !pass.theta.is_finite() || pass.theta <= 0.0 {
             return Err(PagedDecodeError::InvalidTheta(pass.theta));
         }
-        if pass.config.causal && pass.q_rope_position + 1 < pass.page_table.live_tokens {
+        if pass.config.causal
+            && pass
+                .q_rope_position
+                .checked_add(1)
+                .ok_or(FlatAttentionError::PositionOverflow)?
+                < pass.page_table.live_tokens
+        {
             return Err(PagedDecodeError::CausalVisibilityMismatch {
                 query_position: pass.q_rope_position,
                 kv_len: pass.page_table.live_tokens,
@@ -340,12 +365,30 @@ impl WgpuPagedDecodePipeline {
             label: Some("flat-m16-paged-decode-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: storage_binding(pass.q, layout.q_bytes) },
-                wgpu::BindGroupEntry { binding: 1, resource: storage_binding(pass.k, kv_bytes) },
-                wgpu::BindGroupEntry { binding: 2, resource: storage_binding(pass.v, kv_bytes) },
-                wgpu::BindGroupEntry { binding: 3, resource: storage_binding(pass.page_table.buffer(), page_table_bytes) },
-                wgpu::BindGroupEntry { binding: 4, resource: storage_binding(pass.out_and_lse, layout.combined_bytes) },
-                wgpu::BindGroupEntry { binding: 5, resource: params_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: storage_binding(pass.q, layout.q_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: storage_binding(pass.k, kv_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: storage_binding(pass.v, kv_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: storage_binding(pass.page_table.buffer(), page_table_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: storage_binding(pass.out_and_lse, layout.combined_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: params_buffer.as_entire_binding(),
+                },
             ],
         });
 
@@ -361,7 +404,11 @@ impl WgpuPagedDecodePipeline {
     }
 }
 
-fn validate_geometry(q_heads: usize, kv_heads: usize, head_dim: usize) -> Result<(), PagedDecodeError> {
+fn validate_geometry(
+    q_heads: usize,
+    kv_heads: usize,
+    head_dim: usize,
+) -> Result<(), PagedDecodeError> {
     if q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 {
         return Err(PagedDecodeError::InvalidHeadGrouping { q_heads, kv_heads });
     }
