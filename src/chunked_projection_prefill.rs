@@ -14,6 +14,12 @@ use super::{
     FlatAttentionError, FlatAttentionOutput, GroupedAttentionShape, RotaryEmbeddingConfig,
 };
 
+#[cfg(feature = "wgpu")]
+use super::{
+    ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
+    ExternalProjectionLayout, ExternalWgpuError,
+};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChunkedProjectionPrefillError {
     Core(FlatAttentionError),
@@ -163,7 +169,13 @@ pub fn forward_reference_projection_grouped_rope_chunked_prefill(
 }
 
 #[cfg(feature = "wgpu")]
-include!("wgpu_chunked_prefill.rs");
+#[path = "wgpu_chunked_prefill.rs"]
+mod wgpu_chunked_prefill;
+#[cfg(feature = "wgpu")]
+pub use wgpu_chunked_prefill::{
+    WgpuChunkedProjectionPrefillError, WgpuChunkedProjectionPrefillPass,
+    WgpuChunkedProjectionPrefillPipeline,
+};
 
 #[cfg(test)]
 mod tests {
