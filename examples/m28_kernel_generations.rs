@@ -119,7 +119,10 @@ fn main() {
         .expect("M28 scalar oracle failed");
 
     println!("benchmark=m28_kernel_generations");
-    println!("commit_sha={}", option_env!("GITHUB_SHA").unwrap_or("unknown"));
+    println!(
+        "commit_sha={}",
+        option_env!("GITHUB_SHA").unwrap_or("unknown")
+    );
     println!("timing_scope=public_forward_including_upload_dispatch_readback");
     println!("correctness_gate=O_and_LSE_match_scalar_oracle_before_timing");
     println!("performance_claim=none");
