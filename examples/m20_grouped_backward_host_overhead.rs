@@ -109,11 +109,22 @@ fn main() {
         pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
     let packed_gpu = input_buffer(&device, &queue, &packed, "flat-m20-host-overhead-input");
     let grads_gpu = pipeline.create_gradient_buffer(&device, shape).unwrap();
+    let prepared = pipeline
+        .prepare(
+            &device,
+            GroupedBackwardRecomputePass {
+                packed_forward: &packed_gpu,
+                packed_grads: &grads_gpu,
+                shape,
+                config,
+            },
+        )
+        .unwrap();
 
-    let measure_once = || {
+    let measure_legacy_once = || {
         let start = Instant::now();
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m20-host-overhead-encoder"),
+            label: Some("flat-m20-host-overhead-legacy"),
         });
         pipeline
             .encode(
@@ -131,17 +142,32 @@ fn main() {
         start.elapsed().as_secs_f64() * 1.0e6
     };
 
+    let measure_prepared_once = || {
+        let start = Instant::now();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m20-host-overhead-prepared"),
+        });
+        let _layout = pipeline.encode_prepared(&mut encoder, &prepared);
+        let _commands = encoder.finish();
+        start.elapsed().as_secs_f64() * 1.0e6
+    };
+
     for _ in 0..warmup {
-        let _ = measure_once();
+        let _ = measure_legacy_once();
+        let _ = measure_prepared_once();
     }
-    let samples = (0..iterations).map(|_| measure_once()).collect();
-    let (median_us, p95_us) = summarize(samples);
+    let legacy_samples = (0..iterations).map(|_| measure_legacy_once()).collect();
+    let prepared_samples = (0..iterations).map(|_| measure_prepared_once()).collect();
+    let (legacy_median_us, legacy_p95_us) = summarize(legacy_samples);
+    let (prepared_median_us, prepared_p95_us) = summarize(prepared_samples);
 
     println!("device={:?} backend={:?}", info.name, info.backend);
     println!(
         "benchmark=m20_grouped_backward_host_overhead batch=1 q_heads={q_heads} kv_heads={kv_heads} seq_len={seq_len} head_dim={head_dim} warmup={warmup} iterations={iterations}"
     );
-    println!("timing_scope=command_encoder+public_encode+finish_no_submit");
-    println!("median_us={median_us:.3} p95_us={p95_us:.3}");
+    println!("timing_scope=command_encoder+encode+finish_no_submit");
+    println!("path,median_us,p95_us");
+    println!("legacy,{legacy_median_us:.3},{legacy_p95_us:.3}");
+    println!("prepared,{prepared_median_us:.3},{prepared_p95_us:.3}");
     println!("performance_claim=none");
 }
