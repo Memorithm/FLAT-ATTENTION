@@ -216,7 +216,7 @@ fn paged_decode_matches_contiguous_oracle_across_page_boundaries() {
     .unwrap();
     table.append(kv_len).unwrap();
     assert_eq!(table.telemetry().unwrap().mapped_pages, 3);
-    let device_table = WgpuPagedKvTable::from_table(&harness.device, &table).unwrap();
+    let device_table = WgpuPagedKvTable::from_table(&table).unwrap();
 
     let q_gpu = input_buffer(
         &harness.device,
