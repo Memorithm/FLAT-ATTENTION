@@ -202,9 +202,9 @@ fn main() {
     println!("correctness_gate=scalar_grouped_forward_oracle_before_timing");
     println!("batch,q_heads,kv_heads,seq_len,head_dim,causal,median_us,p95_us,logical_query_tokens_per_s");
 
-    for &(q_heads, kv_heads) in &[(4_u32, 4_u32), (4, 2), (4, 1)] {
-        for &seq_len in &[32_u32, 128, 512] {
-            for &head_dim in &[32_u32, 64, 128] {
+    for &(q_heads, kv_heads) in &[(4_usize, 4_usize), (4, 2), (4, 1)] {
+        for &seq_len in &[32_usize, 128, 512] {
+            for &head_dim in &[32_usize, 64, 128] {
                 for &causal in &[false, true] {
                     let shape = GroupedAttentionShape {
                         batch: 1,
