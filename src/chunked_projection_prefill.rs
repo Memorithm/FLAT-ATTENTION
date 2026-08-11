@@ -25,7 +25,10 @@ impl fmt::Display for ChunkedProjectionPrefillError {
         match self {
             Self::Core(error) => write!(f, "{error}"),
             Self::ZeroQueryChunkSize => {
-                write!(f, "chunked projection prefill requires a non-zero query chunk size")
+                write!(
+                    f,
+                    "chunked projection prefill requires a non-zero query chunk size"
+                )
             }
         }
     }
@@ -147,8 +150,7 @@ pub fn forward_reference_projection_grouped_rope_chunked_prefill(
 
             for q_head in 0..shape.q_heads {
                 let chunk_lse_base = (batch * shape.q_heads + q_head) * chunk_len;
-                let full_lse_base =
-                    (batch * shape.q_heads + q_head) * shape.seq_len + query_start;
+                let full_lse_base = (batch * shape.q_heads + q_head) * shape.seq_len + query_start;
                 lse[full_lse_base..full_lse_base + chunk_len]
                     .copy_from_slice(&chunk.lse[chunk_lse_base..chunk_lse_base + chunk_len]);
             }
@@ -189,13 +191,7 @@ mod tests {
         let contiguous =
             forward_reference_projection_grouped_rope(&q, &k, &v, shape, config, rotary).unwrap();
         let chunked = forward_reference_projection_grouped_rope_chunked_prefill(
-            &q,
-            &k,
-            &v,
-            shape,
-            config,
-            rotary,
-            chunk_size,
+            &q, &k, &v, shape, config, rotary, chunk_size,
         )
         .unwrap();
         assert_eq!(chunked, contiguous);
