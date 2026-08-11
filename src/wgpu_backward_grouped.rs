@@ -26,15 +26,33 @@ pub struct GroupedBackwardRecomputeLayout {
 }
 
 impl GroupedBackwardRecomputeLayout {
-    pub const fn q_offset(self) -> usize { 0 }
-    pub const fn k_offset(self) -> usize { self.q_elements }
-    pub const fn v_offset(self) -> usize { self.q_elements + self.kv_elements }
-    pub const fn d_out_offset(self) -> usize { self.q_elements + 2 * self.kv_elements }
-    pub const fn output_offset(self) -> usize { 2 * self.q_elements + 2 * self.kv_elements }
-    pub const fn lse_offset(self) -> usize { 3 * self.q_elements + 2 * self.kv_elements }
-    pub const fn dq_offset(self) -> usize { 0 }
-    pub const fn dk_offset(self) -> usize { self.q_elements }
-    pub const fn dv_offset(self) -> usize { self.q_elements + self.kv_elements }
+    pub const fn q_offset(self) -> usize {
+        0
+    }
+    pub const fn k_offset(self) -> usize {
+        self.q_elements
+    }
+    pub const fn v_offset(self) -> usize {
+        self.q_elements + self.kv_elements
+    }
+    pub const fn d_out_offset(self) -> usize {
+        self.q_elements + 2 * self.kv_elements
+    }
+    pub const fn output_offset(self) -> usize {
+        2 * self.q_elements + 2 * self.kv_elements
+    }
+    pub const fn lse_offset(self) -> usize {
+        3 * self.q_elements + 2 * self.kv_elements
+    }
+    pub const fn dq_offset(self) -> usize {
+        0
+    }
+    pub const fn dk_offset(self) -> usize {
+        self.q_elements
+    }
+    pub const fn dv_offset(self) -> usize {
+        self.q_elements + self.kv_elements
+    }
 }
 
 pub struct GroupedBackwardRecomputePass<'a> {
@@ -47,8 +65,13 @@ pub struct GroupedBackwardRecomputePass<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum GroupedBackwardRecomputeError {
     Core(FlatAttentionError),
-    IndexSpaceExceeded { elements: usize },
-    DispatchLimit { actual: usize, maximum: u32 },
+    IndexSpaceExceeded {
+        elements: usize,
+    },
+    DispatchLimit {
+        actual: usize,
+        maximum: u32,
+    },
     BufferTooSmall {
         tensor: &'static str,
         actual_bytes: u64,
@@ -69,7 +92,11 @@ impl fmt::Display for GroupedBackwardRecomputeError {
                 f,
                 "grouped backward recomputation requires {actual} workgroups, device maximum is {maximum}"
             ),
-            Self::BufferTooSmall { tensor, actual_bytes, required_bytes } => write!(
+            Self::BufferTooSmall {
+                tensor,
+                actual_bytes,
+                required_bytes,
+            } => write!(
                 f,
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
             ),
@@ -84,7 +111,9 @@ impl fmt::Display for GroupedBackwardRecomputeError {
 impl std::error::Error for GroupedBackwardRecomputeError {}
 
 impl From<FlatAttentionError> for GroupedBackwardRecomputeError {
-    fn from(value: FlatAttentionError) -> Self { Self::Core(value) }
+    fn from(value: FlatAttentionError) -> Self {
+        Self::Core(value)
+    }
 }
 
 pub struct WgpuGroupedBackwardRecomputePipeline {
@@ -115,7 +144,9 @@ impl WgpuGroupedBackwardRecomputePipeline {
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         });
         match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(GroupedBackwardRecomputeError::PipelineValidation(error.to_string())),
+            Some(error) => Err(GroupedBackwardRecomputeError::PipelineValidation(
+                error.to_string(),
+            )),
             None => Ok(Self { pipeline }),
         }
     }
@@ -129,11 +160,19 @@ impl WgpuGroupedBackwardRecomputePipeline {
         let lse_elements = shape.lse_len()?;
         let packed_forward_elements = q_elements
             .checked_mul(3)
-            .and_then(|value| kv_elements.checked_mul(2).and_then(|kv| value.checked_add(kv)))
+            .and_then(|value| {
+                kv_elements
+                    .checked_mul(2)
+                    .and_then(|kv| value.checked_add(kv))
+            })
             .and_then(|value| value.checked_add(lse_elements))
             .ok_or(FlatAttentionError::ShapeOverflow)?;
         let gradient_elements = q_elements
-            .checked_add(kv_elements.checked_mul(2).ok_or(FlatAttentionError::ShapeOverflow)?)
+            .checked_add(
+                kv_elements
+                    .checked_mul(2)
+                    .ok_or(FlatAttentionError::ShapeOverflow)?,
+            )
             .ok_or(FlatAttentionError::ShapeOverflow)?;
         checked_u32(packed_forward_elements)?;
         checked_u32(gradient_elements)?;
@@ -179,7 +218,10 @@ impl WgpuGroupedBackwardRecomputePipeline {
         let workgroups = layout.gradient_elements.div_ceil(BACKWARD_WORKGROUP_SIZE);
         let maximum = device.limits().max_compute_workgroups_per_dimension;
         if workgroups > maximum as usize {
-            return Err(GroupedBackwardRecomputeError::DispatchLimit { actual: workgroups, maximum });
+            return Err(GroupedBackwardRecomputeError::DispatchLimit {
+                actual: workgroups,
+                maximum,
+            });
         }
         let params = [
             checked_u32(pass.shape.batch)?,
@@ -210,9 +252,18 @@ impl WgpuGroupedBackwardRecomputePipeline {
             label: Some("flat-m19-grouped-backward-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: pass.packed_forward.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: pass.packed_grads.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: params_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: pass.packed_forward.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: pass.packed_grads.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params_buffer.as_entire_binding(),
+                },
             ],
         });
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -283,8 +334,7 @@ fn bytes_for_f32(elements: usize) -> Result<u64, GroupedBackwardRecomputeError> 
     let bytes = elements
         .checked_mul(core::mem::size_of::<f32>())
         .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes)
-        .map_err(|_| GroupedBackwardRecomputeError::IndexSpaceExceeded { elements })
+    u64::try_from(bytes).map_err(|_| GroupedBackwardRecomputeError::IndexSpaceExceeded { elements })
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
