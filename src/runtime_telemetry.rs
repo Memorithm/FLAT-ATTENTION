@@ -4,7 +4,7 @@
 //! never submits GPU work, polls a device, maps a buffer, or introduces a
 //! synchronization boundary. Callers choose whether to request/record it.
 
-use crate::{GroupedAttentionShape, WgpuKernelVariant, WGSL_KV_TILE, WGSL_QUERY_ROWS};
+use crate::WgpuKernelVariant;
 
 /// Stable logical identifier for an executable FLAT kernel family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -80,50 +80,9 @@ impl RuntimeDispatchTelemetry {
     }
 }
 
-/// Derive the qualified grouped-forward Q4 workgroup geometry without creating
-/// GPU resources or synchronizing a device.
-pub fn grouped_q4_geometry(
-    shape: GroupedAttentionShape,
-) -> Result<RuntimeTileGeometry, crate::FlatAttentionError> {
-    shape.validate()?;
-    let query_tiles = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
-    let batch_heads = shape
-        .batch
-        .checked_mul(shape.q_heads)
-        .ok_or(crate::FlatAttentionError::ShapeOverflow)?;
-    Ok(RuntimeTileGeometry {
-        query_rows: u32::try_from(WGSL_QUERY_ROWS)
-            .map_err(|_| crate::FlatAttentionError::ShapeOverflow)?,
-        kv_rows: u32::try_from(WGSL_KV_TILE)
-            .map_err(|_| crate::FlatAttentionError::ShapeOverflow)?,
-        workgroups: [
-            u32::try_from(query_tiles).map_err(|_| crate::FlatAttentionError::ShapeOverflow)?,
-            u32::try_from(batch_heads).map_err(|_| crate::FlatAttentionError::ShapeOverflow)?,
-            1,
-        ],
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn grouped_geometry_is_deterministic_and_native_to_query_heads() {
-        let shape = GroupedAttentionShape {
-            batch: 2,
-            q_heads: 8,
-            kv_heads: 2,
-            seq_len: 17,
-            head_dim: 64,
-        };
-        let a = grouped_q4_geometry(shape).unwrap();
-        let b = grouped_q4_geometry(shape).unwrap();
-        assert_eq!(a, b);
-        assert_eq!(a.query_rows, WGSL_QUERY_ROWS as u32);
-        assert_eq!(a.kv_rows, WGSL_KV_TILE as u32);
-        assert_eq!(a.workgroups, [5, 16, 1]);
-    }
 
     #[test]
     fn autotuner_annotation_is_pure_metadata() {
