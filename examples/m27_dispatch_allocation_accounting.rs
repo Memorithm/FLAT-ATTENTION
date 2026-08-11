@@ -15,12 +15,15 @@ fn grouped_forward_row(q_heads: u64, kv_heads: u64, seq_len: u64, head_dim: u64)
 
 fn resident_decode_row(q_heads: u64, kv_heads: u64, kv_len: u64, head_dim: u64) {
     let q_bytes = q_heads * head_dim * F32_BYTES;
-    let cache_bytes_each = kv_heads * kv_len * head_dim * F32_BYTES;
+    let kv_bytes_each = kv_heads * kv_len * head_dim * F32_BYTES;
     let output_bytes = (q_heads * head_dim + q_heads) * F32_BYTES;
-    let resident_storage_bytes = q_bytes + 2 * cache_bytes_each + output_bytes;
+    // The resident-decode benchmark keeps both source K/V buffers alive after
+    // appending them into the resident K/V cache. Account for source K/V plus
+    // cache K/V so the source-contract model matches the timed harness lifetime.
+    let resident_storage_bytes = q_bytes + 4 * kv_bytes_each + output_bytes;
 
     println!(
-        "resident_decode,{q_heads},{kv_heads},{kv_len},{head_dim},{resident_storage_bytes},{RESIDENT_DECODE_PARAM_BYTES},4,1,1,1,0,0"
+        "resident_decode,{q_heads},{kv_heads},{kv_len},{head_dim},{resident_storage_bytes},{RESIDENT_DECODE_PARAM_BYTES},6,1,1,1,0,0"
     );
 }
 
