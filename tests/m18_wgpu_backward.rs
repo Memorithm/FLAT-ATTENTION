@@ -70,11 +70,7 @@ fn encode_u32(values: &[u32]) -> Vec<u8> {
     bytes
 }
 
-fn input_buffer(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    values: &[f32],
-) -> wgpu::Buffer {
+fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer {
     let bytes = encode_f32(values);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-m18-packed-forward"),
@@ -213,11 +209,15 @@ fn qualify_case(harness: &DeviceHarness, causal: bool) {
         ],
     );
 
-    harness.device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let module = harness.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("flat-m18-backward-recompute"),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(SHADER)),
-    });
+    harness
+        .device
+        .push_error_scope(wgpu::ErrorFilter::Validation);
+    let module = harness
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("flat-m18-backward-recompute"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(SHADER)),
+        });
     let pipeline = harness
         .device
         .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -231,24 +231,26 @@ fn qualify_case(harness: &DeviceHarness, causal: bool) {
         panic!("M18 pipeline validation failed: {error}");
     }
 
-    let bind_group = harness.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("flat-m18-backward-bind-group"),
-        layout: &pipeline.get_bind_group_layout(0),
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: packed_gpu.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: gradients_gpu.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: params.as_entire_binding(),
-            },
-        ],
-    });
+    let bind_group = harness
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("flat-m18-backward-bind-group"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: packed_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: gradients_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params.as_entire_binding(),
+                },
+            ],
+        });
 
     let mut encoder = harness
         .device
@@ -278,11 +280,7 @@ fn qualify_case(harness: &DeviceHarness, causal: bool) {
         &actual[tensor_elements..2 * tensor_elements],
         &expected.dk,
     );
-    assert_close(
-        "M18 dV",
-        &actual[2 * tensor_elements..],
-        &expected.dv,
-    );
+    assert_close("M18 dV", &actual[2 * tensor_elements..], &expected.dv);
 }
 
 #[test]
