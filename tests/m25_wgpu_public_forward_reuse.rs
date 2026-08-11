@@ -29,7 +29,9 @@ fn harness() -> Option<Harness> {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M25 public grouped-forward reuse requires a WGPU adapter in the mandatory device gate");
         }
-        eprintln!("WGPU adapter unavailable; optional M25 public grouped-forward reuse test skipped");
+        eprintln!(
+            "WGPU adapter unavailable; optional M25 public grouped-forward reuse test skipped"
+        );
         return None;
     };
     let (device, queue) = pollster::block_on(adapter.request_device(
@@ -141,25 +143,12 @@ fn run_case(
     let v = fixture(kv_len, phase + 1.2);
     let expected = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
 
-    let q_gpu = initialized_storage_buffer(
-        &harness.device,
-        &harness.queue,
-        &q,
-        "flat-m25-q",
-    );
-    let k_gpu = initialized_storage_buffer(
-        &harness.device,
-        &harness.queue,
-        &k,
-        "flat-m25-k",
-    );
-    let v_gpu = initialized_storage_buffer(
-        &harness.device,
-        &harness.queue,
-        &v,
-        "flat-m25-v",
-    );
-    let output_gpu = pipeline.create_output_buffer(&harness.device, shape).unwrap();
+    let q_gpu = initialized_storage_buffer(&harness.device, &harness.queue, &q, "flat-m25-q");
+    let k_gpu = initialized_storage_buffer(&harness.device, &harness.queue, &k, "flat-m25-k");
+    let v_gpu = initialized_storage_buffer(&harness.device, &harness.queue, &v, "flat-m25-v");
+    let output_gpu = pipeline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
     let layout = WgpuGroupedForwardPipeline::layout(shape).unwrap();
 
     for reuse in 0..3 {
