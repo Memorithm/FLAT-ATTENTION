@@ -140,7 +140,9 @@ impl WgpuGroupedForwardPipeline {
         }
     }
 
-    pub fn layout(shape: GroupedAttentionShape) -> Result<GroupedForwardLayout, GroupedForwardError> {
+    pub fn layout(
+        shape: GroupedAttentionShape,
+    ) -> Result<GroupedForwardLayout, GroupedForwardError> {
         shape.validate()?;
         if shape.head_dim > WGSL_MAX_HEAD_DIM {
             return Err(GroupedForwardError::UnsupportedHeadDim {

@@ -115,6 +115,13 @@ pub use wgpu_grouped_backend::{
 };
 
 #[cfg(feature = "wgpu")]
+mod wgpu_forward_grouped;
+#[cfg(feature = "wgpu")]
+pub use wgpu_forward_grouped::{
+    GroupedForwardError, GroupedForwardLayout, GroupedForwardPass, WgpuGroupedForwardPipeline,
+};
+
+#[cfg(feature = "wgpu")]
 mod wgpu_rotary_grouped_backend;
 #[cfg(feature = "wgpu")]
 pub use wgpu_rotary_grouped_backend::{
