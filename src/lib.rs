@@ -38,6 +38,9 @@ pub use attention_bias::{
 mod backward;
 pub use backward::{backward_reference, FlatAttentionBackwardOutput};
 
+mod backward_grouped;
+pub use backward_grouped::backward_reference_grouped;
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
