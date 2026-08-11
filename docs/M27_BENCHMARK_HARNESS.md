@@ -90,11 +90,28 @@ Run:
 cargo run --release --features wgpu --example m27_cold_warm_pipeline
 ```
 
+## Resident versus transfer-inclusive measurement
+
+`examples/m27_resident_vs_host_io.rs` measures the same public grouped-forward pipeline under two deliberately separate timing scopes on one already-created WGPU device:
+
+- `resident`: caller-owned Q/K/V/output buffers already exist on the device; the timed region contains command-encoder creation, public `encode`, queue submission and blocking device completion;
+- `transfer-inclusive`: every sample creates Q/K/V GPU buffers, enqueues host-to-device writes, creates the output buffer, runs the same public forward dispatch, copies O/LSE into a map-readable staging buffer, maps it and waits for completion.
+
+Fixture generation and host `f32`-to-byte packing are performed before timing. Host decoding of mapped output bytes back into `f32` values happens after the timer stops. Pipeline and device creation are excluded from both scopes. This makes the measured boundary explicit rather than describing either number as a universal end-to-end application latency.
+
+The comparison uses MHA/GQA/MQA, sequence lengths 32/128/512, `D=64`, and causal/non-causal modes. Both scopes must independently match the scalar grouped-forward O/LSE oracle before timing samples are accepted.
+
+Run:
+
+```bash
+cargo run --release --features wgpu --example m27_resident_vs_host_io
+```
+
 ## Current M27 coverage
 
-These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, the fused no-score-matrix intermediate-byte contract, and explicit first-creation/recreated/reused pipeline timing scopes.
+These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, the fused no-score-matrix intermediate-byte contract, explicit first-creation/recreated/reused pipeline timing scopes, and a resident-versus-transfer-inclusive grouped-forward comparison with both paths gated by the same scalar oracle.
 
-The complete M27 milestone still requires resident-versus-upload/download measurements, longer-context expansion where device limits permit, and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
+The complete M27 milestone still requires longer-context expansion where device limits permit and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
 
 ## Performance policy
 
