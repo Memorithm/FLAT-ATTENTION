@@ -88,7 +88,12 @@ fn initialized_buffer(
     buffer
 }
 
-fn read_f32(device: &wgpu::Device, queue: &wgpu::Queue, source: &wgpu::Buffer, len: usize) -> Vec<f32> {
+fn read_f32(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    source: &wgpu::Buffer,
+    len: usize,
+) -> Vec<f32> {
     let bytes = (len * std::mem::size_of::<f32>()) as u64;
     let staging = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-m19-grouped-backward-readback"),
@@ -133,7 +138,8 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
 
 #[test]
 fn grouped_backward_shader_parses_and_validates() {
-    let module = naga::front::wgsl::parse_str(SHADER).expect("M19 grouped backward WGSL must parse");
+    let module =
+        naga::front::wgsl::parse_str(SHADER).expect("M19 grouped backward WGSL must parse");
     let mut validator = naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::all(),
@@ -176,17 +182,21 @@ fn run_case(kv_heads: usize, causal: bool) {
     packed_forward.extend_from_slice(&forward.lse);
     let gradient_len = q_len + 2 * kv_len;
 
-    let shader = harness.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("flat-m19-grouped-backward"),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(SHADER)),
-    });
-    let pipeline = harness.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("flat-m19-grouped-backward"),
-        layout: None,
-        module: &shader,
-        entry_point: "flat_attention_backward_grouped",
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
+    let shader = harness
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("flat-m19-grouped-backward"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(SHADER)),
+        });
+    let pipeline = harness
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("flat-m19-grouped-backward"),
+            layout: None,
+            module: &shader,
+            entry_point: "flat_attention_backward_grouped",
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        });
 
     let packed_gpu = initialized_buffer(
         &harness.device,
@@ -220,27 +230,31 @@ fn run_case(kv_heads: usize, causal: bool) {
         wgpu::BufferUsages::UNIFORM,
         "flat-m19-grouped-params",
     );
-    let bind_group = harness.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("flat-m19-grouped-backward-bind-group"),
-        layout: &pipeline.get_bind_group_layout(0),
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: packed_gpu.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: grads_gpu.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: params_gpu.as_entire_binding(),
-            },
-        ],
-    });
-    let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("flat-m19-grouped-backward-dispatch"),
-    });
+    let bind_group = harness
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("flat-m19-grouped-backward-bind-group"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: packed_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: grads_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params_gpu.as_entire_binding(),
+                },
+            ],
+        });
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m19-grouped-backward-dispatch"),
+        });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m19-grouped-backward"),
@@ -248,7 +262,11 @@ fn run_case(kv_heads: usize, causal: bool) {
         });
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
-        pass.dispatch_workgroups(u32::try_from(gradient_len.div_ceil(WORKGROUP_SIZE)).unwrap(), 1, 1);
+        pass.dispatch_workgroups(
+            u32::try_from(gradient_len.div_ceil(WORKGROUP_SIZE)).unwrap(),
+            1,
+            1,
+        );
     }
     harness.queue.submit(Some(encoder.finish()));
 
