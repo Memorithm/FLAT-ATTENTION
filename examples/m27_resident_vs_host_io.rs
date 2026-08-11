@@ -163,12 +163,8 @@ fn run_case(
     };
 
     let _ = resident_execute();
-    let resident_actual = readback_outside_timing(
-        device,
-        queue,
-        &output_gpu,
-        layout.output_elements,
-    );
+    let resident_actual =
+        readback_outside_timing(device, queue, &output_gpu, layout.output_elements);
     assert_close(
         "resident O",
         &resident_actual[layout.output_offset()..layout.lse_offset()],
@@ -251,17 +247,10 @@ fn run_case(
         let _ = transfer_execute();
     }
     let resident_samples = (0..ITERATIONS).map(|_| resident_execute()).collect();
-    let transfer_samples = (0..ITERATIONS)
-        .map(|_| transfer_execute().0)
-        .collect();
+    let transfer_samples = (0..ITERATIONS).map(|_| transfer_execute().0).collect();
     let (resident_median, resident_p95) = summarize(resident_samples);
     let (transfer_median, transfer_p95) = summarize(transfer_samples);
-    (
-        resident_median,
-        resident_p95,
-        transfer_median,
-        transfer_p95,
-    )
+    (resident_median, resident_p95, transfer_median, transfer_p95)
 }
 
 fn main() {
