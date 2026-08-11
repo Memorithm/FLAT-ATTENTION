@@ -1,9 +1,9 @@
 name: tmp-m29-wire
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/m29-runtime-telemetry
+      - main
 
 permissions:
   contents: write
@@ -90,5 +90,3 @@ jobs:
           git add src/lib.rs src/wgpu_backend.rs src/runtime_telemetry.rs .github/workflows/tmp-m29-wire.yml
           git commit -m 'feat(m29): wire passive telemetry into portable runtime'
           git push origin HEAD:feat/m29-runtime-telemetry
-
-# trigger-after-pr
