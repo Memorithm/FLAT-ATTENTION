@@ -27,7 +27,7 @@ cargo run --release --features wgpu --example m27_resident_grouped_forward_sweep
 `examples/m27_resident_decode_sweep.rs` adds the M27 decode matrix through the public specialized `WgpuResidentDecodePipeline`. It keeps the resident M14/M15 fixed-capacity cache contract and sweeps:
 
 - MHA (`q_heads=4, kv_heads=4`), GQA (`4,2`) and MQA (`4,1`);
-- live KV lengths 32, 128, 512 and 2048;
+- live KV lengths 32, 128, 512, 2048, 4096 and 8192;
 - head dimensions 32, 64, 80, 96 and 128;
 - causal single-token decode (`query_len=1`, absolute query position `kv_len-1`);
 - FP32 storage/compute under the existing resident-decode contract.
@@ -109,9 +109,9 @@ cargo run --release --features wgpu --example m27_resident_vs_host_io
 
 ## Current M27 coverage
 
-These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, the fused no-score-matrix intermediate-byte contract, explicit first-creation/recreated/reused pipeline timing scopes, and a resident-versus-transfer-inclusive grouped-forward comparison with both paths gated by the same scalar oracle.
+These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, resident decode contexts through 8192 tokens, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, the fused no-score-matrix intermediate-byte contract, explicit first-creation/recreated/reused pipeline timing scopes, and a resident-versus-transfer-inclusive grouped-forward comparison with both paths gated by the same scalar oracle.
 
-The complete M27 milestone still requires longer-context expansion where device limits permit and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
+Optional external power/energy hooks are still not implemented. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters. Likewise, the existence of the 4096/8192 benchmark cases is not a claim about their performance or suitability on any specific device; evidence is valid only when the harness actually runs on that device and records its adapter/driver provenance.
 
 ## Performance policy
 
