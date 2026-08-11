@@ -41,6 +41,7 @@ pub use numerical::{
     NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
 };
 
+pub mod chunked_projection_prefill;
 pub mod paged_kv;
 
 /// Maximum head dimension supported by the portable WGSL kernels.
