@@ -122,8 +122,14 @@ fn read_f32(
 fn assert_finite_and_close(name: &str, actual: &[f32], expected: &[f32]) {
     assert_eq!(actual.len(), expected.len(), "{name}: length mismatch");
     for (index, (&actual, &expected)) in actual.iter().zip(expected).enumerate() {
-        assert!(actual.is_finite(), "{name}[{index}] is not finite: {actual}");
-        assert!(expected.is_finite(), "{name}[{index}] oracle is not finite: {expected}");
+        assert!(
+            actual.is_finite(),
+            "{name}[{index}] is not finite: {actual}"
+        );
+        assert!(
+            expected.is_finite(),
+            "{name}[{index}] oracle is not finite: {expected}"
+        );
         let tolerance = ATOL + RTOL * expected.abs();
         let error = (actual - expected).abs();
         assert!(
