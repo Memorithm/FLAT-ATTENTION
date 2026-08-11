@@ -148,8 +148,7 @@ pub use wgpu_decode::{
 mod wgpu_paged_decode;
 #[cfg(feature = "wgpu")]
 pub use wgpu_paged_decode::{
-    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline,
-    WgpuPagedKvTable,
+    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
