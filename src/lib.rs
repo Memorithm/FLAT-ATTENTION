@@ -38,6 +38,9 @@ pub use attention_bias::{
 mod backward;
 pub use backward::{backward_reference, FlatAttentionBackwardOutput};
 
+mod backward_grouped;
+pub use backward_grouped::backward_reference_grouped;
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
@@ -155,7 +158,20 @@ pub use wgpu_decode::{
 mod wgpu_paged_decode;
 #[cfg(feature = "wgpu")]
 pub use wgpu_paged_decode::{
-    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
+    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_paged_kv_cache;
+#[cfg(feature = "wgpu")]
+pub use wgpu_paged_kv_cache::{WgpuPagedKvCache, WgpuPagedKvCacheError};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_chunked_prefill;
+#[cfg(feature = "wgpu")]
+pub use wgpu_chunked_prefill::{
+    ChunkedProjectionPrefillError, ChunkedProjectionPrefillPass,
+    WgpuChunkedProjectionPrefillPipeline,
 };
 
 #[cfg(feature = "wgpu")]
@@ -193,7 +209,7 @@ impl AttentionShape {
             .ok_or(FlatAttentionError::ShapeOverflow)
     }
 
-    fn validate(self) -> Result<(), FlatAttentionError> {
+    pub(crate) fn validate(self) -> Result<(), FlatAttentionError> {
         if self.batch == 0 || self.heads == 0 || self.seq_len == 0 || self.head_dim == 0 {
             return Err(FlatAttentionError::ZeroDimension);
         }
