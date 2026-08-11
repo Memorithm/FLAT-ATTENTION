@@ -1,9 +1,8 @@
 #![cfg(feature = "wgpu")]
 
 use flat_attention::{
-    FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape,
-    GroupedBackwardRecomputeError, GroupedBackwardRecomputePass,
-    WgpuGroupedBackwardRecomputePipeline,
+    FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape, GroupedBackwardRecomputeError,
+    GroupedBackwardRecomputePass, WgpuGroupedBackwardRecomputePipeline,
 };
 
 struct Harness {
