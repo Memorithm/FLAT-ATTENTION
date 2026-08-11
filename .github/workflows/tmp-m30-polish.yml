@@ -1,0 +1,42 @@
+name: tmp-m30-polish
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/m30-stable-api-v1
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.89.0
+          components: rustfmt
+      - name: Normalize by-value conversion naming
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/api.rs')
+          text = path.read_text()
+          text = text.replace('as_core_shape', 'to_core_shape')
+          text = text.replace('as_core_config', 'to_core_config')
+          path.write_text(text)
+          PY
+          cargo fmt --all
+      - name: Commit polish and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-m30-polish.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/api.rs .github/workflows/tmp-m30-polish.yml
+          git commit -m 'refactor(m30): use explicit by-value conversion names'
+          git push origin HEAD:feat/m30-stable-api-v1
