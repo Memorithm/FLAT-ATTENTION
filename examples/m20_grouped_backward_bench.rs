@@ -204,10 +204,9 @@ fn main() {
             seq_len,
             head_dim,
         };
-        let ((legacy_median_us, legacy_p95_us), (prepared_median_us, prepared_p95_us)) =
-            run_case(
-                &device, &queue, &pipeline, shape, config, warmup, iterations,
-            );
+        let ((legacy_median_us, legacy_p95_us), (prepared_median_us, prepared_p95_us)) = run_case(
+            &device, &queue, &pipeline, shape, config, warmup, iterations,
+        );
         println!("{kv_heads},legacy,{legacy_median_us:.3},{legacy_p95_us:.3}");
         println!("{kv_heads},prepared,{prepared_median_us:.3},{prepared_p95_us:.3}");
     }
