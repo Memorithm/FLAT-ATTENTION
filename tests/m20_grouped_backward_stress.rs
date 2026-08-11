@@ -80,7 +80,12 @@ fn initialized_buffer(
     buffer
 }
 
-fn read_f32(device: &wgpu::Device, queue: &wgpu::Queue, source: &wgpu::Buffer, len: usize) -> Vec<f32> {
+fn read_f32(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    source: &wgpu::Buffer,
+    len: usize,
+) -> Vec<f32> {
     let bytes = (len * std::mem::size_of::<f32>()) as u64;
     let staging = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-m20-grouped-backward-stress-readback"),
@@ -135,7 +140,8 @@ fn run_case(
     let d_out = fixture(shape.q_tensor_len().unwrap(), phase + 1.9);
     let forward = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
     let expected = backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &forward).unwrap();
-    let packed = pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
+    let packed =
+        pack_grouped_backward_recompute_inputs(&q, &k, &v, &d_out, &forward, shape).unwrap();
     let packed_gpu = initialized_buffer(
         &harness.device,
         &harness.queue,
@@ -143,12 +149,16 @@ fn run_case(
         wgpu::BufferUsages::STORAGE,
         "flat-m20-grouped-backward-stress-forward",
     );
-    let grads_gpu = pipeline.create_gradient_buffer(&harness.device, shape).unwrap();
+    let grads_gpu = pipeline
+        .create_gradient_buffer(&harness.device, shape)
+        .unwrap();
 
     for repetition in 0..3 {
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m20-grouped-backward-stress"),
-        });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-m20-grouped-backward-stress"),
+            });
         let layout = pipeline
             .encode(
                 &harness.device,
@@ -193,11 +203,61 @@ fn grouped_backward_stress_matrix_matches_oracle_repeatedly() {
     };
     let pipeline = WgpuGroupedBackwardRecomputePipeline::new(&harness.device).unwrap();
     let cases = [
-        (GroupedAttentionShape { batch: 1, q_heads: 1, kv_heads: 1, seq_len: 1, head_dim: 2 }, false, None),
-        (GroupedAttentionShape { batch: 1, q_heads: 4, kv_heads: 4, seq_len: 3, head_dim: 8 }, true, None),
-        (GroupedAttentionShape { batch: 2, q_heads: 8, kv_heads: 2, seq_len: 5, head_dim: 16 }, false, Some(0.23)),
-        (GroupedAttentionShape { batch: 1, q_heads: 8, kv_heads: 1, seq_len: 9, head_dim: 32 }, true, Some(0.17)),
-        (GroupedAttentionShape { batch: 2, q_heads: 12, kv_heads: 3, seq_len: 7, head_dim: 6 }, true, None),
+        (
+            GroupedAttentionShape {
+                batch: 1,
+                q_heads: 1,
+                kv_heads: 1,
+                seq_len: 1,
+                head_dim: 2,
+            },
+            false,
+            None,
+        ),
+        (
+            GroupedAttentionShape {
+                batch: 1,
+                q_heads: 4,
+                kv_heads: 4,
+                seq_len: 3,
+                head_dim: 8,
+            },
+            true,
+            None,
+        ),
+        (
+            GroupedAttentionShape {
+                batch: 2,
+                q_heads: 8,
+                kv_heads: 2,
+                seq_len: 5,
+                head_dim: 16,
+            },
+            false,
+            Some(0.23),
+        ),
+        (
+            GroupedAttentionShape {
+                batch: 1,
+                q_heads: 8,
+                kv_heads: 1,
+                seq_len: 9,
+                head_dim: 32,
+            },
+            true,
+            Some(0.17),
+        ),
+        (
+            GroupedAttentionShape {
+                batch: 2,
+                q_heads: 12,
+                kv_heads: 3,
+                seq_len: 7,
+                head_dim: 6,
+            },
+            true,
+            None,
+        ),
     ];
 
     for (index, (shape, causal, softmax_scale)) in cases.into_iter().enumerate() {
@@ -205,7 +265,10 @@ fn grouped_backward_stress_matrix_matches_oracle_repeatedly() {
             &harness,
             &pipeline,
             shape,
-            FlatAttentionConfig { causal, softmax_scale },
+            FlatAttentionConfig {
+                causal,
+                softmax_scale,
+            },
             index as f32 * 0.37,
         );
     }
