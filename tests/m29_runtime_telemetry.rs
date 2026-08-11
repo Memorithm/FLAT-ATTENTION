@@ -29,7 +29,10 @@ fn passive_snapshot_matches_selected_portable_dispatch() {
     assert_eq!(telemetry.dispatch_count, 1);
     assert_eq!(telemetry.temporary_allocation_count, 1);
     assert_eq!(telemetry.temporary_allocation_bytes, 32);
-    assert_eq!(telemetry.autotuner_cache, AutotunerCacheStatus::NotApplicable);
+    assert_eq!(
+        telemetry.autotuner_cache,
+        AutotunerCacheStatus::NotApplicable
+    );
     assert!(!telemetry.device.name.is_empty());
     assert!(!telemetry.device.backend.is_empty());
 }
