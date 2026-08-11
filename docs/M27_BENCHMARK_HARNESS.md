@@ -70,11 +70,31 @@ Run:
 cargo run --release --example m27_dispatch_allocation_accounting
 ```
 
+## Cold-versus-warm pipeline measurement
+
+`examples/m27_cold_warm_pipeline.rs` makes pipeline lifecycle cost explicit without conflating it with device initialization or claiming a universal cold-start number.
+
+The harness records three distinct quantities on one already-created WGPU device:
+
+- `initial_pipeline_creation_us`: the first `WgpuGroupedForwardPipeline::new` call in the process after device creation;
+- recreated-pipeline median and p95: subsequent `WgpuGroupedForwardPipeline::new` calls on the same process/device, where driver/backend caches may already exist;
+- warm resident grouped-forward median and p95: execution through the first pipeline reused across samples, with uploads and readback outside timing.
+
+The initial creation number is intentionally a single observation, not a statistical distribution. The recreated-pipeline distribution is explicitly labeled as same-process/device recreation and must not be interpreted as process-start cold compilation. Device creation itself is excluded from both quantities.
+
+Warm execution uses representative MHA/GQA/MQA cases (`q_heads=4`, `kv_heads=4/2/1`) at sequence length 128 and head dimension 64 in causal and non-causal modes. Each case is rejected before timing unless O/LSE match the scalar grouped-forward oracle within the established tolerances.
+
+Run:
+
+```bash
+cargo run --release --features wgpu --example m27_cold_warm_pipeline
+```
+
 ## Current M27 coverage
 
-These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, and the fused no-score-matrix intermediate-byte contract.
+These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, the fused no-score-matrix intermediate-byte contract, and explicit first-creation/recreated/reused pipeline timing scopes.
 
-The complete M27 milestone still requires explicit cold-versus-warm pipeline measurements, resident-versus-upload/download measurements, longer-context expansion where device limits permit, and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
+The complete M27 milestone still requires resident-versus-upload/download measurements, longer-context expansion where device limits permit, and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
 
 ## Performance policy
 
