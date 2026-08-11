@@ -81,6 +81,9 @@ pub const FLAT_DECODE_PAGED_WGSL: &str = include_str!("../shaders/flat_decode_pa
 /// M18 portable correctness-first backward recomputation kernel.
 pub const FLAT_BACKWARD_RECOMPUTE_WGSL: &str =
     include_str!("../shaders/flat_backward_recompute.wgsl");
+/// M19 native GQA/MQA correctness-first backward recomputation kernel.
+pub const FLAT_BACKWARD_GROUPED_RECOMPUTE_WGSL: &str =
+    include_str!("../shaders/flat_backward_grouped_recompute.wgsl");
 /// M5 subgroup-assisted Q4 kernel, selected only after runtime capability checks.
 pub const FLAT_FWD_SUBGROUP_WGSL: &str = include_str!("../shaders/flat_fwd_subgroup.wgsl");
 /// M8 packed-binary16 forward kernel with FP32 accumulation and FP32 LSE.
@@ -167,6 +170,15 @@ mod wgpu_backward;
 pub use wgpu_backward::{
     pack_backward_recompute_inputs, BackwardRecomputeError, BackwardRecomputeLayout,
     BackwardRecomputePass, WgpuBackwardRecomputePipeline,
+};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_backward_grouped;
+#[cfg(feature = "wgpu")]
+pub use wgpu_backward_grouped::{
+    pack_grouped_backward_recompute_inputs, GroupedBackwardRecomputeError,
+    GroupedBackwardRecomputeLayout, GroupedBackwardRecomputePass,
+    WgpuGroupedBackwardRecomputePipeline,
 };
 
 /// Contiguous tensor shape used by the current MHA contract.
