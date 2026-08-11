@@ -49,13 +49,36 @@ Run:
 cargo run --release --features wgpu --example m27_resident_decode_sweep
 ```
 
+## Dispatch and allocation accounting
+
+`examples/m27_dispatch_allocation_accounting.rs` adds deterministic source-contract accounting for the two timed resident paths. It deliberately does not pretend to be allocator telemetry. Instead, it records quantities that are exact from the current host implementation and logical tensor contract:
+
+- caller-owned resident storage bytes for Q/K/V or Q/KV-cache plus combined O/LSE;
+- four resident storage buffers in both benchmark paths;
+- one transient uniform GPU-buffer allocation per timed encode;
+- 32 transient uniform bytes for grouped forward (eight `u32` parameters);
+- 48 transient uniform bytes for resident decode (twelve `u32` parameters);
+- one bind-group creation and one compute dispatch per timed encode;
+- zero pipeline creations inside the timed region because both benchmark harnesses construct the pipeline before timing;
+- zero materialized score/probability-matrix bytes under the fused attention contract.
+
+These values are an accounting model tied to the source contract, not measurements of driver-internal allocations, memory traffic, cache activity or physical bandwidth. The example prints `accounting_scope=source_contract_not_allocator_telemetry` and `performance_claim=none` to keep that distinction machine-readable.
+
+Run:
+
+```bash
+cargo run --release --example m27_dispatch_allocation_accounting
+```
+
 ## Current M27 coverage
 
-These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, and context lengths through 2048 on decode. The complete M27 milestone still requires explicit cold-versus-warm pipeline measurements, resident-versus-upload/download measurements, longer-context expansion where device limits permit, allocation/intermediate-byte accounting, pipeline/dispatch-count reporting, and optional external power/energy hooks.
+These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible resident allocation bytes, timed transient uniform-buffer allocations/bytes, and the fused no-score-matrix intermediate-byte contract.
+
+The complete M27 milestone still requires explicit cold-versus-warm pipeline measurements, resident-versus-upload/download measurements, longer-context expansion where device limits permit, and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
 
 ## Performance policy
 
-Both harnesses print `performance_claim=none`. Their output is evidence tied to the exact FLAT commit and the adapter/driver on which it is executed; no universal speedup, latency, throughput, bandwidth, memory-efficiency or runtime-selection claim follows from the existence of the harnesses alone.
+All M27 harnesses print `performance_claim=none`. Their output is evidence tied to the exact FLAT commit and, for device benchmarks, the adapter/driver on which it is executed; no universal speedup, latency, throughput, bandwidth, memory-efficiency or runtime-selection claim follows from the existence of the harnesses alone.
 
 ## Sovereignty
 
