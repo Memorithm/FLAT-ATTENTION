@@ -169,10 +169,9 @@ fn run_case(
         query_position_offset: kv_len - 1,
         kv_position_offset: 0,
     };
-    let expected = forward_reference_projection_grouped_rope_asymmetric(
-        &q, &raw_k, &v, shape, config, rotary,
-    )
-    .unwrap();
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
 
     let q_gpu = input_buffer(
         device,
@@ -238,16 +237,8 @@ fn run_case(
 
     let _ = execute();
     let actual = read_f32(device, queue, &output_gpu, layout.combined_elements);
-    assert_close(
-        "O",
-        &actual[..layout.output_elements],
-        &expected.output,
-    );
-    assert_close(
-        "LSE",
-        &actual[layout.output_elements..],
-        &expected.lse,
-    );
+    assert_close("O", &actual[..layout.output_elements], &expected.output);
+    assert_close("LSE", &actual[layout.output_elements..], &expected.lse);
 
     for _ in 0..WARMUP {
         let _ = execute();
@@ -298,8 +289,9 @@ fn main() {
     for &(q_heads, kv_heads) in &[(4_usize, 4_usize), (4, 2), (4, 1)] {
         for &kv_len in &[32_usize, 128, 512, 2048] {
             for &head_dim in &[32_usize, 64, 80, 96, 128] {
-                let (median_us, p95_us) =
-                    run_case(&device, &queue, &pipeline, q_heads, kv_heads, kv_len, head_dim);
+                let (median_us, p95_us) = run_case(
+                    &device, &queue, &pipeline, q_heads, kv_heads, kv_len, head_dim,
+                );
                 let decode_tokens_per_s = 1.0e6 / median_us;
                 println!(
                     "1,{q_heads},{kv_heads},{kv_len},{head_dim},true,{median_us:.3},{p95_us:.3},{decode_tokens_per_s:.3}"
