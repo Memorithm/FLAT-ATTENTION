@@ -185,9 +185,7 @@ impl WgpuChunkedProjectionPrefillPipeline {
 
         let mut query_start = 0usize;
         while query_start < pass.shape.seq_len {
-            let chunk_len = pass
-                .query_chunk_size
-                .min(pass.shape.seq_len - query_start);
+            let chunk_len = pass.query_chunk_size.min(pass.shape.seq_len - query_start);
             let chunk_shape = AsymmetricGroupedAttentionShape {
                 batch: pass.shape.batch,
                 q_heads: pass.shape.q_heads,
@@ -224,15 +222,10 @@ impl WgpuChunkedProjectionPrefillPipeline {
 
             let row_bytes = bytes_for_f32(checked_mul(chunk_len, q_width)?)?;
             for batch in 0..pass.shape.batch {
-                let source_row = checked_add(
-                    checked_mul(batch, pass.shape.seq_len)?,
-                    query_start,
-                )?;
+                let source_row = checked_add(checked_mul(batch, pass.shape.seq_len)?, query_start)?;
                 let source_offset = bytes_for_f32(checked_mul(source_row, q_width)?)?;
-                let destination_offset = bytes_for_f32(checked_mul(
-                    checked_mul(batch, chunk_len)?,
-                    q_width,
-                )?)?;
+                let destination_offset =
+                    bytes_for_f32(checked_mul(checked_mul(batch, chunk_len)?, q_width)?)?;
                 encoder.copy_buffer_to_buffer(
                     pass.q,
                     source_offset,
@@ -258,18 +251,11 @@ impl WgpuChunkedProjectionPrefillPipeline {
 
             for batch in 0..pass.shape.batch {
                 let compact_output_row = checked_mul(batch, chunk_len)?;
-                let compact_output_offset = bytes_for_f32(checked_mul(
-                    compact_output_row,
-                    q_width,
-                )?)?;
-                let full_output_row = checked_add(
-                    checked_mul(batch, pass.shape.seq_len)?,
-                    query_start,
-                )?;
-                let full_output_offset = bytes_for_f32(checked_mul(
-                    full_output_row,
-                    q_width,
-                )?)?;
+                let compact_output_offset =
+                    bytes_for_f32(checked_mul(compact_output_row, q_width)?)?;
+                let full_output_row =
+                    checked_add(checked_mul(batch, pass.shape.seq_len)?, query_start)?;
+                let full_output_offset = bytes_for_f32(checked_mul(full_output_row, q_width)?)?;
                 encoder.copy_buffer_to_buffer(
                     &compact_out,
                     compact_output_offset,
@@ -294,10 +280,8 @@ impl WgpuChunkedProjectionPrefillPipeline {
                         )?,
                         query_start,
                     )?;
-                    let full_lse_offset = checked_add(
-                        full_output_bytes,
-                        bytes_for_f32(full_lse_index)?,
-                    )?;
+                    let full_lse_offset =
+                        checked_add(full_output_bytes, bytes_for_f32(full_lse_index)?)?;
                     encoder.copy_buffer_to_buffer(
                         &compact_out,
                         compact_lse_offset,
