@@ -252,11 +252,7 @@ pub mod v1 {
             .ok_or(ApiError::ShapeOverflow)
     }
 
-    fn validate_len(
-        tensor: &'static str,
-        actual: usize,
-        expected: usize,
-    ) -> Result<(), ApiError> {
+    fn validate_len(tensor: &'static str, actual: usize, expected: usize) -> Result<(), ApiError> {
         if actual != expected {
             return Err(ApiError::LengthMismatch {
                 tensor,

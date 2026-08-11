@@ -8,6 +8,9 @@
 
 use core::fmt;
 
+/// Versioned backend-neutral reusable API.
+pub mod api;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
