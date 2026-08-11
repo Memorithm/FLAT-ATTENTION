@@ -53,8 +53,8 @@ cargo run --release --features wgpu --example m27_resident_decode_sweep
 
 `examples/m27_dispatch_allocation_accounting.rs` adds deterministic source-contract accounting for the two timed resident paths. It deliberately does not pretend to be allocator telemetry. Instead, it records quantities that are exact from the current host implementation and logical tensor contract:
 
-- caller-owned resident storage bytes for Q/K/V or Q/KV-cache plus combined O/LSE;
-- four resident storage buffers in both benchmark paths;
+- grouped forward: caller-owned resident Q/K/V plus combined O/LSE, four resident storage buffers;
+- resident decode: resident Q, source K/V staging buffers, K/V cache buffers and combined O/LSE, six live storage buffers in the current benchmark lifetime;
 - one transient uniform GPU-buffer allocation per timed encode;
 - 32 transient uniform bytes for grouped forward (eight `u32` parameters);
 - 48 transient uniform bytes for resident decode (twelve `u32` parameters);
@@ -62,7 +62,7 @@ cargo run --release --features wgpu --example m27_resident_decode_sweep
 - zero pipeline creations inside the timed region because both benchmark harnesses construct the pipeline before timing;
 - zero materialized score/probability-matrix bytes under the fused attention contract.
 
-These values are an accounting model tied to the source contract, not measurements of driver-internal allocations, memory traffic, cache activity or physical bandwidth. The example prints `accounting_scope=source_contract_not_allocator_telemetry` and `performance_claim=none` to keep that distinction machine-readable.
+The resident-decode source K/V buffers are currently kept alive after their contents have been appended into the fixed-capacity K/V cache, so their bytes are included in the live-storage accounting. These values are an accounting model tied to the source contract and benchmark object lifetimes, not measurements of driver-internal allocations, memory traffic, cache activity or physical bandwidth. The example prints `accounting_scope=source_contract_not_allocator_telemetry` and `performance_claim=none` to keep that distinction machine-readable.
 
 Run:
 
@@ -72,7 +72,7 @@ cargo run --release --example m27_dispatch_allocation_accounting
 
 ## Current M27 coverage
 
-These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible resident allocation bytes, timed transient uniform-buffer allocations/bytes, and the fused no-score-matrix intermediate-byte contract.
+These slices now cover resident prefill and resident decode timing, MHA/GQA/MQA, all roadmap head dimensions `D=32/64/80/96/128` across the combined harnesses, context lengths through 2048 on decode, explicit pipeline/dispatch-count reporting, caller-visible live storage accounting, timed transient uniform-buffer allocations/bytes, and the fused no-score-matrix intermediate-byte contract.
 
 The complete M27 milestone still requires explicit cold-versus-warm pipeline measurements, resident-versus-upload/download measurements, longer-context expansion where device limits permit, and optional external power/energy hooks. Driver-internal allocator telemetry remains intentionally distinguished from source-contract accounting and must not be inferred from these counters.
 
