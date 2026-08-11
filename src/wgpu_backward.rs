@@ -107,7 +107,10 @@ impl fmt::Display for BackwardRecomputeError {
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
             ),
             Self::PipelineValidation(error) => {
-                write!(f, "backward recomputation pipeline validation failed: {error}")
+                write!(
+                    f,
+                    "backward recomputation pipeline validation failed: {error}"
+                )
             }
         }
     }
@@ -149,12 +152,16 @@ impl WgpuBackwardRecomputePipeline {
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         });
         match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(BackwardRecomputeError::PipelineValidation(error.to_string())),
+            Some(error) => Err(BackwardRecomputeError::PipelineValidation(
+                error.to_string(),
+            )),
             None => Ok(Self { pipeline }),
         }
     }
 
-    pub fn layout(shape: AttentionShape) -> Result<BackwardRecomputeLayout, BackwardRecomputeError> {
+    pub fn layout(
+        shape: AttentionShape,
+    ) -> Result<BackwardRecomputeLayout, BackwardRecomputeError> {
         shape.validate()?;
         let tensor_elements = shape.tensor_len()?;
         let lse_elements = shape.lse_len()?;
