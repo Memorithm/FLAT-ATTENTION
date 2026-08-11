@@ -187,6 +187,12 @@ impl PagedKvTable {
     }
 }
 
+#[cfg(feature = "wgpu")]
+#[path = "wgpu_paged_kv_cache.rs"]
+mod wgpu_paged_kv_cache;
+#[cfg(feature = "wgpu")]
+pub use wgpu_paged_kv_cache::{WgpuPagedKvCache, WgpuPagedKvCacheError};
+
 #[cfg(test)]
 mod tests {
     use super::*;
