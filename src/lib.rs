@@ -35,6 +35,9 @@ pub use attention_bias::{
     forward_reference_projection_grouped_rope_asymmetric_biased, AttentionBias,
 };
 
+mod backward;
+pub use backward::{backward_reference, FlatAttentionBackwardOutput};
+
 mod numerical;
 pub use numerical::{
     AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
