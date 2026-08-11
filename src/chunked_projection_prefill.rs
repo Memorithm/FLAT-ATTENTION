@@ -162,6 +162,9 @@ pub fn forward_reference_projection_grouped_rope_chunked_prefill(
     Ok(FlatAttentionOutput { output, lse })
 }
 
+#[cfg(feature = "wgpu")]
+include!("wgpu_chunked_prefill.rs");
+
 #[cfg(test)]
 mod tests {
     use super::*;
