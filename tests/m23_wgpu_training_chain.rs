@@ -161,21 +161,31 @@ fn run_case(shape: GroupedAttentionShape, config: FlatAttentionConfig) {
     let v = fixture(kv_len, 1.3);
     let d_out = fixture(q_len, 1.9);
     let expected_forward = forward_reference_grouped(&q, &k, &v, shape, config).unwrap();
-    let expected_backward = backward_reference_grouped(
-        &q,
-        &k,
-        &v,
-        &d_out,
-        shape,
-        config,
-        &expected_forward,
-    )
-    .unwrap();
+    let expected_backward =
+        backward_reference_grouped(&q, &k, &v, &d_out, shape, config, &expected_forward).unwrap();
 
     let storage_copy = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC;
-    let q_gpu = initialized_buffer(&harness.device, &harness.queue, &q, storage_copy, "flat-m23-q");
-    let k_gpu = initialized_buffer(&harness.device, &harness.queue, &k, storage_copy, "flat-m23-k");
-    let v_gpu = initialized_buffer(&harness.device, &harness.queue, &v, storage_copy, "flat-m23-v");
+    let q_gpu = initialized_buffer(
+        &harness.device,
+        &harness.queue,
+        &q,
+        storage_copy,
+        "flat-m23-q",
+    );
+    let k_gpu = initialized_buffer(
+        &harness.device,
+        &harness.queue,
+        &k,
+        storage_copy,
+        "flat-m23-k",
+    );
+    let v_gpu = initialized_buffer(
+        &harness.device,
+        &harness.queue,
+        &v,
+        storage_copy,
+        "flat-m23-v",
+    );
     let d_out_gpu = initialized_buffer(
         &harness.device,
         &harness.queue,
@@ -190,18 +200,25 @@ fn run_case(shape: GroupedAttentionShape, config: FlatAttentionConfig) {
         "flat-m23-forward-output",
     );
 
-    harness.device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = harness.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("flat-m23-grouped-forward"),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_GROUPED_WGSL)),
-    });
-    let forward_pipeline = harness.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("flat-m23-grouped-forward"),
-        layout: None,
-        module: &shader,
-        entry_point: "flat_attention_forward",
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
+    harness
+        .device
+        .push_error_scope(wgpu::ErrorFilter::Validation);
+    let shader = harness
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("flat-m23-grouped-forward"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_GROUPED_WGSL)),
+        });
+    let forward_pipeline =
+        harness
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("flat-m23-grouped-forward"),
+                layout: None,
+                module: &shader,
+                entry_point: "flat_attention_forward",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            });
     if let Some(error) = pollster::block_on(harness.device.pop_error_scope()) {
         panic!("M23 grouped forward pipeline validation failed: {error}");
     }
@@ -225,17 +242,34 @@ fn run_case(shape: GroupedAttentionShape, config: FlatAttentionConfig) {
         mapped_at_creation: false,
     });
     harness.queue.write_buffer(&params_gpu, 0, &params_bytes);
-    let forward_bind_group = harness.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("flat-m23-forward-bind-group"),
-        layout: &forward_pipeline.get_bind_group_layout(0),
-        entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: q_gpu.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: k_gpu.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: v_gpu.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: forward_gpu.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 4, resource: params_gpu.as_entire_binding() },
-        ],
-    });
+    let forward_bind_group = harness
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("flat-m23-forward-bind-group"),
+            layout: &forward_pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: q_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: k_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: v_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: forward_gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: params_gpu.as_entire_binding(),
+                },
+            ],
+        });
 
     let backward_pipeline = WgpuGroupedBackwardRecomputePipeline::new(&harness.device).unwrap();
     let backward_layout = WgpuGroupedBackwardRecomputePipeline::layout(shape).unwrap();
@@ -250,9 +284,11 @@ fn run_case(shape: GroupedAttentionShape, config: FlatAttentionConfig) {
         .unwrap();
 
     let f32_bytes = std::mem::size_of::<f32>() as u64;
-    let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("flat-m23-forward-backward-chain"),
-    });
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m23-forward-backward-chain"),
+        });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m23-forward"),
@@ -318,7 +354,12 @@ fn run_case(shape: GroupedAttentionShape, config: FlatAttentionConfig) {
     harness.queue.submit(Some(encoder.finish()));
     let _ = harness.device.poll(wgpu::Maintain::Wait);
 
-    let actual_forward = read_f32(&harness.device, &harness.queue, &forward_gpu, q_len + lse_len);
+    let actual_forward = read_f32(
+        &harness.device,
+        &harness.queue,
+        &forward_gpu,
+        q_len + lse_len,
+    );
     assert_close("O", &actual_forward[..q_len], &expected_forward.output);
     assert_close("LSE", &actual_forward[q_len..], &expected_forward.lse);
 
