@@ -166,13 +166,7 @@ fn main() {
             head_dim,
         };
         let (median_us, p95_us) = run_case(
-            &device,
-            &queue,
-            &pipeline,
-            shape,
-            config,
-            warmup,
-            iterations,
+            &device, &queue, &pipeline, shape, config, warmup, iterations,
         );
         println!("{kv_heads},{median_us:.3},{p95_us:.3}");
     }
