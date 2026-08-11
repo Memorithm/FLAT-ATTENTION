@@ -287,7 +287,7 @@ fn main() {
     println!("batch,q_heads,kv_heads,kv_len,head_dim,causal,median_us,p95_us,decode_tokens_per_s");
 
     for &(q_heads, kv_heads) in &[(4_usize, 4_usize), (4, 2), (4, 1)] {
-        for &kv_len in &[32_usize, 128, 512, 2048] {
+        for &kv_len in &[32_usize, 128, 512, 2048, 4096, 8192] {
             for &head_dim in &[32_usize, 64, 80, 96, 128] {
                 let (median_us, p95_us) = run_case(
                     &device, &queue, &pipeline, q_heads, kv_heads, kv_len, head_dim,
