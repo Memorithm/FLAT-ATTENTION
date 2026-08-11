@@ -269,7 +269,7 @@ impl WgpuChunkedProjectionPrefillPipeline {
                         checked_add(checked_mul(batch, pass.shape.q_heads)?, q_head)?,
                         chunk_len,
                     )?;
-                    let compact_lse_offset = checked_add(
+                    let compact_lse_offset = checked_add_u64(
                         bytes_for_f32(chunk_layout.output_elements)?,
                         bytes_for_f32(compact_lse_index)?,
                     )?;
@@ -281,7 +281,7 @@ impl WgpuChunkedProjectionPrefillPipeline {
                         query_start,
                     )?;
                     let full_lse_offset =
-                        checked_add(full_output_bytes, bytes_for_f32(full_lse_index)?)?;
+                        checked_add_u64(full_output_bytes, bytes_for_f32(full_lse_index)?)?;
                     encoder.copy_buffer_to_buffer(
                         &compact_out,
                         compact_lse_offset,
@@ -328,6 +328,11 @@ fn validate_usage(
 }
 
 fn checked_add(a: usize, b: usize) -> Result<usize, WgpuChunkedProjectionPrefillError> {
+    a.checked_add(b)
+        .ok_or_else(|| FlatAttentionError::ShapeOverflow.into())
+}
+
+fn checked_add_u64(a: u64, b: u64) -> Result<u64, WgpuChunkedProjectionPrefillError> {
     a.checked_add(b)
         .ok_or_else(|| FlatAttentionError::ShapeOverflow.into())
 }
