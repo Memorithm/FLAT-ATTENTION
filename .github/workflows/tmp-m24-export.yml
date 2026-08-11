@@ -1,0 +1,58 @@
+name: tmp-m24-export
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  export-api:
+    if: github.head_ref == 'feat/m24-caller-owned-grouped-forward-api'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/m24-caller-owned-grouped-forward-api
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.89.0
+          components: rustfmt
+      - name: Export M24 module from crate root
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib.rs')
+          text = path.read_text()
+          needle = '''#[cfg(feature = "wgpu")]
+          mod wgpu_rotary_grouped_backend;
+          '''.replace('          ', '')
+          insert = '''#[cfg(feature = "wgpu")]
+          mod wgpu_forward_grouped;
+          #[cfg(feature = "wgpu")]
+          pub use wgpu_forward_grouped::{
+              GroupedForwardError, GroupedForwardLayout, GroupedForwardPass,
+              WgpuGroupedForwardPipeline,
+          };
+
+          '''.replace('          ', '')
+          if 'mod wgpu_forward_grouped;' not in text:
+              if needle not in text:
+                  raise SystemExit('crate-root insertion point not found')
+              text = text.replace(needle, insert + needle, 1)
+              path.write_text(text)
+          PY
+          cargo fmt --all
+          git diff --check
+      - name: Commit export and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-m24-export.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'feat(m24): export caller-owned grouped forward API'
+          git push origin HEAD:feat/m24-caller-owned-grouped-forward-api
