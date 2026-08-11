@@ -30,7 +30,9 @@ fn harness() -> Option<Harness> {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M26 public resident training chain requires a WGPU adapter in the mandatory device gate");
         }
-        eprintln!("WGPU adapter unavailable; optional M26 public resident training-chain test skipped");
+        eprintln!(
+            "WGPU adapter unavailable; optional M26 public resident training-chain test skipped"
+        );
         return None;
     };
     let (device, queue) = pollster::block_on(adapter.request_device(
