@@ -6,7 +6,7 @@ use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric,
     paged_kv::{PagedKvConfig, WgpuPagedKvCache},
     AsymmetricGroupedAttentionShape, AsymmetricRotaryEmbeddingConfig, FlatAttentionConfig,
-    PagedDecodePass, WgpuPagedDecodePipeline,
+    PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
 };
 
 const ATOL: f32 = 2.0e-4;
@@ -340,7 +340,7 @@ fn resident_paged_cache_feeds_qualified_paged_decode() {
         harness.queue.submit(Some(encoder.finish()));
     }
 
-    let page_table = cache.decode_table().unwrap();
+    let page_table = WgpuPagedKvTable::from_table(cache.table()).unwrap();
     let pipeline = WgpuPagedDecodePipeline::new(&harness.device).unwrap();
     let q_gpu = input_buffer(
         &harness.device,
