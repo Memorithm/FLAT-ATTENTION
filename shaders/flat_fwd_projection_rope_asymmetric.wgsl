@@ -138,28 +138,26 @@ fn flat_attention_forward(
 
     let half_dim = params.head_dim / 2u;
     let q_pair_count = QUERY_ROWS * half_dim;
-    var q_linear = lane;
-    loop {
-        if (q_linear >= q_pair_count) {
-            break;
+    for (var q_step = 0u; q_step < 4u; q_step += 1u) {
+        let q_linear = lane + q_step * WORKGROUP_SIZE;
+        if (q_linear < q_pair_count) {
+            let row = q_linear / half_dim;
+            let pair = q_linear - row * half_dim;
+            let query_pos = query_start + row;
+            if (query_pos < params.q_len) {
+                let base = row * MAX_HEAD_DIM + 2u * pair;
+                let rotated = rope_pair(
+                    q_shared[base],
+                    q_shared[base + 1u],
+                    pair,
+                    query_pos + params.q_rope_offset,
+                    params.head_dim,
+                    theta,
+                );
+                q_shared[base] = rotated.x;
+                q_shared[base + 1u] = rotated.y;
+            }
         }
-        let row = q_linear / half_dim;
-        let pair = q_linear - row * half_dim;
-        let query_pos = query_start + row;
-        if (query_pos < params.q_len) {
-            let base = row * MAX_HEAD_DIM + 2u * pair;
-            let rotated = rope_pair(
-                q_shared[base],
-                q_shared[base + 1u],
-                pair,
-                query_pos + params.q_rope_offset,
-                params.head_dim,
-                theta,
-            );
-            q_shared[base] = rotated.x;
-            q_shared[base + 1u] = rotated.y;
-        }
-        q_linear += WORKGROUP_SIZE;
     }
     workgroupBarrier();
 
@@ -177,45 +175,41 @@ fn flat_attention_forward(
         let tile_rows = min(KV_TILE, kv_limit - tile_start);
         let tile_elements = tile_rows * params.head_dim;
 
-        var linear = lane;
-        loop {
-            if (linear >= tile_elements) {
-                break;
+        for (var load_step = 0u; load_step < 16u; load_step += 1u) {
+            let linear = lane + load_step * WORKGROUP_SIZE;
+            if (linear < tile_elements) {
+                let tile_row = linear / params.head_dim;
+                let dim = linear - tile_row * params.head_dim;
+                let key_pos = tile_start + tile_row;
+                let row = batch_index * params.kv_len + key_pos;
+                let global_index = row * kv_width + kv_head * params.head_dim + dim;
+                let shared_index = tile_row * MAX_HEAD_DIM + dim;
+                k_shared[shared_index] = k[global_index];
+                v_shared[shared_index] = v[global_index];
             }
-            let tile_row = linear / params.head_dim;
-            let dim = linear - tile_row * params.head_dim;
-            let key_pos = tile_start + tile_row;
-            let row = batch_index * params.kv_len + key_pos;
-            let global_index = row * kv_width + kv_head * params.head_dim + dim;
-            let shared_index = tile_row * MAX_HEAD_DIM + dim;
-            k_shared[shared_index] = k[global_index];
-            v_shared[shared_index] = v[global_index];
-            linear += WORKGROUP_SIZE;
         }
         workgroupBarrier();
 
         if (params.rotate_k != 0u) {
             let k_pair_count = tile_rows * half_dim;
-            var k_linear = lane;
-            loop {
-                if (k_linear >= k_pair_count) {
-                    break;
+            for (var k_step = 0u; k_step < 8u; k_step += 1u) {
+                let k_linear = lane + k_step * WORKGROUP_SIZE;
+                if (k_linear < k_pair_count) {
+                    let tile_row = k_linear / half_dim;
+                    let pair = k_linear - tile_row * half_dim;
+                    let key_pos = tile_start + tile_row;
+                    let base = tile_row * MAX_HEAD_DIM + 2u * pair;
+                    let rotated = rope_pair(
+                        k_shared[base],
+                        k_shared[base + 1u],
+                        pair,
+                        key_pos + params.kv_rope_offset,
+                        params.head_dim,
+                        theta,
+                    );
+                    k_shared[base] = rotated.x;
+                    k_shared[base + 1u] = rotated.y;
                 }
-                let tile_row = k_linear / half_dim;
-                let pair = k_linear - tile_row * half_dim;
-                let key_pos = tile_start + tile_row;
-                let base = tile_row * MAX_HEAD_DIM + 2u * pair;
-                let rotated = rope_pair(
-                    k_shared[base],
-                    k_shared[base + 1u],
-                    pair,
-                    key_pos + params.kv_rope_offset,
-                    params.head_dim,
-                    theta,
-                );
-                k_shared[base] = rotated.x;
-                k_shared[base + 1u] = rotated.y;
-                k_linear += WORKGROUP_SIZE;
             }
         }
         workgroupBarrier();
