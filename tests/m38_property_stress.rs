@@ -1,6 +1,4 @@
-use flat_attention::{
-    forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape,
-};
+use flat_attention::{forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape};
 
 const ATOL: f32 = 2.0e-4;
 const RTOL: f32 = 1.0e-3;
@@ -94,10 +92,8 @@ fn randomized_grouped_oracle_preserves_attention_invariants() {
             for batch_index in 0..batch {
                 for q_head in 0..q_heads {
                     let kv_head = q_head / group_size;
-                    let out_base =
-                        (batch_index * q_heads + q_head) * q_head_stride;
-                    let v_base =
-                        (batch_index * kv_heads + kv_head) * kv_head_stride;
+                    let out_base = (batch_index * q_heads + q_head) * q_head_stride;
+                    let v_base = (batch_index * kv_heads + kv_head) * kv_head_stride;
                     assert_close(
                         "causal first-query singleton visibility",
                         &result.output[out_base..out_base + head_dim],
@@ -211,11 +207,13 @@ fn resident_kv_cache_reset_and_reuse_preserve_logical_length_contract() {
         backends: wgpu::Backends::all(),
         ..Default::default()
     });
-    let Some(adapter) = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::default(),
-        compatible_surface: None,
-        force_fallback_adapter: false,
-    })) else {
+    let Some(adapter) =
+        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: None,
+            force_fallback_adapter: false,
+        }))
+    else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M38 requires WGPU but no adapter was available");
         }
