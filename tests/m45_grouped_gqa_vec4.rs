@@ -3,8 +3,8 @@
 use std::sync::mpsc;
 
 use flat_attention::{
-    FlatAttentionConfig, GroupedAttentionShape, GroupedForwardPass, WgpuGroupedForwardPipeline,
-    forward_reference_grouped,
+    forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape, GroupedForwardPass,
+    WgpuGroupedForwardPipeline,
 };
 use naga::valid::{Capabilities, ValidationFlags, Validator};
 
@@ -127,13 +127,7 @@ fn assert_close(actual: &[f32], expected: &[f32]) {
     }
 }
 
-fn run_case(
-    harness: &Harness,
-    q_heads: usize,
-    kv_heads: usize,
-    head_dim: usize,
-    causal: bool,
-) {
+fn run_case(harness: &Harness, q_heads: usize, kv_heads: usize, head_dim: usize, causal: bool) {
     let shape = GroupedAttentionShape {
         batch: 2,
         q_heads,
@@ -149,7 +143,10 @@ fn run_case(
     let kv_len = shape.kv_tensor_len().unwrap();
     assert_eq!(q_len, 2 * q_heads * 9 * head_dim);
     assert_eq!(kv_len, 2 * kv_heads * 9 * head_dim);
-    assert!(kv_len < q_len, "native grouped case must keep K/V unexpanded");
+    assert!(
+        kv_len < q_len,
+        "native grouped case must keep K/V unexpanded"
+    );
 
     let q = fixture(q_len, 0.2);
     let k = fixture(kv_len, 0.8);
