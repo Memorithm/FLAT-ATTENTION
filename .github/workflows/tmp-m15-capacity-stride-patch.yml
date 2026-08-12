@@ -1,280 +1,45 @@
-name: Temporary M15 capacity-stride patch
+name: Temporary M40 manifest module wiring
 
 on:
   push:
-    branches: ["feat/m15-capacity-strided-resident-decode"]
+    branches: ["feat/m40-benchmark-manifest"]
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          ref: feat/m15-capacity-strided-resident-decode
-      - uses: dtolnay/rust-toolchain@1.89.0
+          ref: feat/m40-benchmark-manifest
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
+          toolchain: 1.89.0
           components: rustfmt
-      - name: Apply M15 capacity-strided resident decode slice
+      - name: Export M40 module and restore helper workflow
         shell: bash
         run: |
+          set -euo pipefail
+          git fetch origin main
           python3 - <<'PY'
           from pathlib import Path
-
-          def replace_once(path, old, new):
-              p = Path(path)
-              text = p.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected exactly one match, found {count}")
-              p.write_text(text.replace(old, new, 1))
-
-          replace_once(
-              "shaders/flat_fwd_projection_rope_asymmetric.wgsl",
-              '''    q_len: u32,\n    kv_len: u32,\n    head_dim: u32,\n''',
-              '''    q_len: u32,\n    kv_len: u32,\n    kv_storage_len: u32,\n    head_dim: u32,\n'''
-          )
-          replace_once(
-              "shaders/flat_fwd_projection_rope_asymmetric.wgsl",
-              '''    bias_q_offset: u32,\n    bias_kv_offset: u32,\n    alibi_slopes: array<vec4<f32>, 64>,\n''',
-              '''    bias_q_offset: u32,\n    bias_kv_offset: u32,\n    _uniform_pad0: u32,\n    _uniform_pad1: u32,\n    _uniform_pad2: u32,\n    alibi_slopes: array<vec4<f32>, 64>,\n'''
-          )
-          replace_once(
-              "shaders/flat_fwd_projection_rope_asymmetric.wgsl",
-              '''            let row = batch_index * params.kv_len + key_pos;\n''',
-              '''            let row = batch_index * params.kv_storage_len + key_pos;\n'''
-          )
-
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''        self.encode_with_options(device, encoder, pass, true, None)\n''',
-              '''        self.encode_with_options(device, encoder, pass, true, None, None)\n'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''        self.encode_with_options(device, encoder, pass, false, None)\n    }\n\n    /// Record one M13 ALiBi pass''',
-              '''        self.encode_with_options(device, encoder, pass, false, None, None)\n    }\n\n    /// Record one M15 decode pass over a fixed-capacity resident K/V allocation.\n    ///\n    /// `kv_storage_len` is the physical per-batch row stride of K/V and may be\n    /// larger than the logical `pass.shape.kv_len`. This is the zero-repack\n    /// bridge for M14 fixed-capacity caches. Rows at `kv_len..kv_storage_len`\n    /// remain inaccessible to the decode kernel.\n    pub fn encode_pre_rotated_k_strided(\n        &self,\n        device: &wgpu::Device,\n        encoder: &mut wgpu::CommandEncoder,\n        pass: ExternalAsymmetricProjectionPass<'_>,\n        kv_storage_len: usize,\n    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {\n        self.encode_with_options(\n            device,\n            encoder,\n            pass,\n            false,\n            None,\n            Some(kv_storage_len),\n        )\n    }\n\n    /// Record one M13 ALiBi pass'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''            true,\n            Some((slopes, query_position_offset, kv_position_offset)),\n        )\n''',
-              '''            true,\n            Some((slopes, query_position_offset, kv_position_offset)),\n            None,\n        )\n'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''            false,\n            Some((slopes, query_position_offset, kv_position_offset)),\n        )\n''',
-              '''            false,\n            Some((slopes, query_position_offset, kv_position_offset)),\n            None,\n        )\n'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''        rotate_k: bool,\n        alibi: Option<(&[f32], usize, usize)>,\n    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {\n        let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;\n        let layout = Self::layout(pass.shape)?;\n        validate_buffer("Q", pass.q, layout.q_bytes)?;\n        validate_buffer("K", pass.k, layout.kv_bytes)?;\n        validate_buffer("V", pass.v, layout.kv_bytes)?;\n''',
-              '''        rotate_k: bool,\n        alibi: Option<(&[f32], usize, usize)>,\n        kv_storage_len: Option<usize>,\n    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {\n        let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;\n        let layout = Self::layout(pass.shape)?;\n        let kv_storage_len = kv_storage_len.unwrap_or(pass.shape.kv_len);\n        if kv_storage_len < pass.shape.kv_len {\n            return Err(FlatAttentionError::LengthMismatch {\n                tensor: "KV storage stride",\n                actual: kv_storage_len,\n                expected: pass.shape.kv_len,\n            }\n            .into());\n        }\n        let kv_storage_elements = pass\n            .shape\n            .batch\n            .checked_mul(kv_storage_len)\n            .and_then(|n| n.checked_mul(pass.shape.kv_heads))\n            .and_then(|n| n.checked_mul(pass.shape.head_dim))\n            .ok_or(FlatAttentionError::ShapeOverflow)?;\n        if kv_storage_elements > u32::MAX as usize {\n            return Err(ExternalWgpuError::IndexSpaceExceeded {\n                elements: kv_storage_elements,\n            });\n        }\n        let kv_storage_bytes = bytes_for_f32_len(kv_storage_elements)?;\n        validate_buffer("Q", pass.q, layout.q_bytes)?;\n        validate_buffer("K", pass.k, kv_storage_bytes)?;\n        validate_buffer("V", pass.v, kv_storage_bytes)?;\n'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''        let mut params = Vec::with_capacity(16 + WGSL_ALIBI_MAX_HEADS);\n        params.extend_from_slice(&[\n            dispatch.q_len,\n            dispatch.kv_len,\n            checked_u32(pass.shape.head_dim)?,\n''',
-              '''        let mut params = Vec::with_capacity(20 + WGSL_ALIBI_MAX_HEADS);\n        params.extend_from_slice(&[\n            dispatch.q_len,\n            dispatch.kv_len,\n            checked_u32(kv_storage_len)?,\n            checked_u32(pass.shape.head_dim)?,\n'''
-          )
-          replace_once(
-              "src/wgpu_external_asymmetric.rs",
-              '''            bias_q_offset,\n            bias_kv_offset,\n        ]);\n        params.extend(slopes.iter().map(|slope| slope.to_bits()));\n        params.resize(16 + WGSL_ALIBI_MAX_HEADS, 0);\n''',
-              '''            bias_q_offset,\n            bias_kv_offset,\n        ]);\n        params.extend_from_slice(&[0, 0, 0]);\n        params.extend(slopes.iter().map(|slope| slope.to_bits()));\n        params.resize(20 + WGSL_ALIBI_MAX_HEADS, 0);\n'''
-          )
-
-          Path("docs/m15-capacity-strided-resident-decode.md").write_text('''# M15 fixed-capacity resident decode stride\n\nM14 stores K/V as `[batch, capacity, kv_heads * head_dim]`, while the logical active prefix is `[0, kv_len)`. M15 now exposes `encode_pre_rotated_k_strided` so decode can consume that allocation directly without pretending the physical batch stride equals the active length.\n\nThe shader receives both `kv_len` (logical visibility) and `kv_storage_len` (physical per-batch stride). Only rows below `kv_len` participate in attention; inactive capacity rows are never read. The legacy M11/M13/M15 entry points pass `kv_storage_len = kv_len`, preserving their contiguous contract.\n\nThis slice makes no latency, throughput, bandwidth, tokens/s, or memory-efficiency claim. Those remain benchmark-gated. It introduces no project-authored C/C++, C ABI bridge, CUDA C++, nvcc, WMMA/WGMMA, CUTLASS, cuDNN, or mandatory vendor SDK.\n''')
-
-          Path("tests/m15_capacity_stride.rs").write_text(r'''#![cfg(feature = "wgpu")]
-
-use std::sync::mpsc;
-
-use flat_attention::{
-    forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
-    AsymmetricRotaryEmbeddingConfig, ExternalAsymmetricProjectionPass,
-    ExternalAsymmetricProjectionRotaryGroupedPipeline, FlatAttentionConfig,
-};
-
-fn harness() -> Option<(wgpu::Device, wgpu::Queue)> {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::all(),
-        ..Default::default()
-    });
-    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::default(),
-        force_fallback_adapter: false,
-        compatible_surface: None,
-    }));
-    let Some(adapter) = adapter else {
-        if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
-            panic!("M15 capacity-stride test requires WGPU");
-        }
-        return None;
-    };
-    Some(
-        pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-m15-capacity-stride"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
-        .unwrap(),
-    )
-}
-
-fn fixture(len: usize, phase: f32) -> Vec<f32> {
-    (0..len)
-        .map(|i| {
-            let x = i as f32 * 0.017 + phase;
-            x.sin() * 1.25 + (x * 0.37).cos() * 0.5
-        })
-        .collect()
-}
-
-fn rotate_k(raw: &[f32], batch: usize, kv_len: usize, kv_heads: usize, head_dim: usize, theta: f32) -> Vec<f32> {
-    let mut out = raw.to_vec();
-    let width = kv_heads * head_dim;
-    for b in 0..batch {
-        for pos in 0..kv_len {
-            let row = b * kv_len + pos;
-            for head in 0..kv_heads {
-                let base = row * width + head * head_dim;
-                for pair in 0..head_dim / 2 {
-                    let d = 2 * pair;
-                    let freq = theta.powf(-2.0 * pair as f32 / head_dim as f32);
-                    let (s, c) = (pos as f32 * freq).sin_cos();
-                    let e = raw[base + d];
-                    let o = raw[base + d + 1];
-                    out[base + d] = e * c - o * s;
-                    out[base + d + 1] = e * s + o * c;
-                }
-            }
-        }
-    }
-    out
-}
-
-fn encode_f32(values: &[f32]) -> Vec<u8> {
-    values.iter().flat_map(|v| v.to_ne_bytes()).collect()
-}
-
-fn buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer {
-    let bytes = encode_f32(values);
-    let b = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("flat-m15-capacity-stride-input"),
-        size: bytes.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    queue.write_buffer(&b, 0, &bytes);
-    b
-}
-
-fn read(device: &wgpu::Device, queue: &wgpu::Queue, source: &wgpu::Buffer, len: usize) -> Vec<f32> {
-    let bytes = (len * 4) as u64;
-    let staging = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("flat-m15-capacity-stride-readback"),
-        size: bytes,
-        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-        mapped_at_creation: false,
-    });
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
-    queue.submit(Some(encoder.finish()));
-    let slice = staging.slice(..);
-    let (tx, rx) = mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |r| { let _ = tx.send(r); });
-    let _ = device.poll(wgpu::Maintain::Wait);
-    rx.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range();
-    mapped.chunks_exact(4).map(|c| f32::from_ne_bytes([c[0], c[1], c[2], c[3]])).collect()
-}
-
-#[test]
-fn fixed_capacity_batch_stride_matches_contiguous_oracle() {
-    let Some((device, queue)) = harness() else { return; };
-    let batch = 2;
-    let q_heads = 4;
-    let kv_heads = 2;
-    let kv_len = 3;
-    let capacity = 7;
-    let head_dim = 32;
-    let theta = 10_000.0;
-    let shape = AsymmetricGroupedAttentionShape {
-        batch,
-        q_heads,
-        kv_heads,
-        query_len: 1,
-        kv_len,
-        head_dim,
-        query_position_offset: kv_len - 1,
-    };
-    let config = FlatAttentionConfig { causal: true, softmax_scale: None };
-    let rotary = AsymmetricRotaryEmbeddingConfig {
-        theta,
-        query_position_offset: kv_len - 1,
-        kv_position_offset: 0,
-    };
-    let q = fixture(shape.q_tensor_len().unwrap(), 0.2);
-    let raw_k = fixture(shape.kv_tensor_len().unwrap(), 0.7);
-    let v = fixture(shape.kv_tensor_len().unwrap(), 1.1);
-    let rotated = rotate_k(&raw_k, batch, kv_len, kv_heads, head_dim, theta);
-    let expected = forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary).unwrap();
-
-    let width = kv_heads * head_dim;
-    let mut k_storage = vec![1234.0; batch * capacity * width];
-    let mut v_storage = vec![-987.0; batch * capacity * width];
-    for b in 0..batch {
-        for pos in 0..kv_len {
-            let src = (b * kv_len + pos) * width;
-            let dst = (b * capacity + pos) * width;
-            k_storage[dst..dst + width].copy_from_slice(&rotated[src..src + width]);
-            v_storage[dst..dst + width].copy_from_slice(&v[src..src + width]);
-        }
-    }
-
-    let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&device).unwrap();
-    let q_gpu = buffer(&device, &queue, &q);
-    let k_gpu = buffer(&device, &queue, &k_storage);
-    let v_gpu = buffer(&device, &queue, &v_storage);
-    let output = pipeline.create_output_buffer(&device, shape).unwrap();
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    let layout = pipeline.encode_pre_rotated_k_strided(
-        &device,
-        &mut encoder,
-        ExternalAsymmetricProjectionPass {
-            q: &q_gpu,
-            k: &k_gpu,
-            v: &v_gpu,
-            out_and_lse: &output,
-            shape,
-            config,
-            rotary,
-        },
-        capacity,
-    ).unwrap();
-    queue.submit(Some(encoder.finish()));
-    let actual = read(&device, &queue, &output, layout.combined_elements);
-    for (a, e) in actual[..layout.output_elements].iter().zip(&expected.output) {
-        let tol = 1.5e-4 + 1.0e-3 * e.abs();
-        assert!((a - e).abs() <= tol, "O mismatch: {a} vs {e}");
-    }
-    for (a, e) in actual[layout.output_elements..].iter().zip(&expected.lse) {
-        let tol = 1.5e-4 + 1.0e-3 * e.abs();
-        assert!((a - e).abs() <= tol, "LSE mismatch: {a} vs {e}");
-    }
-}
-''')
+          path = Path('src/lib.rs')
+          text = path.read_text()
+          marker = '/// Versioned backend-neutral reusable API.\npub mod api;\n'
+          replacement = marker + '\n/// Machine-readable reproducible benchmark provenance.\npub mod benchmark_manifest;\n'
+          if 'pub mod benchmark_manifest;' not in text:
+              if marker not in text:
+                  raise SystemExit('lib.rs API marker not found')
+              text = text.replace(marker, replacement, 1)
+              path.write_text(text)
           PY
-
           cargo fmt --all
-          cargo check --all-features
-          rm .github/workflows/tmp-m15-capacity-stride-patch.yml
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add shaders/flat_fwd_projection_rope_asymmetric.wgsl src/wgpu_external_asymmetric.rs docs/m15-capacity-strided-resident-decode.md tests/m15_capacity_stride.rs .github/workflows/tmp-m15-capacity-stride-patch.yml
-          git commit -m "feat(m15): decode fixed-capacity resident KV without repack"
-          git push origin HEAD:feat/m15-capacity-strided-resident-decode
+          git checkout origin/main -- .github/workflows/tmp-m15-capacity-stride-patch.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/lib.rs src/benchmark_manifest.rs .github/workflows/tmp-m15-capacity-stride-patch.yml
+          git commit -m 'feat(m40): expose benchmark manifest schema'
+          git push origin HEAD:feat/m40-benchmark-manifest
