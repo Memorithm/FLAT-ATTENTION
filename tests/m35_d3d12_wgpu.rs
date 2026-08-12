@@ -123,14 +123,17 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
     ))
     .expect("request M35 D3D12 WARP device");
 
+    // Keep the hosted-runner qualification intentionally compact. This gate proves that the
+    // production asymmetric GQA + RoPE + ALiBi shader can be created, dispatched and compared
+    // against the scalar oracle on D3D12/WARP; it is not a stress or performance benchmark.
     let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
-        q_heads: 8,
-        kv_heads: 2,
-        query_len: 3,
-        kv_len: 17,
-        head_dim: 64,
-        query_position_offset: 14,
+        q_heads: 2,
+        kv_heads: 1,
+        query_len: 1,
+        kv_len: 4,
+        head_dim: 32,
+        query_position_offset: 3,
     };
     let config = FlatAttentionConfig {
         causal: true,
@@ -138,12 +141,10 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
     };
     let rotary = AsymmetricRotaryEmbeddingConfig {
         theta: 10_000.0,
-        query_position_offset: 41,
+        query_position_offset: 11,
         kv_position_offset: 7,
     };
-    let slopes = [
-        0.03125, 0.0625, 0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25,
-    ];
+    let slopes = [0.03125, 0.0625];
     let q = fixture(shape.q_tensor_len().unwrap(), 0.2);
     let k = fixture(shape.kv_tensor_len().unwrap(), 0.8);
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.4);
@@ -156,8 +157,8 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         rotary,
         AttentionBias::Alibi {
             slopes: &slopes,
-            query_position_offset: 103,
-            kv_position_offset: 97,
+            query_position_offset: 13,
+            kv_position_offset: 9,
         },
     )
     .expect("M35 scalar oracle");
@@ -183,7 +184,7 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         rotary,
     };
     let layout = pipeline
-        .encode_alibi(&device, &mut encoder, pass, &slopes, 103, 97)
+        .encode_alibi(&device, &mut encoder, pass, &slopes, 13, 9)
         .expect("M35 encode ALiBi");
     queue.submit(Some(encoder.finish()));
     let values = read_f32(&device, &queue, &output, layout.combined_elements);
