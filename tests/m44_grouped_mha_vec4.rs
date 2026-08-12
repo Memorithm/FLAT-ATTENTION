@@ -148,8 +148,8 @@ fn run_case(harness: &Harness, head_dim: usize, causal: bool) {
     let v_gpu = storage(&harness.device, &harness.queue, &v, "flat-m44-v");
 
     for vectorized in [false, true] {
-        let pipeline = WgpuGroupedForwardPipeline::with_vectorization(&harness.device, vectorized)
-            .unwrap();
+        let pipeline =
+            WgpuGroupedForwardPipeline::with_vectorization(&harness.device, vectorized).unwrap();
         assert_eq!(pipeline.vectorization_enabled(), vectorized);
         let variant = format!("{:?}", pipeline.kernel_variant_for_shape(shape));
         assert_eq!(
