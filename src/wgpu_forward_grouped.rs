@@ -7,7 +7,9 @@
 //! The portable grouped Q4 shader remains the baseline for every shape. Two
 //! independent opt-in candidates exist for D64/D128: the already-qualified M6
 //! vec4 shader for MHA, and a native grouped vec4 shader for GQA/MQA that keeps
-//! physical K/V head cardinality unchanged. Neither changes the default route.
+//! physical K/V head cardinality unchanged. A third Phase O candidate reuses
+//! each staged K/V tile across two query heads in the same native GQA group.
+//! None of these candidates changes the default route.
 
 use core::fmt;
 
@@ -18,6 +20,8 @@ use crate::{
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
 const FLAT_FWD_GROUPED_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_vec4.wgsl");
+const FLAT_FWD_GROUPED_KV_REUSE_WGSL: &str =
+    include_str!("../shaders/flat_fwd_grouped_kv_reuse.wgsl");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedForwardLayout {
@@ -59,6 +63,8 @@ pub enum GroupedForwardKernelVariant {
     Q4Vec4Mha,
     /// Native grouped vec4 Q4 candidate for GQA/MQA with D=64/128.
     Q4Vec4Grouped,
+    /// Native grouped vec4 candidate that shares each K/V tile across two Q heads.
+    Q4Vec4GroupedKvReuse,
 }
 
 /// Reusable grouped-forward bindings for a fixed resident Q/K/V/output contract.
@@ -70,7 +76,7 @@ pub struct PreparedGroupedForward {
     layout: GroupedForwardLayout,
     bind_group: wgpu::BindGroup,
     query_workgroups: u32,
-    q_batch_heads: u32,
+    dispatch_workgroups_y: u32,
     kernel_variant: GroupedForwardKernelVariant,
     // Kept explicitly so the uniform backing the bind group remains owned by the
     // prepared dispatch for as long as the bindings may be reused.
@@ -82,7 +88,7 @@ impl fmt::Debug for PreparedGroupedForward {
         f.debug_struct("PreparedGroupedForward")
             .field("layout", &self.layout)
             .field("query_workgroups", &self.query_workgroups)
-            .field("q_batch_heads", &self.q_batch_heads)
+            .field("dispatch_workgroups_y", &self.dispatch_workgroups_y)
             .field("kernel_variant", &self.kernel_variant)
             .finish_non_exhaustive()
     }
@@ -168,6 +174,7 @@ pub struct WgpuGroupedForwardPipeline {
     portable_pipeline: wgpu::ComputePipeline,
     mha_vec4_pipeline: Option<wgpu::ComputePipeline>,
     grouped_vec4_pipeline: Option<wgpu::ComputePipeline>,
+    grouped_kv_reuse_pipeline: Option<wgpu::ComputePipeline>,
 }
 
 impl fmt::Debug for WgpuGroupedForwardPipeline {
@@ -178,6 +185,10 @@ impl fmt::Debug for WgpuGroupedForwardPipeline {
                 "grouped_vec4_pipeline",
                 &self.grouped_vec4_pipeline.is_some(),
             )
+            .field(
+                "grouped_kv_reuse_pipeline",
+                &self.grouped_kv_reuse_pipeline.is_some(),
+            )
             .finish_non_exhaustive()
     }
 }
@@ -185,7 +196,7 @@ impl fmt::Debug for WgpuGroupedForwardPipeline {
 impl WgpuGroupedForwardPipeline {
     /// Build the compatibility-preserving portable grouped pipeline.
     pub fn new(device: &wgpu::Device) -> Result<Self, GroupedForwardError> {
-        Self::with_vectorization_modes(device, false, false)
+        Self::with_vectorization_modes(device, false, false, false)
     }
 
     /// Preserve the M44 opt-in contract: enable the M6 vec4 shader for MHA only.
@@ -193,7 +204,7 @@ impl WgpuGroupedForwardPipeline {
         device: &wgpu::Device,
         enabled: bool,
     ) -> Result<Self, GroupedForwardError> {
-        Self::with_vectorization_modes(device, enabled, false)
+        Self::with_vectorization_modes(device, enabled, false, false)
     }
 
     /// Enable the native GQA/MQA vec4 candidate without changing the MHA route.
@@ -204,13 +215,23 @@ impl WgpuGroupedForwardPipeline {
         device: &wgpu::Device,
         enabled: bool,
     ) -> Result<Self, GroupedForwardError> {
-        Self::with_vectorization_modes(device, false, enabled)
+        Self::with_vectorization_modes(device, false, enabled, false)
+    }
+
+    /// Enable the Phase O GQA/MQA K/V-reuse candidate without changing any
+    /// existing portable, MHA-vec4, or grouped-vec4 selection contract.
+    pub fn with_grouped_kv_reuse(
+        device: &wgpu::Device,
+        enabled: bool,
+    ) -> Result<Self, GroupedForwardError> {
+        Self::with_vectorization_modes(device, false, false, enabled)
     }
 
     fn with_vectorization_modes(
         device: &wgpu::Device,
         mha_enabled: bool,
         grouped_enabled: bool,
+        grouped_kv_reuse_enabled: bool,
     ) -> Result<Self, GroupedForwardError> {
         let portable_pipeline = create_pipeline(
             device,
@@ -235,10 +256,20 @@ impl WgpuGroupedForwardPipeline {
         } else {
             None
         };
+        let grouped_kv_reuse_pipeline = if grouped_kv_reuse_enabled {
+            Some(create_pipeline(
+                device,
+                FLAT_FWD_GROUPED_KV_REUSE_WGSL,
+                "flat-phase-o-grouped-kv-reuse-native",
+            )?)
+        } else {
+            None
+        };
         Ok(Self {
             portable_pipeline,
             mha_vec4_pipeline,
             grouped_vec4_pipeline,
+            grouped_kv_reuse_pipeline,
         })
     }
 
@@ -250,11 +281,21 @@ impl WgpuGroupedForwardPipeline {
         self.grouped_vec4_pipeline.is_some()
     }
 
+    pub fn grouped_kv_reuse_enabled(&self) -> bool {
+        self.grouped_kv_reuse_pipeline.is_some()
+    }
+
     pub fn kernel_variant_for_shape(
         &self,
         shape: GroupedAttentionShape,
     ) -> GroupedForwardKernelVariant {
-        if self.grouped_vec4_pipeline.is_some()
+        if self.grouped_kv_reuse_pipeline.is_some()
+            && shape.q_heads != shape.kv_heads
+            && shape.q_heads / shape.kv_heads >= 2
+            && matches!(shape.head_dim, 64 | 128)
+        {
+            GroupedForwardKernelVariant::Q4Vec4GroupedKvReuse
+        } else if self.grouped_vec4_pipeline.is_some()
             && shape.q_heads != shape.kv_heads
             && matches!(shape.head_dim, 64 | 128)
         {
@@ -340,16 +381,27 @@ impl WgpuGroupedForwardPipeline {
                 maximum,
             });
         }
-        if q_batch_heads > maximum as usize {
+        let kernel_variant = self.kernel_variant_for_shape(pass.shape);
+        let dispatch_workgroups_y = match kernel_variant {
+            GroupedForwardKernelVariant::Q4Vec4GroupedKvReuse => {
+                let group_size = pass.shape.q_heads / pass.shape.kv_heads;
+                pass.shape
+                    .batch
+                    .checked_mul(pass.shape.kv_heads)
+                    .and_then(|value| value.checked_mul(group_size.div_ceil(2)))
+                    .ok_or(FlatAttentionError::ShapeOverflow)?
+            }
+            _ => q_batch_heads,
+        };
+        if dispatch_workgroups_y > maximum as usize {
             return Err(GroupedForwardError::DispatchLimit {
-                axis: "y/batch_q_heads",
-                actual: q_batch_heads,
+                axis: "y/grouped_heads",
+                actual: dispatch_workgroups_y,
                 maximum,
             });
         }
 
         let scale = pass.config.resolved_scale(pass.shape.head_dim)?;
-        let kernel_variant = self.kernel_variant_for_shape(pass.shape);
         let grouped_params = [
             checked_u32(pass.shape.seq_len)?,
             checked_u32(pass.shape.head_dim)?,
@@ -368,6 +420,12 @@ impl WgpuGroupedForwardPipeline {
                 self.grouped_vec4_pipeline
                     .as_ref()
                     .expect("grouped vec4 variant is selected only when the pipeline exists"),
+                grouped_params,
+            ),
+            GroupedForwardKernelVariant::Q4Vec4GroupedKvReuse => (
+                self.grouped_kv_reuse_pipeline
+                    .as_ref()
+                    .expect("K/V-reuse variant is selected only when the pipeline exists"),
                 grouped_params,
             ),
             GroupedForwardKernelVariant::Q4Vec4Mha => (
@@ -430,7 +488,7 @@ impl WgpuGroupedForwardPipeline {
             layout,
             bind_group,
             query_workgroups: checked_u32(query_workgroups)?,
-            q_batch_heads: checked_u32(q_batch_heads)?,
+            dispatch_workgroups_y: checked_u32(dispatch_workgroups_y)?,
             kernel_variant,
             _params_buffer: params_buffer,
         })
@@ -452,6 +510,10 @@ impl WgpuGroupedForwardPipeline {
                 .grouped_vec4_pipeline
                 .as_ref()
                 .expect("prepared grouped vec4 pass retains a vectorized pipeline"),
+            GroupedForwardKernelVariant::Q4Vec4GroupedKvReuse => self
+                .grouped_kv_reuse_pipeline
+                .as_ref()
+                .expect("prepared grouped K/V-reuse pass retains its pipeline"),
         };
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m24-grouped-forward"),
@@ -459,7 +521,11 @@ impl WgpuGroupedForwardPipeline {
         });
         compute_pass.set_pipeline(pipeline);
         compute_pass.set_bind_group(0, &prepared.bind_group, &[]);
-        compute_pass.dispatch_workgroups(prepared.query_workgroups, prepared.q_batch_heads, 1);
+        compute_pass.dispatch_workgroups(
+            prepared.query_workgroups,
+            prepared.dispatch_workgroups_y,
+            1,
+        );
         drop(compute_pass);
         prepared.layout
     }
