@@ -20,6 +20,6 @@ Correctness coverage includes:
 - explicit physical K/V cardinality checks;
 - selection/fallback independence from the existing MHA vec4 and grouped vec4 candidates.
 
-The same-context M48 physical benchmark against `Q4Vec4Grouped` used the M46 Thor/Vulkan protocol and passed correctness, but the candidate took 1.59–1.98 times the M45 baseline median across the eight qualified cases. The candidate is therefore rejected from promotion and default routing. It remains opt-in only so the negative result can be reproduced; the full provenance and measurements are recorded in `PHASE_O_GQA_KV_REUSE_CYCLE.md`.
+The same-context M48 physical benchmark against `Q4Vec4Grouped` used the M46 Thor/Vulkan protocol and passed correctness, but the candidate took 1.59–1.98 times the M45 baseline median across the eight qualified cases. The candidate is therefore rejected from promotion and default routing. M49 removes its host route and WGSL shader from the active codebase; the exact M47 commit and SciRust evidence retain reproducibility. Full provenance and measurements are recorded in `PHASE_O_GQA_KV_REUSE_CYCLE.md`.
 
 Sovereignty remains Rust-native host code plus WGPU/WGSL. No project-authored C/C++, C ABI bridge, mandatory CUDA C++/`nvcc`, WMMA/WGMMA, CUTLASS, cuDNN, or vendor SDK is introduced. `performance_claim=none` remains in force.
