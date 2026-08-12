@@ -27,10 +27,7 @@ fn shape_routing_keeps_gqa_native_even_when_subgroup_pipeline_is_absent() {
         seq_len: 16,
         head_dim: 64,
     };
-    let mha = GroupedAttentionShape {
-        kv_heads: 8,
-        ..gqa
-    };
+    let mha = GroupedAttentionShape { kv_heads: 8, ..gqa };
     assert_eq!(gqa.q_heads / gqa.kv_heads, 4);
     assert_eq!(mha.q_heads, mha.kv_heads);
 
