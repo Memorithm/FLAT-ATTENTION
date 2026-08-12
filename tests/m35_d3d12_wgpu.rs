@@ -1,6 +1,10 @@
 #![cfg(all(feature = "wgpu", target_os = "windows"))]
 
-use std::sync::mpsc;
+use std::{
+    sync::mpsc::{self, TryRecvError},
+    thread,
+    time::{Duration, Instant},
+};
 
 use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric_biased, AsymmetricGroupedAttentionShape,
@@ -10,6 +14,8 @@ use flat_attention::{
 
 const ATOL: f32 = 2.0e-4;
 const RTOL: f32 = 1.0e-3;
+const READBACK_TIMEOUT: Duration = Duration::from_secs(30);
+const READBACK_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 fn fixture(len: usize, phase: f32) -> Vec<f32> {
     (0..len)
@@ -64,13 +70,31 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    eprintln!("M35 D3D12 marker: waiting for readback map");
-    let _ = device.poll(wgpu::Maintain::Wait);
-    eprintln!("M35 D3D12 marker: device poll returned");
-    receiver
-        .recv()
-        .expect("M35 map callback")
-        .expect("M35 map read");
+
+    // wgpu 0.20 has a fixed five-second backend wait in Maintain::Wait. Slow software
+    // D3D12/WARP execution can cross that boundary, so this qualification harness drives
+    // progress with non-blocking polls and owns an explicit wall-clock timeout instead.
+    eprintln!("M35 D3D12 marker: waiting for readback map with non-blocking polls");
+    let deadline = Instant::now() + READBACK_TIMEOUT;
+    loop {
+        let _ = device.poll(wgpu::Maintain::Poll);
+        match receiver.try_recv() {
+            Ok(result) => {
+                result.expect("M35 map read");
+                break;
+            }
+            Err(TryRecvError::Empty) => {
+                assert!(
+                    Instant::now() < deadline,
+                    "M35 D3D12 readback did not complete within {READBACK_TIMEOUT:?}"
+                );
+                thread::sleep(READBACK_POLL_INTERVAL);
+            }
+            Err(TryRecvError::Disconnected) => panic!("M35 map callback disconnected"),
+        }
+    }
+    eprintln!("M35 D3D12 marker: readback map completed");
+
     let mapped = slice.get_mapped_range();
     let values = mapped
         .chunks_exact(4)
