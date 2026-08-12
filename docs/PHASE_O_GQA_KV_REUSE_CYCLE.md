@@ -89,6 +89,6 @@ Measured medians:
 | 512 | 128 | no | 18078.570 | 33309.432 | 0.542746 | 1.842482 | 7.2e-7 |
 | 512 | 128 | yes | 9715.615 | 18047.301 | 0.538342 | 1.857556 | 8.3e-7 |
 
-M47 is therefore rejected: its median is slower in all eight qualified cases, taking 1.59–1.98 times the M45 baseline time. `Q4Vec4Grouped` remains the accepted native GQA candidate, and `Q4Vec4GroupedKvReuse` must not enter default routing or support a performance claim. The opt-in implementation remains available only to keep the negative experiment reproducible while a separate cleanup decision is made.
+M47 is therefore rejected: its median is slower in all eight qualified cases, taking 1.59–1.98 times the M45 baseline time. `Q4Vec4Grouped` remains the accepted native GQA candidate, and `Q4Vec4GroupedKvReuse` must not enter default routing or support a performance claim. M49 removes the rejected host route and WGSL shader from the active codebase; the exact M47 commit and SciRust evidence preserve reproducibility without retaining an unjustified optimization mechanism.
 
 These measurements do not compare against SciRust's previous multi-dispatch attention and do not advance the 1.0 Definition-of-Done performance claim. `performance_claim=none` remains in force for product routing.
