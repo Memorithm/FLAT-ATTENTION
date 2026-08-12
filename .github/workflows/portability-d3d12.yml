@@ -18,7 +18,7 @@ permissions:
 jobs:
   d3d12:
     name: Direct3D 12 parity
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       WGPU_BACKEND: dx12
       FLAT_REQUIRE_WGPU: "1"
