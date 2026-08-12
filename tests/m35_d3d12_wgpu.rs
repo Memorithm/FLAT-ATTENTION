@@ -64,7 +64,9 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
+    eprintln!("M35 D3D12 marker: waiting for readback map");
     let _ = device.poll(wgpu::Maintain::Wait);
+    eprintln!("M35 D3D12 marker: device poll returned");
     receiver
         .recv()
         .expect("M35 map callback")
@@ -122,6 +124,7 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         None,
     ))
     .expect("request M35 D3D12 WARP device");
+    eprintln!("M35 D3D12 marker: device acquired");
 
     // Keep the hosted-runner qualification intentionally compact. This gate proves that the
     // production asymmetric GQA + RoPE + ALiBi shader can be created, dispatched and compared
@@ -162,15 +165,18 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         },
     )
     .expect("M35 scalar oracle");
+    eprintln!("M35 D3D12 marker: scalar oracle ready");
 
     let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&device)
         .expect("M35 D3D12 pipeline creation");
+    eprintln!("M35 D3D12 marker: pipeline created");
     let q_gpu = input_buffer(&device, &queue, &q);
     let k_gpu = input_buffer(&device, &queue, &k);
     let v_gpu = input_buffer(&device, &queue, &v);
     let output = pipeline
         .create_output_buffer(&device, shape)
         .expect("M35 output buffer");
+    eprintln!("M35 D3D12 marker: buffers ready");
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("flat-m35-d3d12"),
     });
@@ -186,8 +192,11 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
     let layout = pipeline
         .encode_alibi(&device, &mut encoder, pass, &slopes, 13, 9)
         .expect("M35 encode ALiBi");
+    eprintln!("M35 D3D12 marker: dispatch encoded");
     queue.submit(Some(encoder.finish()));
+    eprintln!("M35 D3D12 marker: dispatch submitted");
     let values = read_f32(&device, &queue, &output, layout.combined_elements);
+    eprintln!("M35 D3D12 marker: readback complete");
     assert_close(
         "M35 D3D12 O",
         &values[..layout.output_elements],
