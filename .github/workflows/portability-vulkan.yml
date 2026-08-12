@@ -1,0 +1,37 @@
+name: FLAT Vulkan Linux qualification
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "shaders/**"
+      - "tests/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "docs/M34_VULKAN_LINUX.md"
+      - ".github/workflows/portability-vulkan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lavapipe:
+    name: Vulkan software reference parity
+    runs-on: ubuntu-24.04
+    env:
+      WGPU_BACKEND: vulkan
+      FLAT_REQUIRE_WGPU: "1"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        with:
+          toolchain: 1.89.0
+      - name: Install Mesa Vulkan
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+      - name: Report Vulkan adapter
+        run: vulkaninfo --summary || true
+      - name: Full WGPU parity matrix on lavapipe
+        run: cargo test --features wgpu --tests -- --nocapture
