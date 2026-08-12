@@ -43,6 +43,37 @@ pub struct GroupedForwardPass<'a> {
     pub config: FlatAttentionConfig,
 }
 
+/// Reusable grouped-forward bindings for a fixed resident Q/K/V/output contract.
+///
+/// Preparing once moves uniform-buffer and bind-group creation out of repeated
+/// dispatches. This is useful for benchmark and inference loops whose resident
+/// buffers, shape, and configuration remain unchanged across submissions.
+pub struct PreparedGroupedForward {
+    layout: GroupedForwardLayout,
+    bind_group: wgpu::BindGroup,
+    query_workgroups: u32,
+    q_batch_heads: u32,
+    // Kept explicitly so the uniform backing the bind group remains owned by the
+    // prepared dispatch for as long as the bindings may be reused.
+    _params_buffer: wgpu::Buffer,
+}
+
+impl fmt::Debug for PreparedGroupedForward {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PreparedGroupedForward")
+            .field("layout", &self.layout)
+            .field("query_workgroups", &self.query_workgroups)
+            .field("q_batch_heads", &self.q_batch_heads)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PreparedGroupedForward {
+    pub const fn layout(&self) -> GroupedForwardLayout {
+        self.layout
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum GroupedForwardError {
     Core(FlatAttentionError),
@@ -184,12 +215,13 @@ impl WgpuGroupedForwardPipeline {
         }))
     }
 
-    pub fn encode(
+    /// Build reusable bind state for repeated dispatches over the same resident
+    /// buffers, shape, and attention configuration.
+    pub fn prepare(
         &self,
         device: &wgpu::Device,
-        encoder: &mut wgpu::CommandEncoder,
         pass: GroupedForwardPass<'_>,
-    ) -> Result<GroupedForwardLayout, GroupedForwardError> {
+    ) -> Result<PreparedGroupedForward, GroupedForwardError> {
         let layout = Self::layout(pass.shape)?;
         validate_buffer("Q", pass.q, layout.q_bytes)?;
         validate_buffer("K", pass.k, layout.kv_bytes)?;
@@ -269,19 +301,40 @@ impl WgpuGroupedForwardPipeline {
             ],
         });
 
+        Ok(PreparedGroupedForward {
+            layout,
+            bind_group,
+            query_workgroups: checked_u32(query_workgroups)?,
+            q_batch_heads: checked_u32(q_batch_heads)?,
+            _params_buffer: params_buffer,
+        })
+    }
+
+    /// Encode a dispatch using previously prepared resident bindings.
+    pub fn encode_prepared(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        prepared: &PreparedGroupedForward,
+    ) -> GroupedForwardLayout {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m24-grouped-forward"),
             timestamp_writes: None,
         });
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &bind_group, &[]);
-        compute_pass.dispatch_workgroups(
-            checked_u32(query_workgroups)?,
-            checked_u32(q_batch_heads)?,
-            1,
-        );
+        compute_pass.set_bind_group(0, &prepared.bind_group, &[]);
+        compute_pass.dispatch_workgroups(prepared.query_workgroups, prepared.q_batch_heads, 1);
         drop(compute_pass);
-        Ok(layout)
+        prepared.layout
+    }
+
+    pub fn encode(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: GroupedForwardPass<'_>,
+    ) -> Result<GroupedForwardLayout, GroupedForwardError> {
+        let prepared = self.prepare(device, pass)?;
+        Ok(self.encode_prepared(encoder, &prepared))
     }
 }
 
