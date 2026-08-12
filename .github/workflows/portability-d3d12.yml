@@ -23,8 +23,8 @@ jobs:
       WGPU_DX12_COMPILER: dxc
       RUST_BACKTRACE: "1"
       WARP_VERSION: "1.0.8"
-      DXC_RELEASE: "v1.7.2308"
-      DXC_FILENAME: "dxc_2023_08_14.zip"
+      DXC_RELEASE: "v1.8.2505.1"
+      DXC_FILENAME: "dxc_2025_07_14.zip"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -37,7 +37,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Compile the complete Windows WGPU test surface
         run: cargo test --features wgpu --tests --no-run
-      - name: Install DXC used by upstream wgpu 0.20 Windows CI
+      - name: Install supported DXC for the WGPU D3D12 qualification
         shell: bash
         run: |
           set -euo pipefail
@@ -47,7 +47,7 @@ jobs:
           rm -rf dxc
           7z.exe e dxc.zip -odxc bin/x64/{dxc.exe,dxcompiler.dll,dxil.dll}
           cygpath --windows "$PWD/dxc" >> "$GITHUB_PATH"
-      - name: Install WARP software D3D12 device used by upstream wgpu 0.20 CI
+      - name: Install WARP software D3D12 device
         shell: bash
         run: |
           set -euo pipefail
