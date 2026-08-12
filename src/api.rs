@@ -9,9 +9,7 @@
 /// backend-neutral `v1` namespace.
 #[cfg(feature = "wgpu")]
 pub mod wgpu {
-    pub use crate::wgpu_forward_grouped::{
-        GroupedForwardKernelVariant, PreparedGroupedForward,
-    };
+    pub use crate::wgpu_forward_grouped::{GroupedForwardKernelVariant, PreparedGroupedForward};
 }
 
 pub mod v1 {
