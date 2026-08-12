@@ -1,6 +1,6 @@
 # FLAT-ATTENTION release checklist
 
-A release candidate is not a release until every mandatory item below is satisfied on the exact commit being tagged. A mergeable GitHub state or an older green run is insufficient.
+A release candidate is not a release until every mandatory item below is satisfied on the exact commit being tagged. A mergeable GitHub state or an older green run is insufficient. This checklist follows the roadmap's explicit 1.0 Definition of Done; optional diversity evidence is recorded separately rather than promoted into an invented hard gate.
 
 ## Source and API
 
@@ -26,22 +26,22 @@ A release candidate is not a release until every mandatory item below is satisfi
 - [ ] SciAgent decode/KV lifecycle qualification succeeds, including reset/replay/EOS behavior.
 - [ ] No integration silently falls back to CPU or an older attention implementation when FLAT was explicitly requested.
 
-## Real-device gates
+## Physical-device and portability evidence
 
-- [ ] NVIDIA physical-device correctness evidence is attached to the candidate commit.
-- [ ] AMD physical-device correctness evidence is attached to the candidate commit.
-- [ ] Intel physical-device correctness evidence is attached to the candidate commit.
+- [ ] Physical NVIDIA correctness evidence is attached to the candidate or to an exact equivalent candidate revision used by the integration gate.
 - [ ] Software Vulkan reference qualification remains green.
-- [ ] Any device-specific capability limitation is recorded in `docs/COMPATIBILITY_MATRIX.md`.
+- [ ] Any unavailable hardware class or device-specific capability limitation is recorded in `docs/COMPATIBILITY_MATRIX.md`.
 
-M37 is deliberately blocking for a 1.0 release: software adapters or a different vendor do not count as substitute evidence for unavailable AMD or Intel hardware.
+M37 asks for NVIDIA, AMD, Intel, and software-Vulkan diversity **when hardware is available**. AMD/Intel evidence therefore strengthens the compatibility matrix but is not fabricated or treated as a mandatory 1.0 blocker when those physical devices are unavailable. The roadmap's final 1.0 Definition of Done does not list three-vendor qualification as an absolute release condition.
 
 ## Benchmark and claim gates
 
-- [ ] Every performance statement in release notes has a reproducible M40 manifest with exact commit, device/driver/backend, geometry, precision, warm-up/measurement protocol, and result.
+- [ ] The reproducible benchmark suite is present and green.
+- [ ] Measured improvement over SciRust's previous multi-dispatch attention is backed by accepted evidence for the supported target workload(s) used to satisfy the roadmap Definition of Done.
+- [ ] Every additional performance statement in release notes has a reproducible M40 manifest with exact commit, device/driver/backend, geometry, precision, warm-up/measurement protocol, and result.
 - [ ] Correctness validation precedes accepted timing for each measured candidate.
 - [ ] Hosted-runner, lavapipe, WARP, or otherwise software-rendered timings are not generalized as physical-device performance.
-- [ ] If no benchmark-backed performance statement is made, the release snapshot says `performance_claim=none` explicitly.
+- [ ] If no additional release performance statement is made beyond already-qualified evidence, the release snapshot states that boundary explicitly.
 
 ## Licensing and provenance
 

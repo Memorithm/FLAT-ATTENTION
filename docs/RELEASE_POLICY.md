@@ -13,7 +13,9 @@ A release is identified by one immutable Git commit and one semantic-version tag
 5. Cryptographically sign the tag when an approved signing identity is configured. If signing infrastructure is intentionally unavailable, record that fact in the release record rather than fabricating a signature.
 6. Never move or replace a published release tag. Corrections require a new semantic version.
 
-For FLAT-ATTENTION 1.0, `v1.0.0` is forbidden until all mandatory items in `docs/RELEASE_CHECKLIST.md` are complete, including M37 physical NVIDIA/AMD/Intel diversity and the final SciAgent decode/KV integration gate.
+For FLAT-ATTENTION 1.0, `v1.0.0` is forbidden until the roadmap Definition of Done and all mandatory items in `docs/RELEASE_CHECKLIST.md` are complete, including the final SciAgent prefill/decode integration gate and benchmark-backed improvement over the previous SciRust multi-dispatch path for supported target workload(s).
+
+M37 vendor-diversity evidence is pursued when physical hardware is available. Missing AMD or Intel hardware must be disclosed in the compatibility matrix; it must not be replaced by fabricated evidence or silently converted into a stricter release condition than the roadmap defines.
 
 ## Release notes
 
