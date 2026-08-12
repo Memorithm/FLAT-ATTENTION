@@ -11,6 +11,9 @@ use core::fmt;
 /// Versioned backend-neutral reusable API.
 pub mod api;
 
+/// Machine-readable reproducible benchmark provenance.
+pub mod benchmark_manifest;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
