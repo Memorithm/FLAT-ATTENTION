@@ -6,6 +6,8 @@ rust-version = "1.89"
 publish = false
 description = "FLAT-ATTENTION — Rust-native fused linear-memory attention kernels for SciRust"
 repository = "https://github.com/Memorithm/FLAT-ATTENTION"
+authors = ["Tarek Zekriti"]
+license-file = "LICENSE.md"
 
 [features]
 default = ["std"]
