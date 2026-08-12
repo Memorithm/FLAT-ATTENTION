@@ -1,15 +1,19 @@
-//! Caller-owned WGPU host path for the qualified native GQA/MQA forward shader.
+//! Caller-owned WGPU host path for native GQA/MQA forward execution.
 //!
-//! This API mirrors the ownership model of the grouped backward pipeline: the
-//! caller owns data buffers, command encoders, queue submission, synchronization
-//! and readback. Q uses query-head cardinality while K/V retain native KV-head
-//! cardinality, including MQA.
+//! The caller owns data buffers, command encoders, queue submission,
+//! synchronization and readback. Q uses query-head cardinality while K/V retain
+//! native KV-head cardinality, including MQA.
+//!
+//! When the caller-owned device has `wgpu::Features::SUBGROUP` enabled, MHA
+//! (`q_heads == kv_heads`) may reuse the already-qualified M5 subgroup Q4 shader.
+//! Native GQA/MQA continue to use the portable grouped kernel; no K/V expansion
+//! or hidden fallback to CPU is introduced.
 
 use core::fmt;
 
 use crate::{
-    FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape, FLAT_FWD_GROUPED_WGSL,
-    WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape, WgpuSubgroupPolicy,
+    FLAT_FWD_GROUPED_WGSL, FLAT_FWD_SUBGROUP_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +47,15 @@ pub struct GroupedForwardPass<'a> {
     pub config: FlatAttentionConfig,
 }
 
+/// Concrete grouped-forward kernel generation selected for one prepared pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupedForwardKernelVariant {
+    /// Portable native MHA/GQA/MQA grouped Q4 kernel.
+    Q4PortableGrouped,
+    /// Qualified M5 subgroup Q4 kernel, reused only for MHA-compatible layouts.
+    Q4SubgroupMha,
+}
+
 /// Reusable grouped-forward bindings for a fixed resident Q/K/V/output contract.
 ///
 /// Preparing once moves uniform-buffer and bind-group creation out of repeated
@@ -53,6 +66,7 @@ pub struct PreparedGroupedForward {
     bind_group: wgpu::BindGroup,
     query_workgroups: u32,
     q_batch_heads: u32,
+    kernel_variant: GroupedForwardKernelVariant,
     // Kept explicitly so the uniform backing the bind group remains owned by the
     // prepared dispatch for as long as the bindings may be reused.
     _params_buffer: wgpu::Buffer,
@@ -64,6 +78,7 @@ impl fmt::Debug for PreparedGroupedForward {
             .field("layout", &self.layout)
             .field("query_workgroups", &self.query_workgroups)
             .field("q_batch_heads", &self.q_batch_heads)
+            .field("kernel_variant", &self.kernel_variant)
             .finish_non_exhaustive()
     }
 }
@@ -72,11 +87,16 @@ impl PreparedGroupedForward {
     pub const fn layout(&self) -> GroupedForwardLayout {
         self.layout
     }
+
+    pub const fn kernel_variant(&self) -> GroupedForwardKernelVariant {
+        self.kernel_variant
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GroupedForwardError {
     Core(FlatAttentionError),
+    RequiredSubgroupUnavailable,
     UnsupportedHeadDim {
         actual: usize,
         maximum: usize,
@@ -101,6 +121,10 @@ impl fmt::Display for GroupedForwardError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Core(error) => write!(f, "{error}"),
+            Self::RequiredSubgroupUnavailable => write!(
+                f,
+                "the caller-owned WGPU device does not have subgroup support enabled"
+            ),
             Self::UnsupportedHeadDim { actual, maximum } => write!(
                 f,
                 "grouped forward head_dim {actual} exceeds portable WGSL maximum {maximum}"
@@ -141,33 +165,77 @@ impl From<FlatAttentionError> for GroupedForwardError {
 }
 
 pub struct WgpuGroupedForwardPipeline {
-    pipeline: wgpu::ComputePipeline,
+    portable_pipeline: wgpu::ComputePipeline,
+    subgroup_pipeline: Option<wgpu::ComputePipeline>,
 }
 
 impl fmt::Debug for WgpuGroupedForwardPipeline {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WgpuGroupedForwardPipeline")
+            .field("subgroup_pipeline", &self.subgroup_pipeline.is_some())
             .finish_non_exhaustive()
     }
 }
 
 impl WgpuGroupedForwardPipeline {
+    /// Build the grouped-forward pipeline with capability-driven subgroup use.
+    ///
+    /// `Auto` semantics are intentionally conservative: the subgroup kernel is
+    /// made available only when the caller-owned device has the feature enabled
+    /// and pipeline creation succeeds. GQA/MQA requests remain on the portable
+    /// grouped kernel; only MHA-compatible requests can select the subgroup path.
     pub fn new(device: &wgpu::Device) -> Result<Self, GroupedForwardError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m24-grouped-forward"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_GROUPED_WGSL)),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m24-grouped-forward"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(GroupedForwardError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
+        Self::with_subgroup_policy(device, WgpuSubgroupPolicy::Auto)
+    }
+
+    pub fn with_subgroup_policy(
+        device: &wgpu::Device,
+        policy: WgpuSubgroupPolicy,
+    ) -> Result<Self, GroupedForwardError> {
+        let portable_pipeline = create_pipeline(
+            device,
+            FLAT_FWD_GROUPED_WGSL,
+            "flat-m24-grouped-forward-portable",
+        )?;
+
+        let subgroup_enabled = device.features().contains(wgpu::Features::SUBGROUP);
+        if policy == WgpuSubgroupPolicy::Require && !subgroup_enabled {
+            return Err(GroupedForwardError::RequiredSubgroupUnavailable);
+        }
+
+        let subgroup_pipeline = if subgroup_enabled && policy != WgpuSubgroupPolicy::Disable {
+            match create_pipeline(
+                device,
+                FLAT_FWD_SUBGROUP_WGSL,
+                "flat-m24-grouped-forward-subgroup-mha",
+            ) {
+                Ok(pipeline) => Some(pipeline),
+                Err(error) if policy == WgpuSubgroupPolicy::Auto => None,
+                Err(error) => return Err(error),
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            portable_pipeline,
+            subgroup_pipeline,
+        })
+    }
+
+    pub fn subgroup_enabled(&self) -> bool {
+        self.subgroup_pipeline.is_some()
+    }
+
+    /// Return the kernel that would be used for `shape` without recording work.
+    pub fn kernel_variant_for_shape(
+        &self,
+        shape: GroupedAttentionShape,
+    ) -> GroupedForwardKernelVariant {
+        if shape.q_heads == shape.kv_heads && self.subgroup_pipeline.is_some() {
+            GroupedForwardKernelVariant::Q4SubgroupMha
+        } else {
+            GroupedForwardKernelVariant::Q4PortableGrouped
         }
     }
 
@@ -251,16 +319,37 @@ impl WgpuGroupedForwardPipeline {
         }
 
         let scale = pass.config.resolved_scale(pass.shape.head_dim)?;
-        let params = [
-            checked_u32(pass.shape.seq_len)?,
-            checked_u32(pass.shape.head_dim)?,
-            checked_u32(pass.shape.q_heads)?,
-            checked_u32(pass.shape.kv_heads)?,
-            checked_u32(pass.shape.batch)?,
-            u32::from(pass.config.causal),
-            scale.to_bits(),
-            0,
-        ];
+        let kernel_variant = self.kernel_variant_for_shape(pass.shape);
+        let (selected_pipeline, params) = match kernel_variant {
+            GroupedForwardKernelVariant::Q4PortableGrouped => (
+                &self.portable_pipeline,
+                [
+                    checked_u32(pass.shape.seq_len)?,
+                    checked_u32(pass.shape.head_dim)?,
+                    checked_u32(pass.shape.q_heads)?,
+                    checked_u32(pass.shape.kv_heads)?,
+                    checked_u32(pass.shape.batch)?,
+                    u32::from(pass.config.causal),
+                    scale.to_bits(),
+                    0,
+                ],
+            ),
+            GroupedForwardKernelVariant::Q4SubgroupMha => (
+                self.subgroup_pipeline
+                    .as_ref()
+                    .expect("subgroup variant is selected only when the pipeline exists"),
+                [
+                    checked_u32(pass.shape.seq_len)?,
+                    checked_u32(pass.shape.head_dim)?,
+                    checked_u32(q_batch_heads)?,
+                    u32::from(pass.config.causal),
+                    scale.to_bits(),
+                    0,
+                    0,
+                    0,
+                ],
+            ),
+        };
         let params_bytes = encode_u32(&params);
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m24-grouped-forward-params"),
@@ -276,7 +365,7 @@ impl WgpuGroupedForwardPipeline {
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m24-grouped-forward-bind-group"),
-            layout: &self.pipeline.get_bind_group_layout(0),
+            layout: &selected_pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -306,6 +395,7 @@ impl WgpuGroupedForwardPipeline {
             bind_group,
             query_workgroups: checked_u32(query_workgroups)?,
             q_batch_heads: checked_u32(q_batch_heads)?,
+            kernel_variant,
             _params_buffer: params_buffer,
         })
     }
@@ -316,11 +406,18 @@ impl WgpuGroupedForwardPipeline {
         encoder: &mut wgpu::CommandEncoder,
         prepared: &PreparedGroupedForward,
     ) -> GroupedForwardLayout {
+        let pipeline = match prepared.kernel_variant {
+            GroupedForwardKernelVariant::Q4PortableGrouped => &self.portable_pipeline,
+            GroupedForwardKernelVariant::Q4SubgroupMha => self
+                .subgroup_pipeline
+                .as_ref()
+                .expect("prepared subgroup pass retains a subgroup-capable pipeline"),
+        };
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m24-grouped-forward"),
             timestamp_writes: None,
         });
-        compute_pass.set_pipeline(&self.pipeline);
+        compute_pass.set_pipeline(pipeline);
         compute_pass.set_bind_group(0, &prepared.bind_group, &[]);
         compute_pass.dispatch_workgroups(prepared.query_workgroups, prepared.q_batch_heads, 1);
         drop(compute_pass);
@@ -335,6 +432,29 @@ impl WgpuGroupedForwardPipeline {
     ) -> Result<GroupedForwardLayout, GroupedForwardError> {
         let prepared = self.prepare(device, pass)?;
         Ok(self.encode_prepared(encoder, &prepared))
+    }
+}
+
+fn create_pipeline(
+    device: &wgpu::Device,
+    source: &'static str,
+    label: &'static str,
+) -> Result<wgpu::ComputePipeline, GroupedForwardError> {
+    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(label),
+        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(label),
+        layout: None,
+        module: &shader,
+        entry_point: "flat_attention_forward",
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+    });
+    match pollster::block_on(device.pop_error_scope()) {
+        Some(error) => Err(GroupedForwardError::PipelineValidation(error.to_string())),
+        None => Ok(pipeline),
     }
 }
 
