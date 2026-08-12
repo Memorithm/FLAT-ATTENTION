@@ -68,12 +68,19 @@ impl fmt::Display for BenchmarkManifestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidCommitSha => write!(f, "commit_sha must contain exactly 40 hex digits"),
-            Self::EmptyField(field) => write!(f, "benchmark manifest field {field} must not be empty"),
-            Self::ZeroDimension(field) => write!(f, "benchmark problem dimension {field} must be non-zero"),
+            Self::EmptyField(field) => {
+                write!(f, "benchmark manifest field {field} must not be empty")
+            }
+            Self::ZeroDimension(field) => {
+                write!(f, "benchmark problem dimension {field} must be non-zero")
+            }
             Self::InvalidHeadGrouping => write!(f, "q_heads must be exactly divisible by kv_heads"),
             Self::ZeroMeasuredIterations => write!(f, "measured_iterations must be non-zero"),
             Self::InvalidPercentileOrdering => {
-                write!(f, "p95 latency must be greater than or equal to median latency")
+                write!(
+                    f,
+                    "p95 latency must be greater than or equal to median latency"
+                )
             }
         }
     }
@@ -84,7 +91,9 @@ impl std::error::Error for BenchmarkManifestError {}
 impl BenchmarkManifest {
     /// Validate provenance and workload invariants before a record is promoted.
     pub fn validate(&self) -> Result<(), BenchmarkManifestError> {
-        if self.commit_sha.len() != 40 || !self.commit_sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        if self.commit_sha.len() != 40
+            || !self.commit_sha.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
             return Err(BenchmarkManifestError::InvalidCommitSha);
         }
         for (name, value) in [
@@ -171,7 +180,8 @@ impl BenchmarkManifest {
         write!(
             out,
             "\"result\":{},\"result_checksum\":{{\"algorithm\":\"fnv1a64\",\"value\":\"{}\"}}}}",
-            result_json(self.result), result_checksum,
+            result_json(self.result),
+            result_checksum,
         )
         .expect("writing to String cannot fail");
         Ok(out)
@@ -264,7 +274,10 @@ mod tests {
     fn canonical_record_is_bit_reproducible() {
         let first = manifest();
         let second = first.clone();
-        assert_eq!(first.canonical_json().unwrap(), second.canonical_json().unwrap());
+        assert_eq!(
+            first.canonical_json().unwrap(),
+            second.canonical_json().unwrap()
+        );
         assert_eq!(first.result_checksum(), second.result_checksum());
         assert!(first.canonical_json().unwrap().contains("Device \\\"A\\\""));
     }
@@ -281,7 +294,10 @@ mod tests {
     fn malformed_provenance_fails_closed() {
         let mut record = manifest();
         record.commit_sha = "main".into();
-        assert_eq!(record.validate(), Err(BenchmarkManifestError::InvalidCommitSha));
+        assert_eq!(
+            record.validate(),
+            Err(BenchmarkManifestError::InvalidCommitSha)
+        );
 
         let mut record = manifest();
         record.measured_iterations = 0;
@@ -292,6 +308,9 @@ mod tests {
 
         let mut record = manifest();
         record.problem.kv_heads = 3;
-        assert_eq!(record.validate(), Err(BenchmarkManifestError::InvalidHeadGrouping));
+        assert_eq!(
+            record.validate(),
+            Err(BenchmarkManifestError::InvalidHeadGrouping)
+        );
     }
 }
