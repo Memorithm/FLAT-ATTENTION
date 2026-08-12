@@ -61,4 +61,14 @@ jobs:
           cp -v warp/d3d10warp.dll target/debug/
           cp -v warp/d3d10warp.dll target/debug/deps/
       - name: Explicit D3D12 WARP pipeline and oracle parity
-        run: cargo test --features wgpu --test m35_d3d12_wgpu -- --nocapture --test-threads=1
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "m35-d3d12.log"
+          & cargo test --features wgpu --test m35_d3d12_wgpu -- --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $tail = (Get-Content $log -Tail 40) -join " | "
+            $tail = $tail.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Output "::error title=M35 D3D12 test failure::$tail"
+            exit $exitCode
+          }
