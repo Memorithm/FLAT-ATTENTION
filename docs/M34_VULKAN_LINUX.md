@@ -10,7 +10,9 @@ Lavapipe validates shader translation, pipeline creation, buffer bindings, dispa
 
 ## Physical Vulkan qualification
 
-A separate self-hosted ARM64 job runs on the repository's Jetson Thor runner. It forces Vulkan, reports the physical adapter when host tools are available, then executes strict lint and the same WGPU parity matrix.
+The Jetson Thor self-hosted runner is attached to the SciRust repository rather than this standalone repository. Physical evidence is therefore executed by SciRust's dedicated FLAT M34 evidence workflow, which clones FLAT-ATTENTION, checks out the exact candidate commit in detached-HEAD mode, verifies that SHA, forces WGPU/Vulkan with `FLAT_REQUIRE_WGPU=1`, then runs strict rustfmt/Clippy and the complete WGPU integration-test matrix.
+
+The evidence log must identify the physical adapter and driver. A candidate is not considered physically qualified unless the evidence workflow checked the exact FLAT commit being promoted.
 
 Correctness may be qualified while another workload is present on the machine because M34 does not infer performance from this job. Any real-device latency/throughput report remains a separate benchmark artifact with an idle-device protocol and exact commit provenance.
 
