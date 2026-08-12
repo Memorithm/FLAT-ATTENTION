@@ -65,7 +65,10 @@ fn read_f32(
         let _ = sender.send(result);
     });
     let _ = device.poll(wgpu::Maintain::Wait);
-    receiver.recv().expect("M35 map callback").expect("M35 map read");
+    receiver
+        .recv()
+        .expect("M35 map callback")
+        .expect("M35 map read");
     let mapped = slice.get_mapped_range();
     let values = mapped
         .chunks_exact(4)
@@ -101,7 +104,11 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
     }))
     .expect("M35 requires a Direct3D 12 fallback adapter (WARP)");
     let info = adapter.get_info();
-    assert_eq!(info.backend, wgpu::Backend::Dx12, "M35 must execute on D3D12");
+    assert_eq!(
+        info.backend,
+        wgpu::Backend::Dx12,
+        "M35 must execute on D3D12"
+    );
     eprintln!(
         "M35 D3D12 adapter: name={} vendor={:#x} device={:#x} driver={} info={}",
         info.name, info.vendor, info.device, info.driver, info.driver_info
@@ -180,6 +187,14 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         .expect("M35 encode ALiBi");
     queue.submit(Some(encoder.finish()));
     let values = read_f32(&device, &queue, &output, layout.combined_elements);
-    assert_close("M35 D3D12 O", &values[..layout.output_elements], &expected.output);
-    assert_close("M35 D3D12 LSE", &values[layout.output_elements..], &expected.lse);
+    assert_close(
+        "M35 D3D12 O",
+        &values[..layout.output_elements],
+        &expected.output,
+    );
+    assert_close(
+        "M35 D3D12 LSE",
+        &values[layout.output_elements..],
+        &expected.lse,
+    );
 }
