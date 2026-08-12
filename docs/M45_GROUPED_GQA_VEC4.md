@@ -8,4 +8,4 @@ The WGSL shader uses the same Q4 online-softmax/reduction structure as the porta
 
 Correctness qualification covers GQA (`4/2`) and MQA (`4/1`), D64/D128, causal and non-causal attention, batch size 2, output/LSE parity against the scalar grouped oracle, Naga 0.20 validation, and explicit physical K/V cardinality checks. The M44 MHA vec4 opt-in remains independent.
 
-This PR makes **no performance claim**. Promotion or default routing requires clean physical-Thor evidence collected after SciAgent training exclusion and cooldown qualification.
+The original M45 change made **no performance claim** and required clean physical evidence before any promotion. That evidence is now recorded in `docs/M46_GROUPED_VEC4_THOR_QUALIFICATION.md`: on its exact NVIDIA Thor/Vulkan matrix, the native grouped vec4 candidate had lower median latency than the portable prepared grouped path in all eight measured rows. This remains a device/workload-scoped qualification, not a universal speedup claim or an unconditional global-default justification.
