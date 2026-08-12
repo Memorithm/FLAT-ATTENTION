@@ -20,10 +20,8 @@ jobs:
     name: Direct3D 12 parity
     runs-on: windows-2022
     env:
-      WGPU_DX12_COMPILER: dxc
+      WGPU_DX12_COMPILER: fxc
       RUST_BACKTRACE: "1"
-      DXC_RELEASE: "v1.7.2308"
-      DXC_FILENAME: "dxc_2023_08_14.zip"
       WARP_VERSION: "1.0.8"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -31,17 +29,6 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
-      - name: Install the DXC revision used by wgpu 0.20 CI
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl.exe -L --retry 5 \
-            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$DXC_RELEASE/$DXC_FILENAME" \
-            -o dxc.zip
-          rm -rf dxc
-          7z.exe e dxc.zip -odxc bin/x64/{dxc.exe,dxcompiler.dll,dxil.dll}
-          cp -v dxc/dxcompiler.dll dxc/dxil.dll .
-          cygpath --windows "$PWD/dxc" >> "$GITHUB_PATH"
       - name: Format
         run: cargo fmt --all -- --check
       - name: Strict lint
@@ -52,7 +39,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dxc --version
           curl.exe -L --retry 5 \
             "https://www.nuget.org/api/v2/package/Microsoft.Direct3D.WARP/$WARP_VERSION" \
             -o warp.zip
@@ -61,7 +47,5 @@ jobs:
           mkdir -p target/debug target/debug/deps
           cp -v warp/d3d10warp.dll target/debug/
           cp -v warp/d3d10warp.dll target/debug/deps/
-          cp -v dxcompiler.dll dxil.dll target/debug/
-          cp -v dxcompiler.dll dxil.dll target/debug/deps/
       - name: Explicit D3D12 WARP pipeline and oracle parity
         run: cargo test --features wgpu --test m35_d3d12_wgpu -- --nocapture --test-threads=1
