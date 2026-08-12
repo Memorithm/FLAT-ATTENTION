@@ -210,7 +210,7 @@ impl WgpuGroupedForwardPipeline {
                 "flat-m24-grouped-forward-subgroup-mha",
             ) {
                 Ok(pipeline) => Some(pipeline),
-                Err(error) if policy == WgpuSubgroupPolicy::Auto => None,
+                Err(_) if policy == WgpuSubgroupPolicy::Auto => None,
                 Err(error) => return Err(error),
             }
         } else {
