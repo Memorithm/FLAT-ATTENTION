@@ -97,7 +97,10 @@ fn arbitrary_stable_contract_fields_never_panic() {
             };
             let _ = resident.validate_contract();
         }));
-        assert!(outcome.is_ok(), "stable host contract panicked on case {case}");
+        assert!(
+            outcome.is_ok(),
+            "stable host contract panicked on case {case}"
+        );
     }
 }
 
