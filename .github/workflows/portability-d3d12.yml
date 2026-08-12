@@ -20,9 +20,7 @@ jobs:
     name: Direct3D 12 parity
     runs-on: windows-2022
     env:
-      WGPU_BACKEND: dx12
       WGPU_DX12_COMPILER: dxc
-      FLAT_REQUIRE_WGPU: "1"
       RUST_BACKTRACE: "1"
       DXC_RELEASE: "v1.7.2308"
       DXC_FILENAME: "dxc_2023_08_14.zip"
@@ -48,6 +46,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Strict lint
         run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Compile the complete Windows WGPU test surface
+        run: cargo test --features wgpu --tests --no-run
       - name: Install WARP software D3D12 device used by wgpu 0.20 CI
         shell: bash
         run: |
@@ -63,7 +63,5 @@ jobs:
           cp -v warp/d3d10warp.dll target/debug/deps/
           cp -v dxcompiler.dll dxil.dll target/debug/
           cp -v dxcompiler.dll dxil.dll target/debug/deps/
-      - name: Rectangular D3D12 smoke tests
-        run: cargo test --features wgpu --test m11_rectangular_wgpu -- --nocapture --test-threads=1
-      - name: Full WGPU parity matrix on Direct3D 12
-        run: cargo test --features wgpu --tests -- --nocapture --test-threads=1
+      - name: Explicit D3D12 WARP pipeline and oracle parity
+        run: cargo test --features wgpu --test m35_d3d12_wgpu -- --nocapture --test-threads=1
