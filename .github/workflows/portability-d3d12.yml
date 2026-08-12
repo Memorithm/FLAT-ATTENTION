@@ -24,38 +24,45 @@ jobs:
       WGPU_DX12_COMPILER: dxc
       FLAT_REQUIRE_WGPU: "1"
       RUST_BACKTRACE: "1"
+      DXC_RELEASE: "v1.7.2308"
+      DXC_FILENAME: "dxc_2023_08_14.zip"
+      WARP_VERSION: "1.0.8"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
-      - name: Stage Windows SDK DXC runtime
-        shell: pwsh
+      - name: Install the DXC revision used by wgpu 0.20 CI
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          $roots = @(
-            'C:\Program Files (x86)\Windows Kits\10\bin',
-            'C:\Program Files\Windows Kits\10\bin'
-          ) | Where-Object { Test-Path $_ }
-          $compiler = Get-ChildItem -Path $roots -Filter dxcompiler.dll -File -Recurse |
-            Where-Object { $_.FullName -match '\\x64\\dxcompiler\.dll$' } |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-          if (-not $compiler) {
-            throw 'DXC runtime unavailable on the Windows runner: dxcompiler.dll not found'
-          }
-          $dxil = Join-Path $compiler.DirectoryName 'dxil.dll'
-          if (-not (Test-Path $dxil)) {
-            throw "DXC runtime incomplete: $dxil not found"
-          }
-          Copy-Item $compiler.FullName -Destination (Join-Path $env:GITHUB_WORKSPACE 'dxcompiler.dll') -Force
-          Copy-Item $dxil -Destination (Join-Path $env:GITHUB_WORKSPACE 'dxil.dll') -Force
-          Write-Host "Using DXC runtime from $($compiler.DirectoryName)"
+          set -euo pipefail
+          curl.exe -L --retry 5 \
+            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$DXC_RELEASE/$DXC_FILENAME" \
+            -o dxc.zip
+          rm -rf dxc
+          7z.exe e dxc.zip -odxc bin/x64/{dxc.exe,dxcompiler.dll,dxil.dll}
+          cp -v dxc/dxcompiler.dll dxc/dxil.dll .
+          cygpath --windows "$PWD/dxc" >> "$GITHUB_PATH"
       - name: Format
         run: cargo fmt --all -- --check
       - name: Strict lint
         run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Install WARP software D3D12 device used by wgpu 0.20 CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          dxc --version
+          curl.exe -L --retry 5 \
+            "https://www.nuget.org/api/v2/package/Microsoft.Direct3D.WARP/$WARP_VERSION" \
+            -o warp.zip
+          rm -rf warp
+          7z.exe e warp.zip -owarp build/native/amd64/d3d10warp.dll
+          mkdir -p target/debug target/debug/deps
+          cp -v warp/d3d10warp.dll target/debug/
+          cp -v warp/d3d10warp.dll target/debug/deps/
+          cp -v dxcompiler.dll dxil.dll target/debug/
+          cp -v dxcompiler.dll dxil.dll target/debug/deps/
       - name: Rectangular D3D12 smoke tests
         run: cargo test --features wgpu --test m11_rectangular_wgpu -- --nocapture --test-threads=1
       - name: Full WGPU parity matrix on Direct3D 12
