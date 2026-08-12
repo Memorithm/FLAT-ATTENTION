@@ -11,6 +11,7 @@ use naga::valid::{Capabilities, ValidationFlags, Validator};
 const ATOL: f32 = 7.0e-4;
 const RTOL: f32 = 3.0e-3;
 const GROUPED_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_vec4.wgsl");
+const GROUPED_KV_REUSE_WGSL: &str = include_str!("../shaders/flat_fwd_grouped_kv_reuse.wgsl");
 
 struct Harness {
     device: wgpu::Device,
@@ -127,7 +128,14 @@ fn assert_close(actual: &[f32], expected: &[f32]) {
     }
 }
 
-fn run_case(harness: &Harness, q_heads: usize, kv_heads: usize, head_dim: usize, causal: bool) {
+fn run_case(
+    harness: &Harness,
+    q_heads: usize,
+    kv_heads: usize,
+    head_dim: usize,
+    causal: bool,
+    kv_reuse: bool,
+) {
     let shape = GroupedAttentionShape {
         batch: 2,
         q_heads,
@@ -160,13 +168,22 @@ fn run_case(harness: &Harness, q_heads: usize, kv_heads: usize, head_dim: usize,
     assert_eq!(k_gpu.size(), (kv_len * 4) as u64);
     assert_eq!(v_gpu.size(), (kv_len * 4) as u64);
 
-    let pipeline =
-        WgpuGroupedForwardPipeline::with_grouped_vectorization(&harness.device, true).unwrap();
+    let pipeline = if kv_reuse {
+        WgpuGroupedForwardPipeline::with_grouped_kv_reuse(&harness.device, true).unwrap()
+    } else {
+        WgpuGroupedForwardPipeline::with_grouped_vectorization(&harness.device, true).unwrap()
+    };
     assert!(!pipeline.vectorization_enabled());
-    assert!(pipeline.grouped_vectorization_enabled());
+    assert_eq!(pipeline.grouped_vectorization_enabled(), !kv_reuse);
+    assert_eq!(pipeline.grouped_kv_reuse_enabled(), kv_reuse);
+    let expected_variant = if kv_reuse {
+        "Q4Vec4GroupedKvReuse"
+    } else {
+        "Q4Vec4Grouped"
+    };
     assert_eq!(
         format!("{:?}", pipeline.kernel_variant_for_shape(shape)),
-        "Q4Vec4Grouped"
+        expected_variant
     );
 
     let layout = WgpuGroupedForwardPipeline::layout(shape).unwrap();
@@ -188,7 +205,7 @@ fn run_case(harness: &Harness, q_heads: usize, kv_heads: usize, head_dim: usize,
             },
         )
         .unwrap();
-    assert_eq!(format!("{:?}", prepared.kernel_variant()), "Q4Vec4Grouped");
+    assert_eq!(format!("{:?}", prepared.kernel_variant()), expected_variant);
 
     let mut encoder = harness
         .device
@@ -219,6 +236,15 @@ fn grouped_vec4_shader_parses_and_validates_with_naga_020() {
 }
 
 #[test]
+fn grouped_kv_reuse_shader_parses_and_validates_with_naga_020() {
+    let module = naga::front::wgsl::parse_str(GROUPED_KV_REUSE_WGSL)
+        .unwrap_or_else(|error| panic!("Phase O grouped K/V-reuse WGSL parse failed: {error:?}"));
+    Validator::new(ValidationFlags::all(), Capabilities::empty())
+        .validate(&module)
+        .unwrap_or_else(|error| panic!("Phase O grouped K/V-reuse validation failed: {error:?}"));
+}
+
+#[test]
 fn native_gqa_and_mqa_vec4_match_oracle_without_kv_expansion() {
     let Some(harness) = harness() else {
         return;
@@ -226,7 +252,21 @@ fn native_gqa_and_mqa_vec4_match_oracle_without_kv_expansion() {
     for (q_heads, kv_heads) in [(4, 2), (4, 1)] {
         for head_dim in [64, 128] {
             for causal in [false, true] {
-                run_case(&harness, q_heads, kv_heads, head_dim, causal);
+                run_case(&harness, q_heads, kv_heads, head_dim, causal, false);
+            }
+        }
+    }
+}
+
+#[test]
+fn native_gqa_and_mqa_kv_reuse_match_oracle_without_kv_expansion() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    for (q_heads, kv_heads) in [(4, 2), (4, 1), (6, 2)] {
+        for head_dim in [64, 128] {
+            for causal in [false, true] {
+                run_case(&harness, q_heads, kv_heads, head_dim, causal, true);
             }
         }
     }
@@ -240,6 +280,7 @@ fn grouped_vec4_opt_in_is_independent_and_fails_back_by_shape() {
     let grouped =
         WgpuGroupedForwardPipeline::with_grouped_vectorization(&harness.device, true).unwrap();
     let mha = WgpuGroupedForwardPipeline::with_vectorization(&harness.device, true).unwrap();
+    let reuse = WgpuGroupedForwardPipeline::with_grouped_kv_reuse(&harness.device, true).unwrap();
 
     let gqa_d64 = GroupedAttentionShape {
         batch: 1,
@@ -282,5 +323,17 @@ fn grouped_vec4_opt_in_is_independent_and_fails_back_by_shape() {
     assert_eq!(
         format!("{:?}", mha.kernel_variant_for_shape(mha_d64)),
         "Q4Vec4Mha"
+    );
+    assert_eq!(
+        format!("{:?}", reuse.kernel_variant_for_shape(gqa_d64)),
+        "Q4Vec4GroupedKvReuse"
+    );
+    assert_eq!(
+        format!("{:?}", reuse.kernel_variant_for_shape(mha_d64)),
+        "Q4PortableGrouped"
+    );
+    assert_eq!(
+        format!("{:?}", reuse.kernel_variant_for_shape(gqa_d32)),
+        "Q4PortableGrouped"
     );
 }

@@ -1,6 +1,6 @@
 # Phase O optimization cycle — GQA-specific K/V reuse
 
-Status: **baseline/hypothesis definition; no routing change**  
+Status: **M47 candidate implemented; physical qualification pending; no routing change**
 Performance claim: **none beyond the exact physical-Thor measurements recorded below**
 
 This cycle follows the Phase O continuous-optimization rules in `ROADMAP.md`: state one bottleneck hypothesis and exact baseline first, isolate one candidate, preserve the same correctness oracle, benchmark before/after under the same conditions, and reject the candidate if it is slower or regresses correctness.
@@ -66,6 +66,6 @@ A candidate may advance only if all of the following hold:
 6. no default-routing change is made from these measurements alone;
 7. any claim used for the 1.0 Definition of Done must additionally include a reproducible comparison against SciRust's previous multi-dispatch attention on the supported target workload.
 
-## Next implementation slice
+## M47 implementation slice
 
-Implement one isolated WGSL/host-selection candidate for cross-query-head K/V tile reuse inside a native GQA group. Keep it independently selectable from `Q4Vec4Grouped` so qualification can compare both variants on identical resident buffers and command-submission boundaries.
+M47 implements one isolated WGSL/host-selection candidate for cross-query-head K/V tile reuse inside a native GQA group. `Q4Vec4GroupedKvReuse` is independently selectable from `Q4Vec4Grouped`, so the physical qualification can compare both variants on identical resident buffers and command-submission boundaries. No routing or performance claim changes before that evidence is accepted.
