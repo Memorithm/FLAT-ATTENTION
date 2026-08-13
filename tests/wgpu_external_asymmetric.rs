@@ -4,8 +4,9 @@ use std::sync::mpsc;
 
 use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
-    AsymmetricRotaryEmbeddingConfig, ExternalAsymmetricProjectionPass,
-    ExternalAsymmetricProjectionRotaryGroupedPipeline, ExternalWgpuError, FlatAttentionConfig,
+    AsymmetricRotaryEmbeddingConfig, ExternalAsymmetricKernelVariant,
+    ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
+    ExternalWgpuError, FlatAttentionConfig,
 };
 
 const ATOL: f32 = 1.5e-4;
@@ -137,8 +138,21 @@ fn run_case(
     config: FlatAttentionConfig,
     rotary: AsymmetricRotaryEmbeddingConfig,
     phase: f32,
+    vectorized: bool,
 ) {
-    let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::new(&harness.device).unwrap();
+    let pipeline = ExternalAsymmetricProjectionRotaryGroupedPipeline::with_vectorization(
+        &harness.device,
+        vectorized,
+    )
+    .unwrap();
+    assert_eq!(
+        pipeline.kernel_variant_for_shape(shape),
+        if vectorized && matches!(shape.head_dim, 64 | 128) {
+            ExternalAsymmetricKernelVariant::Vec4
+        } else {
+            ExternalAsymmetricKernelVariant::Portable
+        }
+    );
     let q = fixture(shape.q_tensor_len().unwrap(), phase);
     let k = fixture(shape.kv_tensor_len().unwrap(), phase + 0.6);
     let v = fixture(shape.kv_tensor_len().unwrap(), phase + 1.2);
@@ -209,6 +223,7 @@ fn single_query_decode_reads_long_resident_gqa_cache() {
             kv_position_offset: 13,
         },
         0.2,
+        false,
     );
 }
 
@@ -238,6 +253,69 @@ fn rectangular_noncausal_mqa_matches_oracle() {
             kv_position_offset: 101,
         },
         0.4,
+        false,
+    );
+}
+
+#[test]
+fn vec4_gqa_prefill_matches_oracle_for_product_shapes() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    for (head_dim, causal) in [(64, false), (64, true), (128, false), (128, true)] {
+        run_case(
+            &harness,
+            AsymmetricGroupedAttentionShape {
+                batch: 1,
+                q_heads: 8,
+                kv_heads: 2,
+                query_len: 17,
+                kv_len: 17,
+                head_dim,
+                query_position_offset: 0,
+            },
+            FlatAttentionConfig {
+                causal,
+                softmax_scale: None,
+            },
+            AsymmetricRotaryEmbeddingConfig {
+                theta: 10_000.0,
+                query_position_offset: 0,
+                kv_position_offset: 0,
+            },
+            0.7 + head_dim as f32 * 0.001,
+            true,
+        );
+    }
+}
+
+#[test]
+fn vectorized_pipeline_preserves_portable_fallback() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    run_case(
+        &harness,
+        AsymmetricGroupedAttentionShape {
+            batch: 1,
+            q_heads: 4,
+            kv_heads: 2,
+            query_len: 3,
+            kv_len: 7,
+            head_dim: 80,
+            query_position_offset: 4,
+        },
+        FlatAttentionConfig {
+            causal: true,
+            softmax_scale: None,
+        },
+        AsymmetricRotaryEmbeddingConfig {
+            theta: 10_000.0,
+            query_position_offset: 4,
+            kv_position_offset: 0,
+        },
+        1.1,
+        true,
     );
 }
 
