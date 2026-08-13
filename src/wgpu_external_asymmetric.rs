@@ -9,7 +9,8 @@ use core::fmt;
 use super::{
     AsymmetricGroupedAttentionShape, AsymmetricRotaryEmbeddingConfig, ExternalProjectionLayout,
     ExternalWgpuError, FlatAttentionConfig, FlatAttentionError,
-    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_VEC4_WGSL, FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+    WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
 /// Maximum query-head count carried by the portable M13 ALiBi uniform block.
@@ -26,40 +27,87 @@ pub struct ExternalAsymmetricProjectionPass<'a> {
     pub rotary: AsymmetricRotaryEmbeddingConfig,
 }
 
+/// Kernel selected for one rectangular external projection pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalAsymmetricKernelVariant {
+    /// Existing scalar-storage portable M11/M13/M15 kernel.
+    Portable,
+    /// M53 vec4 Q/K/V storage loads for head dimensions 64 and 128.
+    Vec4,
+}
+
 /// M11 rectangular projection-layout + RoPE + GQA/MQA pipeline.
 ///
 /// The pipeline is reusable and owns only the compiled compute pipeline. Every
 /// data buffer, command encoder and submission remains caller-owned.
 pub struct ExternalAsymmetricProjectionRotaryGroupedPipeline {
-    pipeline: wgpu::ComputePipeline,
+    portable_pipeline: wgpu::ComputePipeline,
+    vec4_pipeline: Option<wgpu::ComputePipeline>,
 }
 
 impl fmt::Debug for ExternalAsymmetricProjectionRotaryGroupedPipeline {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExternalAsymmetricProjectionRotaryGroupedPipeline")
+            .field("vec4_pipeline", &self.vec4_pipeline.is_some())
             .finish_non_exhaustive()
     }
 }
 
 impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m11-asymmetric-projection-rope-gqa"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m11-asymmetric-projection-rope-gqa"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
+        Self::with_vectorization(device, false)
+    }
+
+    /// Compile the M53 vec4 candidate in addition to the unchanged portable
+    /// kernel. Unsupported head dimensions continue to use the portable path.
+    pub fn with_vectorization(
+        device: &wgpu::Device,
+        enabled: bool,
+    ) -> Result<Self, ExternalWgpuError> {
+        let portable_pipeline = create_pipeline(
+            device,
+            FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+            "flat-m11-asymmetric-projection-rope-gqa",
+        )?;
+        let vec4_pipeline = if enabled {
+            Some(create_pipeline(
+                device,
+                FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_VEC4_WGSL,
+                "flat-m53-asymmetric-projection-rope-gqa-vec4",
+            )?)
+        } else {
+            None
+        };
+        Ok(Self {
+            portable_pipeline,
+            vec4_pipeline,
+        })
+    }
+
+    #[must_use]
+    pub fn vectorization_enabled(&self) -> bool {
+        self.vec4_pipeline.is_some()
+    }
+
+    #[must_use]
+    pub fn kernel_variant_for_shape(
+        &self,
+        shape: AsymmetricGroupedAttentionShape,
+    ) -> ExternalAsymmetricKernelVariant {
+        if self.vec4_pipeline.is_some() && matches!(shape.head_dim, 64 | 128) {
+            ExternalAsymmetricKernelVariant::Vec4
+        } else {
+            ExternalAsymmetricKernelVariant::Portable
+        }
+    }
+
+    fn selected_pipeline(&self, shape: AsymmetricGroupedAttentionShape) -> &wgpu::ComputePipeline {
+        match self.kernel_variant_for_shape(shape) {
+            ExternalAsymmetricKernelVariant::Portable => &self.portable_pipeline,
+            ExternalAsymmetricKernelVariant::Vec4 => self
+                .vec4_pipeline
+                .as_ref()
+                .expect("M53 vec4 variant is selected only when compiled"),
         }
     }
 
@@ -171,6 +219,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         alibi: Option<(&[f32], usize, usize)>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
+        let selected_pipeline = self.selected_pipeline(pass.shape);
         let layout = Self::layout(pass.shape)?;
         validate_buffer("Q", pass.q, layout.q_bytes)?;
         validate_buffer("K", pass.k, layout.kv_bytes)?;
@@ -233,7 +282,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m13-asymmetric-bind-group"),
-            layout: &self.pipeline.get_bind_group_layout(0),
+            layout: &selected_pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -263,7 +312,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
                 label: Some("flat-m13-asymmetric-projection-rope-gqa"),
                 timestamp_writes: None,
             });
-            compute_pass.set_pipeline(&self.pipeline);
+            compute_pass.set_pipeline(selected_pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
             compute_pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.q_batch_heads, 1);
         }
@@ -390,6 +439,29 @@ fn validate_alibi(
         return Err(FlatAttentionError::PositionOverflow.into());
     }
     Ok(())
+}
+
+fn create_pipeline(
+    device: &wgpu::Device,
+    source: &'static str,
+    label: &'static str,
+) -> Result<wgpu::ComputePipeline, ExternalWgpuError> {
+    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(label),
+        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(label),
+        layout: None,
+        module: &shader,
+        entry_point: "flat_attention_forward",
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+    });
+    match pollster::block_on(device.pop_error_scope()) {
+        Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
+        None => Ok(pipeline),
+    }
 }
 
 fn validate_buffer(

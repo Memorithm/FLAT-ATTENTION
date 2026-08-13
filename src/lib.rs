@@ -77,6 +77,9 @@ pub const FLAT_FWD_PROJECTION_ROPE_WGSL: &str =
 /// M11 rectangular sequence-major projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_asymmetric.wgsl");
+/// M53 opt-in vec4 loads for rectangular projection-layout RoPE + GQA/MQA.
+pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_VEC4_WGSL: &str =
+    include_str!("../shaders/flat_fwd_projection_rope_asymmetric_vec4.wgsl");
 /// M12 padded variable-length projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_variable.wgsl");
@@ -154,8 +157,8 @@ pub use wgpu_external::{
 mod wgpu_external_asymmetric;
 #[cfg(feature = "wgpu")]
 pub use wgpu_external_asymmetric::{
-    ExternalAsymmetricProjectionPass, ExternalAsymmetricProjectionRotaryGroupedPipeline,
-    WGSL_ALIBI_MAX_HEADS,
+    ExternalAsymmetricKernelVariant, ExternalAsymmetricProjectionPass,
+    ExternalAsymmetricProjectionRotaryGroupedPipeline, WGSL_ALIBI_MAX_HEADS,
 };
 
 #[cfg(feature = "wgpu")]
