@@ -59,6 +59,13 @@ pub enum ExternalWgpuError {
         actual_bytes: u64,
         required_bytes: u64,
     },
+    CandidateNotEnabled {
+        candidate: &'static str,
+    },
+    UnsupportedCandidateShape {
+        candidate: &'static str,
+        reason: &'static str,
+    },
     PipelineValidation(String),
 }
 
@@ -88,6 +95,12 @@ impl fmt::Display for ExternalWgpuError {
                 f,
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
             ),
+            Self::CandidateNotEnabled { candidate } => {
+                write!(f, "external FLAT candidate {candidate} was not enabled")
+            }
+            Self::UnsupportedCandidateShape { candidate, reason } => {
+                write!(f, "external FLAT candidate {candidate} does not support this shape: {reason}")
+            }
             Self::PipelineValidation(error) => {
                 write!(f, "external FLAT pipeline validation failed: {error}")
             }

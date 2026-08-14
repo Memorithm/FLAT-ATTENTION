@@ -13,6 +13,9 @@ use super::{
     WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
+const FLAT_DECODE_PROJECTION_KV_REUSE_WGSL: &str =
+    include_str!("../shaders/flat_decode_projection_kv_reuse.wgsl");
+
 /// Maximum query-head count carried by the portable M13 ALiBi uniform block.
 pub const WGSL_ALIBI_MAX_HEADS: usize = 256;
 
@@ -38,24 +41,29 @@ pub enum ExternalAsymmetricKernelVariant {
 
 /// M11 rectangular projection-layout + RoPE + GQA/MQA pipeline.
 ///
-/// The pipeline is reusable and owns only the compiled compute pipeline. Every
+/// The pipeline is reusable and owns only the compiled compute pipelines. Every
 /// data buffer, command encoder and submission remains caller-owned.
 pub struct ExternalAsymmetricProjectionRotaryGroupedPipeline {
     portable_pipeline: wgpu::ComputePipeline,
     vec4_pipeline: Option<wgpu::ComputePipeline>,
+    decode_kv_reuse_pipeline: Option<wgpu::ComputePipeline>,
 }
 
 impl fmt::Debug for ExternalAsymmetricProjectionRotaryGroupedPipeline {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExternalAsymmetricProjectionRotaryGroupedPipeline")
             .field("vec4_pipeline", &self.vec4_pipeline.is_some())
+            .field(
+                "decode_kv_reuse_pipeline",
+                &self.decode_kv_reuse_pipeline.is_some(),
+            )
             .finish_non_exhaustive()
     }
 }
 
 impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
-        Self::with_vectorization(device, false)
+        Self::with_candidates(device, false, false)
     }
 
     /// Compile the M53 vec4 candidate in addition to the unchanged portable
@@ -64,16 +72,46 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         device: &wgpu::Device,
         enabled: bool,
     ) -> Result<Self, ExternalWgpuError> {
+        Self::with_candidates(device, enabled, false)
+    }
+
+    /// Build the baseline pipeline and optionally compile the isolated M48
+    /// q_len=1 GQA K/V tile-reuse candidate. Existing encode methods retain
+    /// their baseline routing when the candidate is compiled.
+    pub fn with_decode_kv_reuse(
+        device: &wgpu::Device,
+        enable_candidate: bool,
+    ) -> Result<Self, ExternalWgpuError> {
+        Self::with_candidates(device, false, enable_candidate)
+    }
+
+    fn with_candidates(
+        device: &wgpu::Device,
+        enable_vectorization: bool,
+        enable_decode_kv_reuse: bool,
+    ) -> Result<Self, ExternalWgpuError> {
         let portable_pipeline = create_pipeline(
             device,
             FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
             "flat-m11-asymmetric-projection-rope-gqa",
+            "flat_attention_forward",
         )?;
-        let vec4_pipeline = if enabled {
+        let vec4_pipeline = if enable_vectorization {
             Some(create_pipeline(
                 device,
                 FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_VEC4_WGSL,
                 "flat-m53-asymmetric-projection-rope-gqa-vec4",
+                "flat_attention_forward",
+            )?)
+        } else {
+            None
+        };
+        let decode_kv_reuse_pipeline = if enable_decode_kv_reuse {
+            Some(create_pipeline(
+                device,
+                FLAT_DECODE_PROJECTION_KV_REUSE_WGSL,
+                "flat-m48-decode-projection-kv-reuse",
+                "flat_attention_decode_kv_reuse",
             )?)
         } else {
             None
@@ -81,6 +119,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         Ok(Self {
             portable_pipeline,
             vec4_pipeline,
+            decode_kv_reuse_pipeline,
         })
     }
 
@@ -156,7 +195,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
-        self.encode_with_options(device, encoder, pass, true, None)
+        self.encode_with_options(device, encoder, pass, true, None, false)
     }
 
     /// Record one rectangular pass where K is **already RoPE-rotated** by the
@@ -167,7 +206,36 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: ExternalAsymmetricProjectionPass<'_>,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
-        self.encode_with_options(device, encoder, pass, false, None)
+        self.encode_with_options(device, encoder, pass, false, None, false)
+    }
+
+    /// Record the opt-in M48 q_len=1 decode candidate using pre-rotated K.
+    /// Each workgroup reuses one physical K/V tile across up to four query
+    /// heads from the same GQA group. This records only; it never submits,
+    /// polls, maps, copies or changes the baseline route.
+    pub fn encode_pre_rotated_k_decode_kv_reuse(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: ExternalAsymmetricProjectionPass<'_>,
+    ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
+        if self.decode_kv_reuse_pipeline.is_none() {
+            return Err(ExternalWgpuError::CandidateNotEnabled { candidate: "M48" });
+        }
+        if pass.shape.query_len != 1 {
+            return Err(ExternalWgpuError::UnsupportedCandidateShape {
+                candidate: "M48",
+                reason: "query_len must equal 1",
+            });
+        }
+        let group_size = pass.shape.q_heads / pass.shape.kv_heads;
+        if group_size < 2 {
+            return Err(ExternalWgpuError::UnsupportedCandidateShape {
+                candidate: "M48",
+                reason: "GQA group size must be at least 2",
+            });
+        }
+        self.encode_with_options(device, encoder, pass, false, None, true)
     }
 
     /// Record one M13 ALiBi pass while preserving the four-storage-buffer
@@ -188,6 +256,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
             pass,
             true,
             Some((slopes, query_position_offset, kv_position_offset)),
+            false,
         )
     }
 
@@ -207,6 +276,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
             pass,
             false,
             Some((slopes, query_position_offset, kv_position_offset)),
+            false,
         )
     }
 
@@ -217,9 +287,9 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         pass: ExternalAsymmetricProjectionPass<'_>,
         rotate_k: bool,
         alibi: Option<(&[f32], usize, usize)>,
+        decode_kv_reuse: bool,
     ) -> Result<ExternalProjectionLayout, ExternalWgpuError> {
         let dispatch = validate_dispatch(device, pass.shape, pass.rotary)?;
-        let selected_pipeline = self.selected_pipeline(pass.shape);
         let layout = Self::layout(pass.shape)?;
         validate_buffer("Q", pass.q, layout.q_bytes)?;
         validate_buffer("K", pass.k, layout.kv_bytes)?;
@@ -280,9 +350,16 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         }
         params_buffer.unmap();
 
+        let pipeline = if decode_kv_reuse {
+            self.decode_kv_reuse_pipeline
+                .as_ref()
+                .ok_or(ExternalWgpuError::CandidateNotEnabled { candidate: "M48" })?
+        } else {
+            self.selected_pipeline(pass.shape)
+        };
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m13-asymmetric-bind-group"),
-            layout: &selected_pipeline.get_bind_group_layout(0),
+            layout: &pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -312,13 +389,41 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
                 label: Some("flat-m13-asymmetric-projection-rope-gqa"),
                 timestamp_writes: None,
             });
-            compute_pass.set_pipeline(selected_pipeline);
+            compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            compute_pass.dispatch_workgroups(dispatch.query_workgroups, dispatch.q_batch_heads, 1);
+            let dispatch_y = if decode_kv_reuse {
+                m48_dispatch_workgroups_y(device, pass.shape)?
+            } else {
+                dispatch.q_batch_heads
+            };
+            compute_pass.dispatch_workgroups(dispatch.query_workgroups, dispatch_y, 1);
         }
 
         Ok(layout)
     }
+}
+
+fn m48_dispatch_workgroups_y(
+    device: &wgpu::Device,
+    shape: AsymmetricGroupedAttentionShape,
+) -> Result<u32, ExternalWgpuError> {
+    const Q_HEADS_PER_WORKGROUP: usize = 4;
+    let group_size = shape.q_heads / shape.kv_heads;
+    let tiles_per_kv_head = group_size.div_ceil(Q_HEADS_PER_WORKGROUP);
+    let workgroups = shape
+        .batch
+        .checked_mul(shape.kv_heads)
+        .and_then(|value| value.checked_mul(tiles_per_kv_head))
+        .ok_or(FlatAttentionError::ShapeOverflow)?;
+    let maximum = device.limits().max_compute_workgroups_per_dimension;
+    if workgroups > maximum as usize {
+        return Err(ExternalWgpuError::DispatchLimit {
+            axis: "y/batch_kv_head_tiles",
+            actual: workgroups,
+            maximum,
+        });
+    }
+    checked_u32(workgroups)
 }
 
 struct ExternalAsymmetricDispatchGeometry {
@@ -445,6 +550,7 @@ fn create_pipeline(
     device: &wgpu::Device,
     source: &'static str,
     label: &'static str,
+    entry_point: &'static str,
 ) -> Result<wgpu::ComputePipeline, ExternalWgpuError> {
     device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -455,7 +561,7 @@ fn create_pipeline(
         label: Some(label),
         layout: None,
         module: &shader,
-        entry_point: "flat_attention_forward",
+        entry_point,
         compilation_options: wgpu::PipelineCompilationOptions::default(),
     });
     match pollster::block_on(device.pop_error_scope()) {
