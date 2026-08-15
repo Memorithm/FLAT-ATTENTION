@@ -148,12 +148,17 @@ fn flat_attention_decode_kv_reuse(
     }
     workgroupBarrier();
 
+    var kv_limit = params.kv_len;
+    if (params.causal != 0u) {
+        kv_limit = min(params.kv_len, params.causal_query_offset + 1u);
+    }
+
     var tile_start = 0u;
     loop {
-        if (tile_start >= params.kv_len) {
+        if (tile_start >= kv_limit) {
             break;
         }
-        let tile_rows = min(KV_TILE, params.kv_len - tile_start);
+        let tile_rows = min(KV_TILE, kv_limit - tile_start);
         let tile_elements = tile_rows * params.head_dim;
         var linear = lane;
         loop {
