@@ -34,10 +34,9 @@ jobs:
           set -euo pipefail
           tmpdir="$(mktemp -d "$GITHUB_WORKSPACE/.ci-tmp.XXXXXX")"
           chmod 700 "$tmpdir"
-          mkdir -p "$tmpdir/cargo-home" "$tmpdir/rustup-home"
+          mkdir -p "$tmpdir/cargo-home"
           echo "CARGO_TARGET_DIR=$tmpdir/target" >> "$GITHUB_ENV"
           echo "CARGO_HOME=$tmpdir/cargo-home" >> "$GITHUB_ENV"
-          echo "RUSTUP_HOME=$tmpdir/rustup-home" >> "$GITHUB_ENV"
       - name: Require preinstalled Rust toolchain on Thor
         shell: bash
         run: |
