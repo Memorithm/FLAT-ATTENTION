@@ -1,0 +1,59 @@
+name: FLAT M48 Thor qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "shaders/**"
+      - "tests/**"
+      - "examples/m48_decode_kv_reuse_sweep.rs"
+      - ".github/workflows/m48-thor-qualification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  thor:
+    name: M15 versus M48 on physical Thor
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: "-D warnings"
+      CARGO_INCREMENTAL: "0"
+      SCIRUST_THOR_GPU_LOCK: /dev/nvidia0
+      WGPU_BACKEND: vulkan
+      FLAT_M48_WARMUPS: "5"
+      FLAT_M48_REPEATS: "20"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Prepare isolated build directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d "$GITHUB_WORKSPACE/.ci-tmp.XXXXXX")"
+          chmod 700 "$tmpdir"
+          mkdir -p "$tmpdir/cargo-home" "$tmpdir/rustup-home"
+          echo "CARGO_TARGET_DIR=$tmpdir/target" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$tmpdir/cargo-home" >> "$GITHUB_ENV"
+          echo "RUSTUP_HOME=$tmpdir/rustup-home" >> "$GITHUB_ENV"
+      - name: Require preinstalled Rust toolchain on Thor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_NAME" = "tarek-scirust-arm64-01"
+          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+      - name: Exclusive physical Thor M48 sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec 9>"$SCIRUST_THOR_GPU_LOCK"
+          flock -x 9
+          test -e "$SCIRUST_THOR_GPU_LOCK"
+          command -v nvidia-smi >/dev/null
+          if [[ -n "$(nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader)" ]]; then
+            echo "GPU compute activity is present; refusing concurrent timing"
+            exit 1
+          fi
+          cargo run --release --features wgpu --example m48_decode_kv_reuse_sweep
