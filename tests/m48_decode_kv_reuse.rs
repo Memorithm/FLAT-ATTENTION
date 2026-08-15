@@ -213,7 +213,13 @@ fn m48_causal_offset_masks_future_kv() {
     };
     let q = fixture(shape.q_tensor_len().unwrap(), 0.31);
     let raw_k = fixture(shape.kv_tensor_len().unwrap(), 0.91);
-    let k = rotate_k(&raw_k, shape.kv_len, shape.kv_heads, shape.head_dim, 10_000.0);
+    let k = rotate_k(
+        &raw_k,
+        shape.kv_len,
+        shape.kv_heads,
+        shape.head_dim,
+        10_000.0,
+    );
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.51);
     let expected =
         forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
