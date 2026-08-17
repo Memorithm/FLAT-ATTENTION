@@ -13,46 +13,174 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: flat-m48-thor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   thor:
     name: M15 versus M48 on physical Thor
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       RUSTFLAGS: "-D warnings"
       CARGO_INCREMENTAL: "0"
       SCIRUST_THOR_GPU_LOCK: /dev/nvidia0
+      SCIRUST_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+      SCIRUST_THOR_IDLE_SETTLE_SECONDS: "300"
       WGPU_BACKEND: vulkan
       FLAT_M48_WARMUPS: "5"
       FLAT_M48_REPEATS: "20"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Require persistent physical Thor runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::M48 requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          actual="$(git rev-parse HEAD)"
+          echo "source_revision=$actual"
+          test "$actual" = "$SCIRUST_SOURCE_REVISION"
+          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+
       - name: Prepare isolated build directory
         shell: bash
         run: |
           set -euo pipefail
-          tmpdir="$(mktemp -d "$GITHUB_WORKSPACE/.ci-tmp.XXXXXX")"
+          tmpdir="$(mktemp -d "$RUNNER_TEMP/flat-m48.XXXXXX")"
           chmod 700 "$tmpdir"
-          mkdir -p "$tmpdir/cargo-home"
+          mkdir -p "$tmpdir/cargo-home" "$tmpdir/target" "$tmpdir/xdg"
+          chmod 700 "$tmpdir/xdg"
           echo "CARGO_TARGET_DIR=$tmpdir/target" >> "$GITHUB_ENV"
           echo "CARGO_HOME=$tmpdir/cargo-home" >> "$GITHUB_ENV"
-      - name: Require preinstalled Rust toolchain on Thor
+          echo "XDG_RUNTIME_DIR=$tmpdir/xdg" >> "$GITHUB_ENV"
+
+      - name: Build M48 sweep before GPU reservation
         shell: bash
         run: |
           set -euo pipefail
-          test "$RUNNER_NAME" = "tarek-scirust-arm64-01"
-          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+          cargo build --release --features wgpu --example m48_decode_kv_reuse_sweep
+          benchmark="$CARGO_TARGET_DIR/release/examples/m48_decode_kv_reuse_sweep"
+          test -x "$benchmark"
+          echo "FLAT_M48_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
+
       - name: Exclusive physical Thor M48 sweep
         shell: bash
+        timeout-minutes: 90
         run: |
           set -euo pipefail
-          exec 9>"$SCIRUST_THOR_GPU_LOCK"
-          flock -x 9
-          test -e "$SCIRUST_THOR_GPU_LOCK"
-          command -v nvidia-smi >/dev/null
-          if [[ -n "$(nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader)" ]]; then
-            echo "GPU compute activity is present; refusing concurrent timing"
+          for prerequisite in flock pgrep stat nvidia-smi vulkaninfo; do
+            command -v "$prerequisite" >/dev/null || {
+              echo "::error::missing M48 physical-Thor prerequisite: $prerequisite"
+              exit 1
+            }
+          done
+          if [[ ! -c "$SCIRUST_THOR_GPU_LOCK" || ! -r "$SCIRUST_THOR_GPU_LOCK" || ! -w "$SCIRUST_THOR_GPU_LOCK" ]]; then
+            echo "::error::physical Thor lock target is not an accessible NVIDIA character device"
             exit 1
           fi
-          cargo run --release --features wgpu --example m48_decode_kv_reuse_sweep
+
+          stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F' \
+            "$SCIRUST_THOR_GPU_LOCK"
+          exec 9<>"$SCIRUST_THOR_GPU_LOCK"
+          flock -x 9
+          if flock -n "$SCIRUST_THOR_GPU_LOCK" -c 'true'; then
+            echo "::error::physical GPU lock does not contend independently"
+            exit 1
+          fi
+
+          inventory="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)"
+          printf '%s\n' "$inventory"
+          grep -F 'NVIDIA Thor' <<< "$inventory" >/dev/null
+          summary="$(vulkaninfo --summary 2>&1)"
+          grep -F 'NVIDIA Tegra NVIDIA Thor' <<< "$summary" >/dev/null
+
+          compute_processes() {
+            nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader 2>/dev/null
+          }
+
+          deadline=$((SECONDS + 3600))
+          settled=0
+          while (( settled < 10#$SCIRUST_THOR_IDLE_SETTLE_SECONDS )); do
+            training="$(pgrep -af '[c]uda_pretrain' || true)"
+            active="$(compute_processes)"
+            if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
+              echo "Thor busy; restarting M48 idle window."
+              [[ -z "${training//[[:space:]]/}" ]] || printf '%s\n' "$training"
+              [[ -z "${active//[[:space:]]/}" ]] || printf '%s\n' "$active"
+              settled=0
+            else
+              settled=$((settled + 5))
+              if (( settled == 5 || settled % 60 == 0 )); then
+                echo "Thor continuously idle: ${settled}/${SCIRUST_THOR_IDLE_SETTLE_SECONDS}s"
+              fi
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::Thor never reached the required M48 idle window"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          echo "source_revision=$(git rev-parse HEAD)"
+          echo "benchmark_scope=query_len_1_q16_kv4_d64_pre_rotated_k_resident"
+          output="$RUNNER_TEMP/m48-thor-requalification.log"
+
+          "$FLAT_M48_BENCHMARK" >"$output" 2>&1 &
+          bench_pid=$!
+          contaminated=0
+          while kill -0 "$bench_pid" 2>/dev/null; do
+            if pgrep -af '[c]uda_pretrain' >"$RUNNER_TEMP/m48-training.txt"; then
+              echo "::error::SciAgent training appeared during M48 timing"
+              cat "$RUNNER_TEMP/m48-training.txt"
+              contaminated=1
+              break
+            fi
+            active="$(compute_processes || true)"
+            if [[ -n "${active//[[:space:]]/}" ]]; then
+              while IFS=',' read -r raw_pid process_name; do
+                pid="$(printf '%s' "$raw_pid" | tr -d '[:space:]')"
+                process_name="$(printf '%s' "$process_name" | xargs)"
+                [[ -z "$pid" ]] && continue
+                if [[ "$pid" != "$bench_pid" ]]; then
+                  echo "::error::foreign GPU compute during M48: pid=$pid process=$process_name"
+                  contaminated=1
+                fi
+              done <<< "$active"
+            fi
+            (( contaminated == 0 )) || break
+            sleep 1
+          done
+
+          if (( contaminated != 0 )); then
+            kill "$bench_pid" 2>/dev/null || true
+            wait "$bench_pid" 2>/dev/null || true
+            exit 1
+          fi
+          wait "$bench_pid"
+          cat "$output"
+
+          grep -F 'adapter=NVIDIA Tegra NVIDIA Thor' "$output" >/dev/null
+          grep -F 'backend=Vulkan' "$output" >/dev/null
+          grep -F 'q_heads=16 kv_heads=4 head_dim=64 query_len=1' "$output" >/dev/null
+          grep -F 'measurement_order=alternating_m15_m48' "$output" >/dev/null
+          grep -F 'performance_claim=none' "$output" >/dev/null
+          rows="$(awk -F, '$1 ~ /^[0-9]+$/ {count++} END {print count+0}' "$output")"
+          test "$rows" -eq 8
+
+          post="$(compute_processes)"
+          if [[ -n "${post//[[:space:]]/}" ]]; then
+            echo "::error::post-M48 compute occupancy is not empty"
+            printf '%s\n' "$post"
+            exit 1
+          fi
