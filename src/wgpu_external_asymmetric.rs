@@ -222,6 +222,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         if self.decode_kv_reuse_pipeline.is_none() {
             return Err(ExternalWgpuError::CandidateNotEnabled { candidate: "M48" });
         }
+        pass.shape.validate()?;
         if pass.shape.query_len != 1 {
             return Err(ExternalWgpuError::UnsupportedCandidateShape {
                 candidate: "M48",

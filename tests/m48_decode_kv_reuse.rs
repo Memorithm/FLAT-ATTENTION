@@ -6,6 +6,7 @@ use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
     AsymmetricRotaryEmbeddingConfig, ExternalAsymmetricProjectionPass,
     ExternalAsymmetricProjectionRotaryGroupedPipeline, ExternalWgpuError, FlatAttentionConfig,
+    FlatAttentionError,
 };
 
 const ATOL: f32 = 1.5e-4;
@@ -172,6 +173,145 @@ fn m48_sciagent_decode_matches_oracle() {
     let actual = read(&device, &queue, &output, layout.combined_elements);
     assert_close("M48 O", &actual[..layout.output_elements], &expected.output);
     assert_close("M48 LSE", &actual[layout.output_elements..], &expected.lse);
+}
+
+#[test]
+fn m48_causal_offset_masks_future_kv() {
+    let instance = wgpu::Instance::default();
+    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+        if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
+            panic!("M48 requires a WGPU adapter");
+        }
+        return;
+    };
+    let (device, queue) = pollster::block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            label: Some("flat-m48-causal-offset-test"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+        },
+        None,
+    ))
+    .unwrap();
+    let shape = AsymmetricGroupedAttentionShape {
+        batch: 1,
+        q_heads: 16,
+        kv_heads: 4,
+        query_len: 1,
+        kv_len: 16,
+        head_dim: 64,
+        query_position_offset: 7,
+    };
+    let config = FlatAttentionConfig {
+        causal: true,
+        softmax_scale: None,
+    };
+    let rotary = AsymmetricRotaryEmbeddingConfig {
+        theta: 10_000.0,
+        query_position_offset: 7,
+        kv_position_offset: 0,
+    };
+    let q = fixture(shape.q_tensor_len().unwrap(), 0.31);
+    let raw_k = fixture(shape.kv_tensor_len().unwrap(), 0.91);
+    let k = rotate_k(
+        &raw_k,
+        shape.kv_len,
+        shape.kv_heads,
+        shape.head_dim,
+        10_000.0,
+    );
+    let v = fixture(shape.kv_tensor_len().unwrap(), 1.51);
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
+    let q_gpu = buffer(&device, &queue, &q);
+    let k_gpu = buffer(&device, &queue, &k);
+    let v_gpu = buffer(&device, &queue, &v);
+    let pipeline =
+        ExternalAsymmetricProjectionRotaryGroupedPipeline::with_decode_kv_reuse(&device, true)
+            .unwrap();
+    let output = pipeline.create_output_buffer(&device, shape).unwrap();
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("flat-m48-causal-offset-test"),
+    });
+    let layout = pipeline
+        .encode_pre_rotated_k_decode_kv_reuse(
+            &device,
+            &mut encoder,
+            ExternalAsymmetricProjectionPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                out_and_lse: &output,
+                shape,
+                config,
+                rotary,
+            },
+        )
+        .unwrap();
+    queue.submit(Some(encoder.finish()));
+    let actual = read(&device, &queue, &output, layout.combined_elements);
+    assert_close(
+        "M48 causal-offset O",
+        &actual[..layout.output_elements],
+        &expected.output,
+    );
+    assert_close(
+        "M48 causal-offset LSE",
+        &actual[layout.output_elements..],
+        &expected.lse,
+    );
+}
+
+#[test]
+fn m48_zero_kv_heads_returns_validation_error() {
+    let instance = wgpu::Instance::default();
+    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+        return;
+    };
+    let (device, queue) =
+        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None))
+            .unwrap();
+    let pipeline =
+        ExternalAsymmetricProjectionRotaryGroupedPipeline::with_decode_kv_reuse(&device, true)
+            .unwrap();
+    let tiny = buffer(&device, &queue, &[0.0]);
+    let shape = AsymmetricGroupedAttentionShape {
+        batch: 1,
+        q_heads: 16,
+        kv_heads: 0,
+        query_len: 1,
+        kv_len: 1,
+        head_dim: 64,
+        query_position_offset: 0,
+    };
+    let mut encoder = device.create_command_encoder(&Default::default());
+    let error = pipeline
+        .encode_pre_rotated_k_decode_kv_reuse(
+            &device,
+            &mut encoder,
+            ExternalAsymmetricProjectionPass {
+                q: &tiny,
+                k: &tiny,
+                v: &tiny,
+                out_and_lse: &tiny,
+                shape,
+                config: FlatAttentionConfig {
+                    causal: true,
+                    softmax_scale: None,
+                },
+                rotary: AsymmetricRotaryEmbeddingConfig {
+                    theta: 10_000.0,
+                    query_position_offset: 0,
+                    kv_position_offset: 0,
+                },
+            },
+        )
+        .unwrap_err();
+    assert_eq!(
+        error,
+        ExternalWgpuError::Core(FlatAttentionError::ZeroDimension)
+    );
 }
 
 #[test]

@@ -232,12 +232,28 @@ fn run_case(
         &expected.lse,
     ));
 
-    for _ in 0..warmups {
-        let _ = execute(false);
-        let _ = execute(true);
+    for iteration in 0..warmups {
+        if iteration.is_multiple_of(2) {
+            let _ = execute(false);
+            let _ = execute(true);
+        } else {
+            let _ = execute(true);
+            let _ = execute(false);
+        }
     }
-    let baseline_samples = (0..repeats).map(|_| execute(false)).collect();
-    let candidate_samples = (0..repeats).map(|_| execute(true)).collect();
+
+    let mut baseline_samples = Vec::with_capacity(repeats);
+    let mut candidate_samples = Vec::with_capacity(repeats);
+    for iteration in 0..repeats {
+        if iteration.is_multiple_of(2) {
+            baseline_samples.push(execute(false));
+            candidate_samples.push(execute(true));
+        } else {
+            candidate_samples.push(execute(true));
+            baseline_samples.push(execute(false));
+        }
+    }
+
     let (baseline_median, baseline_p95) = summarize(baseline_samples);
     let (candidate_median, candidate_p95) = summarize(candidate_samples);
     (
@@ -284,6 +300,7 @@ fn main() {
     println!("pre_rotated_k=true same_wgpu_context=true resident_buffers=true");
     println!("uploads_in_timing=false readback_in_timing=false");
     println!("correctness_gate=scalar_oracle_before_timing");
+    println!("measurement_order=alternating_m15_m48");
     println!("timing_scope=encode+queue_submit+device_poll");
     println!("kv_len,m15_median_us,m15_p95_us,m48_median_us,m48_p95_us,m15_over_m48,m15_max_abs,m48_max_abs");
     for kv_len in [128, 192, 256, 512, 1024, 2048, 4096, 8192] {
