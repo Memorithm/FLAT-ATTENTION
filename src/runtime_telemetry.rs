@@ -41,6 +41,54 @@ pub struct RuntimeDeviceFingerprint {
     pub device: u32,
 }
 
+impl RuntimeDeviceFingerprint {
+    /// Deterministic canonical representation used by Phase I autotuning keys.
+    ///
+    /// Adapter names remain provenance only: candidate selection must use
+    /// explicit capabilities/limits rather than marketing-name heuristics.
+    pub fn canonical_record(&self) -> String {
+        format!(
+            "name={};backend={};driver={};driver_info={};vendor={:08x};device={:08x}",
+            escape_component(&self.name),
+            escape_component(&self.backend),
+            escape_component(&self.driver),
+            escape_component(&self.driver_info),
+            self.vendor,
+            self.device,
+        )
+    }
+
+    /// Stable FNV-1a-64 fingerprint of [`Self::canonical_record`].
+    ///
+    /// This is a deterministic cache-key component, not a cryptographic
+    /// authenticity primitive.
+    pub fn stable_fingerprint(&self) -> u64 {
+        fnv1a64(self.canonical_record().as_bytes())
+    }
+}
+
+fn escape_component(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '%' => escaped.push_str("%25"),
+            ';' => escaped.push_str("%3b"),
+            '=' => escaped.push_str("%3d"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 /// Runtime-autotuner cache disposition attached to a dispatch record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum AutotunerCacheStatus {
@@ -83,6 +131,39 @@ impl RuntimeDispatchTelemetry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fingerprint_fixture() -> RuntimeDeviceFingerprint {
+        RuntimeDeviceFingerprint {
+            name: "NVIDIA Tegra NVIDIA Thor".into(),
+            backend: "Vulkan".into(),
+            driver: "580.00".into(),
+            driver_info: "test-driver-info".into(),
+            vendor: 0x10de,
+            device: 0x0001,
+        }
+    }
+
+    #[test]
+    fn device_fingerprint_is_deterministic_and_driver_sensitive() {
+        let baseline = fingerprint_fixture();
+        assert_eq!(
+            baseline.stable_fingerprint(),
+            baseline.clone().stable_fingerprint()
+        );
+
+        let mut changed = baseline.clone();
+        changed.driver.push_str("-changed");
+        assert_ne!(baseline.stable_fingerprint(), changed.stable_fingerprint());
+    }
+
+    #[test]
+    fn canonical_fingerprint_record_preserves_utf8_and_escapes_delimiters() {
+        let mut fingerprint = fingerprint_fixture();
+        fingerprint.name = "GPU été;a=b%".into();
+        assert!(fingerprint
+            .canonical_record()
+            .contains("name=GPU été%3ba%3db%25;"));
+    }
 
     #[test]
     fn autotuner_annotation_is_pure_metadata() {
