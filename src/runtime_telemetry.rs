@@ -146,7 +146,10 @@ mod tests {
     #[test]
     fn device_fingerprint_is_deterministic_and_driver_sensitive() {
         let baseline = fingerprint_fixture();
-        assert_eq!(baseline.stable_fingerprint(), baseline.clone().stable_fingerprint());
+        assert_eq!(
+            baseline.stable_fingerprint(),
+            baseline.clone().stable_fingerprint()
+        );
 
         let mut changed = baseline.clone();
         changed.driver.push_str("-changed");
