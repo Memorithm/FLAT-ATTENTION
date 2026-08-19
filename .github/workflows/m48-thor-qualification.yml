@@ -53,17 +53,20 @@ jobs:
           test "$actual" = "$SCIRUST_SOURCE_REVISION"
           rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
 
-      - name: Prepare isolated build directory
+      - name: Prepare isolated build directories
         shell: bash
         run: |
           set -euo pipefail
-          tmpdir="$(mktemp -d "$RUNNER_TEMP/flat-m48.XXXXXX")"
-          chmod 700 "$tmpdir"
-          mkdir -p "$tmpdir/cargo-home" "$tmpdir/target" "$tmpdir/xdg"
-          chmod 700 "$tmpdir/xdg"
-          echo "CARGO_TARGET_DIR=$tmpdir/target" >> "$GITHUB_ENV"
-          echo "CARGO_HOME=$tmpdir/cargo-home" >> "$GITHUB_ENV"
-          echo "XDG_RUNTIME_DIR=$tmpdir/xdg" >> "$GITHUB_ENV"
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-m48-runtime.XXXXXX")"
+          build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-m48-build.XXXXXX")"
+          chmod 700 "$runtime_dir" "$build_dir"
+          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$build_dir/target"
+          chmod 700 "$runtime_dir/xdg"
+          echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"
+          echo "FLAT_M48_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
+          echo "FLAT_M48_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
 
       - name: Build M48 sweep before GPU reservation
         shell: bash
@@ -184,3 +187,11 @@ jobs:
             printf '%s\n' "$post"
             exit 1
           fi
+
+      - name: Cleanup isolated directories
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${FLAT_M48_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_M48_BUILD_DIR"
+          [[ -z "${FLAT_M48_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_M48_RUNTIME_DIR"
