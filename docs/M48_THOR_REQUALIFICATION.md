@@ -51,6 +51,27 @@ The requalification requires:
 11. no upload or readback in the timed region;
 12. empty post-run compute occupancy.
 
+## Requalification result — accepted evidence
+
+GitHub Actions run `32295462628` on the exact PR head `fbcca14c72aac7e5c8b41c50fa4ec56a07d4bd95` (PR #94, `perf/m57-m24-capability-limits`) executed successfully on persistent physical runner `tarek-scirust-arm64-01`, adapter `NVIDIA Tegra NVIDIA Thor`, backend Vulkan, driver 580.00. The corrected protocol was fully enforced: exact-head checkout, compile before GPU reservation, `/dev/nvidia0` lock with independent contention proof, Thor/Vulkan identity verification, 300 seconds of continuous empty compute occupancy after setup, alternating M15/M48 timing order, scalar-oracle correctness gate before timing, upload/readback outside timing, 8 exact rows, and empty post-run occupancy.
+
+Recorded rows (5 warmups, 20 repeats, medians in microseconds):
+
+| KV length | M15 median µs | M15 p95 µs | M48 median µs | M48 p95 µs | M15 / M48 | M15 max abs | M48 max abs |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 477.010 | 1870.093 | 406.296 | 1569.894 | 1.174046 | 0.000022888 | 0.000022888 |
+| 192 | 658.279 | 926.500 | 554.751 | 597.951 | 1.186623 | 0.000024796 | 0.000024796 |
+| 256 | 842.981 | 891.379 | 706.525 | 716.470 | 1.193135 | 0.000070572 | 0.000070572 |
+| 512 | 1582.590 | 1621.664 | 1317.097 | 1343.171 | 1.201574 | 0.000110626 | 0.000110626 |
+| 1024 | 3067.410 | 3120.892 | 2515.128 | 2530.673 | 1.219584 | 0.000261307 | 0.000261307 |
+| 2048 | 6029.236 | 6092.903 | 4935.272 | 4948.965 | 1.221662 | 0.000444412 | 0.000444412 |
+| 4096 | 12115.010 | 12231.659 | 9890.572 | 10072.952 | 1.224905 | 0.001361847 | 0.001361847 |
+| 8192 | 23843.433 | 24092.140 | 19562.844 | 19706.253 | 1.218812 | 0.002237320 | 0.002237320 |
+
+The corrected protocol preserves parity (both routes produce identical max-abs differences against the scalar oracle at every KV length) and M48 has lower median latency across all eight target rows by 1.17x–1.22x. This **confirms** the earlier diagnostic signal under the strengthened protocol.
+
+This result is sufficient to justify a separate SciRust integration candidate: SciRust may pin an exact FLAT revision and demonstrate model-level decode parity and throughput on the same physical Thor before promotion. It does not by itself justify an unconditional FLAT global-default change, and `performance_claim=none` remains in the benchmark output.
+
 ## Decision rule
 
 The requalification itself must not assert a speedup. `performance_claim=none` remains in the benchmark output.
