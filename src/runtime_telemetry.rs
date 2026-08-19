@@ -89,6 +89,54 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
     hash
 }
 
+/// Explicit resource/capability limits of the selected WGPU device.
+///
+/// This is the M24 device capability model: deterministic host-side limits that
+/// candidate generation must respect before pipeline creation. Adapter marketing
+/// names are deliberately absent — selection uses these explicit limits, not
+/// name heuristics. The record serializes deterministically so it can join the
+/// autotuning cache key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RuntimeDeviceCapabilities {
+    pub max_workgroups_per_dimension: u32,
+    pub max_workgroup_size_x: u32,
+    pub max_workgroup_size_y: u32,
+    pub max_workgroup_size_z: u32,
+    pub max_workgroup_storage_bytes: u32,
+    /// Maximum number of bind groups per dispatch (wgpu 0.20 `max_bind_groups`).
+    pub max_binding_entries: u32,
+    pub max_storage_buffer_binding_size: u32,
+    pub subgroup_supported: bool,
+    pub subgroup_min_size: u32,
+    pub subgroup_max_size: u32,
+    pub f16_supported: bool,
+}
+
+impl RuntimeDeviceCapabilities {
+    /// Deterministic canonical representation used by Phase I autotuning keys.
+    pub fn canonical_record(&self) -> String {
+        format!(
+            "wgpd={};wgsx={};wgsy={};wgsz={};wgss={};bind={};sbuf={};sub={};submin={};submax={};f16={}",
+            self.max_workgroups_per_dimension,
+            self.max_workgroup_size_x,
+            self.max_workgroup_size_y,
+            self.max_workgroup_size_z,
+            self.max_workgroup_storage_bytes,
+            self.max_binding_entries,
+            self.max_storage_buffer_binding_size,
+            u8::from(self.subgroup_supported),
+            self.subgroup_min_size,
+            self.subgroup_max_size,
+            u8::from(self.f16_supported),
+        )
+    }
+
+    /// Stable FNV-1a-64 fingerprint of [`Self::canonical_record`].
+    pub fn stable_fingerprint(&self) -> u64 {
+        fnv1a64(self.canonical_record().as_bytes())
+    }
+}
+
 /// Runtime-autotuner cache disposition attached to a dispatch record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum AutotunerCacheStatus {
@@ -199,5 +247,46 @@ mod tests {
             telemetry.autotuner_cache,
             AutotunerCacheStatus::NotApplicable
         );
+    }
+
+    fn capabilities_fixture() -> RuntimeDeviceCapabilities {
+        RuntimeDeviceCapabilities {
+            max_workgroups_per_dimension: 65535,
+            max_workgroup_size_x: 1024,
+            max_workgroup_size_y: 1024,
+            max_workgroup_size_z: 64,
+            max_workgroup_storage_bytes: 32768,
+            max_binding_entries: 12,
+            max_storage_buffer_binding_size: 1 << 30,
+            subgroup_supported: true,
+            subgroup_min_size: 32,
+            subgroup_max_size: 32,
+            f16_supported: true,
+        }
+    }
+
+    #[test]
+    fn capabilities_record_is_deterministic_and_limit_sensitive() {
+        let baseline = capabilities_fixture();
+        assert_eq!(baseline.stable_fingerprint(), baseline.stable_fingerprint());
+
+        let mut changed = baseline;
+        changed.max_workgroup_storage_bytes = 16384;
+        assert_ne!(baseline.stable_fingerprint(), changed.stable_fingerprint());
+
+        let mut f16_flip = baseline;
+        f16_flip.f16_supported = false;
+        assert_ne!(baseline.stable_fingerprint(), f16_flip.stable_fingerprint());
+    }
+
+    #[test]
+    fn capabilities_record_is_dispatch_boundary_explicit() {
+        let capabilities = capabilities_fixture();
+        assert!(capabilities.max_workgroups_per_dimension >= 1);
+        assert!(capabilities.max_workgroup_size_x >= 1);
+        assert!(capabilities.max_workgroup_storage_bytes >= 1);
+        assert!(capabilities.max_binding_entries >= 1);
+        assert!(capabilities.max_storage_buffer_binding_size >= 1);
+        assert!(capabilities.subgroup_max_size >= capabilities.subgroup_min_size);
     }
 }
