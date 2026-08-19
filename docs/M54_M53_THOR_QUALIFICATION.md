@@ -39,6 +39,27 @@ The GitHub Actions qualification requires:
 10. empty post-run GPU-compute occupancy;
 11. unconditional cleanup of isolated runtime and build directories.
 
+## Qualification result — accepted evidence
+
+GitHub Actions run `32301107798` on the exact PR head `f4d3d066193c3c81ed8cbfc892770fa7dd652706` (PR #94, `perf/m57-m24-capability-limits`) executed successfully on persistent physical runner `tarek-scirust-arm64-01`, adapter `NVIDIA Tegra NVIDIA Thor`, backend Vulkan, driver 580.00. The full protocol was enforced: exact-head checkout, compile before GPU reservation, `/dev/nvidia0` lock with independent contention proof, Thor/Vulkan identity verification, 300 seconds of continuous empty compute occupancy, alternating portable/vec4 order, scalar-oracle correctness gate before timing, upload/readback outside timing, 8 exact rows, and empty post-run occupancy.
+
+Recorded rows (batch 1, GQA q_heads=8 kv_heads=2, 5 warmups, 20 repeats, medians in microseconds):
+
+| seq | dim | causal | portable median µs | portable p95 µs | vec4 median µs | vec4 p95 µs | portable / vec4 | parity max abs |
+|---:|---:|:---:|---:|---:|---:|---:|---:|---:|
+| 128 | 64 | no | 1651.359 | 1756.028 | 1495.385 | 1513.774 | 1.104304 | 0.00000000 |
+| 128 | 64 | yes | 982.741 | 1124.844 | 888.092 | 897.148 | 1.106576 | 0.00000000 |
+| 128 | 128 | no | 1913.824 | 1963.139 | 1649.988 | 1657.025 | 1.159902 | 0.00000000 |
+| 128 | 128 | yes | 1105.974 | 1163.224 | 964.908 | 983.555 | 1.146196 | 0.00000000 |
+| 512 | 64 | no | 20801.111 | 20920.667 | 18466.727 | 18581.405 | 1.126410 | 0.00000000 |
+| 512 | 64 | yes | 10945.172 | 11024.525 | 10007.440 | 10162.506 | 1.093703 | 0.00000000 |
+| 512 | 128 | no | 24163.413 | 24339.107 | 20444.803 | 20652.924 | 1.181885 | 0.00000000 |
+| 512 | 128 | yes | 12505.419 | 12594.436 | 10839.948 | 10876.172 | 1.153642 | 0.00000000 |
+
+The qualification confirms the earlier Intel Iris Xe development signal on physical NVIDIA Thor: vec4 preserves exact parity (max abs 0.0 against the scalar oracle) and materially improves all eight target rows by 1.09x–1.18x. The vec4 candidate is retained as the qualified opt-in path for the asymmetric projection pipeline.
+
+This FLAT-only comparison does **not** establish model-level SciAgent throughput or the roadmap's final comparison against SciRust's previous multi-dispatch implementation. `performance_claim=none` remains the claim boundary for product routing; the measured rows are candidate-selection evidence only.
+
 ## Decision boundary
 
 The qualification job deliberately does **not** fail merely because vec4 is slower in a measured row. Its purpose is to produce unbiased physical-device evidence, not to encode the desired result into CI.

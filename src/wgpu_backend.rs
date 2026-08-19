@@ -10,9 +10,9 @@ use std::sync::{mpsc, Arc};
 
 use super::{
     validate_input, AttentionShape, AutotunerCacheStatus, FlatAttentionConfig, FlatAttentionError,
-    FlatAttentionOutput, RuntimeDeviceFingerprint, RuntimeDispatchTelemetry, RuntimeKernelId,
-    RuntimeTileGeometry, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM,
-    WGSL_QUERY_ROWS,
+    FlatAttentionOutput, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
+    RuntimeDispatchTelemetry, RuntimeKernelId, RuntimeTileGeometry, FLAT_FWD_SUBGROUP_WGSL,
+    FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
@@ -157,6 +157,7 @@ struct WgpuFlatAttentionInner {
     double_buffer_pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     device_fingerprint: RuntimeDeviceFingerprint,
+    device_capabilities: RuntimeDeviceCapabilities,
     fallback_reason: Option<String>,
     max_workgroups_per_dimension: u32,
     subgroup_supported: bool,
@@ -296,6 +297,21 @@ impl WgpuFlatAttention {
             WgpuFlatAttentionError::Execution(format!("M7 double-buffer pipeline: {error}"))
         })?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
+        let device_limits = device.limits();
+        let device_features = device.features();
+        let device_capabilities = RuntimeDeviceCapabilities {
+            max_workgroups_per_dimension,
+            max_workgroup_size_x: device_limits.max_compute_workgroup_size_x,
+            max_workgroup_size_y: device_limits.max_compute_workgroup_size_y,
+            max_workgroup_size_z: device_limits.max_compute_workgroup_size_z,
+            max_workgroup_storage_bytes: device_limits.max_compute_workgroup_storage_size,
+            max_binding_entries: device_limits.max_bind_groups,
+            max_storage_buffer_binding_size: device_limits.max_storage_buffer_binding_size,
+            subgroup_supported,
+            subgroup_min_size: adapter_limits.min_subgroup_size,
+            subgroup_max_size: adapter_limits.max_subgroup_size,
+            f16_supported: device_features.contains(wgpu::Features::SHADER_F16),
+        };
 
         Ok(Self {
             inner: Arc::new(WgpuFlatAttentionInner {
@@ -306,6 +322,7 @@ impl WgpuFlatAttention {
                 double_buffer_pipeline,
                 adapter_name,
                 device_fingerprint,
+                device_capabilities,
                 fallback_reason,
                 max_workgroups_per_dimension,
                 subgroup_supported,
@@ -319,6 +336,12 @@ impl WgpuFlatAttention {
 
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
+    }
+
+    /// Explicit M24 capability/limit model of the selected device.
+    #[must_use]
+    pub fn device_capabilities(&self) -> RuntimeDeviceCapabilities {
+        self.inner.device_capabilities
     }
 
     pub fn max_workgroups_per_dimension(&self) -> u32 {
