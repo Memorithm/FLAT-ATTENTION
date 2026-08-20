@@ -19,9 +19,9 @@ pub(crate) fn rotate_so4_block(
     position: usize,
     epg: EpgEmbeddingConfig,
 ) -> Result<[f32; 4], EpgError> {
-    let geometry = epg
-        .so4_geometry()
-        .ok_or(EpgError::Contract(epg_core::EpgContractError::InvalidSo4Dims(0)))?;
+    let geometry = epg.so4_geometry().ok_or(EpgError::Contract(
+        epg_core::EpgContractError::InvalidSo4Dims(0),
+    ))?;
     let omega_01 = frequency(epg.theta(), first_pair, head_dim);
     let omega_23 = match geometry {
         So4Geometry::Isoclinic => omega_01,
