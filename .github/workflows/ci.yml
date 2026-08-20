@@ -72,3 +72,17 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --nocapture
+      - name: Smoke EPG Q4 benchmark protocol on software Vulkan
+        timeout-minutes: 5
+        env:
+          FLAT_EPG_BENCH_ALLOW_SOFTWARE: "1"
+          FLAT_EPG_BENCH_WARMUP: "1"
+          FLAT_EPG_BENCH_ITERATIONS: "1"
+          FLAT_EPG_BENCH_SEQ_LENS: "4"
+        run: |
+          set -euo pipefail
+          output="$(mktemp)"
+          cargo run --manifest-path crates/flat-epg-q4-candidate/Cargo.toml \
+            --example epg_q4_hardware_sweep --release | tee "$output"
+          grep -Fx 'hardware_measurement_eligible=false' "$output"
+          grep -Fx 'performance_claim=measurement_only_no_production_routing_change' "$output"
