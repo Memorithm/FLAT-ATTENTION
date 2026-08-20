@@ -1,102 +1,106 @@
 use core::fmt;
+
+use epg_core::{
+    EpgContractError, EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geometry,
+};
 use flat_attention::FlatAttentionError;
 
-/// Stable version of the reference representation contract.
-pub const EPG_CONTRACT_VERSION: u32 = 1;
+pub use epg_core::EPG_CONTRACT_VERSION;
+pub use epg_core::So4Geometry as CoreSo4Geometry;
 
-/// Four-dimensional rotation family used by the EPG portion of a head.
+/// Execution-local EPG configuration used by the scalar FLAT oracle.
+///
+/// The mathematical representation (`geometry`) and the position origin
+/// (`position`) are intentionally separate. Moving a query to another absolute
+/// offset does not create a new model representation capability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum So4Geometry {
-    /// Canonical isoclinic control: both planes share one frequency.
-    Isoclinic,
-    /// Canonical double rotation using two consecutive RoPE frequencies.
-    Biplanar,
-}
-
-/// Versioned head-local hybrid positional-geometry descriptor.
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EpgEmbeddingConfig {
-    /// Contract version.
-    pub version: u32,
-    /// RoPE-compatible base frequency.
-    pub theta: f32,
-    /// Absolute position added to token indices in this attention call.
-    pub position_offset: usize,
-    /// Number of trailing head channels assigned to four-dimensional blocks.
-    pub so4_dims: usize,
-    /// Geometry used by the four-dimensional blocks.
-    pub so4_geometry: So4Geometry,
+    /// Stable geometry descriptor shared with runtimes and other backends.
+    pub geometry: EpgGeometryDescriptor,
+    /// Absolute position domain for this execution.
+    pub position: EpgPositionDomain,
 }
 
 impl EpgEmbeddingConfig {
-    /// Construct a generation-1 descriptor.
-    pub const fn v1(
+    /// Construct ordinary SO(2) RoPE in an EPG execution domain.
+    pub fn so2(theta: f32, position_offset: usize) -> Result<Self, EpgError> {
+        Ok(Self {
+            geometry: EpgGeometryDescriptor::so2(theta)?,
+            position: EpgPositionDomain::new(
+                u64::try_from(position_offset).map_err(|_| EpgError::PositionOverflow)?,
+            ),
+        })
+    }
+
+    /// Construct a hybrid SO(2)/SO(4) execution descriptor.
+    pub fn hybrid_so4(
         theta: f32,
         position_offset: usize,
         so4_dims: usize,
         so4_geometry: So4Geometry,
-    ) -> Self {
-        Self {
-            version: EPG_CONTRACT_VERSION,
-            theta,
-            position_offset,
-            so4_dims,
-            so4_geometry,
+    ) -> Result<Self, EpgError> {
+        Ok(Self {
+            geometry: EpgGeometryDescriptor::hybrid_so4(
+                theta,
+                u32::try_from(so4_dims).map_err(|_| EpgError::DimensionOverflow)?,
+                so4_geometry,
+            )?,
+            position: EpgPositionDomain::new(
+                u64::try_from(position_offset).map_err(|_| EpgError::PositionOverflow)?,
+            ),
+        })
+    }
+
+    /// RoPE-compatible base frequency.
+    pub const fn theta(self) -> f32 {
+        self.geometry.theta()
+    }
+
+    /// Number of trailing dimensions assigned to SO(4) blocks.
+    pub const fn so4_dims(self) -> usize {
+        self.geometry.so4_dims() as usize
+    }
+
+    /// SO(4) control family when this is a hybrid descriptor.
+    pub const fn so4_geometry(self) -> Option<So4Geometry> {
+        match self.geometry.kind() {
+            EpgGeometryKind::So2 => None,
+            EpgGeometryKind::HybridSo4(geometry) => Some(geometry),
         }
     }
 
-    /// Number of leading channels retaining ordinary interleaved `SO(2)` RoPE.
-    pub const fn so2_dims(self, head_dim: usize) -> usize {
-        head_dim - self.so4_dims
+    /// Number of leading dimensions retaining ordinary interleaved SO(2) RoPE.
+    pub fn so2_dims(self, head_dim: usize) -> Result<usize, EpgError> {
+        let head_dim = u32::try_from(head_dim).map_err(|_| EpgError::DimensionOverflow)?;
+        Ok(self.geometry.so2_dims(head_dim)? as usize)
     }
 
-    /// Validate the representation against one attention head.
+    /// Resolve one local token index to an absolute position representable by
+    /// the scalar oracle.
+    pub fn resolve_position(self, local_index: usize) -> Result<usize, EpgError> {
+        let local_index = u64::try_from(local_index).map_err(|_| EpgError::PositionOverflow)?;
+        let absolute = self.position.resolve(local_index)?;
+        usize::try_from(absolute).map_err(|_| EpgError::PositionOverflow)
+    }
+
+    /// Validate the representation against one attention head and sequence.
     pub fn validate(self, head_dim: usize, seq_len: usize) -> Result<(), EpgError> {
-        if self.version != EPG_CONTRACT_VERSION {
-            return Err(EpgError::UnsupportedContractVersion(self.version));
-        }
-        if head_dim == 0 || !head_dim.is_multiple_of(2) {
-            return Err(EpgError::InvalidHeadDim(head_dim));
-        }
-        if self.so4_dims > head_dim || !self.so4_dims.is_multiple_of(4) {
-            return Err(EpgError::InvalidSo4Tail {
-                head_dim,
-                so4_dims: self.so4_dims,
-            });
-        }
-        if !(head_dim - self.so4_dims).is_multiple_of(2) {
-            return Err(EpgError::InvalidSo4Tail {
-                head_dim,
-                so4_dims: self.so4_dims,
-            });
-        }
-        if !self.theta.is_finite() || self.theta <= 0.0 {
-            return Err(EpgError::InvalidTheta(self.theta));
-        }
-        self.position_offset
-            .checked_add(seq_len.saturating_sub(1))
-            .ok_or(EpgError::PositionOverflow)?;
+        let head_dim = u32::try_from(head_dim).map_err(|_| EpgError::DimensionOverflow)?;
+        self.geometry.validate_head_dim(head_dim)?;
+        self.resolve_position(seq_len.saturating_sub(1))?;
         Ok(())
     }
 }
 
-/// Failures in the EPG representation contract or wrapped FLAT contract.
+/// Failures in the EPG representation contract, oracle adapter, or wrapped
+/// FLAT attention contract.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EpgError {
-    /// Descriptor version is not implemented by this reference crate.
-    UnsupportedContractVersion(u32),
-    /// Head dimension is zero or odd.
-    InvalidHeadDim(usize),
-    /// Four-dimensional tail is not a valid multiple-of-four suffix.
-    InvalidSo4Tail {
-        /// Full head dimension.
-        head_dim: usize,
-        /// Requested SO(4) suffix dimension.
-        so4_dims: usize,
-    },
-    /// Base frequency is non-finite or non-positive.
-    InvalidTheta(f32),
-    /// Position arithmetic overflowed `usize`.
+    /// Runtime-neutral EPG contract error.
+    Contract(EpgContractError),
+    /// A host dimension does not fit the portable EPG contract index space.
+    DimensionOverflow,
+    /// Position arithmetic cannot be represented by the host oracle.
     PositionOverflow,
     /// Input tensor has the wrong scalar length.
     LengthMismatch {
@@ -118,6 +122,12 @@ pub enum EpgError {
     Flat(FlatAttentionError),
 }
 
+impl From<EpgContractError> for EpgError {
+    fn from(value: EpgContractError) -> Self {
+        Self::Contract(value)
+    }
+}
+
 impl From<FlatAttentionError> for EpgError {
     fn from(value: FlatAttentionError) -> Self {
         Self::Flat(value)
@@ -127,15 +137,14 @@ impl From<FlatAttentionError> for EpgError {
 impl fmt::Display for EpgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedContractVersion(v) => write!(f, "unsupported EPG contract version {v}"),
-            Self::InvalidHeadDim(d) => write!(f, "EPG head_dim must be non-zero and even, got {d}"),
-            Self::InvalidSo4Tail { head_dim, so4_dims } => write!(
-                f,
-                "EPG so4_dims must be a multiple of four not exceeding head_dim; got {so4_dims}/{head_dim}"
-            ),
-            Self::InvalidTheta(t) => write!(f, "EPG theta must be finite and positive, got {t}"),
-            Self::PositionOverflow => write!(f, "EPG position offset overflows the index space"),
-            Self::LengthMismatch { tensor, actual, expected } => write!(
+            Self::Contract(error) => write!(f, "EPG contract error: {error}"),
+            Self::DimensionOverflow => write!(f, "EPG dimension exceeds the portable index space"),
+            Self::PositionOverflow => write!(f, "EPG position exceeds the host index space"),
+            Self::LengthMismatch {
+                tensor,
+                actual,
+                expected,
+            } => write!(
                 f,
                 "tensor {tensor} contains {actual} elements, expected {expected}"
             ),
