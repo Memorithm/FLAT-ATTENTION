@@ -150,7 +150,7 @@ impl EpgQ4CandidatePipeline {
         validate_dispatch("y/batch_q_heads", dispatch_y, maximum)?;
 
         let scale = pass.config.resolved_scale(pass.shape.head_dim)?;
-        let params = encode_params(pass, scale)?;
+        let params = encode_params(&pass, scale)?;
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-epg-q4-candidate-params"),
             size: params.len() as u64,
@@ -229,7 +229,7 @@ impl EpgQ4CandidatePipeline {
 }
 
 fn encode_params(
-    pass: EpgQualificationPass<'_>,
+    pass: &EpgQualificationPass<'_>,
     scale: f32,
 ) -> Result<Vec<u8>, EpgQualificationError> {
     let values = [
