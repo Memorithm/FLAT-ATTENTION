@@ -15,6 +15,16 @@ struct Harness {
     queue: wgpu::Queue,
 }
 
+#[derive(Clone, Copy)]
+struct Case {
+    q_heads: usize,
+    kv_heads: usize,
+    head_dim: usize,
+    causal: bool,
+    position_offset: u64,
+    geometry: EpgGeometryDescriptor,
+}
+
 fn harness() -> Option<Harness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
@@ -129,13 +139,16 @@ fn run_case(
     harness: &Harness,
     baseline: &EpgVec4QualificationPipeline,
     candidate: &EpgQ4CandidatePipeline,
-    q_heads: usize,
-    kv_heads: usize,
-    head_dim: usize,
-    causal: bool,
-    position_offset: u64,
-    geometry: EpgGeometryDescriptor,
+    case: Case,
 ) {
+    let Case {
+        q_heads,
+        kv_heads,
+        head_dim,
+        causal,
+        position_offset,
+        geometry,
+    } = case;
     let shape = GroupedAttentionShape {
         batch: 1,
         q_heads,
@@ -278,12 +291,14 @@ fn q4_candidate_matches_cpu_and_qualified_gpu_baseline() {
                             &harness,
                             &baseline,
                             &candidate,
-                            q_heads,
-                            kv_heads,
-                            head_dim,
-                            causal,
-                            position_offset,
-                            geometry,
+                            Case {
+                                q_heads,
+                                kv_heads,
+                                head_dim,
+                                causal,
+                                position_offset,
+                                geometry,
+                            },
                         );
                     }
                 }
