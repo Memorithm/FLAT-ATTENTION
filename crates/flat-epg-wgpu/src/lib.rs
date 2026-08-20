@@ -9,7 +9,9 @@
 use core::fmt;
 use std::borrow::Cow;
 
-use epg_core::{EpgContractError, EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geometry};
+use epg_core::{
+    EpgContractError, EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geometry,
+};
 use flat_attention::{FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape};
 
 /// Qualification shader source.
@@ -268,9 +270,9 @@ impl EpgVec4QualificationPipeline {
         validate_buffer("O|LSE", pass.output, layout.combined_bytes)?;
 
         let final_local = pass.shape.seq_len.saturating_sub(1);
-        let final_position = pass
-            .position
-            .resolve(u64::try_from(final_local).map_err(|_| EpgQualificationError::PositionSpaceExceeded)?)?;
+        let final_position = pass.position.resolve(
+            u64::try_from(final_local).map_err(|_| EpgQualificationError::PositionSpaceExceeded)?,
+        )?;
         if final_position > u32::MAX as u64 {
             return Err(EpgQualificationError::PositionSpaceExceeded);
         }

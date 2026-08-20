@@ -230,18 +230,10 @@ fn vec4_gpu_matches_cpu_epg_controls_for_mha_gqa_and_mqa() {
             let so4_tail = (head_dim / 2) as u32;
             let geometries = [
                 EpgGeometryDescriptor::so2(10_000.0).unwrap(),
-                EpgGeometryDescriptor::hybrid_so4(
-                    10_000.0,
-                    so4_tail,
-                    So4Geometry::Biplanar,
-                )
-                .unwrap(),
-                EpgGeometryDescriptor::hybrid_so4(
-                    10_000.0,
-                    so4_tail,
-                    So4Geometry::Isoclinic,
-                )
-                .unwrap(),
+                EpgGeometryDescriptor::hybrid_so4(10_000.0, so4_tail, So4Geometry::Biplanar)
+                    .unwrap(),
+                EpgGeometryDescriptor::hybrid_so4(10_000.0, so4_tail, So4Geometry::Isoclinic)
+                    .unwrap(),
             ];
             for geometry in geometries {
                 for causal in [false, true] {
