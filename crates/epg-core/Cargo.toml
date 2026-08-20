@@ -1,0 +1,10 @@
+[package]
+name = "epg-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Runtime-neutral core contracts for Elastic Positional Geometry"
+license-file = "../../LICENSE.md"
+
+[dependencies]
