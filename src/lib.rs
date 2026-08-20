@@ -80,6 +80,8 @@ pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL: &str =
 /// M53 opt-in vec4 loads for rectangular projection-layout RoPE + GQA/MQA.
 pub const FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_VEC4_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_asymmetric_vec4.wgsl");
+/// M58 opt-in Q1 vec4 MHA kernel: one workgroup per query row, register Q.
+pub const FLAT_FWD_Q1_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_q1_vec4.wgsl");
 /// M12 padded variable-length projection-layout RoPE + GQA/MQA kernel.
 pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
     include_str!("../shaders/flat_fwd_projection_rope_variable.wgsl");

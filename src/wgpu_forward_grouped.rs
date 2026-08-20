@@ -14,7 +14,7 @@ use core::fmt;
 
 use crate::{
     FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape, FLAT_FWD_GROUPED_WGSL,
-    WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    FLAT_FWD_Q1_VEC4_WGSL, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
@@ -60,6 +60,8 @@ pub enum GroupedForwardKernelVariant {
     Q4Vec4Mha,
     /// Native grouped vec4 Q4 candidate for GQA/MQA with D=64/128.
     Q4Vec4Grouped,
+    /// M58 opt-in Q1 vec4 MHA kernel: one workgroup per query row.
+    Q1Vec4Mha,
 }
 
 /// Reusable grouped-forward bindings for a fixed resident Q/K/V/output contract.
@@ -169,6 +171,7 @@ pub struct WgpuGroupedForwardPipeline {
     portable_pipeline: wgpu::ComputePipeline,
     mha_vec4_pipeline: Option<wgpu::ComputePipeline>,
     grouped_vec4_pipeline: Option<wgpu::ComputePipeline>,
+    q1_vec4_pipeline: Option<wgpu::ComputePipeline>,
 }
 
 impl fmt::Debug for WgpuGroupedForwardPipeline {
@@ -179,6 +182,7 @@ impl fmt::Debug for WgpuGroupedForwardPipeline {
                 "grouped_vec4_pipeline",
                 &self.grouped_vec4_pipeline.is_some(),
             )
+            .field("q1_vec4_pipeline", &self.q1_vec4_pipeline.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -206,6 +210,25 @@ impl WgpuGroupedForwardPipeline {
         enabled: bool,
     ) -> Result<Self, GroupedForwardError> {
         Self::with_vectorization_modes(device, false, enabled)
+    }
+
+    /// Opt-in M58 Q1 vec4 MHA candidate: one workgroup per query row.
+    ///
+    /// Independent from the M6 Q4 vec4 MHA route so callers can A/B the two
+    /// kernels without changing any other selection semantics.
+    pub fn with_q1_vec4_mha(
+        device: &wgpu::Device,
+        enabled: bool,
+    ) -> Result<Self, GroupedForwardError> {
+        let mut pipeline = Self::with_vectorization_modes(device, false, false)?;
+        if enabled {
+            pipeline.q1_vec4_pipeline = Some(create_pipeline(
+                device,
+                FLAT_FWD_Q1_VEC4_WGSL,
+                "flat-m58-grouped-forward-q1-vec4-mha",
+            )?);
+        }
+        Ok(pipeline)
     }
 
     fn with_vectorization_modes(
@@ -240,6 +263,7 @@ impl WgpuGroupedForwardPipeline {
             portable_pipeline,
             mha_vec4_pipeline,
             grouped_vec4_pipeline,
+            q1_vec4_pipeline: None,
         })
     }
 
@@ -251,11 +275,20 @@ impl WgpuGroupedForwardPipeline {
         self.grouped_vec4_pipeline.is_some()
     }
 
+    pub fn q1_vec4_enabled(&self) -> bool {
+        self.q1_vec4_pipeline.is_some()
+    }
+
     pub fn kernel_variant_for_shape(
         &self,
         shape: GroupedAttentionShape,
     ) -> GroupedForwardKernelVariant {
-        if self.grouped_vec4_pipeline.is_some()
+        if self.q1_vec4_pipeline.is_some()
+            && shape.q_heads == shape.kv_heads
+            && matches!(shape.head_dim, 64 | 128)
+        {
+            GroupedForwardKernelVariant::Q1Vec4Mha
+        } else if self.grouped_vec4_pipeline.is_some()
             && shape.q_heads != shape.kv_heads
             && matches!(shape.head_dim, 64 | 128)
         {
@@ -327,13 +360,20 @@ impl WgpuGroupedForwardPipeline {
         validate_buffer("V", pass.v, layout.kv_bytes)?;
         validate_buffer("O|LSE", pass.output, layout.output_bytes)?;
 
-        let query_workgroups = pass.shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
+        let kernel_variant = self.kernel_variant_for_shape(pass.shape);
         let q_batch_heads = pass
             .shape
             .batch
             .checked_mul(pass.shape.q_heads)
             .ok_or(FlatAttentionError::ShapeOverflow)?;
         let maximum = device.limits().max_compute_workgroups_per_dimension;
+        // The Q1 kernel dispatches one workgroup per query row; the Q4 kernels
+        // dispatch one workgroup per four-row tile.
+        let query_workgroups = if kernel_variant == GroupedForwardKernelVariant::Q1Vec4Mha {
+            pass.shape.seq_len
+        } else {
+            pass.shape.seq_len.div_ceil(WGSL_QUERY_ROWS)
+        };
         if query_workgroups > maximum as usize {
             return Err(GroupedForwardError::DispatchLimit {
                 axis: "x/query_tiles",
@@ -341,7 +381,6 @@ impl WgpuGroupedForwardPipeline {
                 maximum,
             });
         }
-        let kernel_variant = self.kernel_variant_for_shape(pass.shape);
         let dispatch_workgroups_y = q_batch_heads;
         if dispatch_workgroups_y > maximum as usize {
             return Err(GroupedForwardError::DispatchLimit {
@@ -376,6 +415,21 @@ impl WgpuGroupedForwardPipeline {
                 self.mha_vec4_pipeline
                     .as_ref()
                     .expect("MHA vec4 variant is selected only when the pipeline exists"),
+                [
+                    checked_u32(pass.shape.seq_len)?,
+                    checked_u32(pass.shape.head_dim)?,
+                    checked_u32(q_batch_heads)?,
+                    u32::from(pass.config.causal),
+                    scale.to_bits(),
+                    0,
+                    0,
+                    0,
+                ],
+            ),
+            GroupedForwardKernelVariant::Q1Vec4Mha => (
+                self.q1_vec4_pipeline
+                    .as_ref()
+                    .expect("Q1 vec4 variant is selected only when the pipeline exists"),
                 [
                     checked_u32(pass.shape.seq_len)?,
                     checked_u32(pass.shape.head_dim)?,
@@ -454,6 +508,10 @@ impl WgpuGroupedForwardPipeline {
                 .grouped_vec4_pipeline
                 .as_ref()
                 .expect("prepared grouped vec4 pass retains a vectorized pipeline"),
+            GroupedForwardKernelVariant::Q1Vec4Mha => self
+                .q1_vec4_pipeline
+                .as_ref()
+                .expect("prepared Q1 vec4 pass retains a vectorized pipeline"),
         };
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("flat-m24-grouped-forward"),
