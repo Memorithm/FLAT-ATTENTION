@@ -40,6 +40,14 @@ jobs:
         run: cargo clippy --manifest-path crates/flat-epg-wgpu/Cargo.toml --all-targets -- -D warnings
       - name: Validate EPG qualification WGSL without a device
         run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml qualification_shader_parses_and_validates_with_naga_020
+      - name: Check EPG Q4 candidate formatting
+        run: cargo fmt --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --check
+      - name: Lint EPG Q4 candidate
+        run: cargo clippy --manifest-path crates/flat-epg-q4-candidate/Cargo.toml --all-targets -- -D warnings
+      - name: Validate EPG Q4 candidate WGSL without a device
+        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_shader_parses_and_validates_with_naga_020
+      - name: Validate EPG Q4 candidate host rejection without a device
+        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_rejects_unqualified_dimensions_without_a_device
 
   wgpu-device:
     runs-on: ubuntu-latest
@@ -60,3 +68,7 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml -- --nocapture
+      - name: Execute EPG Q4 CPU-GPU-baseline qualification matrix
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --nocapture
