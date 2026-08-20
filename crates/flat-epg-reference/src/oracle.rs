@@ -215,8 +215,7 @@ mod tests {
     fn isoclinic_dot_is_translation_relative() {
         let q = [0.3, -0.2, 0.8, 1.1];
         let k = [-0.7, 0.4, 0.2, -1.3];
-        let epg = EpgEmbeddingConfig::hybrid_so4(10_000.0, 0, 4, So4Geometry::Isoclinic)
-            .unwrap();
+        let epg = EpgEmbeddingConfig::hybrid_so4(10_000.0, 0, 4, So4Geometry::Isoclinic).unwrap();
         let a = epg_dot(&q, &k, 4, 23, 7, epg).unwrap();
         let b = epg_dot(&q, &k, 4, 119, 103, epg).unwrap();
         assert!((a - b).abs() < 2e-5, "{a} != {b}");
