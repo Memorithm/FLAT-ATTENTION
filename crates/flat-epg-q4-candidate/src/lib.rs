@@ -17,8 +17,7 @@ use flat_epg_wgpu::{
 };
 
 /// Q4 candidate shader source.
-pub const EPG_GROUPED_VEC4_Q4_WGSL: &str =
-    include_str!("../shaders/epg_grouped_vec4_q4.wgsl");
+pub const EPG_GROUPED_VEC4_Q4_WGSL: &str = include_str!("../shaders/epg_grouped_vec4_q4.wgsl");
 
 /// Number of query rows computed by one Q4 workgroup.
 pub const EPG_Q4_QUERY_ROWS: usize = 4;
@@ -94,7 +93,6 @@ impl EpgQ4CandidatePipeline {
     pub fn layout(
         shape: GroupedAttentionShape,
     ) -> Result<EpgQualificationLayout, EpgQualificationError> {
-        shape.validate()?;
         if !matches!(shape.head_dim, 64 | 128) {
             return Err(EpgQualificationError::UnsupportedHeadDim(shape.head_dim));
         }
