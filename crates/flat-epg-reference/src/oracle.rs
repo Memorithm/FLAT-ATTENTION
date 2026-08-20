@@ -56,10 +56,7 @@ pub fn forward_reference_grouped_epg(
 
             for query_pos in 0..shape.seq_len {
                 let q_base = q_head_base + query_pos * shape.head_dim;
-                let query_position = epg
-                    .position_offset
-                    .checked_add(query_pos)
-                    .ok_or(EpgError::PositionOverflow)?;
+                let query_position = epg.resolve_position(query_pos)?;
                 let mut running_max = f32::NEG_INFINITY;
                 let mut running_sum = 0.0f32;
 
@@ -68,10 +65,7 @@ pub fn forward_reference_grouped_epg(
                         break;
                     }
                     let kv_base = kv_head_base + key_pos * shape.head_dim;
-                    let key_position = epg
-                        .position_offset
-                        .checked_add(key_pos)
-                        .ok_or(EpgError::PositionOverflow)?;
+                    let key_position = epg.resolve_position(key_pos)?;
                     let dot = epg_dot(
                         &q[q_base..q_base + shape.head_dim],
                         &k[kv_base..kv_base + shape.head_dim],
@@ -79,7 +73,7 @@ pub fn forward_reference_grouped_epg(
                         query_position,
                         key_position,
                         epg,
-                    );
+                    )?;
                     let score = dot * scale;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
@@ -138,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn zero_so4_dims_matches_rope() {
+    fn pure_so2_matches_rope() {
         let shape = GroupedAttentionShape {
             batch: 1,
             q_heads: 4,
@@ -170,7 +164,7 @@ mod tests {
             &v,
             shape,
             cfg,
-            EpgEmbeddingConfig::v1(theta, 3, 0, So4Geometry::Biplanar),
+            EpgEmbeddingConfig::so2(theta, 3).unwrap(),
         )
         .unwrap();
         assert_close(&rope.output, &epg.output, 1e-6);
@@ -210,7 +204,7 @@ mod tests {
             &v,
             shape,
             cfg,
-            EpgEmbeddingConfig::v1(theta, 11, 8, So4Geometry::Biplanar),
+            EpgEmbeddingConfig::hybrid_so4(theta, 11, 8, So4Geometry::Biplanar).unwrap(),
         )
         .unwrap();
         assert_close(&rope.output, &epg.output, 2e-6);
@@ -221,9 +215,10 @@ mod tests {
     fn isoclinic_dot_is_translation_relative() {
         let q = [0.3, -0.2, 0.8, 1.1];
         let k = [-0.7, 0.4, 0.2, -1.3];
-        let epg = EpgEmbeddingConfig::v1(10_000.0, 0, 4, So4Geometry::Isoclinic);
-        let a = epg_dot(&q, &k, 4, 23, 7, epg);
-        let b = epg_dot(&q, &k, 4, 119, 103, epg);
+        let epg = EpgEmbeddingConfig::hybrid_so4(10_000.0, 0, 4, So4Geometry::Isoclinic)
+            .unwrap();
+        let a = epg_dot(&q, &k, 4, 23, 7, epg).unwrap();
+        let b = epg_dot(&q, &k, 4, 119, 103, epg).unwrap();
         assert!((a - b).abs() < 2e-5, "{a} != {b}");
     }
 }
