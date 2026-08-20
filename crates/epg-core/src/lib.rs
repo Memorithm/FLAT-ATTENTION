@@ -66,11 +66,7 @@ impl EpgGeometryDescriptor {
         Self::build(theta, EpgGeometryKind::HybridSo4(geometry), so4_dims)
     }
 
-    fn build(
-        theta: f32,
-        kind: EpgGeometryKind,
-        so4_dims: u32,
-    ) -> Result<Self, EpgContractError> {
+    fn build(theta: f32, kind: EpgGeometryKind, so4_dims: u32) -> Result<Self, EpgContractError> {
         if !theta.is_finite() || theta <= 0.0 {
             return Err(EpgContractError::InvalidTheta(theta.to_bits()));
         }
@@ -186,7 +182,10 @@ impl fmt::Display for EpgContractError {
             Self::InvalidHeadDim(value) => write!(f, "invalid EPG head dimension {value}"),
             Self::InvalidSo4Dims(value) => write!(f, "invalid EPG SO(4) suffix {value}"),
             Self::InvalidSo4Tail { head_dim, so4_dims } => {
-                write!(f, "EPG SO(4) suffix {so4_dims} exceeds head dimension {head_dim}")
+                write!(
+                    f,
+                    "EPG SO(4) suffix {so4_dims} exceeds head dimension {head_dim}"
+                )
             }
             Self::PositionOverflow => write!(f, "EPG absolute position overflow"),
         }
