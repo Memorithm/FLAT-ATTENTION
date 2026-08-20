@@ -4,9 +4,7 @@ use epg_core::{EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geo
 use flat_attention::{FlatAttentionConfig, GroupedAttentionShape};
 use flat_epg_q4_candidate::{EpgQ4CandidatePipeline, PreparedEpgQ4Candidate};
 use flat_epg_reference::{forward_reference_grouped_epg, EpgEmbeddingConfig};
-use flat_epg_wgpu::{
-    EpgQualificationPass, EpgVec4QualificationPipeline, PreparedEpgQualification,
-};
+use flat_epg_wgpu::{EpgQualificationPass, EpgVec4QualificationPipeline, PreparedEpgQualification};
 
 const DEFAULT_WARMUP: usize = 8;
 const DEFAULT_ITERATIONS: usize = 40;
@@ -137,10 +135,7 @@ fn summarize(mut samples_us: Vec<f64>) -> (f64, f64) {
     (median, samples_us[p95_index])
 }
 
-fn execute_baseline(
-    context: &BenchContext<'_>,
-    prepared: &PreparedEpgQualification,
-) -> f64 {
+fn execute_baseline(context: &BenchContext<'_>, prepared: &PreparedEpgQualification) -> f64 {
     let start = Instant::now();
     let mut encoder = context
         .device
@@ -153,10 +148,7 @@ fn execute_baseline(
     start.elapsed().as_secs_f64() * 1.0e6
 }
 
-fn execute_candidate(
-    context: &BenchContext<'_>,
-    prepared: &PreparedEpgQ4Candidate,
-) -> f64 {
+fn execute_candidate(context: &BenchContext<'_>, prepared: &PreparedEpgQ4Candidate) -> f64 {
     let start = Instant::now();
     let mut encoder = context
         .device
@@ -172,12 +164,10 @@ fn execute_candidate(
 fn descriptor(theta: f32, head_dim: usize, kind: EpgGeometryKind) -> EpgGeometryDescriptor {
     match kind {
         EpgGeometryKind::So2 => EpgGeometryDescriptor::so2(theta).unwrap(),
-        EpgGeometryKind::HybridSo4(geometry) => EpgGeometryDescriptor::hybrid_so4(
-            theta,
-            u32::try_from(head_dim / 2).unwrap(),
-            geometry,
-        )
-        .unwrap(),
+        EpgGeometryKind::HybridSo4(geometry) => {
+            EpgGeometryDescriptor::hybrid_so4(theta, u32::try_from(head_dim / 2).unwrap(), geometry)
+                .unwrap()
+        }
     }
 }
 
@@ -353,7 +343,10 @@ fn parse_theta() -> f32 {
             let theta = value
                 .parse::<f32>()
                 .unwrap_or_else(|_| panic!("FLAT_EPG_BENCH_THETA must be f32, got {value:?}"));
-            assert!(theta.is_finite() && theta > 0.0, "theta must be finite and positive");
+            assert!(
+                theta.is_finite() && theta > 0.0,
+                "theta must be finite and positive"
+            );
             theta
         }
         Err(_) => 10_000.0,
@@ -376,7 +369,10 @@ fn parse_seq_lens() -> Vec<usize> {
                 .unwrap_or_else(|| panic!("invalid sequence length {value:?}"))
         })
         .collect();
-    assert!(!parsed.is_empty(), "FLAT_EPG_BENCH_SEQ_LENS must not be empty");
+    assert!(
+        !parsed.is_empty(),
+        "FLAT_EPG_BENCH_SEQ_LENS must not be empty"
+    );
     parsed
 }
 
@@ -497,7 +493,8 @@ fn main() {
                         let result = run_case(&context, case);
                         let speedup = result.baseline_median_us / result.candidate_median_us;
                         let baseline_tokens_s = seq_len as f64 * 1.0e6 / result.baseline_median_us;
-                        let candidate_tokens_s = seq_len as f64 * 1.0e6 / result.candidate_median_us;
+                        let candidate_tokens_s =
+                            seq_len as f64 * 1.0e6 / result.candidate_median_us;
                         let so4_dims = if matches!(geometry, EpgGeometryKind::So2) {
                             0
                         } else {
