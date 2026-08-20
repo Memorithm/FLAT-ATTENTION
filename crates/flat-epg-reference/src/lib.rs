@@ -8,6 +8,7 @@
 
 mod geometry;
 mod oracle;
+mod rotation;
 
 pub use geometry::{EpgEmbeddingConfig, EpgError, So4Geometry, EPG_CONTRACT_VERSION};
 pub use oracle::forward_reference_grouped_epg;
