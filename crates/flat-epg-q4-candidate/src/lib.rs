@@ -9,8 +9,8 @@
 use core::fmt;
 use std::borrow::Cow;
 
-use epg_core::{EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geometry};
-use flat_attention::{FlatAttentionConfig, FlatAttentionError, GroupedAttentionShape};
+use epg_core::{EpgGeometryDescriptor, EpgGeometryKind, So4Geometry};
+use flat_attention::{FlatAttentionError, GroupedAttentionShape};
 use flat_epg_wgpu::{
     EpgQualificationError, EpgQualificationLayout, EpgQualificationPass,
     EpgVec4QualificationPipeline,
@@ -315,27 +315,4 @@ fn validate_buffer(
 
 fn checked_u32(value: usize) -> Result<u32, EpgQualificationError> {
     u32::try_from(value).map_err(|_| EpgQualificationError::IndexSpaceExceeded(value))
-}
-
-/// Construct a candidate pass without changing the qualified baseline pass type.
-pub const fn pass<'a>(
-    q: &'a wgpu::Buffer,
-    k: &'a wgpu::Buffer,
-    v: &'a wgpu::Buffer,
-    output: &'a wgpu::Buffer,
-    shape: GroupedAttentionShape,
-    config: FlatAttentionConfig,
-    geometry: EpgGeometryDescriptor,
-    position: EpgPositionDomain,
-) -> EpgQualificationPass<'a> {
-    EpgQualificationPass {
-        q,
-        k,
-        v,
-        output,
-        shape,
-        config,
-        geometry,
-        position,
-    }
 }
