@@ -10,7 +10,10 @@ fn validate_input(name: &'static str, data: &[f32], expected: usize) -> Result<(
         });
     }
     if let Some(index) = data.iter().position(|x| !x.is_finite()) {
-        return Err(EpgError::NonFiniteInput { tensor: name, index });
+        return Err(EpgError::NonFiniteInput {
+            tensor: name,
+            index,
+        });
     }
     Ok(())
 }
@@ -115,9 +118,15 @@ mod tests {
     fn fixture(shape: GroupedAttentionShape) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
         let q_len = shape.q_tensor_len().unwrap();
         let kv_len = shape.kv_tensor_len().unwrap();
-        let q = (0..q_len).map(|i| ((i * 17 + 3) % 101) as f32 / 53.0 - 0.9).collect();
-        let k = (0..kv_len).map(|i| ((i * 29 + 7) % 103) as f32 / 59.0 - 0.8).collect();
-        let v = (0..kv_len).map(|i| ((i * 11 + 5) % 97) as f32 / 47.0 - 1.0).collect();
+        let q = (0..q_len)
+            .map(|i| ((i * 17 + 3) % 101) as f32 / 53.0 - 0.9)
+            .collect();
+        let k = (0..kv_len)
+            .map(|i| ((i * 29 + 7) % 103) as f32 / 59.0 - 0.8)
+            .collect();
+        let v = (0..kv_len)
+            .map(|i| ((i * 11 + 5) % 97) as f32 / 47.0 - 1.0)
+            .collect();
         (q, k, v)
     }
 
@@ -130,36 +139,80 @@ mod tests {
 
     #[test]
     fn zero_so4_dims_matches_rope() {
-        let shape = GroupedAttentionShape { batch: 1, q_heads: 4, kv_heads: 2, seq_len: 5, head_dim: 8 };
+        let shape = GroupedAttentionShape {
+            batch: 1,
+            q_heads: 4,
+            kv_heads: 2,
+            seq_len: 5,
+            head_dim: 8,
+        };
         let (q, k, v) = fixture(shape);
-        let cfg = FlatAttentionConfig { causal: true, softmax_scale: None };
+        let cfg = FlatAttentionConfig {
+            causal: true,
+            softmax_scale: None,
+        };
         let theta = 10_000.0;
         let rope = forward_reference_grouped_rope(
-            &q, &k, &v, shape, cfg,
-            RotaryEmbeddingConfig { theta, position_offset: 3 },
-        ).unwrap();
+            &q,
+            &k,
+            &v,
+            shape,
+            cfg,
+            RotaryEmbeddingConfig {
+                theta,
+                position_offset: 3,
+            },
+        )
+        .unwrap();
         let epg = forward_reference_grouped_epg(
-            &q, &k, &v, shape, cfg,
+            &q,
+            &k,
+            &v,
+            shape,
+            cfg,
             EpgEmbeddingConfig::v1(theta, 3, 0, So4Geometry::Biplanar),
-        ).unwrap();
+        )
+        .unwrap();
         assert_close(&rope.output, &epg.output, 1e-6);
         assert_close(&rope.lse, &epg.lse, 1e-6);
     }
 
     #[test]
     fn full_biplanar_head_is_rope_equivalence_control() {
-        let shape = GroupedAttentionShape { batch: 1, q_heads: 2, kv_heads: 1, seq_len: 6, head_dim: 8 };
+        let shape = GroupedAttentionShape {
+            batch: 1,
+            q_heads: 2,
+            kv_heads: 1,
+            seq_len: 6,
+            head_dim: 8,
+        };
         let (q, k, v) = fixture(shape);
-        let cfg = FlatAttentionConfig { causal: false, softmax_scale: None };
+        let cfg = FlatAttentionConfig {
+            causal: false,
+            softmax_scale: None,
+        };
         let theta = 10_000.0;
         let rope = forward_reference_grouped_rope(
-            &q, &k, &v, shape, cfg,
-            RotaryEmbeddingConfig { theta, position_offset: 11 },
-        ).unwrap();
+            &q,
+            &k,
+            &v,
+            shape,
+            cfg,
+            RotaryEmbeddingConfig {
+                theta,
+                position_offset: 11,
+            },
+        )
+        .unwrap();
         let epg = forward_reference_grouped_epg(
-            &q, &k, &v, shape, cfg,
+            &q,
+            &k,
+            &v,
+            shape,
+            cfg,
             EpgEmbeddingConfig::v1(theta, 11, 8, So4Geometry::Biplanar),
-        ).unwrap();
+        )
+        .unwrap();
         assert_close(&rope.output, &epg.output, 2e-6);
         assert_close(&rope.lse, &epg.lse, 2e-6);
     }
