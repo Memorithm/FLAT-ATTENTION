@@ -1,0 +1,19 @@
+[package]
+name = "flat-epg-q4-candidate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Opt-in Q4 performance candidate for Elastic Positional Geometry on WGPU"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+epg-core = { path = "../epg-core" }
+flat-attention = { path = "../..", features = ["wgpu"] }
+flat-epg-wgpu = { path = "../flat-epg-wgpu" }
+wgpu = "0.20"
+pollster = "0.3"
+
+[dev-dependencies]
+flat-epg-reference = { path = "../flat-epg-reference" }
+naga = { version = "0.20", features = ["wgsl-in"] }
