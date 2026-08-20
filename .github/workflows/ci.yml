@@ -34,6 +34,12 @@ jobs:
         run: cargo clippy --manifest-path crates/flat-epg-reference/Cargo.toml --all-targets -- -D warnings
       - name: Test EPG reference contract
         run: cargo test --manifest-path crates/flat-epg-reference/Cargo.toml
+      - name: Check EPG WGPU qualification formatting
+        run: cargo fmt --manifest-path crates/flat-epg-wgpu/Cargo.toml -- --check
+      - name: Lint EPG WGPU qualification crate
+        run: cargo clippy --manifest-path crates/flat-epg-wgpu/Cargo.toml --all-targets -- -D warnings
+      - name: Validate EPG qualification WGSL without a device
+        run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml qualification_shader_parses_and_validates_with_naga_020
 
   wgpu-device:
     runs-on: ubuntu-latest
@@ -50,3 +56,7 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --features wgpu --tests -- --nocapture
+      - name: Execute EPG CPU-GPU qualification matrix
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml -- --nocapture
