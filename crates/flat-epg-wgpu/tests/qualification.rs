@@ -256,9 +256,6 @@ fn vec4_gpu_matches_cpu_epg_controls_for_mha_gqa_and_mqa() {
 
 #[test]
 fn invalid_vec4_geometry_is_rejected_before_dispatch() {
-    let Some(harness) = harness() else {
-        return;
-    };
     let shape = GroupedAttentionShape {
         batch: 1,
         q_heads: 2,
