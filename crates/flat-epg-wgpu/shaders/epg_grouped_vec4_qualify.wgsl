@@ -106,7 +106,7 @@ fn epg_grouped_vec4_qualify(@builtin(workgroup_id) workgroup_id: vec3<u32>) {
 
         let key_position = params.position_offset + key_pos;
         let kv_row_base4 = kv_head_base4 + key_pos * head_dim4;
-        var dot = 0.0;
+        var rotated_dot = 0.0;
 
         for (var vec_col = 0u; vec_col < head_dim4; vec_col += 1u) {
             let qr = rotate_block(
@@ -127,10 +127,10 @@ fn epg_grouped_vec4_qualify(@builtin(workgroup_id) workgroup_id: vec3<u32>) {
                 params.so4_dims,
                 params.geometry_mode,
             );
-            dot += dot(qr, kr);
+            rotated_dot += dot(qr, kr);
         }
 
-        let score = dot * scale;
+        let score = rotated_dot * scale;
         let new_max = max(running_max, score);
         var alpha = 0.0;
         if (running_sum != 0.0) {
