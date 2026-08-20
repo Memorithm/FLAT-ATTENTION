@@ -1,12 +1,9 @@
 use core::fmt;
 
-use epg_core::{
-    EpgContractError, EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain, So4Geometry,
-};
+use epg_core::{EpgContractError, EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain};
 use flat_attention::FlatAttentionError;
 
-pub use epg_core::EPG_CONTRACT_VERSION;
-pub use epg_core::So4Geometry as CoreSo4Geometry;
+pub use epg_core::{So4Geometry, EPG_CONTRACT_VERSION};
 
 /// Execution-local EPG configuration used by the scalar FLAT oracle.
 ///
