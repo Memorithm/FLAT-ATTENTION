@@ -75,7 +75,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.89.0 build --release -p flat-epg-q4-candidate --example epg_q4_hardware_sweep
+          cargo +1.89.0 build --release \
+            --manifest-path crates/flat-epg-q4-candidate/Cargo.toml \
+            --example epg_q4_hardware_sweep
           benchmark="$CARGO_TARGET_DIR/release/examples/epg_q4_hardware_sweep"
           test -x "$benchmark"
           echo "FLAT_EPG_Q4_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
