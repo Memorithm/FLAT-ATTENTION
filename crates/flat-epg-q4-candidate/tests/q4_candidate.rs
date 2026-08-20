@@ -1,0 +1,322 @@
+use std::sync::mpsc;
+
+use epg_core::{EpgGeometryDescriptor, EpgPositionDomain, So4Geometry};
+use flat_attention::{FlatAttentionConfig, GroupedAttentionShape};
+use flat_epg_q4_candidate::{EpgQ4CandidatePipeline, EPG_GROUPED_VEC4_Q4_WGSL};
+use flat_epg_reference::{forward_reference_grouped_epg, EpgEmbeddingConfig};
+use flat_epg_wgpu::{EpgQualificationPass, EpgVec4QualificationPipeline};
+use naga::valid::{Capabilities, ValidationFlags, Validator};
+
+const ATOL: f32 = 1.2e-3;
+const RTOL: f32 = 4.0e-3;
+
+struct Harness {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+}
+
+#[derive(Clone, Copy)]
+struct Case {
+    q_heads: usize,
+    kv_heads: usize,
+    head_dim: usize,
+    causal: bool,
+    position_offset: u64,
+    geometry: EpgGeometryDescriptor,
+}
+
+fn harness() -> Option<Harness> {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::all(),
+        ..Default::default()
+    });
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::default(),
+        force_fallback_adapter: false,
+        compatible_surface: None,
+    }));
+    let Some(adapter) = adapter else {
+        if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
+            panic!("EPG Q4 candidate qualification requires a WGPU adapter");
+        }
+        eprintln!("WGPU adapter unavailable; optional EPG Q4 device test skipped");
+        return None;
+    };
+    let (device, queue) = pollster::block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            label: Some("flat-epg-q4-candidate"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+        },
+        None,
+    ))
+    .unwrap_or_else(|error| panic!("EPG Q4 request_device failed: {error}"));
+    Some(Harness { device, queue })
+}
+
+fn fixture(len: usize, phase: f32) -> Vec<f32> {
+    (0..len)
+        .map(|index| {
+            let x = index as f32 * 0.031 + phase;
+            x.sin() * 0.63 + (x * 0.47).cos() * 0.27
+        })
+        .collect()
+}
+
+fn bytes_f32(values: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(std::mem::size_of_val(values));
+    for &value in values {
+        bytes.extend_from_slice(&value.to_ne_bytes());
+    }
+    bytes
+}
+
+fn storage(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    values: &[f32],
+    label: &'static str,
+) -> wgpu::Buffer {
+    let bytes = bytes_f32(values);
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size: bytes.len().max(16) as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&buffer, 0, &bytes);
+    buffer
+}
+
+fn read_f32(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    source: &wgpu::Buffer,
+    len: usize,
+    label: &'static str,
+) -> Vec<f32> {
+    let bytes = (len * std::mem::size_of::<f32>()) as u64;
+    let staging = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size: bytes,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
+    encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
+    queue.submit(Some(encoder.finish()));
+    let slice = staging.slice(..bytes);
+    let (sender, receiver) = mpsc::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    let _ = device.poll(wgpu::Maintain::Wait);
+    receiver.recv().unwrap().unwrap();
+    let mapped = slice.get_mapped_range();
+    let values = mapped
+        .chunks_exact(4)
+        .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect();
+    drop(mapped);
+    staging.unmap();
+    values
+}
+
+fn assert_close(actual: &[f32], expected: &[f32]) {
+    assert_eq!(actual.len(), expected.len());
+    for (index, (&actual, &expected)) in actual.iter().zip(expected).enumerate() {
+        let error = (actual - expected).abs();
+        let tolerance = ATOL + RTOL * actual.abs().max(expected.abs());
+        assert!(
+            actual.is_finite() && expected.is_finite() && error <= tolerance,
+            "index={index} actual={actual} expected={expected} error={error} tolerance={tolerance}"
+        );
+    }
+}
+
+fn run_case(
+    harness: &Harness,
+    baseline: &EpgVec4QualificationPipeline,
+    candidate: &EpgQ4CandidatePipeline,
+    case: Case,
+) {
+    let Case {
+        q_heads,
+        kv_heads,
+        head_dim,
+        causal,
+        position_offset,
+        geometry,
+    } = case;
+    let shape = GroupedAttentionShape {
+        batch: 1,
+        q_heads,
+        kv_heads,
+        seq_len: 7,
+        head_dim,
+    };
+    let config = FlatAttentionConfig {
+        causal,
+        softmax_scale: None,
+    };
+    let q_len = shape.q_tensor_len().unwrap();
+    let kv_len = shape.kv_tensor_len().unwrap();
+    if q_heads != kv_heads {
+        assert!(
+            kv_len < q_len,
+            "candidate must not expand physical K/V heads"
+        );
+    }
+
+    let q = fixture(q_len, 0.13);
+    let k = fixture(kv_len, 0.73);
+    let v = fixture(kv_len, 1.37);
+    let position = EpgPositionDomain::new(position_offset);
+    let expected = forward_reference_grouped_epg(
+        &q,
+        &k,
+        &v,
+        shape,
+        config,
+        EpgEmbeddingConfig { geometry, position },
+    )
+    .unwrap();
+
+    let q_gpu = storage(&harness.device, &harness.queue, &q, "flat-epg-q4-q");
+    let k_gpu = storage(&harness.device, &harness.queue, &k, "flat-epg-q4-k");
+    let v_gpu = storage(&harness.device, &harness.queue, &v, "flat-epg-q4-v");
+
+    let baseline_output = baseline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
+    let candidate_output = candidate
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
+    let baseline_prepared = baseline
+        .prepare(
+            &harness.device,
+            EpgQualificationPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                output: &baseline_output,
+                shape,
+                config,
+                geometry,
+                position,
+            },
+        )
+        .unwrap();
+    let candidate_prepared = candidate
+        .prepare(
+            &harness.device,
+            EpgQualificationPass {
+                q: &q_gpu,
+                k: &k_gpu,
+                v: &v_gpu,
+                output: &candidate_output,
+                shape,
+                config,
+                geometry,
+                position,
+            },
+        )
+        .unwrap();
+    assert_eq!(candidate_prepared.dispatch_x(), 2);
+    assert_eq!(candidate_prepared.layout().kv_elements, kv_len);
+
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-epg-q4-ab"),
+        });
+    baseline.encode_prepared(&mut encoder, &baseline_prepared);
+    candidate.encode_prepared(&mut encoder, &candidate_prepared);
+    harness.queue.submit(Some(encoder.finish()));
+    let _ = harness.device.poll(wgpu::Maintain::Wait);
+
+    let layout = candidate_prepared.layout();
+    let baseline_actual = read_f32(
+        &harness.device,
+        &harness.queue,
+        &baseline_output,
+        layout.combined_elements,
+        "flat-epg-q4-baseline-readback",
+    );
+    let candidate_actual = read_f32(
+        &harness.device,
+        &harness.queue,
+        &candidate_output,
+        layout.combined_elements,
+        "flat-epg-q4-candidate-readback",
+    );
+
+    assert_close(&candidate_actual[..layout.lse_offset()], &expected.output);
+    assert_close(&candidate_actual[layout.lse_offset()..], &expected.lse);
+    assert_close(&candidate_actual, &baseline_actual);
+}
+
+#[test]
+fn q4_candidate_shader_parses_and_validates_with_naga_020() {
+    let module = naga::front::wgsl::parse_str(EPG_GROUPED_VEC4_Q4_WGSL)
+        .unwrap_or_else(|error| panic!("EPG Q4 WGSL parse failed: {error:?}"));
+    Validator::new(ValidationFlags::all(), Capabilities::empty())
+        .validate(&module)
+        .unwrap_or_else(|error| panic!("EPG Q4 WGSL validation failed: {error:?}"));
+}
+
+#[test]
+fn q4_candidate_matches_cpu_and_qualified_gpu_baseline() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let baseline = EpgVec4QualificationPipeline::new(&harness.device).unwrap();
+    let candidate = EpgQ4CandidatePipeline::new(&harness.device).unwrap();
+
+    for (q_heads, kv_heads) in [(2, 2), (4, 2), (4, 1)] {
+        for head_dim in [64, 128] {
+            let so4_tail = (head_dim / 2) as u32;
+            let geometries = [
+                EpgGeometryDescriptor::so2(10_000.0).unwrap(),
+                EpgGeometryDescriptor::hybrid_so4(10_000.0, so4_tail, So4Geometry::Biplanar)
+                    .unwrap(),
+                EpgGeometryDescriptor::hybrid_so4(10_000.0, so4_tail, So4Geometry::Isoclinic)
+                    .unwrap(),
+            ];
+            for geometry in geometries {
+                for causal in [false, true] {
+                    for position_offset in [0, 23] {
+                        run_case(
+                            &harness,
+                            &baseline,
+                            &candidate,
+                            Case {
+                                q_heads,
+                                kv_heads,
+                                head_dim,
+                                causal,
+                                position_offset,
+                                geometry,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn q4_candidate_rejects_unqualified_dimensions_without_a_device() {
+    for head_dim in [32, 80] {
+        let shape = GroupedAttentionShape {
+            batch: 1,
+            q_heads: 4,
+            kv_heads: 2,
+            seq_len: 7,
+            head_dim,
+        };
+        assert!(EpgQ4CandidatePipeline::layout(shape).is_err());
+    }
+}
