@@ -92,9 +92,8 @@ fn read_f32(
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some(label),
-    });
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
     encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
     queue.submit(Some(encoder.finish()));
     let slice = staging.slice(..bytes);
@@ -151,7 +150,10 @@ fn run_case(
     let q_len = shape.q_tensor_len().unwrap();
     let kv_len = shape.kv_tensor_len().unwrap();
     if q_heads != kv_heads {
-        assert!(kv_len < q_len, "candidate must not expand physical K/V heads");
+        assert!(
+            kv_len < q_len,
+            "candidate must not expand physical K/V heads"
+        );
     }
 
     let q = fixture(q_len, 0.13);
