@@ -129,9 +129,8 @@ fn read_f32(
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some(label),
-    });
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
     encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
     queue.submit(Some(encoder.finish()));
 
@@ -165,10 +164,7 @@ fn run_shader(
     let tensor_len = shape.tensor_len().unwrap();
     let lse_len = shape.lse_len().unwrap();
     let combined_len = tensor_len.checked_add(lse_len).unwrap();
-    let combined_bytes = u64::try_from(combined_len)
-        .unwrap()
-        .checked_mul(4)
-        .unwrap();
+    let combined_bytes = u64::try_from(combined_len).unwrap().checked_mul(4).unwrap();
     let output = harness.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some(label),
         size: combined_bytes,
@@ -200,36 +196,38 @@ fn run_shader(
     });
     harness.queue.write_buffer(&params_buffer, 0, &param_bytes);
 
-    let bind_group = harness.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some(label),
-        layout: &pipeline.get_bind_group_layout(0),
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: q.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: k.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: v.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 3,
-                resource: output.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 4,
-                resource: params_buffer.as_entire_binding(),
-            },
-        ],
-    });
+    let bind_group = harness
+        .device
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(label),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: q.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: k.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: v.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: output.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: params_buffer.as_entire_binding(),
+                },
+            ],
+        });
 
-    let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some(label),
-    });
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some(label),
@@ -246,7 +244,13 @@ fn run_shader(
     }
     harness.queue.submit(Some(encoder.finish()));
     let _ = harness.device.poll(wgpu::Maintain::Wait);
-    read_f32(&harness.device, &harness.queue, &output, combined_len, label)
+    read_f32(
+        &harness.device,
+        &harness.queue,
+        &output,
+        combined_len,
+        label,
+    )
 }
 
 fn assert_close(name: &str, actual: &[f32], expected: &[f32], atol: f32, rtol: f32) {
@@ -275,7 +279,8 @@ fn ada_a1_source_is_isolated_from_qualified_q4() {
     assert_ne!(ADA_A1_FWD_WGSL, FLAT_FWD_WGSL);
     assert!(ADA_A1_FWD_WGSL.contains("flat_attention_forward_ada_a1"));
     assert!(ADA_A1_FWD_WGSL.contains("score <= previous_max"));
-    assert!(!ADA_A1_FWD_WGSL.contains("select(\n                            exp(previous_max - new_max)"));
+    assert!(!ADA_A1_FWD_WGSL
+        .contains("select(\n                            exp(previous_max - new_max)"));
 }
 
 #[test]
