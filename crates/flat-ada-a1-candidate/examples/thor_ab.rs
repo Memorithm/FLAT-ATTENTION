@@ -172,10 +172,7 @@ fn prepare_dispatch(
     let tensor_len = shape.tensor_len().unwrap();
     let lse_len = shape.lse_len().unwrap();
     let combined_len = tensor_len.checked_add(lse_len).unwrap();
-    let combined_bytes = u64::try_from(combined_len)
-        .unwrap()
-        .checked_mul(4)
-        .unwrap();
+    let combined_bytes = u64::try_from(combined_len).unwrap().checked_mul(4).unwrap();
     let output = harness.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-ada-a1-prepared-output"),
         size: combined_bytes,
@@ -563,27 +560,16 @@ fn main() {
                 let mut expected_combined = expected.output;
                 expected_combined.extend_from_slice(&expected.lse);
 
-                let q_gpu = input_buffer(&harness.device, &harness.queue, &q, "flat-ada-a1-bench-q");
-                let k_gpu = input_buffer(&harness.device, &harness.queue, &k, "flat-ada-a1-bench-k");
-                let v_gpu = input_buffer(&harness.device, &harness.queue, &v, "flat-ada-a1-bench-v");
-                let baseline_prepared = prepare_dispatch(
-                    &harness,
-                    &baseline,
-                    &q_gpu,
-                    &k_gpu,
-                    &v_gpu,
-                    shape,
-                    config,
-                );
-                let candidate_prepared = prepare_dispatch(
-                    &harness,
-                    &candidate,
-                    &q_gpu,
-                    &k_gpu,
-                    &v_gpu,
-                    shape,
-                    config,
-                );
+                let q_gpu =
+                    input_buffer(&harness.device, &harness.queue, &q, "flat-ada-a1-bench-q");
+                let k_gpu =
+                    input_buffer(&harness.device, &harness.queue, &k, "flat-ada-a1-bench-k");
+                let v_gpu =
+                    input_buffer(&harness.device, &harness.queue, &v, "flat-ada-a1-bench-v");
+                let baseline_prepared =
+                    prepare_dispatch(&harness, &baseline, &q_gpu, &k_gpu, &v_gpu, shape, config);
+                let candidate_prepared =
+                    prepare_dispatch(&harness, &candidate, &q_gpu, &k_gpu, &v_gpu, shape, config);
 
                 execute_plain(&harness, &baseline, &baseline_prepared, 1);
                 execute_plain(&harness, &candidate, &candidate_prepared, 1);
