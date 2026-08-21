@@ -586,12 +586,9 @@ fn main() {
                 let mut expected_combined = expected.output;
                 expected_combined.extend_from_slice(&expected.lse);
 
-                let q_gpu =
-                    input_buffer(&harness.device, &harness.queue, &q, "flat-ada-a1-3way-q");
-                let k_gpu =
-                    input_buffer(&harness.device, &harness.queue, &k, "flat-ada-a1-3way-k");
-                let v_gpu =
-                    input_buffer(&harness.device, &harness.queue, &v, "flat-ada-a1-3way-v");
+                let q_gpu = input_buffer(&harness.device, &harness.queue, &q, "flat-ada-a1-3way-q");
+                let k_gpu = input_buffer(&harness.device, &harness.queue, &k, "flat-ada-a1-3way-k");
+                let v_gpu = input_buffer(&harness.device, &harness.queue, &v, "flat-ada-a1-3way-v");
                 let baseline_prepared =
                     prepare_dispatch(&harness, &baseline, &q_gpu, &k_gpu, &v_gpu, shape, config);
                 let branched_prepared =
@@ -664,7 +661,12 @@ fn main() {
                 for _ in 0..warmup {
                     execute_plain(&harness, &baseline, &baseline_prepared, inner_dispatches);
                     execute_plain(&harness, &branched, &branched_prepared, inner_dispatches);
-                    execute_plain(&harness, &branchless, &branchless_prepared, inner_dispatches);
+                    execute_plain(
+                        &harness,
+                        &branchless,
+                        &branchless_prepared,
+                        inner_dispatches,
+                    );
                 }
 
                 let mut baseline_samples = Vec::with_capacity(samples);
