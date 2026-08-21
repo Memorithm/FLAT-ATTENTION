@@ -1,0 +1,16 @@
+[package]
+name = "flat-ada-a1-candidate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Isolated ADA-A1 one-exp Online Softmax GPU candidate for FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../..", features = ["wgpu"] }
+wgpu = "0.20"
+pollster = "0.3"
+
+[dev-dependencies]
+naga = { version = "0.20", features = ["wgsl-in"] }
