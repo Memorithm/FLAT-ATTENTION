@@ -159,8 +159,8 @@ fn run_shader(
     v: &wgpu::Buffer,
     shape: AttentionShape,
     config: FlatAttentionConfig,
-    label: &'static str,
 ) -> Vec<f32> {
+    let label = "flat-ada-a1-dispatch";
     let tensor_len = shape.tensor_len().unwrap();
     let lse_len = shape.lse_len().unwrap();
     let combined_len = tensor_len.checked_add(lse_len).unwrap();
@@ -364,7 +364,6 @@ fn ada_a1_matches_cpu_oracle_and_qualified_q4_gpu() {
             &v_gpu,
             case.shape,
             case.config,
-            "flat-ada-a1-baseline-output",
         );
         let candidate_actual = run_shader(
             &harness,
@@ -374,7 +373,6 @@ fn ada_a1_matches_cpu_oracle_and_qualified_q4_gpu() {
             &v_gpu,
             case.shape,
             case.config,
-            "flat-ada-a1-candidate-output",
         );
 
         assert_close(
