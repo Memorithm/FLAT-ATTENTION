@@ -30,13 +30,79 @@ pub enum EpgGeometryKind {
 }
 
 impl EpgGeometryKind {
-    /// Stable capability identifier.
+    /// Stable family identifier.
     pub const fn representation_id(self) -> &'static str {
         match self {
             Self::So2 => "epg.so2",
             Self::HybridSo4(So4Geometry::Isoclinic) => "epg.so4.isoclinic",
             Self::HybridSo4(So4Geometry::Biplanar) => "epg.so4.biplanar",
         }
+    }
+}
+
+/// Exact, versioned identity of one concrete EPG transform contract.
+///
+/// Unlike the family identifier returned by [`EpgGeometryKind::representation_id`],
+/// this key includes the parameters required to distinguish the concrete
+/// transform: contract version, geometry family, exact IEEE-754 theta bits,
+/// concrete head dimension, and SO(4) suffix dimension. The head dimension is
+/// part of the identity because rotary frequencies are defined relative to that
+/// dimension. Execution-local position offsets are deliberately absent.
+///
+/// The canonical [`fmt::Display`] form is suitable for adapters that need a
+/// stable string identifier for a generic representation registry or cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EpgRepresentationKey {
+    version: u32,
+    kind: EpgGeometryKind,
+    theta_bits: u32,
+    head_dim: u32,
+    so4_dims: u32,
+}
+
+impl EpgRepresentationKey {
+    /// EPG contract version carried by this exact key.
+    pub const fn version(self) -> u32 {
+        self.version
+    }
+
+    /// Geometry family carried by this exact key.
+    pub const fn kind(self) -> EpgGeometryKind {
+        self.kind
+    }
+
+    /// Stable family identifier, without the parameter suffix.
+    pub const fn family_id(self) -> &'static str {
+        self.kind.representation_id()
+    }
+
+    /// Exact IEEE-754 bits of the base frequency.
+    pub const fn theta_bits(self) -> u32 {
+        self.theta_bits
+    }
+
+    /// Concrete attention head dimension used by the transform.
+    pub const fn head_dim(self) -> u32 {
+        self.head_dim
+    }
+
+    /// Number of trailing SO(4) dimensions.
+    pub const fn so4_dims(self) -> u32 {
+        self.so4_dims
+    }
+}
+
+impl fmt::Display for EpgRepresentationKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}@v{};theta_bits={:08x};head_dim={};so4_dims={}",
+            self.kind.representation_id(),
+            self.version,
+            self.theta_bits,
+            self.head_dim,
+            self.so4_dims
+        )
     }
 }
 
@@ -102,9 +168,31 @@ impl EpgGeometryDescriptor {
         self.so4_dims
     }
 
-    /// Stable representation identifier.
+    /// Stable geometry-family identifier.
+    ///
+    /// This intentionally omits theta, head dimension, and SO(4) dimensions.
+    /// Consumers that need exact cache/model compatibility must use
+    /// [`Self::representation_key`] with the concrete head dimension.
     pub const fn representation_id(self) -> &'static str {
         self.kind.representation_id()
+    }
+
+    /// Exact versioned representation key for a concrete head dimension.
+    ///
+    /// Construction validates the head dimension and SO(4) suffix before the
+    /// key can enter a cache/model compatibility registry.
+    pub fn representation_key(
+        self,
+        head_dim: u32,
+    ) -> Result<EpgRepresentationKey, EpgContractError> {
+        self.validate_head_dim(head_dim)?;
+        Ok(EpgRepresentationKey {
+            version: EPG_CONTRACT_VERSION,
+            kind: self.kind,
+            theta_bits: self.theta_bits,
+            head_dim,
+            so4_dims: self.so4_dims,
+        })
     }
 
     /// Validate this descriptor for a concrete head dimension.
@@ -203,8 +291,55 @@ mod tests {
         let geometry =
             EpgGeometryDescriptor::hybrid_so4(10_000.0, 32, So4Geometry::Isoclinic).unwrap();
         assert_eq!(geometry.representation_id(), "epg.so4.isoclinic");
+        assert_eq!(
+            geometry.representation_key(128).unwrap().to_string(),
+            "epg.so4.isoclinic@v1;theta_bits=461c4000;head_dim=128;so4_dims=32"
+        );
         assert_eq!(EpgPositionDomain::new(3).offset(), 3);
         assert_eq!(EpgPositionDomain::new(30_000).offset(), 30_000);
+    }
+
+    #[test]
+    fn exact_representation_key_distinguishes_transform_parameters() {
+        let base = EpgGeometryDescriptor::hybrid_so4(10_000.0, 32, So4Geometry::Isoclinic).unwrap();
+        let different_theta =
+            EpgGeometryDescriptor::hybrid_so4(500_000.0, 32, So4Geometry::Isoclinic).unwrap();
+        let different_tail =
+            EpgGeometryDescriptor::hybrid_so4(10_000.0, 64, So4Geometry::Isoclinic).unwrap();
+        let different_family =
+            EpgGeometryDescriptor::hybrid_so4(10_000.0, 32, So4Geometry::Biplanar).unwrap();
+
+        let base_128 = base.representation_key(128).unwrap();
+        assert_ne!(base_128, base.representation_key(64).unwrap());
+        assert_ne!(base_128, different_theta.representation_key(128).unwrap());
+        assert_ne!(base_128, different_tail.representation_key(128).unwrap());
+        assert_ne!(base_128, different_family.representation_key(128).unwrap());
+        assert_eq!(base_128.head_dim(), 128);
+        assert_eq!(base_128.theta_bits(), 0x461c_4000);
+        assert_eq!(
+            different_theta
+                .representation_key(128)
+                .unwrap()
+                .theta_bits(),
+            0x48f4_2400
+        );
+    }
+
+    #[test]
+    fn exact_representation_key_rejects_invalid_concrete_shape() {
+        let geometry =
+            EpgGeometryDescriptor::hybrid_so4(10_000.0, 32, So4Geometry::Isoclinic).unwrap();
+        assert_eq!(
+            geometry.representation_key(16),
+            Err(EpgContractError::InvalidSo4Tail {
+                head_dim: 16,
+                so4_dims: 32,
+            })
+        );
+        assert_eq!(
+            geometry.representation_key(127),
+            Err(EpgContractError::InvalidHeadDim(127))
+        );
     }
 
     #[test]
