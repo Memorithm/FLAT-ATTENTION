@@ -13,4 +13,5 @@ wgpu = "0.20"
 pollster = "0.3"
 
 [dev-dependencies]
-naga = { version = "0.20", features = ["wgsl-in"] }
+ash = "0.37.3"
+naga = { version = "0.20", features = ["wgsl-in", "spv-out"] }
