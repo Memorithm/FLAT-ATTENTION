@@ -92,7 +92,7 @@ fn statistic_value(statistic: &vk::PipelineExecutableStatisticKHR) -> String {
 
 fn has_extension(properties: &[vk::ExtensionProperties], name: &CStr) -> bool {
     properties.iter().any(|property| {
-        unsafe { CStr::from_ptr(property.extension_name.as_ptr()) } == name
+        (unsafe { CStr::from_ptr(property.extension_name.as_ptr()) }) == name
     })
 }
 
