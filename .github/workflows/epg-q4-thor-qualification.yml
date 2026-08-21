@@ -1,0 +1,226 @@
+name: FLAT EPG Q4 Thor qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/epg-core/**"
+      - "crates/flat-epg-reference/**"
+      - "crates/flat-epg-wgpu/**"
+      - "crates/flat-epg-q4-candidate/**"
+      - ".github/workflows/epg-q4-thor-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flat-epg-q4-thor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  thor:
+    name: EPG baseline versus Q4 on physical Thor
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 120
+    env:
+      RUSTFLAGS: "-D warnings"
+      CARGO_INCREMENTAL: "0"
+      SCIRUST_THOR_GPU_LOCK: /dev/nvidia0
+      FLAT_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+      FLAT_THOR_IDLE_SETTLE_SECONDS: "300"
+      WGPU_BACKEND: vulkan
+      FLAT_EPG_BENCH_WARMUP: "8"
+      FLAT_EPG_BENCH_ITERATIONS: "40"
+      FLAT_EPG_BENCH_SEQ_LENS: "32,128"
+      FLAT_EPG_BENCH_POSITION_OFFSET: "0"
+      FLAT_EPG_BENCH_THETA: "10000"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Require persistent physical Thor runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::EPG Q4 qualification requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          actual="$(git rev-parse HEAD)"
+          echo "source_revision=$actual"
+          test "$actual" = "$FLAT_SOURCE_REVISION"
+          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+
+      - name: Prepare isolated build directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-epg-q4-runtime.XXXXXX")"
+          build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-epg-q4-build.XXXXXX")"
+          chmod 700 "$runtime_dir" "$build_dir"
+          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$build_dir/target"
+          chmod 700 "$runtime_dir/xdg"
+          echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"
+          echo "FLAT_EPG_Q4_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
+          echo "FLAT_EPG_Q4_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+
+      - name: Build EPG Q4 sweep before GPU reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 build --release \
+            --manifest-path crates/flat-epg-q4-candidate/Cargo.toml \
+            --example epg_q4_hardware_sweep
+          benchmark="$CARGO_TARGET_DIR/release/examples/epg_q4_hardware_sweep"
+          test -x "$benchmark"
+          echo "FLAT_EPG_Q4_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
+
+      - name: Exclusive physical Thor EPG Q4 sweep
+        shell: bash
+        timeout-minutes: 90
+        run: |
+          set -euo pipefail
+          for prerequisite in flock pgrep stat nvidia-smi vulkaninfo awk grep; do
+            command -v "$prerequisite" >/dev/null || {
+              echo "::error::missing EPG Q4 physical-Thor prerequisite: $prerequisite"
+              exit 1
+            }
+          done
+          if [[ ! -c "$SCIRUST_THOR_GPU_LOCK" || ! -r "$SCIRUST_THOR_GPU_LOCK" || ! -w "$SCIRUST_THOR_GPU_LOCK" ]]; then
+            echo "::error::physical Thor lock target is not an accessible NVIDIA character device"
+            exit 1
+          fi
+
+          stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F' \
+            "$SCIRUST_THOR_GPU_LOCK"
+          exec 9<>"$SCIRUST_THOR_GPU_LOCK"
+          flock -x 9
+          if flock -n "$SCIRUST_THOR_GPU_LOCK" -c 'true'; then
+            echo "::error::physical GPU lock does not contend independently"
+            exit 1
+          fi
+
+          inventory="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)"
+          printf '%s\n' "$inventory"
+          grep -F 'NVIDIA Thor' <<< "$inventory" >/dev/null
+          summary="$(vulkaninfo --summary 2>&1)"
+          grep -F 'NVIDIA Tegra NVIDIA Thor' <<< "$summary" >/dev/null
+
+          compute_processes() {
+            nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader 2>/dev/null
+          }
+
+          deadline=$((SECONDS + 3600))
+          settled=0
+          while (( settled < 10#$FLAT_THOR_IDLE_SETTLE_SECONDS )); do
+            training="$(pgrep -af '[c]uda_pretrain' || true)"
+            active="$(compute_processes)"
+            if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
+              echo "Thor busy; restarting EPG Q4 idle window."
+              [[ -z "${training//[[:space:]]/}" ]] || printf '%s\n' "$training"
+              [[ -z "${active//[[:space:]]/}" ]] || printf '%s\n' "$active"
+              settled=0
+            else
+              settled=$((settled + 5))
+              if (( settled == 5 || settled % 60 == 0 )); then
+                echo "Thor continuously idle: ${settled}/${FLAT_THOR_IDLE_SETTLE_SECONDS}s"
+              fi
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::Thor never reached the required EPG Q4 idle window"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          echo "source_revision=$(git rev-parse HEAD)"
+          echo "benchmark_scope=mha_gqa_mqa_seq32_128_d64_128_causal_noncausal_so2_so4_controls"
+          echo "measurement_order=paired_interleaved_baseline_q4"
+          output="$RUNNER_TEMP/epg-q4-thor-qualification.log"
+
+          "$FLAT_EPG_Q4_BENCHMARK" >"$output" 2>&1 &
+          bench_pid=$!
+          contaminated=0
+          while kill -0 "$bench_pid" 2>/dev/null; do
+            if pgrep -af '[c]uda_pretrain' >"$RUNNER_TEMP/epg-q4-training.txt"; then
+              echo "::error::SciAgent training appeared during EPG Q4 timing"
+              cat "$RUNNER_TEMP/epg-q4-training.txt"
+              contaminated=1
+              break
+            fi
+            active="$(compute_processes || true)"
+            if [[ -n "${active//[[:space:]]/}" ]]; then
+              while IFS=',' read -r raw_pid process_name; do
+                pid="$(printf '%s' "$raw_pid" | tr -d '[:space:]')"
+                process_name="$(printf '%s' "$process_name" | xargs)"
+                [[ -z "$pid" ]] && continue
+                if [[ "$pid" != "$bench_pid" ]]; then
+                  echo "::error::foreign GPU compute during EPG Q4 timing: pid=$pid process=$process_name"
+                  contaminated=1
+                fi
+              done <<< "$active"
+            fi
+            (( contaminated == 0 )) || break
+            sleep 1
+          done
+
+          if (( contaminated != 0 )); then
+            kill "$bench_pid" 2>/dev/null || true
+            wait "$bench_pid" 2>/dev/null || true
+            exit 1
+          fi
+          wait "$bench_pid"
+          cat "$output"
+
+          grep -F 'benchmark=epg_q4_hardware_sweep' "$output" >/dev/null
+          grep -F "git_sha=$FLAT_SOURCE_REVISION" "$output" >/dev/null
+          grep -F 'device_name=NVIDIA Tegra NVIDIA Thor' "$output" >/dev/null
+          grep -F 'backend=Vulkan' "$output" >/dev/null
+          grep -F 'software_adapter=false' "$output" >/dev/null
+          grep -F 'hardware_measurement_eligible=true' "$output" >/dev/null
+          grep -F 'warmup=8' "$output" >/dev/null
+          grep -F 'iterations=40' "$output" >/dev/null
+          grep -F 'seq_lens=[32, 128]' "$output" >/dev/null
+          grep -F 'correctness_gate=cpu_oracle_and_qualified_gpu_baseline_before_timing' "$output" >/dev/null
+          grep -F 'batch,q_heads,kv_heads,seq_len,head_dim,causal,geometry,so4_dims,baseline_median_us,baseline_p95_us,q4_median_us,q4_p95_us,speedup_baseline_over_q4,baseline_logical_query_tokens_per_s,q4_logical_query_tokens_per_s' "$output" >/dev/null
+          grep -F 'performance_claim=measurement_only_no_production_routing_change' "$output" >/dev/null
+
+          rows="$(awk -F, '$1 == 1 {count++} END {print count+0}' "$output")"
+          test "$rows" -eq 72
+          invalid="$(awk -F, '$1 == 1 && (NF != 15 || $9 <= 0 || $10 <= 0 || $11 <= 0 || $12 <= 0 || $13 <= 0 || $14 <= 0 || $15 <= 0) {count++} END {print count+0}' "$output")"
+          test "$invalid" -eq 0
+
+          wins="$(awk -F, '$1 == 1 && $13 > 1 {count++} END {print count+0}' "$output")"
+          losses="$(awk -F, '$1 == 1 && $13 < 1 {count++} END {print count+0}' "$output")"
+          ties="$(awk -F, '$1 == 1 && $13 == 1 {count++} END {print count+0}' "$output")"
+          min_speedup="$(awk -F, '$1 == 1 {if (!seen || $13 < min) min=$13; seen=1} END {if (seen) printf "%.6f", min}' "$output")"
+          max_speedup="$(awk -F, '$1 == 1 {if (!seen || $13 > max) max=$13; seen=1} END {if (seen) printf "%.6f", max}' "$output")"
+          printf 'thor_epg_q4_rows=%s\n' "$rows"
+          printf 'thor_epg_q4_wins=%s\n' "$wins"
+          printf 'thor_epg_q4_losses=%s\n' "$losses"
+          printf 'thor_epg_q4_ties=%s\n' "$ties"
+          printf 'thor_epg_q4_min_speedup=%s\n' "$min_speedup"
+          printf 'thor_epg_q4_max_speedup=%s\n' "$max_speedup"
+          echo 'performance_decision=measurement_only_review_required'
+
+          post="$(compute_processes)"
+          if [[ -n "${post//[[:space:]]/}" ]]; then
+            echo "::error::post-EPG-Q4 compute occupancy is not empty"
+            printf '%s\n' "$post"
+            exit 1
+          fi
+
+      - name: Cleanup isolated directories
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${FLAT_EPG_Q4_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_EPG_Q4_BUILD_DIR"
+          [[ -z "${FLAT_EPG_Q4_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_EPG_Q4_RUNTIME_DIR"
