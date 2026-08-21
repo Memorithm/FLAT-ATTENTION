@@ -1,0 +1,27 @@
+================ q4 ================
+original_size=13848
+optimized_size=11888
+Exp=2
+FAbs=0
+FMax=1
+OpSelect=45
+OpBranchConditional=42
+OpPhi=59
+================ a1_branched ================
+original_size=14364
+optimized_size=12184
+Exp=2
+FAbs=0
+FMax=0
+OpSelect=46
+OpBranchConditional=44
+OpPhi=63
+================ a1b_branchless ================
+original_size=14260
+optimized_size=12096
+Exp=1
+FAbs=1
+FMax=1
+OpSelect=47
+OpBranchConditional=43
+OpPhi=61
