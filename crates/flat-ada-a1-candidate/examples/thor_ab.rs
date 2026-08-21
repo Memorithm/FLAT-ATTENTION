@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, process::Command, sync::mpsc};
+use std::{borrow::Cow, process::Command, sync::mpsc};
 
 use flat_ada_a1_candidate::ADA_A1_FWD_WGSL;
 use flat_attention::{
@@ -104,9 +104,9 @@ fn git_sha() -> String {
 fn fixture(len: usize, phase: f32) -> Vec<f32> {
     (0..len)
         .map(|index| {
-            let bounded = u32::try_from(index).expect("benchmark fixture index fits u32");
-            let x = f64::from(bounded) * 0.031 + f64::from(phase);
-            (x.sin() * 0.63 + (x * 0.47).cos() * 0.27) as f32
+            let bounded = u16::try_from(index).expect("benchmark fixture index fits u16");
+            let x = f32::from(bounded) * 0.031 + phase;
+            x.sin() * 0.63 + (x * 0.47).cos() * 0.27
         })
         .collect()
 }
@@ -168,7 +168,6 @@ fn prepare_dispatch(
     v: &wgpu::Buffer,
     shape: AttentionShape,
     config: FlatAttentionConfig,
-    label: &'static str,
 ) -> PreparedDispatch {
     let tensor_len = shape.tensor_len().unwrap();
     let lse_len = shape.lse_len().unwrap();
@@ -178,7 +177,7 @@ fn prepare_dispatch(
         .checked_mul(4)
         .unwrap();
     let output = harness.device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some(label),
+        label: Some("flat-ada-a1-prepared-output"),
         size: combined_bytes,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
@@ -211,7 +210,7 @@ fn prepare_dispatch(
     let bind_group = harness
         .device
         .create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(label),
+            label: Some("flat-ada-a1-prepared-bind-group"),
             layout: &pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
@@ -387,9 +386,9 @@ fn measure_gpu_ns(
 }
 
 fn median(mut values: Vec<f64>) -> f64 {
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    values.sort_by(f64::total_cmp);
     let mid = values.len() / 2;
-    if values.len() % 2 == 0 {
+    if values.len().is_multiple_of(2) {
         (values[mid - 1] + values[mid]) * 0.5
     } else {
         values[mid]
@@ -397,8 +396,8 @@ fn median(mut values: Vec<f64>) -> f64 {
 }
 
 fn summarize(mut values: Vec<f64>) -> Summary {
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    let median_ns = if values.len() % 2 == 0 {
+    values.sort_by(f64::total_cmp);
+    let median_ns = if values.len().is_multiple_of(2) {
         let mid = values.len() / 2;
         (values[mid - 1] + values[mid]) * 0.5
     } else {
@@ -575,7 +574,6 @@ fn main() {
                     &v_gpu,
                     shape,
                     config,
-                    "flat-ada-a1-baseline-output",
                 );
                 let candidate_prepared = prepare_dispatch(
                     &harness,
@@ -585,7 +583,6 @@ fn main() {
                     &v_gpu,
                     shape,
                     config,
-                    "flat-ada-a1-candidate-output",
                 );
 
                 execute_plain(&harness, &baseline, &baseline_prepared, 1);
@@ -630,7 +627,7 @@ fn main() {
                 let mut baseline_samples = Vec::with_capacity(samples);
                 let mut candidate_samples = Vec::with_capacity(samples);
                 for sample in 0..samples {
-                    if sample % 2 == 0 {
+                    if sample.is_multiple_of(2) {
                         baseline_samples.push(measure_gpu_ns(
                             &harness,
                             &timer,
