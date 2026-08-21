@@ -75,7 +75,8 @@ fn write_spv(path: &Path, words: &[u32]) {
     for &word in words {
         bytes.extend_from_slice(&word.to_le_bytes());
     }
-    fs::write(path, bytes).unwrap_or_else(|error| panic!("failed to write {}: {error}", path.display()));
+    fs::write(path, bytes)
+        .unwrap_or_else(|error| panic!("failed to write {}: {error}", path.display()));
 }
 
 fn statistic_value(statistic: &vk::PipelineExecutableStatisticKHR) -> String {
@@ -91,9 +92,9 @@ fn statistic_value(statistic: &vk::PipelineExecutableStatisticKHR) -> String {
 }
 
 fn has_extension(properties: &[vk::ExtensionProperties], name: &CStr) -> bool {
-    properties.iter().any(|property| {
-        (unsafe { CStr::from_ptr(property.extension_name.as_ptr()) }) == name
-    })
+    properties
+        .iter()
+        .any(|property| (unsafe { CStr::from_ptr(property.extension_name.as_ptr()) }) == name)
 }
 
 fn make_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
@@ -128,8 +129,10 @@ fn create_capture_pipeline(
     entry_point: &str,
 ) -> vk::Pipeline {
     let module_info = vk::ShaderModuleCreateInfo::builder().code(words);
-    let shader_module = unsafe { device.create_shader_module(&module_info, None) }
-        .unwrap_or_else(|error| panic!("shader module creation failed for {entry_point}: {error:?}"));
+    let shader_module =
+        unsafe { device.create_shader_module(&module_info, None) }.unwrap_or_else(|error| {
+            panic!("shader module creation failed for {entry_point}: {error:?}")
+        });
     let entry_name = CString::new(entry_point).expect("entry point contains no NUL");
     let stage = vk::PipelineShaderStageCreateInfo::builder()
         .stage(vk::ShaderStageFlags::COMPUTE)
@@ -159,10 +162,9 @@ fn write_internal_representations(
     variant_dir: &Path,
     executable_index: usize,
 ) -> usize {
-    let mut representations = unsafe {
-        extension.get_pipeline_executable_internal_representations(executable_info)
-    }
-    .expect("internal representation metadata query failed");
+    let mut representations =
+        unsafe { extension.get_pipeline_executable_internal_representations(executable_info) }
+            .expect("internal representation metadata query failed");
     if representations.is_empty() {
         return 0;
     }
@@ -212,14 +214,15 @@ fn write_internal_representations(
         );
         let path = variant_dir.join(file_name);
         if representation.is_text == vk::TRUE {
-            let text_len = payload.iter().position(|&byte| byte == 0).unwrap_or(payload.len());
-            fs::write(&path, &payload[..text_len]).unwrap_or_else(|error| {
-                panic!("failed to write {}: {error}", path.display())
-            });
+            let text_len = payload
+                .iter()
+                .position(|&byte| byte == 0)
+                .unwrap_or(payload.len());
+            fs::write(&path, &payload[..text_len])
+                .unwrap_or_else(|error| panic!("failed to write {}: {error}", path.display()));
         } else {
-            fs::write(&path, payload).unwrap_or_else(|error| {
-                panic!("failed to write {}: {error}", path.display())
-            });
+            fs::write(&path, payload)
+                .unwrap_or_else(|error| panic!("failed to write {}: {error}", path.display()));
         }
         println!(
             "internal_representation variant={} executable={} index={} name={} is_text={} bytes={} path={} description={}",
@@ -244,7 +247,9 @@ fn inspect_pipeline(
 ) {
     let pipeline_info = vk::PipelineInfoKHR::builder().pipeline(pipeline).build();
     let executables = unsafe { extension.get_pipeline_executable_properties(&pipeline_info) }
-        .unwrap_or_else(|error| panic!("executable property query failed for {variant}: {error:?}"));
+        .unwrap_or_else(|error| {
+            panic!("executable property query failed for {variant}: {error:?}")
+        });
     println!("variant={variant} executable_count={}", executables.len());
 
     for (index, executable) in executables.iter().enumerate() {
@@ -261,10 +266,8 @@ fn inspect_pipeline(
             .pipeline(pipeline)
             .executable_index(u32::try_from(index).expect("executable index fits u32"))
             .build();
-        let statistics = unsafe {
-            extension.get_pipeline_executable_statistics(&executable_info)
-        }
-        .unwrap_or_else(|error| panic!("statistics query failed for {variant}: {error:?}"));
+        let statistics = unsafe { extension.get_pipeline_executable_statistics(&executable_info) }
+            .unwrap_or_else(|error| panic!("statistics query failed for {variant}: {error:?}"));
         println!(
             "statistics variant={variant} executable={index} count={}",
             statistics.len()
@@ -278,12 +281,8 @@ fn inspect_pipeline(
                 one_line(&c_array_text(&statistic.description)),
             );
         }
-        let representation_count = write_internal_representations(
-            extension,
-            &executable_info,
-            variant_dir,
-            index,
-        );
+        let representation_count =
+            write_internal_representations(extension, &executable_info, variant_dir, index);
         println!(
             "internal_representation_count variant={variant} executable={index} count={representation_count}"
         );
@@ -300,9 +299,8 @@ fn run() {
                 sha.chars().take(12).collect::<String>()
             ))
         });
-    fs::create_dir_all(&output_root).unwrap_or_else(|error| {
-        panic!("failed to create {}: {error}", output_root.display())
-    });
+    fs::create_dir_all(&output_root)
+        .unwrap_or_else(|error| panic!("failed to create {}: {error}", output_root.display()));
 
     let variants = [
         Variant {
@@ -406,7 +404,12 @@ fn run() {
     println!("probe=ada_a1_vulkan_pipeline_executable_properties");
     println!("git_sha={sha}");
     println!("device_name={device_name}");
-    println!("api_version={}.{}.{}", vk::api_version_major(properties.api_version), vk::api_version_minor(properties.api_version), vk::api_version_patch(properties.api_version));
+    println!(
+        "api_version={}.{}.{}",
+        vk::api_version_major(properties.api_version),
+        vk::api_version_minor(properties.api_version),
+        vk::api_version_patch(properties.api_version)
+    );
     println!("driver_version_raw={}", properties.driver_version);
     println!("pipeline_executable_info=true");
     println!("capture_statistics=true");
@@ -416,10 +419,10 @@ fn run() {
     let mut pipelines = Vec::with_capacity(variants.len());
     for ((variant, words), _) in variants.iter().zip(compiled.iter()).zip(0..) {
         let variant_dir = output_root.join(variant.name);
-        fs::create_dir_all(&variant_dir).unwrap_or_else(|error| {
-            panic!("failed to create {}: {error}", variant_dir.display())
-        });
-        let pipeline = create_capture_pipeline(&device, pipeline_layout, words, variant.entry_point);
+        fs::create_dir_all(&variant_dir)
+            .unwrap_or_else(|error| panic!("failed to create {}: {error}", variant_dir.display()));
+        let pipeline =
+            create_capture_pipeline(&device, pipeline_layout, words, variant.entry_point);
         inspect_pipeline(&executable_extension, pipeline, variant.name, &variant_dir);
         pipelines.push(pipeline);
     }
