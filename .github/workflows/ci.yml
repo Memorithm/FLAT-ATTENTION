@@ -54,6 +54,12 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --workspace --all-features -- --nocapture
+      - name: Same-device kernel regression gate
+        timeout-minutes: 10
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+          FLAT_REGRESSION_GATE_ITERATIONS: "9"
+        run: cargo run --release --features wgpu --example regression_gate
       - name: Smoke EPG Q4 benchmark protocol on software Vulkan
         timeout-minutes: 5
         env:
