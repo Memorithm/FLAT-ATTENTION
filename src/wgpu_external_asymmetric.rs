@@ -4,6 +4,8 @@
 //! records Q/K/V attention with independent query/KV lengths into a caller-owned
 //! command encoder and never submits, polls, maps or copies framework buffers.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -560,22 +562,8 @@ fn create_pipeline(
     label: &'static str,
     entry_point: &'static str,
 ) -> Result<wgpu::ComputePipeline, ExternalWgpuError> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some(label),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(label),
-        layout: None,
-        module: &shader,
-        entry_point,
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
-    match pollster::block_on(device.pop_error_scope()) {
-        Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
-        None => Ok(pipeline),
-    }
+    wgpu_internal::create_pipeline(device, source, label, entry_point)
+        .map_err(ExternalWgpuError::PipelineValidation)
 }
 
 fn validate_buffer(
@@ -595,7 +583,8 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError> {
-    u32::try_from(value).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ExternalWgpuError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
@@ -606,9 +595,5 @@ fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

@@ -104,6 +104,7 @@ pub enum NumericalBackendKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum NumericalError {
     Core(FlatAttentionError),
     /// The crate was compiled without its optional WGPU feature.
@@ -126,7 +127,16 @@ impl fmt::Display for NumericalError {
     }
 }
 
-impl std::error::Error for NumericalError {}
+impl std::error::Error for NumericalError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            #[cfg(feature = "wgpu")]
+            Self::Wgpu(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for NumericalError {
     fn from(value: FlatAttentionError) -> Self {

@@ -201,6 +201,7 @@ pub mod v1 {
 
     /// Explicit reusable-API errors. No backend fallback is implied by an error.
     #[derive(Debug, Clone, PartialEq)]
+    #[non_exhaustive]
     pub enum ApiError {
         ZeroDimension,
         ShapeOverflow,

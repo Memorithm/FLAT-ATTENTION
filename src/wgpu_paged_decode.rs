@@ -6,6 +6,8 @@
 //! portable four-storage-binding contract. The encode path does not submit, poll,
 //! map, synchronize, compact, or copy K/V.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use crate::paged_kv::{PagedKvError, PagedKvTable};
@@ -25,6 +27,7 @@ pub struct PagedDecodeLayout {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PagedDecodeError {
     Core(FlatAttentionError),
     Table(PagedKvError),
@@ -247,22 +250,14 @@ impl fmt::Debug for WgpuPagedDecodePipeline {
 
 impl WgpuPagedDecodePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, PagedDecodeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m16-paged-decode"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_DECODE_PAGED_WGSL)),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m16-paged-decode"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_decode_paged",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(PagedDecodeError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_DECODE_PAGED_WGSL,
+            "flat-m16-paged-decode",
+            "flat_attention_decode_paged",
+        )
+        .map_err(PagedDecodeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(q_heads: usize, head_dim: usize) -> Result<PagedDecodeLayout, PagedDecodeError> {
@@ -500,20 +495,15 @@ fn checked_mul(a: usize, b: usize) -> Result<usize, PagedDecodeError> {
 }
 
 fn checked_u32(value: usize) -> Result<u32, PagedDecodeError> {
-    u32::try_from(value).map_err(|_| PagedDecodeError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(PagedDecodeError::IndexSpaceExceeded { elements: value })
 }
 
-fn bytes_for_f32(elements: usize) -> Result<u64, PagedDecodeError> {
-    let bytes = elements
-        .checked_mul(core::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| PagedDecodeError::IndexSpaceExceeded { elements })
+fn bytes_for_f32(len: usize) -> Result<u64, PagedDecodeError> {
+    wgpu_internal::f32_bytes(len)
+        .ok_or_else(|| PagedDecodeError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

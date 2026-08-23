@@ -5,6 +5,8 @@
 //! causal/query-RoPE origins. The kernel never stages padded K/V rows, and
 //! padded query rows deterministically become O=0 and LSE=-∞.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -73,24 +75,14 @@ impl fmt::Debug for ExternalVariableProjectionRotaryGroupedPipeline {
 
 impl ExternalVariableProjectionRotaryGroupedPipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m12-variable-projection-rope-gqa"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m12-variable-projection-rope-gqa"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
+            "flat-m12-variable-projection-rope-gqa",
+            "flat_attention_forward",
+        )
+        .map_err(ExternalWgpuError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(
@@ -361,7 +353,8 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError> {
-    u32::try_from(value).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ExternalWgpuError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
@@ -372,9 +365,5 @@ fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

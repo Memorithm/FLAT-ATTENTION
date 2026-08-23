@@ -18,6 +18,7 @@ use core::fmt;
 
 /// Explicit resident-KV cache failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum WgpuResidentKvCacheError {
     ZeroDimension,
     ShapeOverflow,

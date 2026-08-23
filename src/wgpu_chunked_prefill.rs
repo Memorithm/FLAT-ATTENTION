@@ -38,6 +38,7 @@ pub struct WgpuChunkedProjectionPrefillPass<'a> {
 
 /// Explicit M16 chunked-prefill host-side failures.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum WgpuChunkedProjectionPrefillError {
     Core(FlatAttentionError),
     External(ExternalWgpuError),
@@ -77,7 +78,15 @@ impl fmt::Display for WgpuChunkedProjectionPrefillError {
     }
 }
 
-impl std::error::Error for WgpuChunkedProjectionPrefillError {}
+impl std::error::Error for WgpuChunkedProjectionPrefillError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            Self::External(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for WgpuChunkedProjectionPrefillError {
     fn from(value: FlatAttentionError) -> Self {

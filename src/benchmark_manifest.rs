@@ -55,6 +55,7 @@ pub struct BenchmarkManifest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BenchmarkManifestError {
     InvalidCommitSha,
     EmptyField(&'static str),

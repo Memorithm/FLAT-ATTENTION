@@ -105,6 +105,8 @@ pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.
 #[cfg(feature = "wgpu")]
 mod runtime_telemetry;
 #[cfg(feature = "wgpu")]
+mod wgpu_internal;
+#[cfg(feature = "wgpu")]
 pub use runtime_telemetry::{
     AutotunerCacheStatus, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
     RuntimeDispatchTelemetry, RuntimeKernelId, RuntimeTileGeometry,
@@ -373,6 +375,7 @@ pub(crate) fn next_resident_owner_id() -> usize {
 
 /// Errors are explicit: FLAT-ATTENTION never fabricates a fallback result.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum FlatAttentionError {
     ZeroDimension,
     ShapeOverflow,

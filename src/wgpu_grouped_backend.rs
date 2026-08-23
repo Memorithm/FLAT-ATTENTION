@@ -4,6 +4,8 @@
 //! exactly `batch * kv_heads * seq_len * head_dim` scalars and are never
 //! expanded to `q_heads` before dispatch.
 
+use super::wgpu_internal;
+
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
@@ -450,24 +452,9 @@ fn create_pipeline(
     device: &wgpu::Device,
     source: &'static str,
     label: &'static str,
-) -> Result<wgpu::ComputePipeline, String> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some(label),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(label),
-        layout: None,
-        module: &shader,
-        entry_point: "flat_attention_forward",
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
-    let validation_error = pollster::block_on(device.pop_error_scope());
-    match validation_error {
-        Some(error) => Err(error.to_string()),
-        None => Ok(pipeline),
-    }
+) -> Result<wgpu::ComputePipeline, WgpuFlatAttentionError> {
+    wgpu_internal::create_pipeline(device, source, label, "flat_attention_forward")
+        .map_err(WgpuFlatAttentionError::Execution)
 }
 
 struct GroupedDispatchGeometry {
@@ -480,49 +467,35 @@ struct GroupedDispatchGeometry {
 }
 
 fn checked_u32(value: usize) -> Result<u32, WgpuFlatAttentionError> {
-    u32::try_from(value).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(WgpuFlatAttentionError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, WgpuFlatAttentionError> {
-    let bytes = len
-        .checked_mul(std::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| WgpuFlatAttentionError::IndexSpaceExceeded { elements: len })
+    wgpu_internal::f32_bytes(len)
+        .ok_or_else(|| WgpuFlatAttentionError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_f32(values: &[f32]) -> Result<Vec<u8>, WgpuFlatAttentionError> {
-    let capacity = values
-        .len()
-        .checked_mul(std::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    let mut bytes = Vec::with_capacity(capacity);
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    Ok(bytes)
+    wgpu_internal::encode_f32(values)
+        .ok_or_else(|| WgpuFlatAttentionError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(std::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }
 
 fn decode_f32(bytes: &[u8], expected: usize) -> Result<Vec<f32>, WgpuFlatAttentionError> {
-    let expected_bytes = expected
-        .checked_mul(std::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    if bytes.len() != expected_bytes {
-        return Err(WgpuFlatAttentionError::Execution(format!(
-            "readback returned {} bytes, expected {expected_bytes}",
-            bytes.len()
-        )));
+    match wgpu_internal::decode_f32(bytes, expected) {
+        Ok(values) => Ok(values),
+        Err(wgpu_internal::DecodeF32Failure::Overflow) => Err(WgpuFlatAttentionError::from(
+            FlatAttentionError::ShapeOverflow,
+        )),
+        Err(wgpu_internal::DecodeF32Failure::LengthMismatch {
+            actual_bytes,
+            expected_bytes,
+        }) => Err(WgpuFlatAttentionError::Execution(format!(
+            "readback returned {actual_bytes} bytes, expected {expected_bytes}"
+        ))),
     }
-    let mut values = Vec::with_capacity(expected);
-    for chunk in bytes.chunks_exact(4) {
-        values.push(f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
-    }
-    Ok(values)
 }

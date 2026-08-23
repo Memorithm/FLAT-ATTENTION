@@ -6,6 +6,8 @@
 
 use core::fmt;
 
+use super::wgpu_internal;
+
 use crate::{
     validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
     FLAT_BACKWARD_RECOMPUTE_WGSL,
@@ -69,6 +71,7 @@ pub struct BackwardRecomputePass<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum BackwardRecomputeError {
     Core(FlatAttentionError),
     IndexSpaceExceeded {
@@ -116,7 +119,14 @@ impl fmt::Display for BackwardRecomputeError {
     }
 }
 
-impl std::error::Error for BackwardRecomputeError {}
+impl std::error::Error for BackwardRecomputeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for BackwardRecomputeError {
     fn from(value: FlatAttentionError) -> Self {
@@ -137,26 +147,14 @@ impl fmt::Debug for WgpuBackwardRecomputePipeline {
 
 impl WgpuBackwardRecomputePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, BackwardRecomputeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m18-backward-recompute"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_BACKWARD_RECOMPUTE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m18-backward-recompute"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_backward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(BackwardRecomputeError::PipelineValidation(
-                error.to_string(),
-            )),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_BACKWARD_RECOMPUTE_WGSL,
+            "flat-m18-backward-recompute",
+            "flat_attention_backward",
+        )
+        .map_err(BackwardRecomputeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(

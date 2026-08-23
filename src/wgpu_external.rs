@@ -4,6 +4,8 @@
 //! `wgpu::Device`, `wgpu::Queue`, input buffer, output buffer, encoder or command
 //! submission. The host framework controls all resource lifetime and submission.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -40,6 +42,7 @@ pub struct ExternalProjectionPass<'a> {
 
 /// Errors specific to caller-owned WGPU encoding.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum ExternalWgpuError {
     Core(FlatAttentionError),
     UnsupportedHeadDim {
@@ -119,7 +122,14 @@ impl fmt::Display for ExternalWgpuError {
     }
 }
 
-impl std::error::Error for ExternalWgpuError {}
+impl std::error::Error for ExternalWgpuError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for ExternalWgpuError {
     fn from(value: FlatAttentionError) -> Self {
@@ -146,24 +156,14 @@ impl fmt::Debug for ExternalProjectionRotaryGroupedPipeline {
 impl ExternalProjectionRotaryGroupedPipeline {
     /// Compile the FLAT-R2 pipeline on an externally-owned device.
     pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-r2-projection-rope-gqa"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_FWD_PROJECTION_ROPE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-r2-projection-rope-gqa"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_FWD_PROJECTION_ROPE_WGSL,
+            "flat-r2-projection-rope-gqa",
+            "flat_attention_forward",
+        )
+        .map_err(ExternalWgpuError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     /// Compute exact logical/byte requirements without allocating a GPU buffer.
@@ -385,7 +385,8 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError> {
-    u32::try_from(value).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ExternalWgpuError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
@@ -396,9 +397,5 @@ fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

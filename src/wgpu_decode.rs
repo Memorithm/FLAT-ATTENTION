@@ -7,6 +7,8 @@
 //! stride in both cases. No cache compaction, host round-trip, submission,
 //! polling or mapping occurs here.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -102,6 +104,7 @@ struct ExternalResidentDecodePass<'a> {
 
 /// Explicit M15 decode failures.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum ResidentDecodeError {
     Core(FlatAttentionError),
     EmptyCache,
@@ -202,7 +205,14 @@ impl fmt::Display for ResidentDecodeError {
     }
 }
 
-impl std::error::Error for ResidentDecodeError {}
+impl std::error::Error for ResidentDecodeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for ResidentDecodeError {
     fn from(value: FlatAttentionError) -> Self {
@@ -224,22 +234,14 @@ impl fmt::Debug for WgpuResidentDecodePipeline {
 
 impl WgpuResidentDecodePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ResidentDecodeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m15-resident-decode"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_DECODE_RESIDENT_WGSL)),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m15-resident-decode"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_decode",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ResidentDecodeError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_DECODE_RESIDENT_WGSL,
+            "flat-m15-resident-decode",
+            "flat_attention_decode",
+        )
+        .map_err(ResidentDecodeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(
@@ -568,20 +570,15 @@ fn checked_mul(a: usize, b: usize) -> Result<usize, ResidentDecodeError> {
 }
 
 fn checked_u32(value: usize) -> Result<u32, ResidentDecodeError> {
-    u32::try_from(value).map_err(|_| ResidentDecodeError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ResidentDecodeError::IndexSpaceExceeded { elements: value })
 }
 
-fn bytes_for_f32(elements: usize) -> Result<u64, ResidentDecodeError> {
-    let bytes = elements
-        .checked_mul(core::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| ResidentDecodeError::IndexSpaceExceeded { elements })
+fn bytes_for_f32(len: usize) -> Result<u64, ResidentDecodeError> {
+    wgpu_internal::f32_bytes(len)
+        .ok_or_else(|| ResidentDecodeError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }
