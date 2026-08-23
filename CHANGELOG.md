@@ -4,6 +4,23 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Supply chain and governance
+
+- Added a `supply-chain` CI workflow running `cargo-deny` (RustSec advisories, license allow-list, source policy) against every crate manifest on push, pull request, and a weekly schedule.
+- Added `deny.toml`, Dependabot updates for Cargo dependencies and GitHub Actions, and a `SECURITY.md` private-vulnerability reporting policy.
+- Pinned GitHub Actions by commit SHA in the main CI workflow and added explicit least-privilege token permissions and job timeouts.
+- Committed `Cargo.lock` files as the authoritative version-resolution record referenced by `THIRD_PARTY_LICENSES.md`.
+- Declared `required-features = ["wgpu"]` for GPU examples so default-feature builds and tests no longer fail on host-only machines.
+- Removed the stale `.ci-trigger-m24` marker and ignored local assistant scratch directories.
+
+### EPG (Elastic Positional Geometry) crate family
+
+- Added `epg-core`: runtime-neutral EPG contract types with exhaustive validation.
+- Added `flat-epg-reference`: deterministic CPU oracle fusing hybrid SO(2)/SO(4) rotations into online-softmax grouped attention.
+- Added `flat-epg-wgpu`: correctness-first one-workgroup-per-query-row vec4 GPU qualification pipeline.
+- Added `flat-epg-q4-candidate`: opt-in performance candidate reusing FLAT Q4 tiling with EPG fused into K/V staging, plus a hardware-sweep benchmark harness with software-adapter refusal.
+- Added physical Jetson Thor qualification evidence and CI smoke protocol for the EPG Q4 candidate.
+
 ### Stable contract and integration
 
 - Added the versioned backend-neutral `api::v1` attention contract for borrowed, owned, and resident use.
