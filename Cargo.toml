@@ -11,6 +11,7 @@ license-file = "LICENSE.md"
 
 [workspace]
 members = ["crates/*"]
+exclude = ["fuzz"]
 resolver = "2"
 
 [features]

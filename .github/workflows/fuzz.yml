@@ -1,0 +1,54 @@
+name: fuzz
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  schedule:
+    # Weekly deep session, Sunday 04:10 UTC.
+    - cron: "10 4 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  libfuzzer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - shape_and_forward
+          - paged_kv_state
+          - api_v1_contract
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        with:
+          toolchain: nightly
+      - name: Install cargo-fuzz
+        run: cargo install --locked cargo-fuzz
+      - name: Fuzz ${{ matrix.target }}
+        timeout-minutes: 10
+        working-directory: fuzz
+        run: |
+          set -euo pipefail
+          corpus="corpus/${{ matrix.target }}"
+          mkdir -p "$corpus"
+          target="${{ matrix.target }}"
+          cargo fuzz run -j 2 "$target" "$corpus" seed/ -- \
+            -max_total_time=60 -rss_limit_mb=4096
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+        with:
+          name: crash-${{ matrix.target }}
+          path: fuzz/crash-*
+          if-no-files-found: ignore
