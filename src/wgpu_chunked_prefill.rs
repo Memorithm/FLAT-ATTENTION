@@ -134,16 +134,29 @@ impl WgpuChunkedProjectionPrefillPipeline {
     }
 
     /// Create a full O|LSE destination suitable for the scatter phase.
+    ///
+    /// The returned buffer carries the `STORAGE` usage required by
+    /// [`Self::encode`] in addition to copy usages for scatter/readback.
     pub fn create_output_buffer(
         &self,
         device: &wgpu::Device,
         shape: GroupedAttentionShape,
     ) -> Result<wgpu::Buffer, WgpuChunkedProjectionPrefillError> {
         let layout = Self::layout(shape)?;
+        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        if layout.combined_bytes > maximum_bytes {
+            return Err(ExternalWgpuError::DeviceBufferLimit {
+                required_bytes: layout.combined_bytes,
+                maximum_bytes,
+            }
+            .into());
+        }
         Ok(device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m16-chunked-prefill-o-lse"),
             size: layout.combined_bytes,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         }))
     }
@@ -172,6 +185,12 @@ impl WgpuChunkedProjectionPrefillPipeline {
         validate_buffer("V", pass.v, full_layout.kv_bytes)?;
         validate_buffer("O|LSE", pass.out_and_lse, full_layout.combined_bytes)?;
         validate_usage("Q", pass.q, wgpu::BufferUsages::COPY_SRC, "COPY_SRC")?;
+        validate_usage(
+            "O|LSE",
+            pass.out_and_lse,
+            wgpu::BufferUsages::STORAGE,
+            "STORAGE",
+        )?;
         validate_usage(
             "O|LSE",
             pass.out_and_lse,

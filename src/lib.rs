@@ -359,6 +359,18 @@ pub struct FlatAttentionOutput {
     pub lse: Vec<f32>,
 }
 
+/// Allocate a process-unique resident-buffer owner identity.
+///
+/// Pointer-derived identities can be recycled after a context is dropped
+/// (ABA), silently defeating foreign-buffer rejection. Monotonic counters are
+/// never reused.
+#[cfg(feature = "wgpu")]
+pub(crate) fn next_resident_owner_id() -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static NEXT_RESIDENT_OWNER_ID: AtomicUsize = AtomicUsize::new(1);
+    NEXT_RESIDENT_OWNER_ID.fetch_add(1, Ordering::Relaxed)
+}
+
 /// Errors are explicit: FLAT-ATTENTION never fabricates a fallback result.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatAttentionError {

@@ -70,27 +70,30 @@ struct PageEntry {
 /// Vendor-independent logical-to-physical page table for resident KV storage.
 ///
 /// This type owns metadata only. It does not allocate device buffers or perform
-/// copies/submissions. Physical pages are assigned deterministically from the
-/// lowest available page index and remain stable until [`Self::reset`].
+/// copies/submissions. Host metadata grows with *mapped* pages, never with the
+/// configured physical page count, so very large configurations cannot cause
+/// host-side allocation before tokens are actually appended.
+///
+/// Physical pages are assigned deterministically from the lowest available
+/// page index and remain stable until [`Self::reset`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PagedKvTable {
     config: PagedKvConfig,
     live_tokens: usize,
     generation: u64,
     logical_pages: Vec<PageEntry>,
-    free_pages: Vec<usize>,
+    next_free_page: usize,
 }
 
 impl PagedKvTable {
     pub fn new(config: PagedKvConfig) -> Result<Self, PagedKvError> {
         config.capacity_tokens()?;
-        let free_pages = (0..config.physical_pages).rev().collect();
         Ok(Self {
             config,
             live_tokens: 0,
             generation: 0,
             logical_pages: Vec::new(),
-            free_pages,
+            next_free_page: 0,
         })
     }
 
@@ -127,10 +130,11 @@ impl PagedKvTable {
         }
         let required_pages = new_len.div_ceil(self.config.page_size);
         while self.logical_pages.len() < required_pages {
-            let physical_page = self
-                .free_pages
-                .pop()
-                .expect("validated capacity guarantees a free page");
+            // `new_len <= capacity_tokens == page_size * physical_pages`, so
+            // `required_pages <= physical_pages` and the cursor cannot pass the
+            // last physical page.
+            let physical_page = self.next_free_page;
+            self.next_free_page = physical_page + 1;
             self.logical_pages.push(PageEntry {
                 physical_page,
                 generation: self.generation,
@@ -167,7 +171,7 @@ impl PagedKvTable {
             live_tokens: self.live_tokens,
             capacity_tokens,
             mapped_pages,
-            free_pages: self.free_pages.len(),
+            free_pages: self.config.physical_pages - self.logical_pages.len(),
             internal_fragmentation_tokens: allocated_tokens - self.live_tokens,
             generation: self.generation,
         })
@@ -180,9 +184,7 @@ impl PagedKvTable {
             .ok_or(PagedKvError::GenerationOverflow)?;
         self.live_tokens = 0;
         self.logical_pages.clear();
-        self.free_pages.clear();
-        self.free_pages
-            .extend((0..self.config.physical_pages).rev());
+        self.next_free_page = 0;
         Ok(())
     }
 }
@@ -267,5 +269,18 @@ mod tests {
             })
         );
         assert_eq!(table, before);
+    }
+
+    #[test]
+    fn huge_physical_page_counts_allocate_no_host_metadata() {
+        let table = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: usize::MAX,
+        })
+        .unwrap();
+        let telemetry = table.telemetry().unwrap();
+        assert_eq!(telemetry.capacity_tokens, usize::MAX);
+        assert_eq!(telemetry.free_pages, usize::MAX);
+        assert_eq!(telemetry.mapped_pages, 0);
     }
 }

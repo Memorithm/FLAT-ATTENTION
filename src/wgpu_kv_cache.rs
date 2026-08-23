@@ -31,6 +31,10 @@ pub enum WgpuResidentKvCacheError {
         actual_bytes: u64,
         required_bytes: u64,
     },
+    MissingBufferUsage {
+        tensor: &'static str,
+        required: &'static str,
+    },
     DeviceBufferLimit {
         required_bytes: u64,
         maximum_bytes: u64,
@@ -57,6 +61,10 @@ impl fmt::Display for WgpuResidentKvCacheError {
             } => write!(
                 f,
                 "resident append buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
+            ),
+            Self::MissingBufferUsage { tensor, required } => write!(
+                f,
+                "resident append buffer {tensor} must declare the {required} usage"
             ),
             Self::DeviceBufferLimit {
                 required_bytes,
@@ -273,6 +281,12 @@ fn validate_source(
             tensor,
             actual_bytes,
             required_bytes,
+        });
+    }
+    if !buffer.usage().contains(wgpu::BufferUsages::COPY_SRC) {
+        return Err(WgpuResidentKvCacheError::MissingBufferUsage {
+            tensor,
+            required: "COPY_SRC",
         });
     }
     Ok(())
