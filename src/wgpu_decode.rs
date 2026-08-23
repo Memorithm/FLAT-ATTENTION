@@ -19,11 +19,17 @@ use super::{
 /// Output geometry for one resident decode dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResidentDecodeLayout {
+    /// Query element count (batch * q_heads * head_dim).
     pub q_elements: usize,
+    /// Output context element count for this decode pass.
     pub output_elements: usize,
+    /// LSE element count for this decode pass.
     pub lse_elements: usize,
+    /// Total packed O|LSE element count.
     pub combined_elements: usize,
+    /// Query buffer size in bytes.
     pub q_bytes: u64,
+    /// Packed O|LSE destination size in bytes.
     pub combined_bytes: u64,
 }
 

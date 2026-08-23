@@ -23,12 +23,19 @@ pub const WGSL_ALIBI_MAX_HEADS: usize = 256;
 
 /// One caller-owned rectangular projection-layout dispatch.
 pub struct ExternalAsymmetricProjectionPass<'a> {
+    /// Sequence-major projected query tensor [batch, query_len, q_heads * head_dim].
     pub q: &'a wgpu::Buffer,
+    /// Sequence-major projected key tensor (raw; rotation is fused).
     pub k: &'a wgpu::Buffer,
+    /// Sequence-major projected value tensor.
     pub v: &'a wgpu::Buffer,
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub out_and_lse: &'a wgpu::Buffer,
+    /// Rectangular grouped geometry with the causal position domain.
     pub shape: AsymmetricGroupedAttentionShape,
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
+    /// RoPE parameters with independent Q and KV rotation domains.
     pub rotary: AsymmetricRotaryEmbeddingConfig,
 }
 

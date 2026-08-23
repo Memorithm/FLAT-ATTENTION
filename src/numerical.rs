@@ -58,13 +58,18 @@ pub enum SoftmaxUpdatePolicy {
 /// Static guarantees for a numerical mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NumericalGuarantees {
+    /// Accumulation precision policy applied by the backend.
     pub accumulation: AccumulationPolicy,
+    /// Deterministic reduction-order policy.
     pub reduction: ReductionPolicy,
+    /// Online-softmax update ordering policy.
     pub softmax_update: SoftmaxUpdatePolicy,
     /// Repeated identical calls are required to reproduce identical FP32 bit
     /// patterns under the same qualified backend/device/context contract.
+    /// Bit-exact repeatability on one unchanged device.
     pub repeatable_same_backend_device: bool,
     /// Whether native subgroup reduction may be selected.
+    /// Whether this mode permits subgroup-assisted reductions.
     pub allows_subgroup: bool,
 }
 
@@ -214,6 +219,7 @@ impl NumericalExecutor {
     }
 
     #[cfg(feature = "wgpu")]
+    #[must_use]
     pub fn adapter_name(&self) -> Option<&str> {
         match &self.backend {
             NumericalBackend::Reference => None,

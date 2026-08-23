@@ -22,14 +22,17 @@ pub struct WgpuRotaryGroupedResidentBuffer {
 }
 
 impl WgpuRotaryGroupedResidentBuffer {
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -42,14 +45,17 @@ pub struct WgpuRotaryGroupedResidentOutput {
 }
 
 impl WgpuRotaryGroupedResidentOutput {
+    #[must_use]
     pub fn output_len(&self) -> usize {
         self.output_len
     }
 
+    #[must_use]
     pub fn lse_len(&self) -> usize {
         self.lse_len
     }
 
+    #[must_use]
     pub fn combined(&self) -> &WgpuRotaryGroupedResidentBuffer {
         &self.combined
     }
@@ -119,6 +125,7 @@ impl WgpuRotaryGroupedAttention {
         })
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
     }

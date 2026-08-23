@@ -18,11 +18,17 @@ pub const WGSL_PAGED_MAX_LOGICAL_PAGES: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedDecodeLayout {
+    /// Query element count (batch * q_heads * head_dim).
     pub q_elements: usize,
+    /// Output context element count for this decode pass.
     pub output_elements: usize,
+    /// LSE element count for this decode pass.
     pub lse_elements: usize,
+    /// Total packed O|LSE element count.
     pub combined_elements: usize,
+    /// Query buffer size in bytes.
     pub q_bytes: u64,
+    /// Packed O|LSE destination size in bytes.
     pub combined_bytes: u64,
 }
 
@@ -200,6 +206,7 @@ impl WgpuPagedKvTable {
         })
     }
 
+    #[must_use]
     pub fn live_tokens(&self) -> usize {
         self.live_tokens
     }
@@ -216,6 +223,7 @@ impl WgpuPagedKvTable {
         self.entries.len()
     }
 
+    #[must_use]
     pub fn generation(&self) -> u64 {
         self.generation
     }
@@ -229,10 +237,15 @@ pub struct PagedDecodePass<'a> {
     pub v: &'a wgpu::Buffer,
     pub page_table: &'a WgpuPagedKvTable,
     pub out_and_lse: &'a wgpu::Buffer,
+    /// Query heads for this decode pass.
     pub q_heads: usize,
+    /// Physical K/V heads backing the cache.
     pub kv_heads: usize,
+    /// Feature width of every head row.
     pub head_dim: usize,
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
+    /// Positive finite RoPE base frequency.
     pub theta: f32,
     /// Absolute RoPE position of the single query row (rotation domain only).
     pub q_rope_position: usize,

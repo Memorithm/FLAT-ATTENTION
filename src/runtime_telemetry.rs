@@ -33,11 +33,17 @@ impl From<WgpuKernelVariant> for RuntimeKernelId {
 /// Device/driver identity captured once when an owned WGPU context is created.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RuntimeDeviceFingerprint {
+    /// Human-readable adapter name as reported by wgpu.
     pub name: String,
+    /// Graphics backend family (Vulkan, Metal, D3D12).
     pub backend: String,
+    /// Driver version string.
     pub driver: String,
+    /// Extended driver description when the adapter provides one.
     pub driver_info: String,
+    /// PCI vendor identifier.
     pub vendor: u32,
+    /// PCI device identifier.
     pub device: u32,
 }
 
@@ -98,17 +104,27 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 /// autotuning cache key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeDeviceCapabilities {
+    /// Device dispatch limit along every compute axis.
     pub max_workgroups_per_dimension: u32,
+    /// Maximum invocations along the workgroup X axis.
     pub max_workgroup_size_x: u32,
+    /// Maximum invocations along the workgroup Y axis.
     pub max_workgroup_size_y: u32,
+    /// Maximum invocations along the workgroup Z axis.
     pub max_workgroup_size_z: u32,
+    /// Workgroup-addressable memory in bytes.
     pub max_workgroup_storage_bytes: u32,
     /// Maximum number of bind groups per dispatch (wgpu 0.20 `max_bind_groups`).
     pub max_binding_entries: u32,
+    /// Largest storage buffer binding in bytes.
     pub max_storage_buffer_binding_size: u32,
+    /// Whether the adapter exposes WGPU subgroup operations.
     pub subgroup_supported: bool,
+    /// Minimum subgroup width reported by the adapter.
     pub subgroup_min_size: u32,
+    /// Maximum subgroup width reported by the adapter.
     pub subgroup_max_size: u32,
+    /// Whether native shader-f16 is available (unused by packed-f16 I/O).
     pub f16_supported: bool,
 }
 
@@ -149,21 +165,32 @@ pub enum AutotunerCacheStatus {
 /// Tile geometry selected for one dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeTileGeometry {
+    /// Query rows staged per workgroup.
     pub query_rows: u32,
+    /// K/V rows streamed per tile.
     pub kv_rows: u32,
+    /// Resolved [x, y, z] dispatch geometry.
     pub workgroups: [u32; 3],
 }
 
 /// Passive metadata for one logical FLAT dispatch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeDispatchTelemetry {
+    /// Kernel generation selected for the dispatch.
     pub kernel_id: RuntimeKernelId,
+    /// Fingerprint of the executing adapter.
     pub device: RuntimeDeviceFingerprint,
+    /// Tiling geometry used by the kernel.
     pub tile: RuntimeTileGeometry,
+    /// Number of device dispatches issued for one logical pass.
     pub dispatch_count: u32,
+    /// Buffers allocated by FLAT for this dispatch.
     pub temporary_allocation_count: u32,
+    /// Total bytes of FLAT-owned temporary buffers.
     pub temporary_allocation_bytes: u64,
+    /// Why a preferred generation was not selected, if any.
     pub fallback_reason: Option<String>,
+    /// Externally-attached autotuner cache annotation.
     pub autotuner_cache: AutotunerCacheStatus,
 }
 

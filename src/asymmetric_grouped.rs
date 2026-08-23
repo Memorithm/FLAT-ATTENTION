@@ -25,12 +25,19 @@ use super::{
 /// and `query_position_offset = N - 1`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AsymmetricGroupedAttentionShape {
+    /// Independent attention problems executed in parallel.
     pub batch: usize,
+    /// Query heads per problem.
     pub q_heads: usize,
+    /// Physical K/V heads; q_heads must be an exact multiple.
     pub kv_heads: usize,
+    /// Query tokens per problem (decode uses 1).
     pub query_len: usize,
+    /// Key/value tokens per problem; may differ from query_len.
     pub kv_len: usize,
+    /// Feature width of every head row (1..=128 portable).
     pub head_dim: usize,
+    /// Absolute causal position of query token zero.
     pub query_position_offset: usize,
 }
 

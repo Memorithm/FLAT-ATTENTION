@@ -40,21 +40,31 @@ pub struct VariableLengthSequenceMetadata {
 /// domain.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VariableLengthRotaryEmbeddingConfig {
+    /// Positive finite RoPE base frequency.
     pub theta: f32,
+    /// Shared absolute rotation origin of key/value token zero.
     pub kv_position_offset: usize,
 }
 
 /// One caller-owned padded variable-length projection-layout dispatch.
 pub struct ExternalVariableProjectionPass<'a> {
+    /// Sequence-major projected query tensor padded to the batch maximum length.
     pub q: &'a wgpu::Buffer,
+    /// Sequence-major projected key tensor (raw; rotation is fused).
     pub k: &'a wgpu::Buffer,
+    /// Sequence-major projected value tensor padded like Q.
     pub v: &'a wgpu::Buffer,
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub out_and_lse: &'a wgpu::Buffer,
     /// Physical padded extents. `shape.query_position_offset` is ignored; the
     /// causal offset is supplied per sequence in `metadata`.
+    /// Rectangular geometry whose query_len/kv_len equal the padded maxima.
     pub shape: AsymmetricGroupedAttentionShape,
+    /// Per-batch active lengths and positions, one entry per batch element.
     pub metadata: &'a [VariableLengthSequenceMetadata],
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
+    /// RoPE parameters shared by every batch element.
     pub rotary: VariableLengthRotaryEmbeddingConfig,
 }
 

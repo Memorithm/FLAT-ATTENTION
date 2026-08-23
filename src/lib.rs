@@ -212,9 +212,13 @@ pub use wgpu_backward_grouped::{
 /// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
+    /// Independent attention problems executed in parallel.
     pub batch: usize,
+    /// Query heads per problem; equals kv_heads unless GQA/MQA applies.
     pub heads: usize,
+    /// Tokens per problem; Q, K and V share this length.
     pub seq_len: usize,
+    /// Feature width of every Q/K/V head row (1..=128 portable).
     pub head_dim: usize,
 }
 
@@ -278,7 +282,9 @@ impl FlatAttentionConfig {
 /// transactions, cache hits, bandwidth, or runtime speed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IoModel {
+    /// Dispatch geometry along the query axis.
     pub query_workgroups: usize,
+    /// Logical scalar K/V staging loads implied by the kernel loops.
     pub kv_storage_scalar_loads: usize,
 }
 

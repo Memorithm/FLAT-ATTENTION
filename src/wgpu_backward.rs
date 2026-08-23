@@ -17,11 +17,17 @@ const BACKWARD_WORKGROUP_SIZE: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BackwardRecomputeLayout {
+    /// Element count of one forward tensor (Q or O).
     pub tensor_elements: usize,
+    /// Element count of the LSE statistic vector.
     pub lse_elements: usize,
+    /// Element count of the packed [Q|K|V|O|LSE] record.
     pub packed_forward_elements: usize,
+    /// Element count of the packed [dQ|dK|dV] record.
     pub gradient_elements: usize,
+    /// Byte size of the packed forward record.
     pub packed_forward_bytes: u64,
+    /// Byte size of the packed gradient record.
     pub gradient_bytes: u64,
 }
 
@@ -64,9 +70,13 @@ impl BackwardRecomputeLayout {
 }
 
 pub struct BackwardRecomputePass<'a> {
+    /// Packed [Q|K|V|O|LSE] forward record produced by the forward pass.
     pub packed_forward: &'a wgpu::Buffer,
+    /// Destination for packed [dQ|dK|dV]; must declare STORAGE usage.
     pub packed_grads: &'a wgpu::Buffer,
+    /// Canonical geometry of the recorded forward pass.
     pub shape: AttentionShape,
+    /// Attention configuration used by the forward pass.
     pub config: FlatAttentionConfig,
 }
 

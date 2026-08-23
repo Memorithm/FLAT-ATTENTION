@@ -137,14 +137,17 @@ pub struct WgpuResidentBuffer {
 }
 
 impl WgpuResidentBuffer {
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -157,14 +160,17 @@ pub struct WgpuResidentAttentionOutput {
 }
 
 impl WgpuResidentAttentionOutput {
+    #[must_use]
     pub fn output_len(&self) -> usize {
         self.output_len
     }
 
+    #[must_use]
     pub fn lse_len(&self) -> usize {
         self.lse_len
     }
 
+    #[must_use]
     pub fn combined(&self) -> &WgpuResidentBuffer {
         &self.combined
     }
@@ -359,6 +365,7 @@ impl WgpuFlatAttention {
         })
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
     }
@@ -369,26 +376,32 @@ impl WgpuFlatAttention {
         self.inner.device_capabilities
     }
 
+    #[must_use]
     pub fn max_workgroups_per_dimension(&self) -> u32 {
         self.inner.max_workgroups_per_dimension
     }
 
+    #[must_use]
     pub fn subgroup_supported(&self) -> bool {
         self.inner.subgroup_supported
     }
 
+    #[must_use]
     pub fn subgroup_size_range(&self) -> Option<(u32, u32)> {
         self.inner.subgroup_size_range
     }
 
+    #[must_use]
     pub fn kernel_variant(&self) -> WgpuKernelVariant {
         self.inner.kernel_variant
     }
 
+    #[must_use]
     pub fn vectorization_enabled(&self) -> bool {
         self.inner.vectorization_enabled
     }
 
+    #[must_use]
     pub fn double_buffering_enabled(&self) -> bool {
         self.inner.double_buffering_enabled
     }

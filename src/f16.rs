@@ -138,7 +138,9 @@ impl fmt::Debug for F16 {
 /// Mixed-precision forward result: binary16 context output and FP32 LSE.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatAttentionF16Output {
+    /// Attention context tensor quantized back to binary16.
     pub output: Vec<F16>,
+    /// Per-query log-sum-exp statistics kept in fp32 for stable backward recomputation.
     pub lse: Vec<f32>,
 }
 

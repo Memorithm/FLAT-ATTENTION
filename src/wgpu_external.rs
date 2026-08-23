@@ -16,13 +16,19 @@ use super::{
 /// Byte/element geometry expected by [`ExternalProjectionRotaryGroupedPipeline`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExternalProjectionLayout {
+    /// Expected Q element count.
     pub q_elements: usize,
+    /// Expected K and V element count (identical layout).
     pub kv_elements: usize,
+    /// Combined O|LSE element count.
     pub output_elements: usize,
     pub lse_elements: usize,
     pub combined_elements: usize,
+    /// Q buffer size in bytes.
     pub q_bytes: u64,
+    /// K and V buffer size in bytes each.
     pub kv_bytes: u64,
+    /// Packed O|LSE buffer size in bytes.
     pub combined_bytes: u64,
 }
 
@@ -31,12 +37,19 @@ pub struct ExternalProjectionLayout {
 /// Buffers are borrowed and remain owned by the framework. The output buffer
 /// stores projection-layout O first and LSE in its tail.
 pub struct ExternalProjectionPass<'a> {
+    /// Sequence-major projected query tensor [batch, seq, q_heads * head_dim].
     pub q: &'a wgpu::Buffer,
+    /// Sequence-major projected key tensor [batch, seq, kv_heads * head_dim].
     pub k: &'a wgpu::Buffer,
+    /// Sequence-major projected value tensor [batch, seq, kv_heads * head_dim].
     pub v: &'a wgpu::Buffer,
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub out_and_lse: &'a wgpu::Buffer,
+    /// Grouped geometry shared by all four tensors.
     pub shape: GroupedAttentionShape,
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
+    /// RoPE parameters applied to both Q and K inside the kernel.
     pub rotary: RotaryEmbeddingConfig,
 }
 

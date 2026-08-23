@@ -139,14 +139,17 @@ pub struct WgpuResidentF16Buffer {
 }
 
 impl WgpuResidentF16Buffer {
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -161,10 +164,12 @@ pub struct WgpuResidentF16AttentionOutput {
 }
 
 impl WgpuResidentF16AttentionOutput {
+    #[must_use]
     pub fn output_len(&self) -> usize {
         self.output_len
     }
 
+    #[must_use]
     pub fn lse_len(&self) -> usize {
         self.lse_len
     }
@@ -173,6 +178,7 @@ impl WgpuResidentF16AttentionOutput {
         self.packed_words
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -239,10 +245,12 @@ impl WgpuF16Attention {
         })
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
     }
 
+    #[must_use]
     pub fn io_precision(&self) -> WgpuIoPrecision {
         WgpuIoPrecision::PackedF16
     }
@@ -548,6 +556,7 @@ impl WgpuPreferredAttention {
         }
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         self.packed_f16
             .as_ref()

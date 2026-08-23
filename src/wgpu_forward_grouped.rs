@@ -24,12 +24,19 @@ const FLAT_FWD_GROUPED_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_group
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedForwardLayout {
+    /// Query tensor element count.
     pub q_elements: usize,
+    /// Key/value tensor element count at physical KV-head cardinality.
     pub kv_elements: usize,
+    /// LSE statistic element count.
     pub lse_elements: usize,
+    /// Combined O|LSE element count.
     pub output_elements: usize,
+    /// Query buffer size in bytes.
     pub q_bytes: u64,
+    /// Key/value buffer size in bytes each.
     pub kv_bytes: u64,
+    /// Packed O|LSE buffer size in bytes.
     pub output_bytes: u64,
 }
 
@@ -44,12 +51,18 @@ impl GroupedForwardLayout {
 }
 
 pub struct GroupedForwardPass<'a> {
+    /// Sequence-major projected query tensor [batch, seq, q_heads * head_dim].
     pub q: &'a wgpu::Buffer,
+    /// Key tensor at native kv_heads cardinality.
     pub k: &'a wgpu::Buffer,
+    /// Value tensor at native kv_heads cardinality.
     pub v: &'a wgpu::Buffer,
     /// Combined `[O | LSE]` storage buffer.
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub output: &'a wgpu::Buffer,
+    /// Grouped geometry shared by all tensors.
     pub shape: GroupedAttentionShape,
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
 }
 
@@ -288,6 +301,7 @@ impl WgpuGroupedForwardPipeline {
         })
     }
 
+    #[must_use]
     pub fn vectorization_enabled(&self) -> bool {
         self.mha_vec4_pipeline.is_some()
     }

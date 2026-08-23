@@ -18,12 +18,19 @@ const BACKWARD_WORKGROUP_SIZE: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedBackwardRecomputeLayout {
+    /// Query tensor element count.
     pub q_elements: usize,
+    /// Key/value tensor element count at physical KV-head cardinality.
     pub kv_elements: usize,
+    /// LSE statistic element count.
     pub lse_elements: usize,
+    /// Element count of the packed forward record.
     pub packed_forward_elements: usize,
+    /// Element count of the packed gradient record.
     pub gradient_elements: usize,
+    /// Byte size of the packed forward record.
     pub packed_forward_bytes: u64,
+    /// Byte size of the packed gradient record.
     pub gradient_bytes: u64,
 }
 
@@ -58,9 +65,13 @@ impl GroupedBackwardRecomputeLayout {
 }
 
 pub struct GroupedBackwardRecomputePass<'a> {
+    /// Packed [Q|K|V|O|LSE] forward record at native KV cardinality.
     pub packed_forward: &'a wgpu::Buffer,
+    /// Destination for packed [dQ|dK|dV]; must declare STORAGE usage.
     pub packed_grads: &'a wgpu::Buffer,
+    /// Grouped geometry of the recorded forward pass.
     pub shape: GroupedAttentionShape,
+    /// Attention configuration used by the forward pass.
     pub config: FlatAttentionConfig,
 }
 
