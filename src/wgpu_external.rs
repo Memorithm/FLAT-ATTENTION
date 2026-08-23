@@ -59,6 +59,10 @@ pub enum ExternalWgpuError {
         actual_bytes: u64,
         required_bytes: u64,
     },
+    DeviceBufferLimit {
+        required_bytes: u64,
+        maximum_bytes: u64,
+    },
     CandidateNotEnabled {
         candidate: &'static str,
     },
@@ -94,6 +98,13 @@ impl fmt::Display for ExternalWgpuError {
             } => write!(
                 f,
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
+            ),
+            Self::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes,
+            } => write!(
+                f,
+                "external FLAT pass requires {required_bytes} bytes per buffer, device maximum is {maximum_bytes}"
             ),
             Self::CandidateNotEnabled { candidate } => {
                 write!(f, "external FLAT candidate {candidate} was not enabled")
@@ -187,6 +198,13 @@ impl ExternalProjectionRotaryGroupedPipeline {
         shape: GroupedAttentionShape,
     ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
+        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        if layout.combined_bytes > maximum_bytes {
+            return Err(ExternalWgpuError::DeviceBufferLimit {
+                required_bytes: layout.combined_bytes,
+                maximum_bytes,
+            });
+        }
         Ok(device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-r2-external-o-lse"),
             size: layout.combined_bytes,

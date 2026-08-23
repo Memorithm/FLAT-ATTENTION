@@ -121,6 +121,10 @@ pub enum GroupedForwardError {
         actual_bytes: u64,
         required_bytes: u64,
     },
+    DeviceBufferLimit {
+        required_bytes: u64,
+        maximum_bytes: u64,
+    },
     PipelineValidation(String),
 }
 
@@ -151,6 +155,13 @@ impl fmt::Display for GroupedForwardError {
             } => write!(
                 f,
                 "buffer {tensor} contains {actual_bytes} bytes, requires at least {required_bytes}"
+            ),
+            Self::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes,
+            } => write!(
+                f,
+                "grouped forward requires {required_bytes} bytes per buffer, device maximum is {maximum_bytes}"
             ),
             Self::PipelineValidation(error) => {
                 write!(f, "grouped forward pipeline validation failed: {error}")
@@ -339,6 +350,13 @@ impl WgpuGroupedForwardPipeline {
         shape: GroupedAttentionShape,
     ) -> Result<wgpu::Buffer, GroupedForwardError> {
         let layout = Self::layout(shape)?;
+        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        if layout.output_bytes > maximum_bytes {
+            return Err(GroupedForwardError::DeviceBufferLimit {
+                required_bytes: layout.output_bytes,
+                maximum_bytes,
+            });
+        }
         Ok(device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m24-grouped-forward-o-lse"),
             size: layout.output_bytes,

@@ -41,6 +41,10 @@ pub enum WgpuF16AttentionError {
     IndexSpaceExceeded {
         elements: usize,
     },
+    DeviceBufferLimit {
+        required_bytes: u64,
+        maximum_bytes: u64,
+    },
     ForeignBuffer,
     ResidentLength {
         tensor: &'static str,
@@ -78,6 +82,13 @@ impl fmt::Display for WgpuF16AttentionError {
             Self::IndexSpaceExceeded { elements } => write!(
                 f,
                 "M8 packed index space requires {elements} elements, exceeding u32 addressing"
+            ),
+            Self::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes,
+            } => write!(
+                f,
+                "packed-binary16 attention requires {required_bytes} bytes per buffer, device maximum is {maximum_bytes}"
             ),
             Self::ForeignBuffer => write!(
                 f,
@@ -162,6 +173,8 @@ struct WgpuF16AttentionInner {
     pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
+    max_storage_buffer_binding_size: u64,
+    owner_id: usize,
 }
 
 #[derive(Clone)]
@@ -198,7 +211,8 @@ impl WgpuF16Attention {
         .map_err(|error| WgpuF16AttentionError::Execution(format!("request_device: {error}")))?;
 
         let pipeline = create_pipeline(&device)?;
-        let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
+        let device_limits = device.limits();
+        let max_workgroups_per_dimension = device_limits.max_compute_workgroups_per_dimension;
         Ok(Self {
             inner: Arc::new(WgpuF16AttentionInner {
                 device,
@@ -206,6 +220,10 @@ impl WgpuF16Attention {
                 pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
+                max_storage_buffer_binding_size: u64::from(
+                    device_limits.max_storage_buffer_binding_size,
+                ),
+                owner_id: super::next_resident_owner_id(),
             }),
         })
     }
@@ -221,6 +239,12 @@ impl WgpuF16Attention {
     pub fn upload_f16(&self, data: &[F16]) -> Result<WgpuResidentF16Buffer, WgpuF16AttentionError> {
         let bytes = encode_packed_f16(data)?;
         let size = bytes.len().max(4) as u64;
+        if size > self.inner.max_storage_buffer_binding_size {
+            return Err(WgpuF16AttentionError::DeviceBufferLimit {
+                required_bytes: size,
+                maximum_bytes: self.inner.max_storage_buffer_binding_size,
+            });
+        }
         let buffer = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-attention-m8-packed-f16-input"),
             size,
@@ -437,6 +461,23 @@ impl WgpuF16Attention {
                 maximum,
             });
         }
+        // Packed Q/K/V and the O|LSE output are storage-bound; enforce the
+        // device binding limit instead of relying on wgpu validation aborts.
+        let maximum_binding_bytes = self.inner.max_storage_buffer_binding_size;
+        let packed_words = tensor_len.div_ceil(2);
+        let input_words = packed_words
+            .checked_mul(3)
+            .ok_or(FlatAttentionError::ShapeOverflow)?;
+        let required_words = input_words
+            .checked_add(packed_words)
+            .ok_or(FlatAttentionError::ShapeOverflow)?;
+        let required_bytes = bytes_for_words(required_words)?;
+        if required_bytes > maximum_binding_bytes {
+            return Err(WgpuF16AttentionError::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes: maximum_binding_bytes,
+            });
+        }
         Ok(DispatchGeometry {
             tensor_len,
             lse_len,
@@ -466,7 +507,7 @@ impl WgpuF16Attention {
     }
 
     fn owner_id(&self) -> usize {
-        Arc::as_ptr(&self.inner) as usize
+        self.inner.owner_id
     }
 }
 

@@ -59,6 +59,8 @@ struct WgpuGroupedAttentionInner {
     pipeline: wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
+    max_storage_buffer_binding_size: u64,
+    owner_id: usize,
 }
 
 #[derive(Clone)]
@@ -107,6 +109,8 @@ impl WgpuGroupedAttention {
             WgpuFlatAttentionError::Execution(format!("M10 grouped pipeline: {error}"))
         })?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
+        let max_storage_buffer_binding_size =
+            u64::from(device.limits().max_storage_buffer_binding_size);
 
         Ok(Self {
             inner: Arc::new(WgpuGroupedAttentionInner {
@@ -115,6 +119,8 @@ impl WgpuGroupedAttention {
                 pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
+                max_storage_buffer_binding_size,
+                owner_id: super::next_resident_owner_id(),
             }),
         })
     }
@@ -151,6 +157,12 @@ impl WgpuGroupedAttention {
     ) -> Result<WgpuGroupedResidentBuffer, WgpuFlatAttentionError> {
         let bytes = encode_f32(data)?;
         let size = bytes.len().max(4) as u64;
+        if size > self.inner.max_storage_buffer_binding_size {
+            return Err(WgpuFlatAttentionError::DeviceBufferLimit {
+                required_bytes: size,
+                maximum_bytes: self.inner.max_storage_buffer_binding_size,
+            });
+        }
         let buffer = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-attention-grouped-resident-input"),
             size,
@@ -338,6 +350,21 @@ impl WgpuGroupedAttention {
             });
         }
 
+        // Q, K and V plus the packed O|LSE output are storage-bound; enforce
+        // the device binding limit with typed errors instead of wgpu
+        // validation aborts.
+        let maximum_binding_bytes = self.inner.max_storage_buffer_binding_size;
+        let q_bytes = bytes_for_f32_len(q_tensor_len)?;
+        let kv_bytes = bytes_for_f32_len(kv_tensor_len)?;
+        let output_bytes = bytes_for_f32_len(combined_len)?;
+        let required_bytes = q_bytes.max(kv_bytes).max(output_bytes);
+        if required_bytes > maximum_binding_bytes {
+            return Err(WgpuFlatAttentionError::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes: maximum_binding_bytes,
+            });
+        }
+
         Ok(GroupedDispatchGeometry {
             q_tensor_len,
             kv_tensor_len,
@@ -376,7 +403,7 @@ impl WgpuGroupedAttention {
     }
 
     fn owner_id(&self) -> usize {
-        Arc::as_ptr(&self.inner) as usize
+        self.inner.owner_id
     }
 
     fn download_buffer(
