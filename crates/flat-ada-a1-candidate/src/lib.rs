@@ -41,6 +41,22 @@ const BRANCHLESS_STEADY_STATE: &str = r#"                        } else {
                             running_sum_shared[qr] = running_sum_shared[qr] * alpha + p;
                         }"#;
 
+/// Replace the first occurrence of `from` with `to`, failing loudly when the
+/// anchor is missing.
+///
+/// The ADA-A1B shader is derived from the frozen A1 template by exact-text
+/// surgery. A drifted anchor must abort instead of silently returning a
+/// still-branched "branchless" source, which would invalidate benchmark
+/// evidence gathered under the wrong recurrence.
+fn replace_anchor(source: &str, from: &str, to: &str) -> String {
+    let replaced = source.replacen(from, to, 1);
+    assert!(
+        replaced != source,
+        "ADA-A1B template anchor not found or replacement is the identity: {from:?}"
+    );
+    replaced
+}
+
 /// Build the ADA-A1B steady-state branchless Q4 shader source.
 ///
 /// The frozen A1 shader is used as the template so that geometry, bindings,
@@ -49,18 +65,17 @@ const BRANCHLESS_STEADY_STATE: &str = r#"                        } else {
 /// `exp(-abs(delta))` plus `select`. The first admissible key still uses the
 /// exact no-exp initialization branch, so the logical count remains `n - 1`.
 pub fn ada_a1_branchless_wgsl() -> String {
-    ADA_A1_FWD_WGSL
-        .replacen(
-            "fn flat_attention_forward_ada_a1(",
-            "fn flat_attention_forward_ada_a1_branchless(",
-            1,
-        )
-        .replacen(
-            "executes exactly one branch containing one exp.",
-            "executes exactly one exp in a branchless steady-state update.",
-            1,
-        )
-        .replacen(BRANCHED_STEADY_STATE, BRANCHLESS_STEADY_STATE, 1)
+    let source = replace_anchor(
+        ADA_A1_FWD_WGSL,
+        "fn flat_attention_forward_ada_a1(",
+        "fn flat_attention_forward_ada_a1_branchless(",
+    );
+    let source = replace_anchor(
+        &source,
+        "executes exactly one branch containing one exp.",
+        "executes exactly one exp in a branchless steady-state update.",
+    );
+    replace_anchor(&source, BRANCHED_STEADY_STATE, BRANCHLESS_STEADY_STATE)
 }
 
 /// Logical scalar Online Softmax exp counts for one query with `admissible_keys`.
