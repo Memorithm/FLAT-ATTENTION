@@ -1,0 +1,37 @@
+benchmark=ada_a1_gpu_timestamp_ab
+git_sha=8659d1be37549225a86ddd0d0f3792830feeee4e
+device_name=NVIDIA Tegra NVIDIA Thor
+device_type=IntegratedGpu
+backend=Vulkan
+driver=NVIDIA
+driver_info=580.00
+software_adapter=false
+timestamp_query=true
+timestamp_period_ns=1
+warmup=5
+samples=11
+inner_dispatches=4
+seq_lens=[32, 128]
+head_dims=[8, 64, 128]
+timing_scope=gpu_compute_pass_timestamp_per_dispatch
+sample_order=paired_interleaved_baseline_candidate_then_candidate_baseline
+uploads_in_timing=false
+readback_in_timing=false
+pipeline_compile_in_timing=false
+correctness_gate=cpu_oracle_and_qualified_q4_before_timing
+baseline=flat_fwd.wgsl
+candidate=flat_fwd_ada_a1.wgsl
+batch,heads,seq_len,head_dim,causal,baseline_median_ns,baseline_p95_ns,baseline_mad_ns,candidate_median_ns,candidate_p95_ns,candidate_mad_ns,speedup_baseline_over_candidate
+1,1,32,8,false,81176.000,81504.000,24.000,86808.000,90072.000,48.000,0.935121
+1,1,32,8,true,80640.000,81088.000,96.000,86200.000,88024.000,72.000,0.935499
+1,1,32,64,false,83176.000,83608.000,104.000,88832.000,89440.000,80.000,0.936329
+1,1,32,64,true,82728.000,85648.000,176.000,88272.000,88736.000,400.000,0.937194
+1,1,32,128,false,91760.000,93128.000,368.000,98000.000,100576.000,472.000,0.936327
+1,1,32,128,true,91008.000,91936.000,272.000,96536.000,97400.000,48.000,0.942736
+1,1,128,8,false,313232.000,314800.000,88.000,337224.000,338384.000,152.000,0.928854
+1,1,128,8,true,312432.000,313704.000,216.000,335632.000,336800.000,136.000,0.930877
+1,1,128,64,false,321272.000,323432.000,272.000,344416.000,345608.000,336.000,0.932802
+1,1,128,64,true,319904.000,321264.000,112.000,343392.000,345832.000,200.000,0.931600
+1,1,128,128,false,354832.000,358704.000,752.000,377872.000,381080.000,200.000,0.939027
+1,1,128,128,true,353656.000,356536.000,264.000,376264.000,380728.000,552.000,0.939915
+performance_claim=measurement_only_no_production_routing_change
