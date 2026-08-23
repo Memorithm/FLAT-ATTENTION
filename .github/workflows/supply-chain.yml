@@ -20,15 +20,6 @@ jobs:
   cargo-deny:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        manifest:
-          - Cargo.toml
-          - crates/epg-core/Cargo.toml
-          - crates/flat-epg-reference/Cargo.toml
-          - crates/flat-epg-wgpu/Cargo.toml
-          - crates/flat-epg-q4-candidate/Cargo.toml
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -36,7 +27,6 @@ jobs:
           toolchain: 1.89.0
       - name: Install cargo-deny
         run: cargo install --locked cargo-deny --version 0.19.0
+      # The root manifest resolves the whole workspace graph in one lockfile.
       - name: Check advisories, licenses, sources
-        run: >-
-          cargo deny --manifest-path ${{ matrix.manifest }}
-          --all-features check advisories licenses sources
+        run: cargo deny --all-features check advisories licenses sources

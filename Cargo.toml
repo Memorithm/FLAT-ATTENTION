@@ -9,6 +9,10 @@ repository = "https://github.com/Memorithm/FLAT-ATTENTION"
 authors = ["Tarek Zekriti"]
 license-file = "LICENSE.md"
 
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
 [features]
 default = ["std"]
 std = []

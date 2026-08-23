@@ -9,7 +9,7 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 - Added a `supply-chain` CI workflow running `cargo-deny` (RustSec advisories, license allow-list, source policy) against every crate manifest on push, pull request, and a weekly schedule.
 - Added `deny.toml`, Dependabot updates for Cargo dependencies and GitHub Actions, and a `SECURITY.md` private-vulnerability reporting policy.
 - Pinned GitHub Actions by commit SHA in the main CI workflow and added explicit least-privilege token permissions and job timeouts.
-- Committed `Cargo.lock` files as the authoritative version-resolution record referenced by `THIRD_PARTY_LICENSES.md`.
+- Committed `Cargo.lock` as the authoritative version-resolution record referenced by `THIRD_PARTY_LICENSES.md`; converted the repository into a Cargo workspace (`members = ["crates/*"]`) so one lockfile and one resolution cover every crate.
 - Declared `required-features = ["wgpu"]` for GPU examples so default-feature builds and tests no longer fail on host-only machines.
 - Removed the stale `.ci-trigger-m24` marker and ignored local assistant scratch directories.
 
