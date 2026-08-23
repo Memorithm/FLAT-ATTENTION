@@ -261,6 +261,7 @@ fn paged_decode_matches_contiguous_oracle_across_page_boundaries() {
                 config,
                 theta,
                 q_rope_position: q_position,
+                q_causal_position: q_position,
             },
         )
         .unwrap();

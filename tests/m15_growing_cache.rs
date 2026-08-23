@@ -246,6 +246,7 @@ fn one_pipeline_tracks_token_by_token_cache_growth() {
                     config,
                     theta,
                     q_rope_position: position,
+                    q_causal_position: position,
                 },
             )
             .unwrap();

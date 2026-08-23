@@ -234,7 +234,14 @@ pub struct PagedDecodePass<'a> {
     pub head_dim: usize,
     pub config: FlatAttentionConfig,
     pub theta: f32,
+    /// Absolute RoPE position of the single query row (rotation domain only).
     pub q_rope_position: usize,
+    /// Absolute causal position of the single query row.
+    ///
+    /// Under `config.causal` the kernel requires
+    /// `q_causal_position + 1 >= live_tokens`; RoPE and causal origins may
+    /// differ exactly like the asymmetric oracle contract.
+    pub q_causal_position: usize,
 }
 
 pub struct WgpuPagedDecodePipeline {
@@ -313,13 +320,13 @@ impl WgpuPagedDecodePipeline {
         }
         if pass.config.causal
             && pass
-                .q_rope_position
+                .q_causal_position
                 .checked_add(1)
                 .ok_or(FlatAttentionError::PositionOverflow)?
                 < pass.page_table.live_tokens
         {
             return Err(PagedDecodeError::CausalVisibilityMismatch {
-                query_position: pass.q_rope_position,
+                query_position: pass.q_causal_position,
                 kv_len: pass.page_table.live_tokens,
             });
         }

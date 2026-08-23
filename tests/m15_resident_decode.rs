@@ -261,6 +261,7 @@ fn resident_decode_matches_oracle_with_capacity_stride() {
                 config,
                 theta,
                 q_rope_position: q_position,
+                q_causal_position: q_position,
             },
         )
         .unwrap();
@@ -281,4 +282,157 @@ fn resident_decode_matches_oracle_with_capacity_stride() {
         &actual[layout.output_elements..],
         &expected.lse,
     );
+}
+
+/// RoPE and causal domains are independent: a shifted rotation origin must not
+/// change causal visibility, and a stale causal position must be rejected even
+/// when the rotation position would admit the cache.
+#[test]
+fn resident_decode_splits_rope_and_causal_domains() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let (batch, q_heads, kv_heads, kv_len, capacity, head_dim) =
+        (1usize, 2usize, 1usize, 4usize, 6usize, 64usize);
+    let theta = 10_000.0;
+    let q_causal_position = kv_len - 1;
+    let q_rope_position = kv_len + 7;
+    let q = fixture(batch * q_heads * head_dim, 0.31);
+    let raw_k = fixture(batch * kv_len * kv_heads * head_dim, 0.9);
+    let v = fixture(batch * kv_len * kv_heads * head_dim, 1.5);
+    let config = FlatAttentionConfig {
+        causal: true,
+        softmax_scale: None,
+    };
+    let shape = AsymmetricGroupedAttentionShape {
+        batch,
+        q_heads,
+        kv_heads,
+        query_len: 1,
+        kv_len,
+        head_dim,
+        query_position_offset: q_causal_position,
+    };
+    let rotary = AsymmetricRotaryEmbeddingConfig {
+        theta,
+        query_position_offset: q_rope_position,
+        kv_position_offset: 0,
+    };
+    let expected =
+        forward_reference_projection_grouped_rope_asymmetric(&q, &raw_k, &v, shape, config, rotary)
+            .unwrap();
+
+    let rotated_k = rotate_k_projection(&raw_k, batch, kv_len, kv_heads, head_dim, theta, 0);
+    let k_source = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &rotated_k,
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let v_source = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &v,
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let mut cache =
+        WgpuResidentKvCache::new(&harness.device, batch, kv_heads, capacity, head_dim).unwrap();
+    let mut append_encoder =
+        harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-m15-split-cache-append"),
+            });
+    cache
+        .record_append(&mut append_encoder, &k_source, &v_source, kv_len)
+        .unwrap();
+    harness.queue.submit(Some(append_encoder.finish()));
+
+    let pipeline = WgpuResidentDecodePipeline::new(&harness.device).unwrap();
+    let q_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &q,
+        wgpu::BufferUsages::STORAGE,
+    );
+
+    // Split domains: rotation uses the offset origin; causality passes.
+    let output = pipeline
+        .create_output_buffer(&harness.device, &cache, q_heads)
+        .unwrap();
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m15-split-decode"),
+        });
+    let layout = pipeline
+        .encode(
+            &harness.device,
+            &mut encoder,
+            ResidentDecodePass {
+                q: &q_gpu,
+                out_and_lse: &output,
+                cache: &cache,
+                q_heads,
+                config,
+                theta,
+                q_rope_position,
+                q_causal_position,
+            },
+        )
+        .unwrap();
+    harness.queue.submit(Some(encoder.finish()));
+    let actual = read_f32(
+        &harness.device,
+        &harness.queue,
+        &output,
+        layout.combined_elements,
+    );
+    assert_close(
+        "M15 split-domain O",
+        &actual[..layout.output_elements],
+        &expected.output,
+    );
+    assert_close(
+        "M15 split-domain LSE",
+        &actual[layout.output_elements..],
+        &expected.lse,
+    );
+
+    // A causal position that cannot see every live row is rejected even with
+    // an admissible rotation position.
+    let output = pipeline
+        .create_output_buffer(&harness.device, &cache, q_heads)
+        .unwrap();
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m15-split-reject"),
+        });
+    let error = pipeline
+        .encode(
+            &harness.device,
+            &mut encoder,
+            ResidentDecodePass {
+                q: &q_gpu,
+                out_and_lse: &output,
+                cache: &cache,
+                q_heads,
+                config,
+                theta,
+                q_rope_position,
+                q_causal_position: q_causal_position - 1,
+            },
+        )
+        .expect_err("stale causal position must fail");
+    match error {
+        flat_attention::ResidentDecodeError::CausalVisibilityMismatch {
+            query_position,
+            kv_len: live,
+        } => {
+            assert_eq!(query_position, q_causal_position - 1);
+            assert_eq!(live, kv_len);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }

@@ -89,7 +89,17 @@ pub struct ResidentDecodePass<'a> {
     pub config: FlatAttentionConfig,
     pub theta: f32,
     /// Absolute RoPE position of the single query row.
+    ///
+    /// This drives only the fused query rotation. Causal visibility is judged
+    /// from [`Self::q_causal_position`], keeping the rotation domain
+    /// independent of the causal domain exactly like the asymmetric oracle.
     pub q_rope_position: usize,
+    /// Absolute causal position of the single query row.
+    ///
+    /// Under `config.causal`, the kernel requires
+    /// `q_causal_position + 1 >= live_tokens`; RoPE and causal origins may
+    /// differ (cross-attention, offset rope schedules).
+    pub q_causal_position: usize,
 }
 
 struct ExternalResidentDecodePass<'a> {
@@ -100,6 +110,7 @@ struct ExternalResidentDecodePass<'a> {
     config: FlatAttentionConfig,
     theta: f32,
     q_rope_position: usize,
+    q_causal_position: usize,
 }
 
 /// Explicit M15 decode failures.
@@ -279,6 +290,7 @@ impl WgpuResidentDecodePipeline {
                 config: pass.config,
                 theta: pass.theta,
                 q_rope_position: pass.q_rope_position,
+                q_causal_position: pass.q_causal_position,
             },
         )
     }
@@ -319,6 +331,8 @@ impl WgpuResidentDecodePipeline {
                 config: pass.config,
                 theta: pass.rotary.theta,
                 q_rope_position: pass.rotary.query_position_offset,
+                // The external contract keeps the causal domain on the shape.
+                q_causal_position: pass.shape.query_position_offset,
             },
         )
     }
@@ -335,6 +349,20 @@ impl WgpuResidentDecodePipeline {
         validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
         if !pass.theta.is_finite() || pass.theta <= 0.0 {
             return Err(ResidentDecodeError::InvalidTheta(pass.theta));
+        }
+        // Causal visibility is judged from the dedicated causal domain, not
+        // from the RoPE rotation position.
+        if pass.config.causal
+            && pass
+                .q_causal_position
+                .checked_add(1)
+                .ok_or(FlatAttentionError::PositionOverflow)?
+                < pass.kv.len
+        {
+            return Err(ResidentDecodeError::CausalVisibilityMismatch {
+                query_position: pass.q_causal_position,
+                kv_len: pass.kv.len,
+            });
         }
         let scale = pass.config.resolved_scale(pass.kv.head_dim)?;
         let q_batch_heads = checked_mul(pass.kv.batch, pass.q_heads)?;

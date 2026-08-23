@@ -227,6 +227,7 @@ fn run_case(
                     config,
                     theta: THETA,
                     q_rope_position: kv_len - 1,
+                    q_causal_position: kv_len - 1,
                 },
             )
             .unwrap();
