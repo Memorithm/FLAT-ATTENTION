@@ -271,17 +271,11 @@ impl WgpuGroupedBackwardRecomputePipeline {
             checked_u32(layout.lse_elements)?,
         ];
         let params_bytes = encode_u32(&params);
-        let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m20-grouped-backward-prepared-params"),
-            size: params_bytes.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: true,
-        });
-        {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
-            mapped.copy_from_slice(&params_bytes);
-        }
-        params_buffer.unmap();
+        let params_buffer = wgpu_internal::create_uniform_buffer_init(
+            device,
+            "flat-m20-grouped-backward-prepared-params",
+            &params_bytes,
+        );
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m20-grouped-backward-prepared-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
