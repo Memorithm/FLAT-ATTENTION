@@ -20,3 +20,70 @@ pollster = { version = "0.3", optional = true }
 
 [dev-dependencies]
 naga = { version = "0.20", features = ["wgsl-in"] }
+
+# GPU examples require the optional WGPU runtime; host-only examples stay
+# buildable with default features.
+[[example]]
+name = "double_buffer_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "f16_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m11_decode_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m15_decode_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m20_grouped_backward_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m20_grouped_backward_host_overhead"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m27_cold_warm_pipeline"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m27_resident_decode_sweep"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m27_resident_grouped_forward_sweep"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m27_resident_vs_host_io"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m28_kernel_generations"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m28_scalar_flat_baseline"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m48_decode_kv_reuse_sweep"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m53_asymmetric_vec4_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "subgroup_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "vector_bench"
+required-features = ["wgpu"]
+

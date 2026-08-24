@@ -1,0 +1,47 @@
+# deny.toml — cargo-deny configuration for FLAT-ATTENTION (validated with cargo-deny 0.19)
+#
+# FLAT-ATTENTION itself is source-available under PolyForm Noncommercial 1.0.0
+# (see LICENSE.md) and is not published to crates.io (`publish = false`), so the
+# license check below covers third-party dependencies only.
+
+[graph]
+all-features = true
+
+[advisories]
+ignore = [
+    # Unmaintained notice, not a vulnerability — no CVSS score is assigned
+    # (https://rustsec.org/advisories/RUSTSEC-2024-0436).
+    #
+    # `paste` reaches this crate through the GPU stack:
+    #   wgpu-hal -> metal -> paste
+    # No published `metal` version (through 0.33.0) drops it, so there is no
+    # actionable upgrade; removing the Metal backend would break the M36
+    # portability target.
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained; reaches the graph via wgpu-hal -> metal, which depends on it in every published version — no actionable upgrade" },
+]
+
+[licenses]
+# Permissive licenses allowed anywhere in the FLAT-ATTENTION crate family. The
+# same policy file covers several independent manifests whose trees differ, so
+# a smaller tree may report some allowances as unused (warning only; the check
+# still passes).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "CC0-1.0",
+    "Zlib",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+# This crate and its sub-crates are unpublished workspace roots; skip license
+# checks for them.
+private = { ignore = true }
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

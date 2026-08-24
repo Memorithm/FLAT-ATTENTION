@@ -1,7 +1,3 @@
-use flat_attention::{
-    forward_reference_grouped_asymmetric, AsymmetricGroupedAttentionShape, FlatAttentionConfig,
-};
-
 const SHADER: &str = include_str!("../shaders/flat_fwd_projection_rope_rect.wgsl");
 
 #[test]
@@ -19,6 +15,9 @@ fn rectangular_shader_parses_and_validates() {
 #[cfg(feature = "wgpu")]
 mod device {
     use super::*;
+    use flat_attention::{
+        forward_reference_grouped_asymmetric, AsymmetricGroupedAttentionShape, FlatAttentionConfig,
+    };
     use std::sync::mpsc;
     use wgpu::util::DeviceExt;
 
