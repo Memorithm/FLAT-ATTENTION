@@ -24,7 +24,7 @@ wgpu = { version = "0.20", optional = true }
 pollster = { version = "0.3", optional = true }
 
 [dev-dependencies]
-naga = { version = "0.20", features = ["wgsl-in"] }
+naga = { version = "30.0", features = ["wgsl-in"] }
 
 # GPU examples require the optional WGPU runtime; host-only examples stay
 # buildable with default features.
