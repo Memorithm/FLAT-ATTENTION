@@ -75,7 +75,7 @@ pub(crate) fn create_pipeline(
     label: &'static str,
     entry_point: &'static str,
 ) -> Result<wgpu::ComputePipeline, String> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(label),
         source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
@@ -84,10 +84,11 @@ pub(crate) fn create_pipeline(
         label: Some(label),
         layout: None,
         module: &shader,
-        entry_point,
+        entry_point: Some(entry_point),
         compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
     });
-    match pollster::block_on(device.pop_error_scope()) {
+    match pollster::block_on(error_scope.pop()) {
         Some(error) => Err(error.to_string()),
         None => Ok(pipeline),
     }
