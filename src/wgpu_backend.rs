@@ -249,11 +249,11 @@ impl WgpuFlatAttention {
             return Err(WgpuFlatAttentionError::RequiredSubgroupUnavailable);
         }
 
-        let adapter_limits = adapter.limits();
-        let subgroup_size_range = subgroup_supported.then_some((
-            adapter_limits.min_subgroup_size,
-            adapter_limits.max_subgroup_size,
-        ));
+        let adapter_info = adapter.get_info();
+        let subgroup_min_size = adapter_info.subgroup_min_size;
+        let subgroup_max_size = adapter_info.subgroup_max_size;
+        let subgroup_size_range =
+            subgroup_supported.then_some((subgroup_min_size, subgroup_max_size));
         let request_subgroup = subgroup_supported && policy != WgpuSubgroupPolicy::Disable;
         let required_features = if request_subgroup {
             wgpu::Features::SUBGROUP
@@ -261,7 +261,6 @@ impl WgpuFlatAttention {
             wgpu::Features::empty()
         };
 
-        let adapter_info = adapter.get_info();
         let adapter_name = adapter_info.name.clone();
         let device_fingerprint = RuntimeDeviceFingerprint {
             name: adapter_info.name,
@@ -334,8 +333,8 @@ impl WgpuFlatAttention {
             )
             .unwrap_or(u32::MAX),
             subgroup_supported,
-            subgroup_min_size: adapter_limits.min_subgroup_size,
-            subgroup_max_size: adapter_limits.max_subgroup_size,
+            subgroup_min_size,
+            subgroup_max_size,
             f16_supported: device_features.contains(wgpu::Features::SHADER_F16),
         };
 
@@ -783,10 +782,7 @@ impl WgpuFlatAttention {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self
-            .inner
-            .device
-            .poll(wgpu::PollType::wait_indefinitely());
+        let _ = self.inner.device.poll(wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|err| WgpuFlatAttentionError::Execution(format!("map callback: {err}")))?
