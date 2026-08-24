@@ -5,6 +5,8 @@
 //! call site. This keeps one implementation per primitive while preserving
 //! every module's public error surface exactly.
 
+use wgpu::util::DeviceExt;
+
 /// Narrow a host-side count to the WGSL u32 index space, or `None`.
 pub(crate) fn checked_u32(value: usize) -> Option<u32> {
     u32::try_from(value).ok()
@@ -63,6 +65,23 @@ pub(crate) fn encode_u32(values: &[u32]) -> Vec<u8> {
         bytes.extend_from_slice(&value.to_ne_bytes());
     }
     bytes
+}
+
+/// Create and initialize an immutable uniform buffer from host bytes.
+///
+/// `DeviceExt::create_buffer_init` is the wgpu 30 convenience path for
+/// mapped-at-creation initialization and avoids exposing fallible mapping to
+/// every caller-owned pipeline implementation.
+pub(crate) fn create_uniform_buffer_init(
+    device: &wgpu::Device,
+    label: &'static str,
+    contents: &[u8],
+) -> wgpu::Buffer {
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(label),
+        contents,
+        usage: wgpu::BufferUsages::UNIFORM,
+    })
 }
 
 /// Compile one WGSL compute pipeline under a validation error scope.
