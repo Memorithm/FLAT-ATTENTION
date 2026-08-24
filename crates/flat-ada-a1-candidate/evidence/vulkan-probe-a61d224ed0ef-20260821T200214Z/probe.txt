@@ -1,0 +1,39 @@
+    Finished `release` profile [optimized] target(s) in 0.04s
+     Running `crates/flat-ada-a1-candidate/target/release/examples/vulkan_pipeline_probe`
+probe=ada_a1_vulkan_pipeline_executable_properties
+git_sha=a61d224ed0ef00d2cfd75a8d41713e294a3a50ba
+device_name=NVIDIA Tegra NVIDIA Thor
+api_version=1.4.315
+driver_version_raw=2432696320
+pipeline_executable_info=true
+capture_statistics=true
+capture_internal_representations=true
+output_dir=/tmp/ada-a1-vulkan-probe-a61d224ed0ef-20260821T200214Z
+variant=q4 executable_count=1
+executable variant=q4 index=0 name=CS description=Compute Shader subgroup_size=32 stages_raw=32
+statistics variant=q4 executable=0 count=5
+stat variant=q4 executable=0 name=Register Count value=45 format_raw=2 description=Number of temporary registers used by this shader stage
+stat variant=q4 executable=0 name=Binary Size value=59776 format_raw=2 description=Size in bytes of the executable for this stage
+stat variant=q4 executable=0 name=Stack Size value=0 format_raw=2 description=Size in bytes required for the shader stack
+stat variant=q4 executable=0 name=Local Memory Size value=68719476736 format_raw=2 description=Size in bytes required per-thread for local memory
+stat variant=q4 executable=0 name=Shared Memory Size value=11328 format_raw=2 description=Size in bytes used for shared memory
+internal_representation_count variant=q4 executable=0 count=0
+variant=a1_branched executable_count=1
+executable variant=a1_branched index=0 name=CS description=Compute Shader subgroup_size=32 stages_raw=32
+statistics variant=a1_branched executable=0 count=5
+stat variant=a1_branched executable=0 name=Register Count value=45 format_raw=2 description=Number of temporary registers used by this shader stage
+stat variant=a1_branched executable=0 name=Binary Size value=60032 format_raw=2 description=Size in bytes of the executable for this stage
+stat variant=a1_branched executable=0 name=Stack Size value=0 format_raw=2 description=Size in bytes required for the shader stack
+stat variant=a1_branched executable=0 name=Local Memory Size value=68719476736 format_raw=2 description=Size in bytes required per-thread for local memory
+stat variant=a1_branched executable=0 name=Shared Memory Size value=11328 format_raw=2 description=Size in bytes used for shared memory
+internal_representation_count variant=a1_branched executable=0 count=0
+variant=a1b_branchless executable_count=1
+executable variant=a1b_branchless index=0 name=CS description=Compute Shader subgroup_size=32 stages_raw=32
+statistics variant=a1b_branchless executable=0 count=5
+stat variant=a1b_branchless executable=0 name=Register Count value=45 format_raw=2 description=Number of temporary registers used by this shader stage
+stat variant=a1b_branchless executable=0 name=Binary Size value=59904 format_raw=2 description=Size in bytes of the executable for this stage
+stat variant=a1b_branchless executable=0 name=Stack Size value=0 format_raw=2 description=Size in bytes required for the shader stack
+stat variant=a1b_branchless executable=0 name=Local Memory Size value=68719476736 format_raw=2 description=Size in bytes required per-thread for local memory
+stat variant=a1b_branchless executable=0 name=Shared Memory Size value=11328 format_raw=2 description=Size in bytes used for shared memory
+internal_representation_count variant=a1b_branchless executable=0 count=0
+probe_status=complete

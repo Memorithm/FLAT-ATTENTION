@@ -52,6 +52,12 @@ jobs:
         run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate host rejection without a device
         run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_rejects_unqualified_dimensions_without_a_device
+      - name: Check ADA-A1 candidate formatting
+        run: cargo fmt --manifest-path crates/flat-ada-a1-candidate/Cargo.toml -- --check
+      - name: Lint ADA-A1 candidate
+        run: cargo clippy --manifest-path crates/flat-ada-a1-candidate/Cargo.toml --all-targets -- -D warnings
+      - name: Validate ADA-A1 candidate contract without a device
+        run: cargo test --manifest-path crates/flat-ada-a1-candidate/Cargo.toml
 
   wgpu-device:
     runs-on: ubuntu-latest
@@ -77,6 +83,10 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --nocapture
+      - name: Execute ADA-A1 candidate CPU-GPU parity matrix
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --manifest-path crates/flat-ada-a1-candidate/Cargo.toml -- --nocapture
       - name: Smoke EPG Q4 benchmark protocol on software Vulkan
         timeout-minutes: 5
         env:
