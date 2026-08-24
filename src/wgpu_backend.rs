@@ -53,6 +53,10 @@ pub enum WgpuFlatAttentionError {
     IndexSpaceExceeded {
         elements: usize,
     },
+    DeviceBufferLimit {
+        required_bytes: u64,
+        maximum_bytes: u64,
+    },
     ForeignBuffer,
     ResidentLength {
         tensor: &'static str,
@@ -86,6 +90,13 @@ impl fmt::Display for WgpuFlatAttentionError {
             Self::IndexSpaceExceeded { elements } => write!(
                 f,
                 "packed WGPU index space requires {elements} f32 elements, exceeding u32 addressing"
+            ),
+            Self::DeviceBufferLimit {
+                required_bytes,
+                maximum_bytes,
+            } => write!(
+                f,
+                "resident attention requires {required_bytes} bytes per buffer, device maximum is {maximum_bytes}"
             ),
             Self::ForeignBuffer => write!(f, "resident buffer belongs to a different WGPU context"),
             Self::ResidentLength {
@@ -160,11 +171,13 @@ struct WgpuFlatAttentionInner {
     device_capabilities: RuntimeDeviceCapabilities,
     fallback_reason: Option<String>,
     max_workgroups_per_dimension: u32,
+    max_storage_buffer_binding_size: u64,
     subgroup_supported: bool,
     subgroup_size_range: Option<(u32, u32)>,
     kernel_variant: WgpuKernelVariant,
     vectorization_enabled: bool,
     double_buffering_enabled: bool,
+    owner_id: usize,
 }
 
 #[derive(Clone)]
@@ -325,11 +338,15 @@ impl WgpuFlatAttention {
                 device_capabilities,
                 fallback_reason,
                 max_workgroups_per_dimension,
+                max_storage_buffer_binding_size: u64::from(
+                    device_limits.max_storage_buffer_binding_size,
+                ),
                 subgroup_supported,
                 subgroup_size_range,
                 kernel_variant,
                 vectorization_enabled,
                 double_buffering_enabled,
+                owner_id: super::next_resident_owner_id(),
             }),
         })
     }
@@ -465,6 +482,12 @@ impl WgpuFlatAttention {
     pub fn upload(&self, data: &[f32]) -> Result<WgpuResidentBuffer, WgpuFlatAttentionError> {
         let bytes = encode_f32(data)?;
         let size = bytes.len().max(4) as u64;
+        if size > self.inner.max_storage_buffer_binding_size {
+            return Err(WgpuFlatAttentionError::DeviceBufferLimit {
+                required_bytes: size,
+                maximum_bytes: self.inner.max_storage_buffer_binding_size,
+            });
+        }
         let buffer = self.inner.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-attention-resident-input"),
             size,
@@ -666,6 +689,19 @@ impl WgpuFlatAttention {
             });
         }
 
+        // Storage buffers are bound read (Q/K/V) and read_write (O|LSE); both
+        // the buffer-size and storage-binding device limits must hold or wgpu
+        // validation would abort outside this typed error surface.
+        let maximum_binding_bytes = self.inner.max_storage_buffer_binding_size;
+        let tensor_bytes = bytes_for_f32_len(tensor_len)?;
+        let output_bytes = bytes_for_f32_len(combined_len)?;
+        if tensor_bytes > maximum_binding_bytes || output_bytes > maximum_binding_bytes {
+            return Err(WgpuFlatAttentionError::DeviceBufferLimit {
+                required_bytes: tensor_bytes.max(output_bytes),
+                maximum_bytes: maximum_binding_bytes,
+            });
+        }
+
         Ok(DispatchGeometry {
             tensor_len,
             lse_len,
@@ -700,7 +736,7 @@ impl WgpuFlatAttention {
     }
 
     fn owner_id(&self) -> usize {
-        Arc::as_ptr(&self.inner) as usize
+        self.inner.owner_id
     }
 
     fn download_buffer(

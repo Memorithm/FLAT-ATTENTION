@@ -308,3 +308,80 @@ fn zero_chunk_is_rejected_before_recording() {
         flat_attention::chunked_projection_prefill::WgpuChunkedProjectionPrefillError::ZeroQueryChunkSize
     ));
 }
+
+#[test]
+fn output_helper_provides_storage_and_encode_rejects_missing_storage_usage() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let shape = GroupedAttentionShape {
+        batch: 1,
+        q_heads: 2,
+        kv_heads: 1,
+        seq_len: 2,
+        head_dim: 8,
+    };
+    let pipeline = WgpuChunkedProjectionPrefillPipeline::new(&harness.device).unwrap();
+    let output = pipeline
+        .create_output_buffer(&harness.device, shape)
+        .unwrap();
+    assert!(output.usage().contains(wgpu::BufferUsages::STORAGE));
+
+    // A destination without STORAGE would previously reach wgpu validation as
+    // an uncaptured error; it must be rejected as a typed error instead.
+    let copy_only = harness.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("flat-m16-copy-only-o-lse"),
+        size: output.size(),
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let q = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &fixture(shape.q_tensor_len().unwrap(), 0.1),
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let k = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &fixture(shape.kv_tensor_len().unwrap(), 0.2),
+        wgpu::BufferUsages::STORAGE,
+    );
+    let v = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &fixture(shape.kv_tensor_len().unwrap(), 0.3),
+        wgpu::BufferUsages::STORAGE,
+    );
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-storage-check"),
+        });
+    let error = pipeline
+        .encode(
+            &harness.device,
+            &mut encoder,
+            WgpuChunkedProjectionPrefillPass {
+                q: &q,
+                k: &k,
+                v: &v,
+                out_and_lse: &copy_only,
+                shape,
+                config: FlatAttentionConfig::default(),
+                rotary: RotaryEmbeddingConfig {
+                    theta: 10_000.0,
+                    position_offset: 0,
+                },
+                query_chunk_size: 1,
+            },
+        )
+        .expect_err("missing STORAGE usage must fail before recording");
+    assert!(
+        matches!(
+            error,
+            flat_attention::chunked_projection_prefill::WgpuChunkedProjectionPrefillError::MissingBufferUsage { required: "STORAGE", .. }
+        ),
+        "unexpected error: {error:?}"
+    );
+}

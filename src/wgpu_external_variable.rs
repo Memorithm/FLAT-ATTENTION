@@ -121,6 +121,13 @@ impl ExternalVariableProjectionRotaryGroupedPipeline {
         shape: AsymmetricGroupedAttentionShape,
     ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
+        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        if layout.combined_bytes > maximum_bytes {
+            return Err(ExternalWgpuError::DeviceBufferLimit {
+                required_bytes: layout.combined_bytes,
+                maximum_bytes,
+            });
+        }
         Ok(device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-m12-variable-o-lse"),
             size: layout.combined_bytes,

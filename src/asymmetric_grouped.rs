@@ -199,7 +199,7 @@ impl AsymmetricGroupedAttentionShape {
         }
         self.query_position_offset
             .checked_add(self.query_len - 1)
-            .ok_or(FlatAttentionError::ShapeOverflow)?;
+            .ok_or(FlatAttentionError::PositionOverflow)?;
         self.q_tensor_len()?;
         self.kv_tensor_len()?;
         self.lse_len()?;
