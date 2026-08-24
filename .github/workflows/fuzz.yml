@@ -47,7 +47,7 @@ jobs:
             -max_total_time=60 -rss_limit_mb=4096
       - name: Upload crash artifacts
         if: failure()
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: crash-${{ matrix.target }}
           path: fuzz/crash-*
