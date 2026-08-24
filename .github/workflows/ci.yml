@@ -35,6 +35,8 @@ jobs:
         run: cargo test -p flat-epg-q4-candidate q4_candidate_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate host rejection without a device
         run: cargo test -p flat-epg-q4-candidate q4_candidate_rejects_unqualified_dimensions_without_a_device
+      - name: Validate ADA-A1 candidate contract without a device
+        run: cargo test -p flat-ada-a1-candidate
 
   wgpu-device:
     runs-on: ubuntu-latest

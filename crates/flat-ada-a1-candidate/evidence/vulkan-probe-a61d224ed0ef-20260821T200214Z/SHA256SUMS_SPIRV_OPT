@@ -1,0 +1,7 @@
+966c93d4fce88e051ab2fe42935e418fc42622d2cee97d34b45a546773a4c8f7  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/q4.opt.spv
+4ead1334731e22a0a9f9af285b3a9ea375e5e9b9a2f50116854fcbe6ba96c0e0  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/a1_branched.opt.spv
+796b42547c91bd546ff6fb9f764381a329b4eed05732c8a3995a6d1abef45d01  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/a1b_branchless.opt.spv
+f82dd8b024b1156b9a9fbdfbab98d010ae0bfc3153e5d78a057c15f385176c2b  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/q4.opt.spvasm
+c472e61992a7e96ae59ab497785ca4462aac27913a6603e6c74223c7ac03bc7f  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/a1_branched.opt.spvasm
+5c3d3d34be2bbdc67abafcc3936e68c41ac4700171eff5ea661dea04e9e595f1  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/a1b_branchless.opt.spvasm
+55911a236425347047e36fdc74e9b541474aaccf5189cd3eea2bd617e4a47601  crates/flat-ada-a1-candidate/evidence/vulkan-probe-a61d224ed0ef-20260821T200214Z/spirv-opt-O-summary.txt
