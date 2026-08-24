@@ -10,6 +10,8 @@
 //! physical K/V head cardinality unchanged. Neither candidate changes the
 //! default route.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use crate::{
@@ -22,12 +24,19 @@ const FLAT_FWD_GROUPED_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_group
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedForwardLayout {
+    /// Query tensor element count.
     pub q_elements: usize,
+    /// Key/value tensor element count at physical KV-head cardinality.
     pub kv_elements: usize,
+    /// LSE statistic element count.
     pub lse_elements: usize,
+    /// Combined O|LSE element count.
     pub output_elements: usize,
+    /// Query buffer size in bytes.
     pub q_bytes: u64,
+    /// Key/value buffer size in bytes each.
     pub kv_bytes: u64,
+    /// Packed O|LSE buffer size in bytes.
     pub output_bytes: u64,
 }
 
@@ -42,12 +51,18 @@ impl GroupedForwardLayout {
 }
 
 pub struct GroupedForwardPass<'a> {
+    /// Sequence-major projected query tensor [batch, seq, q_heads * head_dim].
     pub q: &'a wgpu::Buffer,
+    /// Key tensor at native kv_heads cardinality.
     pub k: &'a wgpu::Buffer,
+    /// Value tensor at native kv_heads cardinality.
     pub v: &'a wgpu::Buffer,
     /// Combined `[O | LSE]` storage buffer.
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub output: &'a wgpu::Buffer,
+    /// Grouped geometry shared by all tensors.
     pub shape: GroupedAttentionShape,
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
 }
 
@@ -102,6 +117,7 @@ impl PreparedGroupedForward {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum GroupedForwardError {
     Core(FlatAttentionError),
     UnsupportedHeadDim {
@@ -170,7 +186,14 @@ impl fmt::Display for GroupedForwardError {
     }
 }
 
-impl std::error::Error for GroupedForwardError {}
+impl std::error::Error for GroupedForwardError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for GroupedForwardError {
     fn from(value: FlatAttentionError) -> Self {
@@ -278,6 +301,7 @@ impl WgpuGroupedForwardPipeline {
         })
     }
 
+    #[must_use]
     pub fn vectorization_enabled(&self) -> bool {
         self.mha_vec4_pipeline.is_some()
     }
@@ -562,22 +586,8 @@ fn create_pipeline(
     source: &'static str,
     label: &'static str,
 ) -> Result<wgpu::ComputePipeline, GroupedForwardError> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some(label),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(label),
-        layout: None,
-        module: &shader,
-        entry_point: "flat_attention_forward",
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
-    match pollster::block_on(device.pop_error_scope()) {
-        Some(error) => Err(GroupedForwardError::PipelineValidation(error.to_string())),
-        None => Ok(pipeline),
-    }
+    wgpu_internal::create_pipeline(device, source, label, "flat_attention_forward")
+        .map_err(GroupedForwardError::PipelineValidation)
 }
 
 fn validate_buffer(
@@ -597,20 +607,15 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, GroupedForwardError> {
-    u32::try_from(value).map_err(|_| GroupedForwardError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(GroupedForwardError::IndexSpaceExceeded { elements: value })
 }
 
-fn bytes_for_f32(elements: usize) -> Result<u64, GroupedForwardError> {
-    let bytes = elements
-        .checked_mul(core::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| GroupedForwardError::IndexSpaceExceeded { elements })
+fn bytes_for_f32(len: usize) -> Result<u64, GroupedForwardError> {
+    wgpu_internal::f32_bytes(len)
+        .ok_or_else(|| GroupedForwardError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

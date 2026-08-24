@@ -6,6 +6,8 @@
 //! `f32`. The already-qualified f32 executor stays independent and is the only
 //! fallback; no path silently executes on CPU.
 
+use super::wgpu_internal;
+
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
@@ -22,6 +24,7 @@ pub enum WgpuIoPrecision {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum WgpuF16AttentionError {
     Core(FlatAttentionError),
     F32(WgpuFlatAttentionError),
@@ -107,7 +110,15 @@ impl fmt::Display for WgpuF16AttentionError {
     }
 }
 
-impl std::error::Error for WgpuF16AttentionError {}
+impl std::error::Error for WgpuF16AttentionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            Self::F32(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for WgpuF16AttentionError {
     fn from(value: FlatAttentionError) -> Self {
@@ -128,14 +139,17 @@ pub struct WgpuResidentF16Buffer {
 }
 
 impl WgpuResidentF16Buffer {
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -150,10 +164,12 @@ pub struct WgpuResidentF16AttentionOutput {
 }
 
 impl WgpuResidentF16AttentionOutput {
+    #[must_use]
     pub fn output_len(&self) -> usize {
         self.output_len
     }
 
+    #[must_use]
     pub fn lse_len(&self) -> usize {
         self.lse_len
     }
@@ -162,6 +178,7 @@ impl WgpuResidentF16AttentionOutput {
         self.packed_words
     }
 
+    #[must_use]
     pub fn raw_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
@@ -228,10 +245,12 @@ impl WgpuF16Attention {
         })
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.inner.adapter_name
     }
 
+    #[must_use]
     pub fn io_precision(&self) -> WgpuIoPrecision {
         WgpuIoPrecision::PackedF16
     }
@@ -537,6 +556,7 @@ impl WgpuPreferredAttention {
         }
     }
 
+    #[must_use]
     pub fn adapter_name(&self) -> &str {
         self.packed_f16
             .as_ref()
@@ -583,25 +603,13 @@ impl WgpuPreferredAttention {
 }
 
 fn create_pipeline(device: &wgpu::Device) -> Result<wgpu::ComputePipeline, WgpuF16AttentionError> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("flat-attention-m8-packed-f16"),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_FWD_F16_WGSL)),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("flat-attention-m8-packed-f16"),
-        layout: None,
-        module: &shader,
-        entry_point: "flat_attention_forward",
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-    });
-    let validation_error = pollster::block_on(device.pop_error_scope());
-    match validation_error {
-        Some(error) => Err(WgpuF16AttentionError::PackedShaderUnsupported(
-            error.to_string(),
-        )),
-        None => Ok(pipeline),
-    }
+    wgpu_internal::create_pipeline(
+        device,
+        FLAT_FWD_F16_WGSL,
+        "flat-attention-m8-packed-f16",
+        "flat_attention_forward",
+    )
+    .map_err(WgpuF16AttentionError::PackedShaderUnsupported)
 }
 
 struct DispatchGeometry {
@@ -655,7 +663,8 @@ fn validate_f32_for_quantization(
 }
 
 fn checked_u32(value: usize) -> Result<u32, WgpuF16AttentionError> {
-    u32::try_from(value).map_err(|_| WgpuF16AttentionError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(WgpuF16AttentionError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_words(words: usize) -> Result<u64, WgpuF16AttentionError> {
@@ -684,11 +693,7 @@ fn encode_packed_f16(values: &[F16]) -> Result<Vec<u8>, WgpuF16AttentionError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(std::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }
 
 fn decode_output(

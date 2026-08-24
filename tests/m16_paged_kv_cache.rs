@@ -372,6 +372,7 @@ fn resident_paged_cache_feeds_qualified_paged_decode() {
                 config,
                 theta,
                 q_rope_position: q_position,
+                q_causal_position: q_position,
             },
         )
         .unwrap();

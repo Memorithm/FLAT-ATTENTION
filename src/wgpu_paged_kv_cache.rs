@@ -13,6 +13,7 @@ use core::fmt;
 use crate::paged_kv::{PagedKvConfig, PagedKvError, PagedKvTable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum WgpuPagedKvCacheError {
     Table(PagedKvError),
     ZeroDimension,

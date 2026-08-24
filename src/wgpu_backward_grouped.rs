@@ -7,6 +7,8 @@
 
 use core::fmt;
 
+use super::wgpu_internal;
+
 use crate::{
     validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
     GroupedAttentionShape, FLAT_BACKWARD_GROUPED_RECOMPUTE_WGSL,
@@ -16,12 +18,19 @@ const BACKWARD_WORKGROUP_SIZE: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedBackwardRecomputeLayout {
+    /// Query tensor element count.
     pub q_elements: usize,
+    /// Key/value tensor element count at physical KV-head cardinality.
     pub kv_elements: usize,
+    /// LSE statistic element count.
     pub lse_elements: usize,
+    /// Element count of the packed forward record.
     pub packed_forward_elements: usize,
+    /// Element count of the packed gradient record.
     pub gradient_elements: usize,
+    /// Byte size of the packed forward record.
     pub packed_forward_bytes: u64,
+    /// Byte size of the packed gradient record.
     pub gradient_bytes: u64,
 }
 
@@ -56,13 +65,18 @@ impl GroupedBackwardRecomputeLayout {
 }
 
 pub struct GroupedBackwardRecomputePass<'a> {
+    /// Packed [Q|K|V|O|LSE] forward record at native KV cardinality.
     pub packed_forward: &'a wgpu::Buffer,
+    /// Destination for packed [dQ|dK|dV]; must declare STORAGE usage.
     pub packed_grads: &'a wgpu::Buffer,
+    /// Grouped geometry of the recorded forward pass.
     pub shape: GroupedAttentionShape,
+    /// Attention configuration used by the forward pass.
     pub config: FlatAttentionConfig,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum GroupedBackwardRecomputeError {
     Core(FlatAttentionError),
     IndexSpaceExceeded {
@@ -108,7 +122,14 @@ impl fmt::Display for GroupedBackwardRecomputeError {
     }
 }
 
-impl std::error::Error for GroupedBackwardRecomputeError {}
+impl std::error::Error for GroupedBackwardRecomputeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for GroupedBackwardRecomputeError {
     fn from(value: FlatAttentionError) -> Self {
@@ -156,26 +177,14 @@ impl fmt::Debug for WgpuGroupedBackwardRecomputePipeline {
 
 impl WgpuGroupedBackwardRecomputePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, GroupedBackwardRecomputeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m19-grouped-backward-recompute"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_BACKWARD_GROUPED_RECOMPUTE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m19-grouped-backward-recompute"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_backward_grouped",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(GroupedBackwardRecomputeError::PipelineValidation(
-                error.to_string(),
-            )),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_BACKWARD_GROUPED_RECOMPUTE_WGSL,
+            "flat-m19-grouped-backward-recompute",
+            "flat_attention_backward_grouped",
+        )
+        .map_err(GroupedBackwardRecomputeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(

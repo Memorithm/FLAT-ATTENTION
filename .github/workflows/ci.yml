@@ -23,41 +23,20 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
+      # One workspace resolution covers the root crate and every crates/* member;
+      # --all-features also enables the optional WGPU surface for compile gates.
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo test --all-features
-      - name: Check EPG core formatting
-        run: cargo fmt --manifest-path crates/epg-core/Cargo.toml -- --check
-      - name: Lint EPG core
-        run: cargo clippy --manifest-path crates/epg-core/Cargo.toml --all-targets -- -D warnings
-      - name: Test EPG core contract
-        run: cargo test --manifest-path crates/epg-core/Cargo.toml
-      - name: Check EPG reference crate formatting
-        run: cargo fmt --manifest-path crates/flat-epg-reference/Cargo.toml -- --check
-      - name: Lint EPG reference crate
-        run: cargo clippy --manifest-path crates/flat-epg-reference/Cargo.toml --all-targets -- -D warnings
-      - name: Test EPG reference contract
-        run: cargo test --manifest-path crates/flat-epg-reference/Cargo.toml
-      - name: Check EPG WGPU qualification formatting
-        run: cargo fmt --manifest-path crates/flat-epg-wgpu/Cargo.toml -- --check
-      - name: Lint EPG WGPU qualification crate
-        run: cargo clippy --manifest-path crates/flat-epg-wgpu/Cargo.toml --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test host-only contract matrix
+        run: cargo test --workspace --all-features
       - name: Validate EPG qualification WGSL without a device
-        run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml qualification_shader_parses_and_validates_with_naga_020
-      - name: Check EPG Q4 candidate formatting
-        run: cargo fmt --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --check
-      - name: Lint EPG Q4 candidate
-        run: cargo clippy --manifest-path crates/flat-epg-q4-candidate/Cargo.toml --all-targets -- -D warnings
+        run: cargo test -p flat-epg-wgpu qualification_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate WGSL without a device
-        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_shader_parses_and_validates_with_naga_020
+        run: cargo test -p flat-epg-q4-candidate q4_candidate_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate host rejection without a device
-        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml q4_candidate_rejects_unqualified_dimensions_without_a_device
-      - name: Check ADA-A1 candidate formatting
-        run: cargo fmt --manifest-path crates/flat-ada-a1-candidate/Cargo.toml -- --check
-      - name: Lint ADA-A1 candidate
-        run: cargo clippy --manifest-path crates/flat-ada-a1-candidate/Cargo.toml --all-targets -- -D warnings
+        run: cargo test -p flat-epg-q4-candidate q4_candidate_rejects_unqualified_dimensions_without_a_device
       - name: Validate ADA-A1 candidate contract without a device
-        run: cargo test --manifest-path crates/flat-ada-a1-candidate/Cargo.toml
+        run: cargo test -p flat-ada-a1-candidate
 
   wgpu-device:
     runs-on: ubuntu-latest
@@ -71,22 +50,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
-      - name: Execute full fused-attention WGPU test matrix
+      # The full workspace matrix on a real (software) Vulkan device; GPU tests
+      # that self-skip without an adapter are mandatory here.
+      - name: Execute full workspace CPU-GPU test matrix
         env:
           FLAT_REQUIRE_WGPU: "1"
-        run: cargo test --features wgpu --tests -- --nocapture
-      - name: Execute EPG CPU-GPU qualification matrix
+        run: cargo test --workspace --all-features -- --nocapture
+      - name: Same-device kernel regression gate
+        timeout-minutes: 10
         env:
           FLAT_REQUIRE_WGPU: "1"
-        run: cargo test --manifest-path crates/flat-epg-wgpu/Cargo.toml -- --nocapture
-      - name: Execute EPG Q4 CPU-GPU-baseline qualification matrix
-        env:
-          FLAT_REQUIRE_WGPU: "1"
-        run: cargo test --manifest-path crates/flat-epg-q4-candidate/Cargo.toml -- --nocapture
-      - name: Execute ADA-A1 candidate CPU-GPU parity matrix
-        env:
-          FLAT_REQUIRE_WGPU: "1"
-        run: cargo test --manifest-path crates/flat-ada-a1-candidate/Cargo.toml -- --nocapture
+          FLAT_REGRESSION_GATE_ITERATIONS: "9"
+        run: cargo run --release --features wgpu --example regression_gate
       - name: Smoke EPG Q4 benchmark protocol on software Vulkan
         timeout-minutes: 5
         env:
@@ -97,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$(mktemp)"
-          cargo run --manifest-path crates/flat-epg-q4-candidate/Cargo.toml \
+          cargo run -p flat-epg-q4-candidate \
             --example epg_q4_hardware_sweep --release | tee "$output"
           grep -Fx 'hardware_measurement_eligible=false' "$output"
           grep -Fx 'performance_claim=measurement_only_no_production_routing_change' "$output"

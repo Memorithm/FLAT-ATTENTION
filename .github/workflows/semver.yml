@@ -1,0 +1,36 @@
+name: semver
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "crates/**"
+      - "Cargo.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semver-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          # cargo-semver-checks diffs against the merge base; a full history
+          # keeps the baseline resolution reliable.
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        with:
+          toolchain: 1.89.0
+      # The crate is unpublished; this guards the future 1.0 contract against
+      # accidental breaking changes between PRs.
+      - name: Check semver breaking changes
+        uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239
+        with:
+          verbose: false
+          feature-group: all-features

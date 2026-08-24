@@ -16,10 +16,15 @@ use super::{validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttenti
 /// - LSE: `[batch, q_heads, seq_len]`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GroupedAttentionShape {
+    /// Independent attention problems executed in parallel.
     pub batch: usize,
+    /// Query heads per problem.
     pub q_heads: usize,
+    /// Physical K/V heads; q_heads must be an exact multiple.
     pub kv_heads: usize,
+    /// Tokens per problem shared by Q, K and V.
     pub seq_len: usize,
+    /// Feature width of every head row (1..=128 portable).
     pub head_dim: usize,
 }
 

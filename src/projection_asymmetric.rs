@@ -17,8 +17,11 @@ use super::{
 /// while the resident cache can keep its original `kv_position_offset`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AsymmetricRotaryEmbeddingConfig {
+    /// Positive finite RoPE base frequency.
     pub theta: f32,
+    /// Absolute rotation origin of query token zero (independent of the causal domain).
     pub query_position_offset: usize,
+    /// Absolute rotation origin of key/value token zero.
     pub kv_position_offset: usize,
 }
 

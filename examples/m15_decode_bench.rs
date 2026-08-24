@@ -195,6 +195,7 @@ fn main() {
                     config,
                     theta,
                     q_rope_position: kv_len - 1,
+                    q_causal_position: kv_len - 1,
                 },
             )
             .unwrap();

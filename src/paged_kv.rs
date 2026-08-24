@@ -2,7 +2,9 @@ use core::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedKvConfig {
+    /// Tokens per physical page (>= 1).
     pub page_size: usize,
+    /// Total physical pages backing the cache capacity.
     pub physical_pages: usize,
 }
 
@@ -19,22 +21,32 @@ impl PagedKvConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedKvAddress {
+    /// Physical page index backing this logical token.
     pub physical_page: usize,
+    /// Token offset inside the physical page.
     pub offset_in_page: usize,
+    /// Table generation owning this mapping; stale after reset().
     pub generation: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedKvTelemetry {
+    /// Tokens currently mapped by the table.
     pub live_tokens: usize,
+    /// Maximum tokens representable by the configuration.
     pub capacity_tokens: usize,
+    /// Physical pages currently assigned to logical pages.
     pub mapped_pages: usize,
+    /// Physical pages available for future appends.
     pub free_pages: usize,
+    /// Allocated-but-unfilled tokens in the last mapped page.
     pub internal_fragmentation_tokens: usize,
+    /// Current generation counter; advances on every reset.
     pub generation: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PagedKvError {
     ZeroDimension,
     CapacityOverflow,
@@ -97,18 +109,22 @@ impl PagedKvTable {
         })
     }
 
+    #[must_use]
     pub fn config(&self) -> PagedKvConfig {
         self.config
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.live_tokens
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.live_tokens == 0
     }
 
+    #[must_use]
     pub fn generation(&self) -> u64 {
         self.generation
     }

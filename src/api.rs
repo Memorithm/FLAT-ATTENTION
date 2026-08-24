@@ -23,12 +23,19 @@ pub mod v1 {
     /// Backend-neutral native GQA/MQA geometry.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct AttentionShape {
+        /// Independent attention problems executed in parallel.
         pub batch: usize,
+        /// Query heads per problem; must be an exact multiple of kv_heads.
         pub q_heads: usize,
+        /// Physical K/V heads (GQA/MQA native, never expanded).
         pub kv_heads: usize,
+        /// Query tokens per problem (decode uses 1).
         pub query_len: usize,
+        /// Key/value tokens per problem; may differ from query_len.
         pub kv_len: usize,
+        /// Feature width of every head row.
         pub head_dim: usize,
+        /// Absolute causal position of query token zero.
         pub query_position_offset: usize,
     }
 
@@ -92,7 +99,9 @@ pub mod v1 {
     /// Backend-neutral execution configuration.
     #[derive(Debug, Clone, Copy, PartialEq, Default)]
     pub struct AttentionConfig {
+        /// Apply autoregressive masking (key_position > query_position).
         pub causal: bool,
+        /// Optional score multiplier; defaults to 1/sqrt(head_dim).
         pub softmax_scale: Option<f32>,
     }
 
@@ -201,6 +210,7 @@ pub mod v1 {
 
     /// Explicit reusable-API errors. No backend fallback is implied by an error.
     #[derive(Debug, Clone, PartialEq)]
+    #[non_exhaustive]
     pub enum ApiError {
         ZeroDimension,
         ShapeOverflow,

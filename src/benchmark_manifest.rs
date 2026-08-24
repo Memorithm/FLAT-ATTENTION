@@ -12,31 +12,47 @@ pub const BENCHMARK_MANIFEST_SCHEMA_VERSION: u16 = 1;
 /// Host/device identity required to interpret one benchmark result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BenchmarkEnvironment {
+    /// Human-readable adapter/device name.
     pub device: String,
+    /// Graphics backend family (Vulkan, Metal, D3D12).
     pub backend: String,
+    /// Driver version string as reported by the adapter.
     pub driver: String,
+    /// Operating system the measurement ran on.
     pub os: String,
+    /// CPU architecture of the host.
     pub arch: String,
 }
 
 /// Logical attention workload recorded alongside a benchmark result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BenchmarkProblem {
+    /// Storage precision label (f32 or packed-f16).
     pub precision: String,
+    /// Independent attention problems executed in parallel.
     pub batch: usize,
+    /// Query heads per problem.
     pub q_heads: usize,
+    /// Physical K/V heads.
     pub kv_heads: usize,
+    /// Query tokens per problem.
     pub query_len: usize,
+    /// Key/value tokens per problem.
     pub kv_len: usize,
+    /// Feature width of every head row.
     pub head_dim: usize,
+    /// Whether autoregressive masking was applied.
     pub causal: bool,
 }
 
 /// Integer-valued result fields avoid locale/float serialization ambiguity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BenchmarkResult {
+    /// Median iteration wall time in nanoseconds.
     pub median_latency_ns: u64,
+    /// 95th-percentile iteration wall time in nanoseconds.
     pub p95_latency_ns: u64,
+    /// Effective throughput in thousandths of a token per second.
     /// Effective throughput in thousandths of a token per second.
     pub tokens_per_second_milli: u64,
 }
@@ -44,17 +60,26 @@ pub struct BenchmarkResult {
 /// Reproducible benchmark record tied to one exact source revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BenchmarkManifest {
+    /// Exact source revision the measured binary was built from.
     pub commit_sha: String,
+    /// Stable identifier of the benchmark harness run.
     pub benchmark_id: String,
+    /// Command line that produced the measurement.
     pub command: String,
+    /// Host and device identity required to interpret the result.
     pub environment: BenchmarkEnvironment,
+    /// Logical workload that was measured.
     pub problem: BenchmarkProblem,
+    /// Untimed iterations discarded before measurement.
     pub warmup_iterations: u32,
+    /// Timed iterations recorded in result.
     pub measured_iterations: u32,
+    /// Integer-valued timing statistics.
     pub result: BenchmarkResult,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BenchmarkManifestError {
     InvalidCommitSha,
     EmptyField(&'static str),

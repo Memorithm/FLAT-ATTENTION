@@ -79,6 +79,21 @@ The specialized device output and LSE are compared with the deterministic asymme
 
 Additional tests reject non-`q_len=1`, causal visibility mismatch and `kv_len > kv_capacity` before dispatch.
 
+## Rotation versus causal position domains
+
+`ResidentDecodePass` carries two independent absolute positions:
+
+- `q_rope_position` drives only the fused query rotation;
+- `q_causal_position` is the sole input of the causal visibility precondition
+  (`q_causal_position + 1 >= live_tokens` under `causal = true`).
+
+This mirrors `AsymmetricGroupedAttentionShape::query_position_offset` versus
+`AsymmetricRotaryEmbeddingConfig::query_position_offset`, so deployments with a
+rotation origin shifted relative to the causal origin (cross-attention,
+continued pretraining with an offset RoPE schedule) are expressible without
+conflating the two domains. The pre-rotated-K external path keeps deriving its
+causal domain from `shape.query_position_offset`.
+
 ## SciRust integration boundary
 
 This entry point is specifically sufficient for SciRust to keep its existing `WgpuDenseKvCache` as the sole KV owner. A SciRust bridge can borrow the underlying fixed-capacity K/V buffers, pass the cache's logical length and capacity, and record the specialized FLAT kernel on the existing `GpuChain` device/queue.

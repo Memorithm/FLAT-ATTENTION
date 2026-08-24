@@ -6,6 +6,8 @@
 
 use core::fmt;
 
+use super::wgpu_internal;
+
 use crate::{
     validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
     FLAT_BACKWARD_RECOMPUTE_WGSL,
@@ -15,11 +17,17 @@ const BACKWARD_WORKGROUP_SIZE: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BackwardRecomputeLayout {
+    /// Element count of one forward tensor (Q or O).
     pub tensor_elements: usize,
+    /// Element count of the LSE statistic vector.
     pub lse_elements: usize,
+    /// Element count of the packed [Q|K|V|O|LSE] record.
     pub packed_forward_elements: usize,
+    /// Element count of the packed [dQ|dK|dV] record.
     pub gradient_elements: usize,
+    /// Byte size of the packed forward record.
     pub packed_forward_bytes: u64,
+    /// Byte size of the packed gradient record.
     pub gradient_bytes: u64,
 }
 
@@ -62,13 +70,18 @@ impl BackwardRecomputeLayout {
 }
 
 pub struct BackwardRecomputePass<'a> {
+    /// Packed [Q|K|V|O|LSE] forward record produced by the forward pass.
     pub packed_forward: &'a wgpu::Buffer,
+    /// Destination for packed [dQ|dK|dV]; must declare STORAGE usage.
     pub packed_grads: &'a wgpu::Buffer,
+    /// Canonical geometry of the recorded forward pass.
     pub shape: AttentionShape,
+    /// Attention configuration used by the forward pass.
     pub config: FlatAttentionConfig,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum BackwardRecomputeError {
     Core(FlatAttentionError),
     IndexSpaceExceeded {
@@ -116,7 +129,14 @@ impl fmt::Display for BackwardRecomputeError {
     }
 }
 
-impl std::error::Error for BackwardRecomputeError {}
+impl std::error::Error for BackwardRecomputeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for BackwardRecomputeError {
     fn from(value: FlatAttentionError) -> Self {
@@ -137,26 +157,14 @@ impl fmt::Debug for WgpuBackwardRecomputePipeline {
 
 impl WgpuBackwardRecomputePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, BackwardRecomputeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m18-backward-recompute"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_BACKWARD_RECOMPUTE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m18-backward-recompute"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_backward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(BackwardRecomputeError::PipelineValidation(
-                error.to_string(),
-            )),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_BACKWARD_RECOMPUTE_WGSL,
+            "flat-m18-backward-recompute",
+            "flat_attention_backward",
+        )
+        .map_err(BackwardRecomputeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(

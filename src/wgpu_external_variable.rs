@@ -5,6 +5,8 @@
 //! causal/query-RoPE origins. The kernel never stages padded K/V rows, and
 //! padded query rows deterministically become O=0 and LSE=-∞.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -38,21 +40,31 @@ pub struct VariableLengthSequenceMetadata {
 /// domain.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VariableLengthRotaryEmbeddingConfig {
+    /// Positive finite RoPE base frequency.
     pub theta: f32,
+    /// Shared absolute rotation origin of key/value token zero.
     pub kv_position_offset: usize,
 }
 
 /// One caller-owned padded variable-length projection-layout dispatch.
 pub struct ExternalVariableProjectionPass<'a> {
+    /// Sequence-major projected query tensor padded to the batch maximum length.
     pub q: &'a wgpu::Buffer,
+    /// Sequence-major projected key tensor (raw; rotation is fused).
     pub k: &'a wgpu::Buffer,
+    /// Sequence-major projected value tensor padded like Q.
     pub v: &'a wgpu::Buffer,
+    /// Destination for packed [O | LSE]; must declare STORAGE usage.
     pub out_and_lse: &'a wgpu::Buffer,
     /// Physical padded extents. `shape.query_position_offset` is ignored; the
     /// causal offset is supplied per sequence in `metadata`.
+    /// Rectangular geometry whose query_len/kv_len equal the padded maxima.
     pub shape: AsymmetricGroupedAttentionShape,
+    /// Per-batch active lengths and positions, one entry per batch element.
     pub metadata: &'a [VariableLengthSequenceMetadata],
+    /// Attention configuration (causality and softmax scale).
     pub config: FlatAttentionConfig,
+    /// RoPE parameters shared by every batch element.
     pub rotary: VariableLengthRotaryEmbeddingConfig,
 }
 
@@ -73,24 +85,14 @@ impl fmt::Debug for ExternalVariableProjectionRotaryGroupedPipeline {
 
 impl ExternalVariableProjectionRotaryGroupedPipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ExternalWgpuError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m12-variable-projection-rope-gqa"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
-                FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
-            )),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m12-variable-projection-rope-gqa"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_forward",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ExternalWgpuError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
+            "flat-m12-variable-projection-rope-gqa",
+            "flat_attention_forward",
+        )
+        .map_err(ExternalWgpuError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(
@@ -361,7 +363,8 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, ExternalWgpuError> {
-    u32::try_from(value).map_err(|_| ExternalWgpuError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ExternalWgpuError::IndexSpaceExceeded { elements: value })
 }
 
 fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
@@ -372,9 +375,5 @@ fn bytes_for_f32_len(len: usize) -> Result<u64, ExternalWgpuError> {
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for &value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

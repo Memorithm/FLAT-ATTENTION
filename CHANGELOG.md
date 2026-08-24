@@ -4,12 +4,29 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Engineering platform
+
+- Converted the repository into a Cargo workspace rooted at the main package: one resolution and one authoritative lockfile now cover every `crates/*` member, and CI runs workspace-wide fmt/clippy/test gates by default.
+- Deduplicated host-side WGPU plumbing into an internal primitives module (`checked_u32`, f32 byte sizing, native-endian encode/decode with typed readback failures, validation-scoped pipeline creation); every public error surface is preserved verbatim.
+- All public error enums are now `#[non_exhaustive]` and wrapper errors implement `Error::source()`, exposing full cause chains.
+
+### Decode contract
+
+- Split RoPE rotation and causal visibility into independent position domains on the M15 resident and M16 paged decode passes (`q_rope_position` vs `q_causal_position`), matching the asymmetric oracle contract; the resident path gained the causal check its external sibling always performed.
+
+### Quality gates
+
+- Added libFuzzer harnesses for the shape/oracle arithmetic, paged KV state machine and api::v1 contract, with deterministic seeds, a weekly deep session and short per-PR sessions; plus a CodeQL workflow with security-extended queries.
+- Added a same-device kernel regression gate to CI: opt-in generations must stay within ratio bounds of the qualified Q4 portable baseline measured back-to-back on one adapter (hardware independent by construction).
+- Added a semver workflow running cargo-semver-checks against every library-touching PR.
+- Documented every public struct field across the crate surface and annotated 48 pure getters with `#[must_use]`.
+
 ### Supply chain and governance
 
 - Added a `supply-chain` CI workflow running `cargo-deny` (RustSec advisories, license allow-list, source policy) against every crate manifest on push, pull request, and a weekly schedule.
 - Added `deny.toml`, Dependabot updates for Cargo dependencies and GitHub Actions, and a `SECURITY.md` private-vulnerability reporting policy.
 - Pinned GitHub Actions by commit SHA in the main CI workflow and added explicit least-privilege token permissions and job timeouts.
-- Committed `Cargo.lock` files as the authoritative version-resolution record referenced by `THIRD_PARTY_LICENSES.md`.
+- Committed `Cargo.lock` as the authoritative version-resolution record referenced by `THIRD_PARTY_LICENSES.md`; converted the repository into a Cargo workspace (`members = ["crates/*"]`) so one lockfile and one resolution cover every crate.
 - Declared `required-features = ["wgpu"]` for GPU examples so default-feature builds and tests no longer fail on host-only machines.
 - Removed the stale `.ci-trigger-m24` marker and ignored local assistant scratch directories.
 

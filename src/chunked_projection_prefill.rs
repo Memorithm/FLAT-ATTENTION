@@ -21,6 +21,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum ChunkedProjectionPrefillError {
     Core(FlatAttentionError),
     ZeroQueryChunkSize,

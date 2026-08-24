@@ -7,6 +7,8 @@
 //! stride in both cases. No cache compaction, host round-trip, submission,
 //! polling or mapping occurs here.
 
+use super::wgpu_internal;
+
 use core::fmt;
 
 use super::{
@@ -17,11 +19,17 @@ use super::{
 /// Output geometry for one resident decode dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResidentDecodeLayout {
+    /// Query element count (batch * q_heads * head_dim).
     pub q_elements: usize,
+    /// Output context element count for this decode pass.
     pub output_elements: usize,
+    /// LSE element count for this decode pass.
     pub lse_elements: usize,
+    /// Total packed O|LSE element count.
     pub combined_elements: usize,
+    /// Query buffer size in bytes.
     pub q_bytes: u64,
+    /// Packed O|LSE destination size in bytes.
     pub combined_bytes: u64,
 }
 
@@ -87,7 +95,17 @@ pub struct ResidentDecodePass<'a> {
     pub config: FlatAttentionConfig,
     pub theta: f32,
     /// Absolute RoPE position of the single query row.
+    ///
+    /// This drives only the fused query rotation. Causal visibility is judged
+    /// from [`Self::q_causal_position`], keeping the rotation domain
+    /// independent of the causal domain exactly like the asymmetric oracle.
     pub q_rope_position: usize,
+    /// Absolute causal position of the single query row.
+    ///
+    /// Under `config.causal`, the kernel requires
+    /// `q_causal_position + 1 >= live_tokens`; RoPE and causal origins may
+    /// differ (cross-attention, offset rope schedules).
+    pub q_causal_position: usize,
 }
 
 struct ExternalResidentDecodePass<'a> {
@@ -98,10 +116,12 @@ struct ExternalResidentDecodePass<'a> {
     config: FlatAttentionConfig,
     theta: f32,
     q_rope_position: usize,
+    q_causal_position: usize,
 }
 
 /// Explicit M15 decode failures.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum ResidentDecodeError {
     Core(FlatAttentionError),
     EmptyCache,
@@ -202,7 +222,14 @@ impl fmt::Display for ResidentDecodeError {
     }
 }
 
-impl std::error::Error for ResidentDecodeError {}
+impl std::error::Error for ResidentDecodeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<FlatAttentionError> for ResidentDecodeError {
     fn from(value: FlatAttentionError) -> Self {
@@ -224,22 +251,14 @@ impl fmt::Debug for WgpuResidentDecodePipeline {
 
 impl WgpuResidentDecodePipeline {
     pub fn new(device: &wgpu::Device) -> Result<Self, ResidentDecodeError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("flat-m15-resident-decode"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(FLAT_DECODE_RESIDENT_WGSL)),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("flat-m15-resident-decode"),
-            layout: None,
-            module: &shader,
-            entry_point: "flat_attention_decode",
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        });
-        match pollster::block_on(device.pop_error_scope()) {
-            Some(error) => Err(ResidentDecodeError::PipelineValidation(error.to_string())),
-            None => Ok(Self { pipeline }),
-        }
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_DECODE_RESIDENT_WGSL,
+            "flat-m15-resident-decode",
+            "flat_attention_decode",
+        )
+        .map_err(ResidentDecodeError::PipelineValidation)?;
+        Ok(Self { pipeline })
     }
 
     pub fn layout(
@@ -277,6 +296,7 @@ impl WgpuResidentDecodePipeline {
                 config: pass.config,
                 theta: pass.theta,
                 q_rope_position: pass.q_rope_position,
+                q_causal_position: pass.q_causal_position,
             },
         )
     }
@@ -317,6 +337,8 @@ impl WgpuResidentDecodePipeline {
                 config: pass.config,
                 theta: pass.rotary.theta,
                 q_rope_position: pass.rotary.query_position_offset,
+                // The external contract keeps the causal domain on the shape.
+                q_causal_position: pass.shape.query_position_offset,
             },
         )
     }
@@ -333,6 +355,20 @@ impl WgpuResidentDecodePipeline {
         validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
         if !pass.theta.is_finite() || pass.theta <= 0.0 {
             return Err(ResidentDecodeError::InvalidTheta(pass.theta));
+        }
+        // Causal visibility is judged from the dedicated causal domain, not
+        // from the RoPE rotation position.
+        if pass.config.causal
+            && pass
+                .q_causal_position
+                .checked_add(1)
+                .ok_or(FlatAttentionError::PositionOverflow)?
+                < pass.kv.len
+        {
+            return Err(ResidentDecodeError::CausalVisibilityMismatch {
+                query_position: pass.q_causal_position,
+                kv_len: pass.kv.len,
+            });
         }
         let scale = pass.config.resolved_scale(pass.kv.head_dim)?;
         let q_batch_heads = checked_mul(pass.kv.batch, pass.q_heads)?;
@@ -568,20 +604,15 @@ fn checked_mul(a: usize, b: usize) -> Result<usize, ResidentDecodeError> {
 }
 
 fn checked_u32(value: usize) -> Result<u32, ResidentDecodeError> {
-    u32::try_from(value).map_err(|_| ResidentDecodeError::IndexSpaceExceeded { elements: value })
+    wgpu_internal::checked_u32(value)
+        .ok_or(ResidentDecodeError::IndexSpaceExceeded { elements: value })
 }
 
-fn bytes_for_f32(elements: usize) -> Result<u64, ResidentDecodeError> {
-    let bytes = elements
-        .checked_mul(core::mem::size_of::<f32>())
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    u64::try_from(bytes).map_err(|_| ResidentDecodeError::IndexSpaceExceeded { elements })
+fn bytes_for_f32(len: usize) -> Result<u64, ResidentDecodeError> {
+    wgpu_internal::f32_bytes(len)
+        .ok_or_else(|| ResidentDecodeError::from(FlatAttentionError::ShapeOverflow))
 }
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(core::mem::size_of_val(values));
-    for value in values {
-        bytes.extend_from_slice(&value.to_ne_bytes());
-    }
-    bytes
+    wgpu_internal::encode_u32(values)
 }

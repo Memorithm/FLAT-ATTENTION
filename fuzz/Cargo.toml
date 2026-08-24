@@ -1,0 +1,40 @@
+[package]
+name = "flat-attention-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.flat-attention]
+path = ".."
+
+# Keep the fuzz graph free of the optional GPU runtime: these targets exercise
+# host-side validation and oracle contracts only.
+[features]
+default = []
+
+[[bin]]
+name = "shape_and_forward"
+path = "fuzz_targets/shape_and_forward.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "paged_kv_state"
+path = "fuzz_targets/paged_kv_state.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "api_v1_contract"
+path = "fuzz_targets/api_v1_contract.rs"
+test = false
+doc = false
+bench = false
