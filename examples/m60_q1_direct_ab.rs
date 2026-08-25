@@ -9,9 +9,10 @@ mod enabled {
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
+    use flat_attention::api::wgpu::PreparedGroupedForward;
     use flat_attention::{
         forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape, GroupedForwardLayout,
-        GroupedForwardPass, PreparedGroupedForward, WgpuGroupedForwardPipeline,
+        GroupedForwardPass, WgpuGroupedForwardPipeline,
     };
 
     const SHADER: &str = include_str!("../shaders/flat_fwd_q1_direct_vec4.wgsl");
