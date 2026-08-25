@@ -11,8 +11,8 @@ mod enabled {
 
     use flat_attention::api::wgpu::PreparedGroupedForward;
     use flat_attention::{
-        forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape, GroupedForwardLayout,
-        GroupedForwardPass, WgpuGroupedForwardPipeline,
+        forward_reference_grouped, FlatAttentionConfig, GroupedAttentionShape,
+        GroupedForwardLayout, GroupedForwardPass, WgpuGroupedForwardPipeline,
     };
 
     const SHADER: &str = include_str!("../shaders/flat_fwd_q1_direct_vec4.wgsl");
@@ -166,11 +166,7 @@ mod enabled {
             })
         }
 
-        fn encode_prepared(
-            &self,
-            encoder: &mut wgpu::CommandEncoder,
-            prepared: &DirectPrepared,
-        ) {
+        fn encode_prepared(&self, encoder: &mut wgpu::CommandEncoder, prepared: &DirectPrepared) {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("flat-m60-ab-direct"),
                 timestamp_writes: None,
@@ -387,8 +383,18 @@ mod enabled {
 
         let _ = time_m58(device, queue, &m58, &m58_prepared);
         let _ = time_m60(device, queue, &m60, &m60_prepared);
-        let m58_host = read_f32(device, queue, &m58_output, m58_prepared.layout().output_elements)?;
-        let m60_host = read_f32(device, queue, &m60_output, m60_prepared.layout.output_elements)?;
+        let m58_host = read_f32(
+            device,
+            queue,
+            &m58_output,
+            m58_prepared.layout().output_elements,
+        )?;
+        let m60_host = read_f32(
+            device,
+            queue,
+            &m60_output,
+            m60_prepared.layout.output_elements,
+        )?;
         let m58_parity = max_abs_error(&m58_host, &expected_combined)?;
         let m60_parity = max_abs_error(&m60_host, &expected_combined)?;
 
@@ -445,12 +451,13 @@ mod enabled {
             apply_limit_buckets: false,
         }))?;
         let info = adapter.get_info();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("flat-m60-direct-ab"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-            ..Default::default()
-        }))?;
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+                label: Some("flat-m60-direct-ab"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::downlevel_defaults(),
+                ..Default::default()
+            }))?;
 
         eprintln!("benchmark=m60_q1_direct_vs_m58");
         eprintln!("mechanism=remove_non_reused_kv_workgroup_staging");
@@ -468,9 +475,7 @@ mod enabled {
             for head_dim in [64_usize, 128] {
                 for causal in [false, true] {
                     let (m58_med, m58_p95, m60_med, m60_p95, ratio, m58_err, m60_err) =
-                        run_case(
-                            &device, &queue, seq_len, head_dim, causal, warmups, repeats,
-                        )?;
+                        run_case(&device, &queue, seq_len, head_dim, causal, warmups, repeats)?;
                     println!(
                         "{},{:?},{seq_len},{head_dim},{causal},{warmups},{repeats},{:.3},{:.3},{:.3},{:.3},{ratio:.6},{m58_err:.8},{m60_err:.8},measurement_only_no_production_routing_change",
                         info.name.replace(',', ";"),
