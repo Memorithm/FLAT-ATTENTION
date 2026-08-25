@@ -14,6 +14,13 @@ pub mod api;
 /// Machine-readable reproducible benchmark provenance.
 pub mod benchmark_manifest;
 
+mod fingerprint;
+
+/// Experimental FLAT Kernel IR: validated structural descriptions of
+/// qualified kernel architectures. Compiler infrastructure; changes no
+/// runtime routing and makes no performance claim.
+pub mod kernel_ir;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
