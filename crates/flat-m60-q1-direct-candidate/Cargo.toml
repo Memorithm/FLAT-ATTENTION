@@ -1,0 +1,16 @@
+[package]
+name = "flat-m60-q1-direct-candidate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Opt-in M60 direct-load Q1 vec4 MHA performance candidate for FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../..", features = ["wgpu"] }
+wgpu = "30.0"
+pollster = "1.0"
+
+[dev-dependencies]
+naga = { version = "30.0", features = ["wgsl-in"] }
