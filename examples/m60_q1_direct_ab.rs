@@ -21,6 +21,16 @@ mod enabled {
     const ATOL: f32 = 8.0e-4;
     const RTOL: f32 = 3.0e-3;
 
+    struct CaseResult {
+        m58_median: u128,
+        m58_p95: u128,
+        m60_median: u128,
+        m60_p95: u128,
+        ratio: f64,
+        m58_parity: f32,
+        m60_parity: f32,
+    }
+
     struct DirectPipeline {
         pipeline: wgpu::ComputePipeline,
     }
@@ -330,7 +340,7 @@ mod enabled {
         causal: bool,
         warmups: usize,
         repeats: usize,
-    ) -> Result<(u128, u128, u128, u128, f64, f32, f32), Box<dyn Error>> {
+    ) -> Result<CaseResult, Box<dyn Error>> {
         let shape = GroupedAttentionShape {
             batch: 1,
             q_heads: 1,
@@ -422,15 +432,15 @@ mod enabled {
 
         let m58_median = median_ns(&m58_samples);
         let m60_median = median_ns(&m60_samples);
-        Ok((
+        Ok(CaseResult {
             m58_median,
-            percentile_ns(&m58_samples, 95),
+            m58_p95: percentile_ns(&m58_samples, 95),
             m60_median,
-            percentile_ns(&m60_samples, 95),
-            m58_median as f64 / m60_median.max(1) as f64,
+            m60_p95: percentile_ns(&m60_samples, 95),
+            ratio: m58_median as f64 / m60_median.max(1) as f64,
             m58_parity,
             m60_parity,
-        ))
+        })
     }
 
     pub fn run() -> Result<(), Box<dyn Error>> {
@@ -474,16 +484,19 @@ mod enabled {
         for seq_len in [128_usize, 512] {
             for head_dim in [64_usize, 128] {
                 for causal in [false, true] {
-                    let (m58_med, m58_p95, m60_med, m60_p95, ratio, m58_err, m60_err) =
+                    let result =
                         run_case(&device, &queue, seq_len, head_dim, causal, warmups, repeats)?;
                     println!(
-                        "{},{:?},{seq_len},{head_dim},{causal},{warmups},{repeats},{:.3},{:.3},{:.3},{:.3},{ratio:.6},{m58_err:.8},{m60_err:.8},measurement_only_no_production_routing_change",
+                        "{},{:?},{seq_len},{head_dim},{causal},{warmups},{repeats},{:.3},{:.3},{:.3},{:.3},{:.6},{:.8},{:.8},measurement_only_no_production_routing_change",
                         info.name.replace(',', ";"),
                         info.backend,
-                        m58_med as f64 / 1_000.0,
-                        m58_p95 as f64 / 1_000.0,
-                        m60_med as f64 / 1_000.0,
-                        m60_p95 as f64 / 1_000.0,
+                        result.m58_median as f64 / 1_000.0,
+                        result.m58_p95 as f64 / 1_000.0,
+                        result.m60_median as f64 / 1_000.0,
+                        result.m60_p95 as f64 / 1_000.0,
+                        result.ratio,
+                        result.m58_parity,
+                        result.m60_parity,
                     );
                 }
             }
