@@ -8,8 +8,8 @@ This matrix records correctness/portability qualification boundaries. It is not 
 | Linux / Vulkan / NVIDIA Jetson Thor | physical NVIDIA | qualified for correctness on recorded exact candidate heads | Real NVIDIA Vulkan execution; benchmark claims require a separate idle-device M40 manifest. |
 | Windows Server / D3D12 / Microsoft Basic Render Driver (WARP) | software D3D12 reference | qualified for M35 portability | Uses WGPU/DX12 and DXC; software-rendered timing is not performance evidence. |
 | macOS / Metal | hosted Apple hardware | qualified for portability/correctness | Hardware identity and capability limits belong in exact workflow evidence; hosted timing is not promoted. |
-| Linux / Vulkan / physical AMD | physical AMD | **pending** | Required by M37 before 1.0 release; no substitute device is accepted. |
-| Linux/Windows / physical Intel GPU | physical Intel | **pending** | Required by M37 before 1.0 release; no substitute device is accepted. |
+| Linux / Vulkan / physical AMD | physical AMD | **pending hardware availability** | M37 asks for AMD evidence *when hardware is available*. Evidence strengthens qualification; `docs/RELEASE_CHECKLIST.md` does not make an unavailable device class a hard 1.0 blocker. No substitute device is accepted in its place. |
+| Linux/Windows / physical Intel GPU | physical Intel | **pending hardware availability** | Same availability-conditional reading of M37 as the AMD row; recorded honestly rather than fabricated. |
 
 ## Functional contract
 
