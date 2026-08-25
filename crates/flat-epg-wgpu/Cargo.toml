@@ -11,7 +11,7 @@ license-file = "../../LICENSE.md"
 epg-core = { path = "../epg-core" }
 flat-attention = { path = "../..", features = ["wgpu"] }
 wgpu = "30.0"
-pollster = "0.3"
+pollster = "1.0"
 
 [dev-dependencies]
 flat-epg-reference = { path = "../flat-epg-reference" }

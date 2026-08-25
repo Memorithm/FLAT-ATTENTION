@@ -12,7 +12,7 @@ epg-core = { path = "../epg-core" }
 flat-attention = { path = "../..", features = ["wgpu"] }
 flat-epg-wgpu = { path = "../flat-epg-wgpu" }
 wgpu = "30.0"
-pollster = "0.3"
+pollster = "1.0"
 
 [dev-dependencies]
 flat-epg-reference = { path = "../flat-epg-reference" }
