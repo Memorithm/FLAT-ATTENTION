@@ -4,6 +4,20 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Kernel compilation platform
+
+- Added the experimental `kernel_ir` module: a validated, host-only FLAT Kernel
+  IR for the qualified dense Q4 forward family, separating the semantic
+  attention problem from tuning configuration, rejecting configurations
+  without an executable path (vec4 width on unsupported head dimensions,
+  double buffering off the vec4 realization), computing checked static
+  resource footprints and dispatch geometry, deriving capability requirements,
+  and producing deterministic canonical records plus stable FNV-1a-64
+  structural fingerprints under an explicit schema version. This is compiler
+  infrastructure only: no runtime routing changes and no performance claim.
+- Extracted the shared FNV-1a-64 fingerprint primitive so device/capability
+  records and Kernel IR identities use one audited implementation.
+
 ### Engineering platform
 
 - Converted the repository into a Cargo workspace rooted at the main package: one resolution and one authoritative lockfile now cover every `crates/*` member, and CI runs workspace-wide fmt/clippy/test gates by default.
