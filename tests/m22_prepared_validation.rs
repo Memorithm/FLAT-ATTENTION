@@ -12,28 +12,27 @@ struct Harness {
 fn harness() -> Option<Harness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }));
-    let Some(adapter) = adapter else {
+    let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M22 prepared validation requires a WGPU adapter in the mandatory device gate");
         }
         eprintln!("WGPU adapter unavailable; optional M22 prepared validation skipped");
         return None;
     };
-    let (device, _queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m22-prepared-validation"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, _queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m22-prepared-validation"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap_or_else(|error| panic!("M22 request_device failed: {error}"));
     Some(Harness { device })
 }

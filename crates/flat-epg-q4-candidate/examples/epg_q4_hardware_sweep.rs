@@ -98,10 +98,10 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
 
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
@@ -144,7 +144,7 @@ fn execute_baseline(context: &BenchContext<'_>, prepared: &PreparedEpgQualificat
         });
     context.baseline.encode_prepared(&mut encoder, prepared);
     context.queue.submit(Some(encoder.finish()));
-    let _ = context.device.poll(wgpu::Maintain::Wait);
+    let _ = context.device.poll(wgpu::PollType::wait_indefinitely());
     start.elapsed().as_secs_f64() * 1.0e6
 }
 
@@ -157,7 +157,7 @@ fn execute_candidate(context: &BenchContext<'_>, prepared: &PreparedEpgQ4Candida
         });
     context.candidate.encode_prepared(&mut encoder, prepared);
     context.queue.submit(Some(encoder.finish()));
-    let _ = context.device.poll(wgpu::Maintain::Wait);
+    let _ = context.device.poll(wgpu::PollType::wait_indefinitely());
     start.elapsed().as_secs_f64() * 1.0e6
 }
 
@@ -406,12 +406,13 @@ fn main() {
 
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }))
     .expect("EPG hardware benchmark requires a WGPU adapter");
     let info = adapter.get_info();
@@ -423,14 +424,12 @@ fn main() {
         info.name
     );
 
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-epg-q4-hardware-sweep"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-epg-q4-hardware-sweep"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .expect("EPG hardware benchmark request_device failed");
     let baseline = EpgVec4QualificationPipeline::new(&device)
         .expect("qualified EPG baseline pipeline creation failed");

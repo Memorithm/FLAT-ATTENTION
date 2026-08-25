@@ -367,7 +367,7 @@ impl WgpuPagedDecodePipeline {
                 maximum: limits.max_compute_workgroups_per_dimension,
             });
         }
-        let maximum_storage_bytes = u64::from(limits.max_storage_buffer_binding_size);
+        let maximum_storage_bytes = limits.max_storage_buffer_binding_size;
         validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;
@@ -393,7 +393,7 @@ impl WgpuPagedDecodePipeline {
         params.resize(12 + WGSL_PAGED_MAX_LOGICAL_PAGES, 0);
         let params_bytes = encode_u32(&params);
         let params_len = params_bytes.len() as u64;
-        let maximum_uniform_bytes = u64::from(limits.max_uniform_buffer_binding_size);
+        let maximum_uniform_bytes = limits.max_uniform_buffer_binding_size;
         if params_len > maximum_uniform_bytes {
             return Err(PagedDecodeError::UniformBindingTooLarge {
                 required_bytes: params_len,

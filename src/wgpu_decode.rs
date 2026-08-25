@@ -380,7 +380,7 @@ impl WgpuResidentDecodePipeline {
                 maximum,
             });
         }
-        let maximum_storage_bytes = u64::from(limits.max_storage_buffer_binding_size);
+        let maximum_storage_bytes = limits.max_storage_buffer_binding_size;
         validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;

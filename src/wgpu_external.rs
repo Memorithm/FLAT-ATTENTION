@@ -211,7 +211,7 @@ impl ExternalProjectionRotaryGroupedPipeline {
         shape: GroupedAttentionShape,
     ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
-        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        let maximum_bytes = device.limits().max_storage_buffer_binding_size;
         if layout.combined_bytes > maximum_bytes {
             return Err(ExternalWgpuError::DeviceBufferLimit {
                 required_bytes: layout.combined_bytes,

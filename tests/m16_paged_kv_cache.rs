@@ -20,28 +20,27 @@ struct DeviceHarness {
 fn harness() -> Option<DeviceHarness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }));
-    let Some(adapter) = adapter else {
+    let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M16 paged KV cache requires a WGPU adapter in the mandatory device gate");
         }
         eprintln!("WGPU adapter unavailable; optional M16 paged KV cache test skipped");
         return None;
     };
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m16-paged-kv-cache-test"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m16-paged-kv-cache-test"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap_or_else(|error| panic!("M16 request_device failed: {error}"));
     Some(DeviceHarness { device, queue })
 }
@@ -131,9 +130,9 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
@@ -215,7 +214,7 @@ fn append_crosses_pages_without_rewriting_prefix_and_reset_reuses_generation() {
         .record_append(&mut encoder, &second_k_gpu, &second_v_gpu, 4)
         .unwrap();
     harness.queue.submit(Some(encoder.finish()));
-    let _ = harness.device.poll(wgpu::Maintain::Wait);
+    let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
 
     assert_eq!(cache.len(), 6);
     assert_eq!(cache.table().telemetry().unwrap().mapped_pages, 2);
@@ -261,7 +260,7 @@ fn append_crosses_pages_without_rewriting_prefix_and_reset_reuses_generation() {
         .record_append(&mut encoder, &replacement_gpu, &replacement_gpu, 1)
         .unwrap();
     harness.queue.submit(Some(encoder.finish()));
-    let _ = harness.device.poll(wgpu::Maintain::Wait);
+    let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
     let address = cache.table().address(0).unwrap();
     assert_eq!(address.physical_page, 0);
     assert_eq!(address.offset_in_page, 0);
