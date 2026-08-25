@@ -107,23 +107,22 @@ fn main() {
 
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }))
     .expect("M15 benchmark requires a WGPU adapter");
     let info = adapter.get_info();
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m15-decode-bench"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m15-decode-bench"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .expect("M15 benchmark request_device failed");
 
     let q = fixture(q_heads * head_dim, 0.2);
@@ -152,7 +151,7 @@ fn main() {
         .record_append(&mut append_encoder, &k_gpu, &v_gpu, kv_len)
         .unwrap();
     queue.submit(Some(append_encoder.finish()));
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
 
     let resident = WgpuResidentDecodePipeline::new(&device).unwrap();
     let resident_output = resident
@@ -200,7 +199,7 @@ fn main() {
             )
             .unwrap();
         queue.submit(Some(encoder.finish()));
-        let _ = device.poll(wgpu::Maintain::Wait);
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
         start.elapsed().as_secs_f64() * 1.0e6
     };
 
@@ -225,7 +224,7 @@ fn main() {
             )
             .unwrap();
         queue.submit(Some(encoder.finish()));
-        let _ = device.poll(wgpu::Maintain::Wait);
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
         start.elapsed().as_secs_f64() * 1.0e6
     };
 

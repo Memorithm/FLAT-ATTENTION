@@ -27,28 +27,27 @@ struct Case {
 fn harness() -> Option<Harness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }));
-    let Some(adapter) = adapter else {
+    let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("ADA-A1 GPU parity requires a WGPU adapter");
         }
         eprintln!("WGPU adapter unavailable; optional ADA-A1 device parity skipped");
         return None;
     };
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-ada-a1-parity"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-ada-a1-parity"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap_or_else(|error| panic!("ADA-A1 request_device failed: {error}"));
     Some(Harness { device, queue })
 }
@@ -91,10 +90,10 @@ fn input_buffer(
 fn create_pipeline(
     device: &wgpu::Device,
     source: &'static str,
-    entry_point: &'static str,
+    entry_point: Option<&'static str>,
     label: &'static str,
 ) -> wgpu::ComputePipeline {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(label),
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(source)),
@@ -105,8 +104,9 @@ fn create_pipeline(
         module: &shader,
         entry_point,
         compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
     });
-    if let Some(error) = pollster::block_on(device.pop_error_scope()) {
+    if let Some(error) = pollster::block_on(error_scope.pop()) {
         panic!("{label} pipeline validation failed: {error}");
     }
     pipeline
@@ -139,9 +139,9 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
@@ -243,7 +243,7 @@ fn run_shader(
         );
     }
     harness.queue.submit(Some(encoder.finish()));
-    let _ = harness.device.poll(wgpu::Maintain::Wait);
+    let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
     read_f32(
         &harness.device,
         &harness.queue,
@@ -291,13 +291,13 @@ fn ada_a1_matches_cpu_oracle_and_qualified_q4_gpu() {
     let baseline = create_pipeline(
         &harness.device,
         FLAT_FWD_WGSL,
-        "flat_attention_forward",
+        Some("flat_attention_forward"),
         "flat-q4-qualified-baseline",
     );
     let candidate = create_pipeline(
         &harness.device,
         ADA_A1_FWD_WGSL,
-        "flat_attention_forward_ada_a1",
+        Some("flat_attention_forward_ada_a1"),
         "flat-ada-a1-candidate",
     );
 

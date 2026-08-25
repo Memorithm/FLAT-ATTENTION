@@ -123,7 +123,7 @@ impl ExternalVariableProjectionRotaryGroupedPipeline {
         shape: AsymmetricGroupedAttentionShape,
     ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
-        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        let maximum_bytes = device.limits().max_storage_buffer_binding_size;
         if layout.combined_bytes > maximum_bytes {
             return Err(ExternalWgpuError::DeviceBufferLimit {
                 required_bytes: layout.combined_bytes,
@@ -179,17 +179,11 @@ impl ExternalVariableProjectionRotaryGroupedPipeline {
         }
         params.resize(12 + WGSL_VARIABLE_MAX_BATCH * 4, 0);
         let params_bytes = encode_u32(&params);
-        let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m12-variable-params"),
-            size: params_bytes.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: true,
-        });
-        {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
-            mapped.copy_from_slice(&params_bytes);
-        }
-        params_buffer.unmap();
+        let params_buffer = wgpu_internal::create_uniform_buffer_init(
+            device,
+            "flat-m12-variable-params",
+            &params_bytes,
+        );
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m12-variable-bind-group"),

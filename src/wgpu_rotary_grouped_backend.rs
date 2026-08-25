@@ -86,25 +86,21 @@ impl fmt::Debug for WgpuRotaryGroupedAttention {
 
 impl WgpuRotaryGroupedAttention {
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            apply_limit_buckets: false,
         }))
-        .ok_or(WgpuFlatAttentionError::Unavailable)?;
+        .map_err(|_| WgpuFlatAttentionError::Unavailable)?;
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-r1-fused-rope-gqa"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("flat-r1-fused-rope-gqa"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .map_err(|error| WgpuFlatAttentionError::Execution(format!("request_device: {error}")))?;
 
         let pipeline = create_pipeline(&device)?;
@@ -117,9 +113,7 @@ impl WgpuRotaryGroupedAttention {
                 pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
-                max_storage_buffer_binding_size: u64::from(
-                    device_limits.max_storage_buffer_binding_size,
-                ),
+                max_storage_buffer_binding_size: device_limits.max_storage_buffer_binding_size,
                 owner_id: super::next_resident_owner_id(),
             }),
         })
@@ -451,13 +445,15 @@ impl WgpuRotaryGroupedAttention {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.inner.device.poll(wgpu::Maintain::Wait);
+        let _ = self.inner.device.poll(wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|error| WgpuFlatAttentionError::Execution(format!("map callback: {error}")))?
             .map_err(|error| WgpuFlatAttentionError::Execution(format!("map read: {error:?}")))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|error| WgpuFlatAttentionError::Execution(format!("map range: {error}")))?;
         let decoded = decode_f32(&mapped, len)?;
         drop(mapped);
         staging.unmap();

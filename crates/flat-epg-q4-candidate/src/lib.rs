@@ -71,7 +71,7 @@ impl fmt::Debug for EpgQ4CandidatePipeline {
 impl EpgQ4CandidatePipeline {
     /// Compile the Q4 performance candidate.
     pub fn new(device: &wgpu::Device) -> Result<Self, EpgQualificationError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("flat-epg-q4-candidate"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(EPG_GROUPED_VEC4_Q4_WGSL)),
@@ -80,10 +80,11 @@ impl EpgQ4CandidatePipeline {
             label: Some("flat-epg-q4-candidate"),
             layout: None,
             module: &shader,
-            entry_point: "epg_grouped_vec4_q4",
+            entry_point: Some("epg_grouped_vec4_q4"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
-        match pollster::block_on(device.pop_error_scope()) {
+        match pollster::block_on(error_scope.pop()) {
             Some(error) => Err(EpgQualificationError::PipelineValidation(error.to_string())),
             None => Ok(Self { pipeline }),
         }
@@ -156,7 +157,10 @@ impl EpgQ4CandidatePipeline {
             mapped_at_creation: true,
         });
         {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
+            let mut mapped = params_buffer
+                .slice(..)
+                .get_mapped_range_mut()
+                .map_err(|error| EpgQualificationError::BufferMapping(error.to_string()))?;
             mapped.copy_from_slice(&params);
         }
         params_buffer.unmap();

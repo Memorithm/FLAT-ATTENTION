@@ -5,6 +5,8 @@
 //! call site. This keeps one implementation per primitive while preserving
 //! every module's public error surface exactly.
 
+use wgpu::util::DeviceExt;
+
 /// Narrow a host-side count to the WGSL u32 index space, or `None`.
 pub(crate) fn checked_u32(value: usize) -> Option<u32> {
     u32::try_from(value).ok()
@@ -65,6 +67,23 @@ pub(crate) fn encode_u32(values: &[u32]) -> Vec<u8> {
     bytes
 }
 
+/// Create and initialize an immutable uniform buffer from host bytes.
+///
+/// `DeviceExt::create_buffer_init` is the wgpu 30 convenience path for
+/// mapped-at-creation initialization and avoids exposing fallible mapping to
+/// every caller-owned pipeline implementation.
+pub(crate) fn create_uniform_buffer_init(
+    device: &wgpu::Device,
+    label: &'static str,
+    contents: &[u8],
+) -> wgpu::Buffer {
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(label),
+        contents,
+        usage: wgpu::BufferUsages::UNIFORM,
+    })
+}
+
 /// Compile one WGSL compute pipeline under a validation error scope.
 ///
 /// Returns the raw validation message on failure; callers wrap it in their own
@@ -75,7 +94,7 @@ pub(crate) fn create_pipeline(
     label: &'static str,
     entry_point: &'static str,
 ) -> Result<wgpu::ComputePipeline, String> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(label),
         source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
@@ -84,10 +103,11 @@ pub(crate) fn create_pipeline(
         label: Some(label),
         layout: None,
         module: &shader,
-        entry_point,
+        entry_point: Some(entry_point),
         compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
     });
-    match pollster::block_on(device.pop_error_scope()) {
+    match pollster::block_on(error_scope.pop()) {
         Some(error) => Err(error.to_string()),
         None => Ok(pipeline),
     }

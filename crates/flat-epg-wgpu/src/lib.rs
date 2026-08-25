@@ -126,6 +126,8 @@ pub enum EpgQualificationError {
     },
     /// WGPU rejected shader or pipeline creation.
     PipelineValidation(String),
+    /// A mapped buffer range could not be acquired from the device.
+    BufferMapping(String),
 }
 
 impl fmt::Display for EpgQualificationError {
@@ -162,6 +164,9 @@ impl fmt::Display for EpgQualificationError {
             Self::PipelineValidation(error) => {
                 write!(f, "EPG qualification pipeline validation failed: {error}")
             }
+            Self::BufferMapping(error) => {
+                write!(f, "EPG qualification buffer mapping failed: {error}")
+            }
         }
     }
 }
@@ -195,7 +200,7 @@ impl fmt::Debug for EpgVec4QualificationPipeline {
 impl EpgVec4QualificationPipeline {
     /// Compile the isolated qualification shader.
     pub fn new(device: &wgpu::Device) -> Result<Self, EpgQualificationError> {
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("flat-epg-vec4-qualify"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(EPG_GROUPED_VEC4_QUALIFY_WGSL)),
@@ -204,10 +209,11 @@ impl EpgVec4QualificationPipeline {
             label: Some("flat-epg-vec4-qualify"),
             layout: None,
             module: &shader,
-            entry_point: "epg_grouped_vec4_qualify",
+            entry_point: Some("epg_grouped_vec4_qualify"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
-        match pollster::block_on(device.pop_error_scope()) {
+        match pollster::block_on(error_scope.pop()) {
             Some(error) => Err(EpgQualificationError::PipelineValidation(error.to_string())),
             None => Ok(Self { pipeline }),
         }
@@ -311,7 +317,10 @@ impl EpgVec4QualificationPipeline {
             mapped_at_creation: true,
         });
         {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
+            let mut mapped = params_buffer
+                .slice(..)
+                .get_mapped_range_mut()
+                .map_err(|error| EpgQualificationError::BufferMapping(error.to_string()))?;
             mapped.copy_from_slice(&params_bytes);
         }
         params_buffer.unmap();

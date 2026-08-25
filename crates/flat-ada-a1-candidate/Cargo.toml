@@ -9,8 +9,8 @@ license-file = "../../LICENSE.md"
 
 [dependencies]
 flat-attention = { path = "../..", features = ["wgpu"] }
-wgpu = "0.20"
-pollster = "0.3"
+wgpu = "30.0"
+pollster = "1.0"
 
 [dev-dependencies]
 ash = "0.37.3"

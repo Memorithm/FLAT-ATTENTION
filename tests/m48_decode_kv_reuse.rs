@@ -78,9 +78,9 @@ fn read(device: &wgpu::Device, queue: &wgpu::Queue, source: &wgpu::Buffer, len: 
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let output = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes(chunk.try_into().unwrap()))
@@ -104,20 +104,18 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
 #[test]
 fn m48_sciagent_decode_matches_oracle() {
     let instance = wgpu::Instance::default();
-    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+    let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M48 requires a WGPU adapter");
         }
         return;
     };
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m48-test"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m48-test"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap();
     let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
@@ -178,20 +176,18 @@ fn m48_sciagent_decode_matches_oracle() {
 #[test]
 fn m48_causal_offset_masks_future_kv() {
     let instance = wgpu::Instance::default();
-    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+    let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M48 requires a WGPU adapter");
         }
         return;
     };
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m48-causal-offset-test"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m48-causal-offset-test"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap();
     let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
@@ -266,12 +262,11 @@ fn m48_causal_offset_masks_future_kv() {
 #[test]
 fn m48_zero_kv_heads_returns_validation_error() {
     let instance = wgpu::Instance::default();
-    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+    let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         return;
     };
     let (device, queue) =
-        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None))
-            .unwrap();
+        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
     let pipeline =
         ExternalAsymmetricProjectionRotaryGroupedPipeline::with_decode_kv_reuse(&device, true)
             .unwrap();
@@ -317,12 +312,11 @@ fn m48_zero_kv_heads_returns_validation_error() {
 #[test]
 fn m48_is_opt_in() {
     let instance = wgpu::Instance::default();
-    let Some(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+    let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         return;
     };
     let (device, queue) =
-        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None))
-            .unwrap();
+        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
     let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
         q_heads: 16,

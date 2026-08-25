@@ -380,7 +380,7 @@ impl WgpuResidentDecodePipeline {
                 maximum,
             });
         }
-        let maximum_storage_bytes = u64::from(limits.max_storage_buffer_binding_size);
+        let maximum_storage_bytes = limits.max_storage_buffer_binding_size;
         validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;
@@ -401,17 +401,11 @@ impl WgpuResidentDecodePipeline {
             0,
         ];
         let params_bytes = encode_u32(&params);
-        let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m15-resident-decode-params"),
-            size: params_bytes.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: true,
-        });
-        {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
-            mapped.copy_from_slice(&params_bytes);
-        }
-        params_buffer.unmap();
+        let params_buffer = wgpu_internal::create_uniform_buffer_init(
+            device,
+            "flat-m15-resident-decode-params",
+            &params_bytes,
+        );
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("flat-m15-resident-decode-bind-group"),

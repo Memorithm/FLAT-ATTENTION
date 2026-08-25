@@ -142,6 +142,7 @@ pub enum GroupedForwardError {
         maximum_bytes: u64,
     },
     PipelineValidation(String),
+    BufferMapping(String),
 }
 
 impl fmt::Display for GroupedForwardError {
@@ -181,6 +182,9 @@ impl fmt::Display for GroupedForwardError {
             ),
             Self::PipelineValidation(error) => {
                 write!(f, "grouped forward pipeline validation failed: {error}")
+            }
+            Self::BufferMapping(error) => {
+                write!(f, "grouped forward mapped-buffer access failed: {error}")
             }
         }
     }
@@ -374,7 +378,7 @@ impl WgpuGroupedForwardPipeline {
         shape: GroupedAttentionShape,
     ) -> Result<wgpu::Buffer, GroupedForwardError> {
         let layout = Self::layout(shape)?;
-        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        let maximum_bytes = device.limits().max_storage_buffer_binding_size;
         if layout.output_bytes > maximum_bytes {
             return Err(GroupedForwardError::DeviceBufferLimit {
                 required_bytes: layout.output_bytes,
@@ -492,7 +496,10 @@ impl WgpuGroupedForwardPipeline {
             mapped_at_creation: true,
         });
         {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
+            let mut mapped = params_buffer
+                .slice(..)
+                .get_mapped_range_mut()
+                .map_err(|error| GroupedForwardError::BufferMapping(error.to_string()))?;
             mapped.copy_from_slice(&params_bytes);
         }
         params_buffer.unmap();
