@@ -187,7 +187,7 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         shape: AsymmetricGroupedAttentionShape,
     ) -> Result<wgpu::Buffer, ExternalWgpuError> {
         let layout = Self::layout(shape)?;
-        let maximum_bytes = u64::from(device.limits().max_storage_buffer_binding_size);
+        let maximum_bytes = device.limits().max_storage_buffer_binding_size;
         if layout.combined_bytes > maximum_bytes {
             return Err(ExternalWgpuError::DeviceBufferLimit {
                 required_bytes: layout.combined_bytes,
@@ -355,17 +355,11 @@ impl ExternalAsymmetricProjectionRotaryGroupedPipeline {
         params.resize(16 + WGSL_ALIBI_MAX_HEADS, 0);
 
         let params_bytes = encode_u32(&params);
-        let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("flat-m13-asymmetric-params"),
-            size: params_bytes.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: true,
-        });
-        {
-            let mut mapped = params_buffer.slice(..).get_mapped_range_mut();
-            mapped.copy_from_slice(&params_bytes);
-        }
-        params_buffer.unmap();
+        let params_buffer = wgpu_internal::create_uniform_buffer_init(
+            device,
+            "flat-m13-asymmetric-params",
+            &params_bytes,
+        );
 
         let pipeline = if decode_kv_reuse {
             self.decode_kv_reuse_pipeline

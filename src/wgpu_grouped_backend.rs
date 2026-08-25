@@ -86,26 +86,22 @@ impl fmt::Debug for WgpuGroupedAttention {
 
 impl WgpuGroupedAttention {
     pub fn new() -> Result<Self, WgpuFlatAttentionError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            apply_limit_buckets: false,
         }))
-        .ok_or(WgpuFlatAttentionError::Unavailable)?;
+        .map_err(|_| WgpuFlatAttentionError::Unavailable)?;
 
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-attention-grouped-q4"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("flat-attention-grouped-q4"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
         let pipeline = create_pipeline(
@@ -117,8 +113,7 @@ impl WgpuGroupedAttention {
             WgpuFlatAttentionError::Execution(format!("M10 grouped pipeline: {error}"))
         })?;
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
-        let max_storage_buffer_binding_size =
-            u64::from(device.limits().max_storage_buffer_binding_size);
+        let max_storage_buffer_binding_size = device.limits().max_storage_buffer_binding_size;
 
         Ok(Self {
             inner: Arc::new(WgpuGroupedAttentionInner {
@@ -441,13 +436,15 @@ impl WgpuGroupedAttention {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.inner.device.poll(wgpu::Maintain::Wait);
+        let _ = self.inner.device.poll(wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|err| WgpuFlatAttentionError::Execution(format!("map callback: {err}")))?
             .map_err(|err| WgpuFlatAttentionError::Execution(format!("map read: {err:?}")))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|err| WgpuFlatAttentionError::Execution(format!("map range: {err}")))?;
         let decoded = decode_f32(&mapped, len)?;
         drop(mapped);
         staging.unmap();

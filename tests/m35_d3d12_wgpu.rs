@@ -77,7 +77,7 @@ fn read_f32(
     eprintln!("M35 D3D12 marker: waiting for readback map with non-blocking polls");
     let deadline = Instant::now() + READBACK_TIMEOUT;
     loop {
-        let _ = device.poll(wgpu::Maintain::Poll);
+        let _ = device.poll(wgpu::PollType::Poll);
         match receiver.try_recv() {
             Ok(result) => {
                 result.expect("M35 map read");
@@ -95,7 +95,7 @@ fn read_f32(
     }
     eprintln!("M35 D3D12 marker: readback map completed");
 
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
@@ -121,12 +121,13 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
 fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::DX12,
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::LowPower,
         compatible_surface: None,
         force_fallback_adapter: true,
+        apply_limit_buckets: false,
     }))
     .expect("M35 requires a Direct3D 12 fallback adapter (WARP)");
     let info = adapter.get_info();
@@ -139,14 +140,12 @@ fn d3d12_warp_asymmetric_gqa_alibi_matches_scalar_oracle() {
         "M35 D3D12 adapter: name={} vendor={:#x} device={:#x} driver={} info={}",
         info.name, info.vendor, info.device, info.driver, info.driver_info
     );
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m35-d3d12-warp"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m35-d3d12-warp"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .expect("request M35 D3D12 WARP device");
     eprintln!("M35 D3D12 marker: device acquired");
 

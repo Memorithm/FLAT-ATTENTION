@@ -9,7 +9,7 @@ license-file = "../../LICENSE.md"
 
 [dependencies]
 flat-attention = { path = "../..", features = ["wgpu"] }
-wgpu = "0.20"
+wgpu = "30.0"
 pollster = "0.3"
 
 [dev-dependencies]

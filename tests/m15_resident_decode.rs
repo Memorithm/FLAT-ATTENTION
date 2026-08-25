@@ -19,28 +19,27 @@ struct DeviceHarness {
 fn harness() -> Option<DeviceHarness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
-        ..Default::default()
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }));
-    let Some(adapter) = adapter else {
+    let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
             panic!("M15 requires a WGPU adapter in the mandatory device gate");
         }
         eprintln!("WGPU adapter unavailable; optional M15 device test skipped");
         return None;
     };
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("flat-m15-resident-decode-test"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
-        },
-        None,
-    ))
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("flat-m15-resident-decode-test"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::downlevel_defaults(),
+        ..Default::default()
+    }))
     .unwrap_or_else(|error| panic!("M15 request_device failed: {error}"));
     Some(DeviceHarness { device, queue })
 }
@@ -137,9 +136,9 @@ fn read_f32(
     slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = sender.send(result);
     });
-    let _ = device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("valid mapped range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))

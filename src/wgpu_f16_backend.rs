@@ -1,8 +1,8 @@
 //! M8 portable packed-binary16 I/O for FLAT-ATTENTION.
 //!
-//! WGPU/Naga 0.20 does not expose native WGSL `f16`, so this backend stores two
-//! IEEE-754 binary16 scalars in each `u32`. The shader converts those pairs to
-//! `f32` with WGSL pack/unpack builtins. All attention arithmetic and LSE remain
+//! This backend does not require native WGSL `f16`: it stores two IEEE-754
+//! binary16 scalars in each `u32`. The shader converts those pairs to `f32`
+//! with WGSL pack/unpack builtins. All attention arithmetic and LSE remain
 //! `f32`. The already-qualified f32 executor stays independent and is the only
 //! fallback; no path silently executes on CPU.
 
@@ -205,26 +205,22 @@ impl WgpuF16Attention {
     /// No native shader-f16 feature is requested: the shader only contains
     /// baseline WGSL `u32` and `f32` types plus pack/unpack conversion builtins.
     pub fn new() -> Result<Self, WgpuF16AttentionError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            apply_limit_buckets: false,
         }))
-        .ok_or(WgpuF16AttentionError::Unavailable)?;
+        .map_err(|_| WgpuF16AttentionError::Unavailable)?;
 
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-attention-m8-packed-f16"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("flat-attention-m8-packed-f16"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .map_err(|error| WgpuF16AttentionError::Execution(format!("request_device: {error}")))?;
 
         let pipeline = create_pipeline(&device)?;
@@ -237,9 +233,7 @@ impl WgpuF16Attention {
                 pipeline,
                 adapter_name,
                 max_workgroups_per_dimension,
-                max_storage_buffer_binding_size: u64::from(
-                    device_limits.max_storage_buffer_binding_size,
-                ),
+                max_storage_buffer_binding_size: device_limits.max_storage_buffer_binding_size,
                 owner_id: super::next_resident_owner_id(),
             }),
         })
@@ -430,13 +424,15 @@ impl WgpuF16Attention {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.inner.device.poll(wgpu::Maintain::Wait);
+        let _ = self.inner.device.poll(wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|error| WgpuF16AttentionError::Execution(format!("map callback: {error}")))?
             .map_err(|error| WgpuF16AttentionError::Execution(format!("map read: {error:?}")))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|error| WgpuF16AttentionError::Execution(format!("map range: {error}")))?;
         let decoded = decode_output(&mapped, resident.output_len, resident.lse_len)?;
         drop(mapped);
         staging.unmap();

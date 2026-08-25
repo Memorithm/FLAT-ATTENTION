@@ -234,16 +234,14 @@ impl WgpuFlatAttention {
         vectorization_enabled: bool,
         double_buffering_enabled: bool,
     ) -> Result<Self, WgpuFlatAttentionError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            apply_limit_buckets: false,
         }))
-        .ok_or(WgpuFlatAttentionError::Unavailable)?;
+        .map_err(|_| WgpuFlatAttentionError::Unavailable)?;
 
         let adapter_features = adapter.features();
         let subgroup_supported = adapter_features.contains(wgpu::Features::SUBGROUP);
@@ -251,11 +249,11 @@ impl WgpuFlatAttention {
             return Err(WgpuFlatAttentionError::RequiredSubgroupUnavailable);
         }
 
-        let adapter_limits = adapter.limits();
-        let subgroup_size_range = subgroup_supported.then_some((
-            adapter_limits.min_subgroup_size,
-            adapter_limits.max_subgroup_size,
-        ));
+        let adapter_info = adapter.get_info();
+        let subgroup_min_size = adapter_info.subgroup_min_size;
+        let subgroup_max_size = adapter_info.subgroup_max_size;
+        let subgroup_size_range =
+            subgroup_supported.then_some((subgroup_min_size, subgroup_max_size));
         let request_subgroup = subgroup_supported && policy != WgpuSubgroupPolicy::Disable;
         let required_features = if request_subgroup {
             wgpu::Features::SUBGROUP
@@ -263,7 +261,6 @@ impl WgpuFlatAttention {
             wgpu::Features::empty()
         };
 
-        let adapter_info = adapter.get_info();
         let adapter_name = adapter_info.name.clone();
         let device_fingerprint = RuntimeDeviceFingerprint {
             name: adapter_info.name,
@@ -273,14 +270,12 @@ impl WgpuFlatAttention {
             vendor: adapter_info.vendor,
             device: adapter_info.device,
         };
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-attention-q4"),
-                required_features,
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("flat-attention-q4"),
+            required_features,
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
         let (pipeline, kernel_variant, fallback_reason) = if request_subgroup {
@@ -333,10 +328,13 @@ impl WgpuFlatAttention {
             max_workgroup_size_z: device_limits.max_compute_workgroup_size_z,
             max_workgroup_storage_bytes: device_limits.max_compute_workgroup_storage_size,
             max_binding_entries: device_limits.max_bind_groups,
-            max_storage_buffer_binding_size: device_limits.max_storage_buffer_binding_size,
+            max_storage_buffer_binding_size: u32::try_from(
+                device_limits.max_storage_buffer_binding_size,
+            )
+            .unwrap_or(u32::MAX),
             subgroup_supported,
-            subgroup_min_size: adapter_limits.min_subgroup_size,
-            subgroup_max_size: adapter_limits.max_subgroup_size,
+            subgroup_min_size,
+            subgroup_max_size,
             f16_supported: device_features.contains(wgpu::Features::SHADER_F16),
         };
 
@@ -352,9 +350,7 @@ impl WgpuFlatAttention {
                 device_capabilities,
                 fallback_reason,
                 max_workgroups_per_dimension,
-                max_storage_buffer_binding_size: u64::from(
-                    device_limits.max_storage_buffer_binding_size,
-                ),
+                max_storage_buffer_binding_size: device_limits.max_storage_buffer_binding_size,
                 subgroup_supported,
                 subgroup_size_range,
                 kernel_variant,
@@ -786,13 +782,15 @@ impl WgpuFlatAttention {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.inner.device.poll(wgpu::Maintain::Wait);
+        let _ = self.inner.device.poll(wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|err| WgpuFlatAttentionError::Execution(format!("map callback: {err}")))?
             .map_err(|err| WgpuFlatAttentionError::Execution(format!("map read: {err:?}")))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|err| WgpuFlatAttentionError::Execution(format!("map range: {err}")))?;
         let decoded = decode_f32(&mapped, len)?;
         drop(mapped);
         staging.unmap();

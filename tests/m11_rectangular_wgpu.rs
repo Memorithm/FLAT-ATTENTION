@@ -164,24 +164,23 @@ mod device {
             head_major_to_projection(&expected.output, batch, query_len, q_heads, head_dim);
 
         let instance = wgpu::Instance::default();
-        let Some(adapter) =
+        let Ok(adapter) =
             pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: None,
                 force_fallback_adapter: false,
+                apply_limit_buckets: false,
             }))
         else {
             eprintln!("wgpu: no adapter, skipping M11 rectangular device parity");
             return;
         };
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("flat-m11-rectangular-test"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("flat-m11-rectangular-test"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .expect("request M11 WGPU device");
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -192,8 +191,9 @@ mod device {
             label: Some("flat-m11-rectangular"),
             layout: None,
             module: &shader,
-            entry_point: "flat_attention_forward",
+            entry_point: Some("flat_attention_forward"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         let q_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -290,9 +290,9 @@ mod device {
         let slice = staging.slice(..);
         let (tx, rx) = mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| tx.send(result).unwrap());
-        device.poll(wgpu::Maintain::Wait);
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
         rx.recv().unwrap().expect("map M11 readback");
-        let mapped = slice.get_mapped_range();
+        let mapped = slice.get_mapped_range().expect("valid mapped range");
         let actual: Vec<f32> = mapped[..output_elements * 4]
             .chunks_exact(4)
             .map(|bytes| f32::from_ne_bytes(bytes.try_into().unwrap()))
