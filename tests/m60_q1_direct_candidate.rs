@@ -46,7 +46,9 @@ impl Candidate {
         Ok(Self { pipeline })
     }
 
-    fn validate_shape(shape: GroupedAttentionShape) -> Result<GroupedForwardLayout, Box<dyn Error>> {
+    fn validate_shape(
+        shape: GroupedAttentionShape,
+    ) -> Result<GroupedForwardLayout, Box<dyn Error>> {
         if shape.q_heads != shape.kv_heads {
             return Err(format!(
                 "M60 requires MHA q_heads == kv_heads, got {} and {}",
