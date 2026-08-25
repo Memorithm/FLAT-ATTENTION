@@ -1,0 +1,229 @@
+name: FLAT M60 Thor qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "shaders/flat_fwd_q1_direct_vec4.wgsl"
+      - "tests/m60_q1_direct_candidate.rs"
+      - "examples/m60_q1_direct_ab.rs"
+      - "docs/M60_Q1_DIRECT_KV_CANDIDATE.md"
+      - ".github/workflows/m60-thor-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flat-m60-thor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  thor:
+    name: M58 versus M60 on physical Thor
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 120
+    env:
+      RUSTFLAGS: "-D warnings"
+      CARGO_INCREMENTAL: "0"
+      SCIRUST_THOR_GPU_LOCK: /dev/nvidia0
+      SCIRUST_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+      SCIRUST_THOR_IDLE_SETTLE_SECONDS: "300"
+      WGPU_BACKEND: vulkan
+      FLAT_M60_WARMUPS: "5"
+      FLAT_M60_REPEATS: "20"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Require persistent physical Thor runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::M60 requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          actual="$(git rev-parse HEAD)"
+          echo "source_revision=$actual"
+          test "$actual" = "$SCIRUST_SOURCE_REVISION"
+          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+
+      - name: Prepare isolated build directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-m60-runtime.XXXXXX")"
+          build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-m60-build.XXXXXX")"
+          chmod 700 "$runtime_dir" "$build_dir"
+          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$build_dir/target"
+          chmod 700 "$runtime_dir/xdg"
+          echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"
+          echo "FLAT_M60_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
+          echo "FLAT_M60_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+
+      - name: Build M60 A/B before GPU reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --features wgpu --example m60_q1_direct_ab
+          benchmark="$CARGO_TARGET_DIR/release/examples/m60_q1_direct_ab"
+          test -x "$benchmark"
+          echo "FLAT_M60_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
+
+      - name: Exclusive physical Thor M60 sweep
+        shell: bash
+        timeout-minutes: 90
+        run: |
+          set -euo pipefail
+          for prerequisite in flock pgrep stat nvidia-smi vulkaninfo; do
+            command -v "$prerequisite" >/dev/null || {
+              echo "::error::missing M60 physical-Thor prerequisite: $prerequisite"
+              exit 1
+            }
+          done
+          if [[ ! -c "$SCIRUST_THOR_GPU_LOCK" || ! -r "$SCIRUST_THOR_GPU_LOCK" || ! -w "$SCIRUST_THOR_GPU_LOCK" ]]; then
+            echo "::error::physical Thor lock target is not an accessible NVIDIA character device"
+            exit 1
+          fi
+
+          stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F' \
+            "$SCIRUST_THOR_GPU_LOCK"
+          exec 9<>"$SCIRUST_THOR_GPU_LOCK"
+          flock -x 9
+          echo "gpu_lock_acquired=true runner=$RUNNER_NAME"
+          if flock -n "$SCIRUST_THOR_GPU_LOCK" -c 'true'; then
+            echo "::error::physical GPU lock does not contend independently"
+            exit 1
+          fi
+          echo "gpu_lock_self_contention=pass"
+
+          inventory="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)" || {
+            echo "::error::cannot query NVIDIA GPU inventory"
+            exit 1
+          }
+          printf '%s\n' "$inventory"
+          grep -F 'NVIDIA Thor' <<< "$inventory" >/dev/null || {
+            echo "::error::expected physical NVIDIA Thor was not found"
+            exit 1
+          }
+          summary="$(vulkaninfo --summary 2>&1)" || {
+            printf '%s\n' "$summary"
+            echo "::error::cannot query Vulkan adapter inventory"
+            exit 1
+          }
+          grep -F 'NVIDIA Tegra NVIDIA Thor' <<< "$summary" >/dev/null || {
+            echo "::error::physical Thor is not exposed through Vulkan"
+            exit 1
+          }
+
+          compute_processes() {
+            nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader 2>/dev/null
+          }
+
+          deadline=$((SECONDS + 3600))
+          settled=0
+          while (( settled < 10#$SCIRUST_THOR_IDLE_SETTLE_SECONDS )); do
+            training="$(pgrep -af '[c]uda_pretrain' || true)"
+            if ! active="$(compute_processes)"; then
+              echo "::error::M60 cannot verify Thor compute occupancy"
+              exit 1
+            fi
+            if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
+              echo "Thor busy; restarting M60 idle window."
+              [[ -z "${training//[[:space:]]/}" ]] || printf '%s\n' "$training"
+              [[ -z "${active//[[:space:]]/}" ]] || printf '%s\n' "$active"
+              settled=0
+            else
+              settled=$((settled + 5))
+              if (( settled == 5 || settled % 60 == 0 )); then
+                echo "Thor continuously idle: ${settled}/${SCIRUST_THOR_IDLE_SETTLE_SECONDS}s"
+              fi
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::Thor never reached the required M60 idle window"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          echo "source_revision=$(git rev-parse HEAD)"
+          echo "benchmark_scope=resident_prepared_mha_q1_m58_vs_direct_load_m60"
+          echo "warmups=$FLAT_M60_WARMUPS repeats=$FLAT_M60_REPEATS"
+          echo "thor_idle_settle_seconds=$SCIRUST_THOR_IDLE_SETTLE_SECONDS"
+          output="$RUNNER_TEMP/m60-thor-qualification.log"
+
+          "$FLAT_M60_BENCHMARK" >"$output" 2>&1 &
+          bench_pid=$!
+          contaminated=0
+          while kill -0 "$bench_pid" 2>/dev/null; do
+            if pgrep -af '[c]uda_pretrain' >"$RUNNER_TEMP/m60-training.txt"; then
+              echo "::error::SciAgent training appeared during M60 timing"
+              cat "$RUNNER_TEMP/m60-training.txt"
+              contaminated=1
+              break
+            fi
+            if ! active="$(compute_processes)"; then
+              echo "::error::M60 cannot verify compute occupancy during timing"
+              contaminated=1
+              break
+            fi
+            if [[ -n "${active//[[:space:]]/}" ]]; then
+              while IFS=',' read -r raw_pid process_name; do
+                pid="$(printf '%s' "$raw_pid" | tr -d '[:space:]')"
+                process_name="$(printf '%s' "$process_name" | xargs)"
+                [[ -z "$pid" ]] && continue
+                if [[ "$pid" != "$bench_pid" ]]; then
+                  echo "::error::foreign GPU compute during M60: pid=$pid process=$process_name"
+                  contaminated=1
+                fi
+              done <<< "$active"
+            fi
+            (( contaminated == 0 )) || break
+            sleep 1
+          done
+
+          if (( contaminated != 0 )); then
+            kill "$bench_pid" 2>/dev/null || true
+            wait "$bench_pid" 2>/dev/null || true
+            exit 1
+          fi
+          wait "$bench_pid"
+          cat "$output"
+
+          grep -F 'benchmark=m60_q1_direct_vs_m58' "$output" >/dev/null
+          grep -F 'mechanism=remove_non_reused_kv_workgroup_staging' "$output" >/dev/null
+          grep -F 'adapter=NVIDIA Tegra NVIDIA Thor' "$output" >/dev/null
+          grep -F 'backend=Vulkan' "$output" >/dev/null
+          grep -F 'measurement_order=alternating_m58_m60' "$output" >/dev/null
+          grep -F 'measurement_only_no_production_routing_change' "$output" >/dev/null
+          rows="$(awk -F, '$3 ~ /^[0-9]+$/ {count++} END {print count+0}' "$output")"
+          if [[ "$rows" -ne 8 ]]; then
+            echo "::error::expected eight M60 measurement rows, got $rows"
+            exit 1
+          fi
+
+          post="$(compute_processes)" || {
+            echo "::error::M60 cannot verify post-benchmark Thor occupancy"
+            exit 1
+          }
+          if [[ -n "${post//[[:space:]]/}" ]]; then
+            echo "::error::post-M60 compute occupancy is not empty"
+            printf '%s\n' "$post"
+            exit 1
+          fi
+          echo "performance_claim=measurement_only_no_production_routing_change"
+
+      - name: Cleanup isolated directories
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${FLAT_M60_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_M60_BUILD_DIR"
+          [[ -z "${FLAT_M60_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_M60_RUNTIME_DIR"
