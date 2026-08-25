@@ -14,4 +14,4 @@ pollster = "1.0"
 
 [dev-dependencies]
 ash = "0.37.3"
-naga = { version = "0.20", features = ["wgsl-in", "spv-out"] }
+naga = { version = "30.0", features = ["wgsl-in", "spv-out"] }

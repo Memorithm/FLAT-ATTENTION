@@ -15,4 +15,4 @@ pollster = "1.0"
 
 [dev-dependencies]
 flat-epg-reference = { path = "../flat-epg-reference" }
-naga = { version = "0.20", features = ["wgsl-in"] }
+naga = { version = "30.0", features = ["wgsl-in"] }
