@@ -43,7 +43,7 @@ fn problem(head_dim: usize) -> AttentionProblem {
     .unwrap()
 }
 
-fn validate(candidate: &KernelCandidate, p: &AttentionProblem, source: &str) {
+fn validate(candidate: &KernelCandidate, _p: &AttentionProblem, source: &str) {
     let module = naga::front::wgsl::parse_str(source)
         .unwrap_or_else(|err| panic!("candidate {} parse failed: {err:?}", candidate.id));
     let capabilities = if candidate.static_requirements().iter().any(|r| {

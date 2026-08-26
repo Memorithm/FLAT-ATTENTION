@@ -35,6 +35,16 @@ pub mod kernel_prefilter;
 /// kernel realizations. Planning surface only; carries no performance claim.
 pub mod kernel_candidates;
 
+/// Correctness-gated bounded autotuner core with pluggable timing/correctness
+/// surfaces. Selection evidence is reproducible; this core itself makes no
+/// performance claim and performs no routing.
+pub mod kernel_autotune;
+
+#[cfg(feature = "wgpu")]
+mod kernel_autotune_wgpu;
+#[cfg(feature = "wgpu")]
+pub use kernel_autotune_wgpu::{probe_capabilities, OracleParityGate, ResidentForwardHarness};
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 

@@ -280,9 +280,15 @@ impl QueryRows {
 }
 
 /// K/V rows staged per tile iteration; closed over existing machinery.
+///
+/// Staging strategy fixes the pairing: single buffering stages eight rows in
+/// one bank; double buffering stages four rows in each of two banks, so both
+/// realizations declare identical workgroup K/V capacity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KvTileRows {
-    /// Eight K/V rows per staged tile.
+    /// Four K/V rows per bank (double-buffered realization).
+    Four,
+    /// Eight K/V rows per staged tile (single-buffered realization).
     Eight,
 }
 
@@ -291,7 +297,15 @@ impl KvTileRows {
     #[must_use]
     pub const fn get(self) -> u32 {
         match self {
+            Self::Four => 4,
             Self::Eight => 8,
+        }
+    }
+
+    const fn canonical(self) -> &'static str {
+        match self {
+            Self::Four => "4",
+            Self::Eight => "8",
         }
     }
 }
@@ -351,9 +365,11 @@ impl KernelConfig {
         ..Self::PORTABLE_SCALAR
     };
 
-    /// Experimental double-buffered vec4 realization (M7 lineage).
+    /// Experimental double-buffered vec4 realization (M7 lineage): two
+    /// 4-row banks replace the one 8-row tile at identical capacity.
     pub const DOUBLE_BUFFERED_VEC4: Self = Self {
         kv_staging: KvStaging::DoubleBuffered,
+        kv_tile_rows: KvTileRows::Four,
         ..Self::PORTABLE_VEC4
     };
 
@@ -416,8 +432,16 @@ impl KernelConfig {
                 components: self.vector_width.components(),
             });
         }
-        if self.kv_staging == KvStaging::DoubleBuffered && self.vector_width != VectorWidth::Vec4 {
-            return Err(KernelIrError::DoubleBufferingRequiresVectorPath);
+        if self.kv_staging == KvStaging::DoubleBuffered {
+            if self.vector_width != VectorWidth::Vec4 {
+                return Err(KernelIrError::DoubleBufferingRequiresVectorPath);
+            }
+            // The M7 machinery exists exactly as two 4-row banks.
+            if self.kv_tile_rows != KvTileRows::Four {
+                return Err(KernelIrError::InvalidStagingTilePairing);
+            }
+        } else if self.kv_tile_rows != KvTileRows::Eight {
+            return Err(KernelIrError::InvalidStagingTilePairing);
         }
         Ok(())
     }
@@ -789,6 +813,8 @@ pub enum KernelIrError {
     },
     /// Double buffering exists only on the vec4 realization.
     DoubleBufferingRequiresVectorPath,
+    /// Staging strategy and tile rows have no executable pairing.
+    InvalidStagingTilePairing,
     /// Workgroup-storage accounting overflowed checked bounds.
     WorkgroupStorageOverflow,
 }
@@ -819,6 +845,10 @@ impl fmt::Display for KernelIrError {
             Self::DoubleBufferingRequiresVectorPath => write!(
                 f,
                 "double-buffered K/V staging requires the vec4 realization"
+            ),
+            Self::InvalidStagingTilePairing => write!(
+                f,
+                "staging/tile pairing has no executable path: single buffers stage 8 rows, double buffers stage 4-row banks"
             ),
             Self::WorkgroupStorageOverflow => {
                 write!(f, "workgroup storage accounting overflowed checked bounds")
@@ -1065,11 +1095,25 @@ mod tests {
             KernelConfig::DOUBLE_BUFFERED_VEC4,
         )
         .unwrap();
+        // Two 4-row banks hold exactly what one 8-row tile holds: the M7
+        // transformation changes banking, not capacity.
         let kv_tile_bytes = 2 * 8 * 128 * 4;
+        let _ = kv_tile_bytes;
         assert_eq!(
             double.resources().workgroup_storage_bytes,
-            single.resources().workgroup_storage_bytes + kv_tile_bytes as u64
+            single.resources().workgroup_storage_bytes
         );
+        // And the pairing is enforced structurally.
+        assert!(KernelModule::build(
+            KernelFamily::DenseQ4Forward,
+            problem(128),
+            KernelConfig {
+                kv_staging: KvStaging::DoubleBuffered,
+                kv_tile_rows: KvTileRows::Eight,
+                ..KernelConfig::PORTABLE_VEC4
+            },
+        )
+        .is_err());
     }
 
     #[test]
