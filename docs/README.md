@@ -10,6 +10,7 @@ Core contracts:
 - [M27_BENCHMARK_HARNESS.md](M27_BENCHMARK_HARNESS.md) — benchmark scopes and metrics.
 - [M28_BASELINE_COMPARISON.md](M28_BASELINE_COMPARISON.md) and [M28_KERNEL_GENERATIONS.md](M28_KERNEL_GENERATIONS.md) — baseline and optimized-generation comparison policy.
 - [M29_RUNTIME_TELEMETRY.md](M29_RUNTIME_TELEMETRY.md) — passive runtime observability.
+- [M22_OPEN_MATRIX_RESEARCH.md](M22_OPEN_MATRIX_RESEARCH.md) — open matrix-engine research gate outcome.
 - [M34_VULKAN_LINUX.md](M34_VULKAN_LINUX.md) and [M36_METAL.md](M36_METAL.md) — portability qualification boundaries.
 - [M38_PROPERTY_STRESS.md](M38_PROPERTY_STRESS.md) and [M39_HOST_API_FUZZING.md](M39_HOST_API_FUZZING.md) — robustness and hostile-input gates.
 - [M40_BENCHMARK_MANIFESTS.md](M40_BENCHMARK_MANIFESTS.md) — reproducible benchmark records.
