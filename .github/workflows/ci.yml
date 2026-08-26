@@ -23,6 +23,11 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
+      - name: Verify Cargo.lock is synchronized
+        run: |
+          set -euo pipefail
+          cargo metadata --format-version 1 >/dev/null
+          git diff --exit-code -- Cargo.lock
       # One workspace resolution covers the root crate and every crates/* member;
       # --all-features also enables the optional WGPU surface for compile gates.
       - run: cargo fmt --all -- --check
