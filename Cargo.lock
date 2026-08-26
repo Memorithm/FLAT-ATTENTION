@@ -161,6 +161,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "elastic-core"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx.git?rev=b20e062c091ed82f51ddd690053490be60fda5c7#b20e062c091ed82f51ddd690053490be60fda5c7"
+
+[[package]]
+name = "elastic-eir"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx.git?rev=b20e062c091ed82f51ddd690053490be60fda5c7#b20e062c091ed82f51ddd690053490be60fda5c7"
+dependencies = [
+ "elastic-core",
+]
+
+[[package]]
+name = "elastic-kernel"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx.git?rev=b20e062c091ed82f51ddd690053490be60fda5c7#b20e062c091ed82f51ddd690053490be60fda5c7"
+dependencies = [
+ "elastic-core",
+ "elastic-eir",
+]
+
+[[package]]
 name = "epg-core"
 version = "0.1.0"
 
@@ -189,6 +211,16 @@ dependencies = [
  "ordered-float",
  "pollster",
  "wgpu",
+]
+
+[[package]]
+name = "flat-elastic-kernel"
+version = "0.1.0"
+dependencies = [
+ "elastic-core",
+ "elastic-eir",
+ "elastic-kernel",
+ "flat-attention",
 ]
 
 [[package]]
@@ -613,7 +645,7 @@ dependencies = [
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
+checksum = "93857453250e307bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
  "lock_api",
  "parking_lot_core",
