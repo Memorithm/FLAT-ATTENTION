@@ -1,0 +1,14 @@
+[package]
+name = "flat-elastic-kernel"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Explicit FLAT-ATTENTION adapter for ElasticXxx kernel-realization planning"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../.." }
+elastic-core = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "90b453d0d4357eee99817a42cc160bd94c279519", package = "elastic-core" }
+elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "90b453d0d4357eee99817a42cc160bd94c279519", package = "elastic-eir" }
+elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "90b453d0d4357eee99817a42cc160bd94c279519", package = "elastic-kernel" }
