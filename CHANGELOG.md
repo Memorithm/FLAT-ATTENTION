@@ -6,6 +6,13 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Added deterministic bounded candidate generation (M25): the registered
+  active dense-family realizations map `problem + capabilities + policy` to a
+  stably ordered candidate list with configuration-derived identities,
+  lifecycle eligibility (experimental opt-in only; rejected/retired
+  realizations are structurally absent), capability prefiltering, and a hard
+  per-call cap. Planning surface only: candidates carry static requirements,
+  never measured performance, and nothing routes through them yet.
 - Completed the M24 capability prefilter: configuration-static requirements
   are now checked against explicit device limits BEFORE pipeline creation in
   the dense Q4 context, with typed `CapabilityRejection` reasons. Optional
