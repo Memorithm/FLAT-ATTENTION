@@ -31,6 +31,10 @@ pub mod kernel_wgsl;
 /// creation, with typed rejections and no silent substitution.
 pub mod kernel_prefilter;
 
+/// Deterministic bounded candidate generation over the registered active
+/// kernel realizations. Planning surface only; carries no performance claim.
+pub mod kernel_candidates;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 

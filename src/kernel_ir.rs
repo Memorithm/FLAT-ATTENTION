@@ -422,7 +422,7 @@ impl KernelConfig {
         Ok(())
     }
 
-    fn canonical_record(&self) -> String {
+    pub(crate) fn canonical_record(&self) -> String {
         format!(
             "qr={};kt={};wg={};vw={};stg={};red={}",
             self.query_rows.canonical(),
@@ -444,7 +444,7 @@ pub enum KernelFamily {
 }
 
 impl KernelFamily {
-    const fn canonical(self) -> &'static str {
+    pub(crate) const fn canonical(self) -> &'static str {
         match self {
             Self::DenseQ4Forward => "dense_q4_forward",
         }
