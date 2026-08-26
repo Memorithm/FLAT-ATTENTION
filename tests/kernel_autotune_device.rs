@@ -9,7 +9,7 @@
 
 use flat_attention::kernel_autotune::{tune, BenchmarkProtocol, SelectionRecord};
 use flat_attention::kernel_candidates::SelectionPolicy;
-use flat_attention::kernel_ir::{AttentionProblem, KernelFamily};
+use flat_attention::kernel_ir::AttentionProblem;
 use flat_attention::{
     AttentionShape, FlatAttentionConfig, OracleParityGate, ResidentForwardHarness,
     WgpuFlatAttention,
