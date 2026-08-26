@@ -219,12 +219,8 @@ pub fn plan_adapted(
             // of the candidate's admissibility, not merely missing evidence.
             continue;
         };
-        let (elastic_candidate, dispatch_grid) = adapt_candidate(
-            problem,
-            candidate,
-            logical_resource_id.clone(),
-            evidence,
-        )?;
+        let (elastic_candidate, dispatch_grid) =
+            adapt_candidate(problem, candidate, logical_resource_id.clone(), evidence)?;
         if let Err(reason) = dispatch_grid.check_against(&snapshot) {
             dispatch_rejections.push(DispatchRejection {
                 realization: realization_identity(candidate),
@@ -531,7 +527,10 @@ mod tests {
             .expect("exact boundary plan");
         assert!(exact_plan.dispatch_rejections.is_empty());
         assert_eq!(exact_plan.elastic_candidates.len(), 1);
-        assert!(matches!(exact_plan.selection, SelectionOutcome::Selected(_)));
+        assert!(matches!(
+            exact_plan.selection,
+            SelectionOutcome::Selected(_)
+        ));
 
         let mut too_small = exact;
         too_small.max_workgroups_per_dimension = 31;
