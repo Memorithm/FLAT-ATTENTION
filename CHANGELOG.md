@@ -6,6 +6,14 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Completed the M24 capability prefilter: configuration-static requirements
+  are now checked against explicit device limits BEFORE pipeline creation in
+  the dense Q4 context, with typed `CapabilityRejection` reasons. Optional
+  vec4/double-buffer pipelines degrade to the qualified portable path with
+  explicit telemetry reasons instead of opaque backend failures, and new
+  availability accessors expose what survived the preflight. The device
+  identity/capability/telemetry model moved to a host-side module so
+  prefiltering and candidate planning run without a GPU runtime.
 - Added deterministic WGSL emission from the FLAT Kernel IR for the dense Q4
   forward realizations (scalar, vec4, double-buffered, subgroup-assisted).
   Generated sources are byte-deterministic under an explicit codegen version,

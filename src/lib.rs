@@ -26,6 +26,11 @@ pub mod kernel_ir;
 /// any routing use and carry no performance claim.
 pub mod kernel_wgsl;
 
+/// Static capability prefilter completing the M24 model: candidate
+/// requirements are checked against explicit device limits before pipeline
+/// creation, with typed rejections and no silent substitution.
+pub mod kernel_prefilter;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
@@ -114,15 +119,20 @@ pub const FLAT_FWD_F16_WGSL: &str = include_str!("../shaders/flat_fwd_f16.wgsl")
 /// Qualified M2/M3 one-query-row kernel retained as a baseline source.
 pub const FLAT_FWD_SINGLE_WGSL: &str = include_str!("../shaders/flat_fwd_single.wgsl");
 
+mod device_model;
+
+/// Host-side device identity/capability model and passive dispatch telemetry.
+/// Available without the `wgpu` feature so capability prefiltering, candidate
+/// planning and evidence records run without a GPU runtime.
+pub use device_model::{
+    AutotunerCacheStatus, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
+    RuntimeDispatchTelemetry, RuntimeKernelId, RuntimeTileGeometry,
+};
+
 #[cfg(feature = "wgpu")]
 mod runtime_telemetry;
 #[cfg(feature = "wgpu")]
 mod wgpu_internal;
-#[cfg(feature = "wgpu")]
-pub use runtime_telemetry::{
-    AutotunerCacheStatus, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
-    RuntimeDispatchTelemetry, RuntimeKernelId, RuntimeTileGeometry,
-};
 
 #[cfg(feature = "wgpu")]
 mod wgpu_backend;

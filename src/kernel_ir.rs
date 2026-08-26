@@ -248,7 +248,7 @@ pub enum ScoreReduction {
 }
 
 impl ScoreReduction {
-    const fn canonical(self) -> &'static str {
+    pub(crate) const fn canonical(self) -> &'static str {
         match self {
             Self::WorkgroupTree => "tree",
             Self::SubgroupAssisted => "subgroup",
@@ -362,6 +362,46 @@ impl KernelConfig {
         score_reduction: ScoreReduction::SubgroupAssisted,
         ..Self::PORTABLE_SCALAR
     };
+
+    /// Workgroup f32 scalars declared by this configuration (problem
+    /// independent), or overflow.
+    pub(crate) fn workgroup_storage_scalars(&self) -> Option<u64> {
+        let max_head_dim = u64::from(KERNEL_MAX_HEAD_DIM);
+        let query_rows = u64::from(self.query_rows.get());
+        let kv_tile = u64::from(self.kv_tile_rows.get());
+        let kv_buffers = u64::from(self.kv_staging.buffers());
+        let invocations = u64::from(self.workgroup_size.get());
+        let q = query_rows.checked_mul(max_head_dim)?;
+        let kv = kv_buffers
+            .checked_mul(2)?
+            .checked_mul(kv_tile)?
+            .checked_mul(max_head_dim)?;
+        let reduce = query_rows.checked_mul(invocations)?;
+        let state = 4_u64.checked_mul(query_rows)?;
+        q.checked_add(kv)?.checked_add(reduce)?.checked_add(state)
+    }
+
+    /// Capability requirements implied by the configuration alone, in
+    /// deterministic order. Problem-dependent facts (dispatch extents,
+    /// output binding size) are deliberately excluded; see
+    /// [`KernelModule::capability_requirements`].
+    #[must_use]
+    pub fn static_requirements(&self) -> Vec<CapabilityRequirement> {
+        let mut requirements = Vec::new();
+        if self.score_reduction == ScoreReduction::SubgroupAssisted {
+            requirements.push(CapabilityRequirement::SubgroupOperations);
+        }
+        requirements.push(CapabilityRequirement::MinWorkgroupInvocations(
+            self.workgroup_size.get(),
+        ));
+        if let Some(scalars) = self.workgroup_storage_scalars() {
+            requirements.push(CapabilityRequirement::MinWorkgroupStorageBytes(
+                u32::try_from(scalars.saturating_mul(4)).unwrap_or(u32::MAX),
+            ));
+        }
+        requirements.push(CapabilityRequirement::MinBindingEntries(5));
+        requirements
+    }
 
     /// Cross-checks configuration legality against the semantic problem.
     fn validate_against(&self, problem: &AttentionProblem) -> Result<(), KernelIrError> {
@@ -628,22 +668,14 @@ impl KernelModule {
     }
 
     /// Capability requirements imposed on the executing adapter, in
-    /// deterministic order.
+    /// deterministic order. Combines configuration-static requirements with
+    /// problem-derived dispatch/output facts expressed as requirement entries.
     #[must_use]
     pub fn capability_requirements(&self) -> Vec<CapabilityRequirement> {
-        let mut requirements = Vec::new();
-        if self.config.score_reduction == ScoreReduction::SubgroupAssisted {
-            requirements.push(CapabilityRequirement::SubgroupOperations);
-        }
-        requirements.push(CapabilityRequirement::MinWorkgroupInvocations(
-            self.config.workgroup_size.get(),
-        ));
-        let storage_bytes = self.resources().workgroup_storage_bytes;
-        requirements.push(CapabilityRequirement::MinWorkgroupStorageBytes(
-            u32::try_from(storage_bytes).unwrap_or(u32::MAX),
-        ));
-        requirements.push(CapabilityRequirement::MinBindingEntries(5));
-        requirements
+        // The static prefix is exactly KernelConfig::static_requirements();
+        // the module adds nothing else today because output/dispatch facts
+        // are carried by `resources()` instead of duplicate entries.
+        self.config.static_requirements()
     }
 
     fn checked_resources(
