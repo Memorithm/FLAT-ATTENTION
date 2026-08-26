@@ -6,6 +6,11 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Added opt-in runtime routing of tuned results: `with_kernel_candidate` pins
+  one qualified candidate into a dense Q4 context with strict semantics
+  (typed lifecycle refusal before device contact, typed unavailability
+  instead of silent substitution, no CPU fallback) and exposes the pinned
+  identity via `selected_candidate_id`. Device-qualified on physical Thor.
 - Added the correctness-gated autotuner core (M26): pluggable
   correctness/timing surfaces with a validated bounded benchmark protocol,
   per-candidate evidence records (measured vs typed rejections), a documented

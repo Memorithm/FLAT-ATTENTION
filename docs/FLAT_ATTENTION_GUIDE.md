@@ -62,6 +62,8 @@ Kernel selection is evidence-driven. Candidate dimensions include query/KV tile 
 
 A capability fingerprint filters impossible candidates before pipeline creation. Candidate ordering must be deterministic for the same capability/problem policy. A candidate that fails correctness is never eligible for timing-based selection.
 
+Opt-in candidate routing exists through `WgpuFlatAttention::with_kernel_candidate`: only qualified-lifecycle candidates are accepted (refused by typed error before any device contact otherwise), an unavailable candidate fails with a typed error instead of a silent substitution, and `selected_candidate_id()` exposes what was pinned. No CPU fallback exists behind this surface.
+
 The SciRust ElasticAutoTuner integration owns persisted runtime plans/cache policy. FLAT exposes the portable kernel/capability surfaces and passive telemetry needed to explain a selection. Cache corruption must fail safely in the layer that owns serialization; FLAT does not duplicate SciRust's persisted format.
 
 Runtime telemetry may report selected kernel ID, tile geometry, backend/device fingerprint, dispatch/allocation counts, fallback reason and cache hit/miss state. Disabled telemetry must not add mandatory synchronization to the hot path.
