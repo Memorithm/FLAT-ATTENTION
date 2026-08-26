@@ -301,13 +301,6 @@ impl KvTileRows {
             Self::Eight => 8,
         }
     }
-
-    const fn canonical(self) -> &'static str {
-        match self {
-            Self::Four => "4",
-            Self::Eight => "8",
-        }
-    }
 }
 
 /// Workgroup invocations along X; closed over existing machinery.
