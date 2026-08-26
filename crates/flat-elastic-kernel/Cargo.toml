@@ -9,7 +9,8 @@ license-file = "../../LICENSE.md"
 
 [dependencies]
 flat-attention = { path = "../.." }
-# Exact reviewed ElasticXxx merge carrying the workload DispatchGrid contract.
-elastic-core = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "b20e062c091ed82f51ddd690053490be60fda5c7", package = "elastic-core" }
-elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "b20e062c091ed82f51ddd690053490be60fda5c7", package = "elastic-eir" }
-elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "b20e062c091ed82f51ddd690053490be60fda5c7", package = "elastic-kernel" }
+# Exact reviewed ElasticXxx merge carrying DispatchGrid, recommendation freshness,
+# contextual kernel selection, trusted actuation gating, and the CapabilitySet hardening.
+elastic-core = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "9130a412857335cc5120b013b91552dd0808f9f1", package = "elastic-core" }
+elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "9130a412857335cc5120b013b91552dd0808f9f1", package = "elastic-eir" }
+elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "9130a412857335cc5120b013b91552dd0808f9f1", package = "elastic-kernel" }
