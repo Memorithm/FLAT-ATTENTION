@@ -53,6 +53,26 @@ pub use numerical::{
     NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
 };
 
+/// Deterministic Q4 candidate generation over capability limits (M25).
+pub mod kernel_candidate;
+/// FLAT Kernel IR foundation (M20): semantic problem + device execution plan.
+pub mod kernel_ir;
+/// Deterministic WGSL emission subset + kernel cache keys (M21).
+pub mod wgsl_emit;
+
+pub use kernel_candidate::{
+    generate_q4_candidates, CandidatePolicy, CandidateRequirements, DeviceLimitsView,
+    GenerateError, GenerationReport, KernelCandidateSpec, PrunedReason, RealizationSource,
+};
+pub use kernel_ir::{
+    AttentionProblem, ExecutionPlan, ExecutionProgram, FlatKernelIr, IrOp, KernelIrError,
+    KernelVariantIdentity, PrecisionPolicy, ReductionStrategy, TileConfig, WorkgroupGeometry,
+    KERNEL_IR_SCHEMA_VERSION, KERNEL_MAX_HEAD_DIM,
+};
+pub use wgsl_emit::{
+    emit_wgsl, EmitError, GeneratedKernel, KernelCacheKey, BACKEND_CODEGEN_VERSION,
+};
+
 pub mod chunked_projection_prefill;
 pub mod paged_kv;
 

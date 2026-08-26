@@ -14,7 +14,7 @@ use super::{
     validate_input, AttentionShape, AutotunerCacheStatus, FlatAttentionConfig, FlatAttentionError,
     FlatAttentionOutput, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
     RuntimeDispatchTelemetry, RuntimeKernelId, RuntimeTileGeometry, FLAT_FWD_SUBGROUP_WGSL,
-    FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS,
+    FLAT_FWD_WGSL, WGSL_KV_TILE, WGSL_MAX_HEAD_DIM, WGSL_QUERY_ROWS, WGSL_WORKGROUP_SIZE,
 };
 
 const FLAT_FWD_VEC4_WGSL: &str = include_str!("../shaders/flat_fwd_vec4.wgsl");
@@ -67,6 +67,8 @@ pub enum WgpuFlatAttentionError {
         expected: usize,
     },
     Execution(String),
+    /// The kernel IR is outside the executable generated subset.
+    UnsupportedGeneratedKernel(String),
 }
 
 impl fmt::Display for WgpuFlatAttentionError {
@@ -111,6 +113,9 @@ impl fmt::Display for WgpuFlatAttentionError {
                 "resident tensor {tensor} contains {actual} elements, expected {expected}"
             ),
             Self::Execution(message) => write!(f, "WGPU execution failed: {message}"),
+            Self::UnsupportedGeneratedKernel(detail) => {
+                write!(f, "generated kernel not dispatchable in this slice: {detail}")
+            }
         }
     }
 }
@@ -127,6 +132,26 @@ impl std::error::Error for WgpuFlatAttentionError {
 impl From<FlatAttentionError> for WgpuFlatAttentionError {
     fn from(value: FlatAttentionError) -> Self {
         Self::Core(value)
+    }
+}
+
+/// Map the M24 runtime capability model onto the host-neutral candidate
+/// generation view. This is the adapter seam: the IR/generator layer never
+/// imports `wgpu` types.
+impl From<RuntimeDeviceCapabilities> for super::kernel_candidate::DeviceLimitsView {
+    fn from(caps: RuntimeDeviceCapabilities) -> Self {
+        Self {
+            max_workgroup_size: [
+                caps.max_workgroup_size_x,
+                caps.max_workgroup_size_y,
+                caps.max_workgroup_size_z,
+            ],
+            max_workgroup_storage_bytes: u64::from(caps.max_workgroup_storage_bytes),
+            max_bind_groups: caps.max_binding_entries,
+            max_storage_buffer_binding_bytes: u64::from(caps.max_storage_buffer_binding_size),
+            max_workgroups_per_dimension: caps.max_workgroups_per_dimension,
+            subgroup_supported: caps.subgroup_supported,
+        }
     }
 }
 
@@ -193,6 +218,7 @@ struct WgpuFlatAttentionInner {
     kernel_variant: WgpuKernelVariant,
     vectorization_enabled: bool,
     double_buffering_enabled: bool,
+    generated_cache_key: Option<super::wgsl_emit::KernelCacheKey>,
     owner_id: usize,
 }
 
@@ -234,6 +260,74 @@ impl WgpuFlatAttention {
         vectorization_enabled: bool,
         double_buffering_enabled: bool,
     ) -> Result<Self, WgpuFlatAttentionError> {
+        Self::with_policy_and_optional_generated(
+            policy,
+            vectorization_enabled,
+            double_buffering_enabled,
+            None,
+        )
+    }
+
+    /// Construct a context whose primary pipeline is **generated** from a
+    /// validated FLAT Kernel IR instead of the handwritten qualified shader
+    /// (M21 first subset).
+    ///
+    /// The IR must describe the canonical executable geometry of the Q4
+    /// family (tiles 4/8, workgroup 64, portable tree reduction, FP32
+    /// storage/accumulation); other geometries are representable and
+    /// emittable but not yet dispatchable through this constructor. Subgroup
+    /// policy is forced to [`WgpuSubgroupPolicy::Disable`] so the generated
+    /// pipeline is exactly what executes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WgpuFlatAttentionError::UnsupportedGeneratedKernel`] when
+    /// the IR is outside the executable generated subset, and the usual
+    /// context-creation errors otherwise.
+    pub fn with_generated_portable_q4_kernel(
+        ir: &super::kernel_ir::FlatKernelIr,
+    ) -> Result<Self, WgpuFlatAttentionError> {
+        let tiles = ir.plan().tiles();
+        let workgroup = ir.plan().workgroup();
+        let canonical = tiles.query_rows == WGSL_QUERY_ROWS as u32
+            && tiles.kv_tile == WGSL_KV_TILE as u32
+            && workgroup.invocations == WGSL_WORKGROUP_SIZE as u32;
+        let generated = super::wgsl_emit::emit_wgsl(ir).map_err(|error| {
+            WgpuFlatAttentionError::UnsupportedGeneratedKernel(error.to_string())
+        })?;
+        if !canonical {
+            return Err(WgpuFlatAttentionError::UnsupportedGeneratedKernel(
+                "only the canonical 4/8/64 Q4 geometry is dispatchable in this slice; \
+                 other geometries are representable and emittable but not wired"
+                    .into(),
+            ));
+        }
+        let source = generated.source().to_string();
+        let cache_key = *generated.cache_key();
+        let mut context = Self::with_policy_and_optional_generated(
+            WgpuSubgroupPolicy::Disable,
+            false,
+            false,
+            Some((source, "flat-attention-forward-q4-generated")),
+        )?;
+        if let Some(inner) = Arc::get_mut(&mut context.inner) {
+            inner.generated_cache_key = Some(cache_key);
+        }
+        Ok(context)
+    }
+
+    /// Cache key of the generated kernel backing this context, if any.
+    #[must_use]
+    pub fn generated_kernel_cache_key(&self) -> Option<super::wgsl_emit::KernelCacheKey> {
+        self.inner.generated_cache_key
+    }
+
+    fn with_policy_and_optional_generated(
+        policy: WgpuSubgroupPolicy,
+        vectorization_enabled: bool,
+        double_buffering_enabled: bool,
+        generated: Option<(String, &'static str)>,
+    ) -> Result<Self, WgpuFlatAttentionError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
@@ -243,6 +337,13 @@ impl WgpuFlatAttention {
         }))
         .map_err(|_| WgpuFlatAttentionError::Unavailable)?;
 
+        // A generated-kernel context always executes its own primary
+        // pipeline; subgroup selection is meaningless there.
+        let policy = if generated.is_some() {
+            WgpuSubgroupPolicy::Disable
+        } else {
+            policy
+        };
         let adapter_features = adapter.features();
         let subgroup_supported = adapter_features.contains(wgpu::Features::SUBGROUP);
         if policy == WgpuSubgroupPolicy::Require && !subgroup_supported {
@@ -278,7 +379,15 @@ impl WgpuFlatAttention {
         }))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
 
-        let (pipeline, kernel_variant, fallback_reason) = if request_subgroup {
+        let primary_from_generated = generated.is_some();
+        let (pipeline, kernel_variant, fallback_reason) = if primary_from_generated {
+            let (source, label) = generated.as_ref().expect("checked above");
+            (
+                create_pipeline(&device, source, label)?,
+                WgpuKernelVariant::Q4Portable,
+                None,
+            )
+        } else if request_subgroup {
             match create_pipeline(
                 &device,
                 FLAT_FWD_SUBGROUP_WGSL,
@@ -356,6 +465,7 @@ impl WgpuFlatAttention {
                 kernel_variant,
                 vectorization_enabled,
                 double_buffering_enabled,
+                generated_cache_key: None,
                 owner_id: super::next_resident_owner_id(),
             }),
         })
@@ -800,11 +910,16 @@ impl WgpuFlatAttention {
 
 fn create_pipeline(
     device: &wgpu::Device,
-    source: &'static str,
+    source: impl AsRef<str>,
     label: &'static str,
 ) -> Result<wgpu::ComputePipeline, WgpuFlatAttentionError> {
-    wgpu_internal::create_pipeline(device, source, label, "flat_attention_forward")
-        .map_err(WgpuFlatAttentionError::Execution)
+    wgpu_internal::create_pipeline(
+        device,
+        std::borrow::Cow::Owned(source.as_ref().to_owned()),
+        label,
+        "flat_attention_forward",
+    )
+    .map_err(WgpuFlatAttentionError::Execution)
 }
 
 struct DispatchGeometry {

@@ -90,14 +90,14 @@ pub(crate) fn create_uniform_buffer_init(
 /// error variant. Every FLAT kernel keeps its shader entry point explicit.
 pub(crate) fn create_pipeline(
     device: &wgpu::Device,
-    source: &'static str,
+    source: impl AsRef<str>,
     label: &'static str,
     entry_point: &'static str,
 ) -> Result<wgpu::ComputePipeline, String> {
     let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(label),
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
+        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Owned(source.as_ref().to_owned())),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some(label),
