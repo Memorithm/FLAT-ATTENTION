@@ -6,6 +6,15 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Added the correctness-gated autotuner core (M26): pluggable
+  correctness/timing surfaces with a validated bounded benchmark protocol,
+  per-candidate evidence records (measured vs typed rejections), a documented
+  deterministic rank order (median, then p95, then stable candidate id), an
+  explicit empty-outcome, and no silent fallbacks. A production transfer-
+  inclusive WGPU harness (oracle parity gate plus forward-path timing,
+  identical boundary across candidates) enables real-device sessions; the
+  dense Q4 context now requests exactly the five bind groups its kernel
+  contract requires so granted limits reflect true capability facts.
 - Added deterministic bounded candidate generation (M25): the registered
   active dense-family realizations map `problem + capabilities + policy` to a
   stably ordered candidate list with configuration-derived identities,

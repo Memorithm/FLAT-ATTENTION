@@ -281,10 +281,18 @@ impl WgpuFlatAttention {
             vendor: adapter_info.vendor,
             device: adapter_info.device,
         };
+        // The dense Q4 contract binds five entries (Q/K/V/O|LSE storage plus
+        // the uniform). Request exactly what the kernel architecture requires
+        // so granted limits reflect it instead of capping bind groups below
+        // the shader layout and masking real capability facts.
+        let required_limits = wgpu::Limits {
+            max_bind_groups: 5,
+            ..wgpu::Limits::downlevel_defaults()
+        };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("flat-attention-q4"),
             required_features,
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            required_limits,
             ..Default::default()
         }))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;

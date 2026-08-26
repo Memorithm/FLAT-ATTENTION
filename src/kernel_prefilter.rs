@@ -386,8 +386,10 @@ mod tests {
     }
 
     #[test]
-    fn vec4_double_buffer_requirements_exceed_scalar_footprint_check() {
-        let scalar = module(KernelConfig::PORTABLE_SCALAR)
+    fn double_buffering_keeps_identical_workgroup_capacity() {
+        // The M7 transformation re-banks K/V storage without changing its
+        // capacity: two 4-row banks equal one 8-row tile.
+        let single = module(KernelConfig::PORTABLE_VEC4)
             .config()
             .static_requirements();
         let double = module(KernelConfig::DOUBLE_BUFFERED_VEC4)
@@ -401,7 +403,13 @@ mod tests {
                 })
                 .unwrap_or(0)
         };
-        assert!(storage(&double) > storage(&scalar));
+        assert_eq!(storage(&double), storage(&single));
+        // The scalar baseline declares the same capacity at the same
+        // geometry: banking and width change access patterns, not footprint.
+        let scalar = module(KernelConfig::PORTABLE_SCALAR)
+            .config()
+            .static_requirements();
+        assert_eq!(storage(&double), storage(&scalar));
     }
 
     #[test]
