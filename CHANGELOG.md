@@ -4,6 +4,28 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Kernel compilation platform
+
+- Added deterministic WGSL emission from the FLAT Kernel IR for the dense Q4
+  forward realizations (scalar, vec4, double-buffered, subgroup-assisted).
+  Generated sources are byte-deterministic under an explicit codegen version,
+  bounded by a hard generation budget, preserve the handwritten binding/uniform
+  contract exactly, and are qualified by new Naga parse/validation gates plus
+  device-level oracle and generated-vs-handwritten parity suites. Emission is
+  compiler infrastructure only: no runtime routing changes and no performance
+  claim; generated sources are not selected by any production path yet.
+- Added the experimental `kernel_ir` module: a validated, host-only FLAT Kernel
+  IR for the qualified dense Q4 forward family, separating the semantic
+  attention problem from tuning configuration, rejecting configurations
+  without an executable path (vec4 width on unsupported head dimensions,
+  double buffering off the vec4 realization), computing checked static
+  resource footprints and dispatch geometry, deriving capability requirements,
+  and producing deterministic canonical records plus stable FNV-1a-64
+  structural fingerprints under an explicit schema version. This is compiler
+  infrastructure only: no runtime routing changes and no performance claim.
+- Extracted the shared FNV-1a-64 fingerprint primitive so device/capability
+  records and Kernel IR identities use one audited implementation.
+
 ### Engineering platform
 
 - Converted the repository into a Cargo workspace rooted at the main package: one resolution and one authoritative lockfile now cover every `crates/*` member, and CI runs workspace-wide fmt/clippy/test gates by default.

@@ -14,6 +14,18 @@ pub mod api;
 /// Machine-readable reproducible benchmark provenance.
 pub mod benchmark_manifest;
 
+mod fingerprint;
+
+/// Experimental FLAT Kernel IR: validated structural descriptions of
+/// qualified kernel architectures. Compiler infrastructure; changes no
+/// runtime routing and makes no performance claim.
+pub mod kernel_ir;
+
+/// Deterministic WGSL emission from the FLAT Kernel IR. Compiler
+/// infrastructure; generated sources require Naga/device qualification before
+/// any routing use and carry no performance claim.
+pub mod kernel_wgsl;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
