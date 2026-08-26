@@ -11,9 +11,7 @@ use super::{
     adapt_candidate, capability_snapshot, evidence_for_candidate, logical_resource_id,
     realization_identity, workload_fingerprint, AdapterError, DispatchRejection,
 };
-use elastic_core::{
-    FreshnessSnapshot, RecommendationContext, RecommendationFreshnessError,
-};
+use elastic_core::{FreshnessSnapshot, RecommendationContext, RecommendationFreshnessError};
 use elastic_kernel::{
     plan_with_context, ContextualSelection, KernelCandidate as ElasticKernelCandidate,
     SelectionPolicy as ElasticSelectionPolicy,
@@ -198,20 +196,16 @@ mod tests {
     fn fresh_context_exposes_the_same_uncontested_flat_candidate() {
         let candidate = one_candidate();
         let policy = latency_policy(true).expect("policy");
-        let ordinary = plan_adapted(&problem(), &caps(), &[candidate], None, &policy)
-            .expect("ordinary plan");
-        let contextual = plan_adapted_with_context(
-            &problem(),
-            &caps(),
-            &[candidate],
-            None,
-            &policy,
-            context(),
-        )
-        .expect("contextual plan");
+        let ordinary =
+            plan_adapted(&problem(), &caps(), &[candidate], None, &policy).expect("ordinary plan");
+        let contextual =
+            plan_adapted_with_context(&problem(), &caps(), &[candidate], None, &policy, context())
+                .expect("contextual plan");
 
         assert_eq!(
-            ordinary.selected_flat_candidate().map(|candidate| candidate.id),
+            ordinary
+                .selected_flat_candidate()
+                .map(|candidate| candidate.id),
             contextual
                 .selected_flat_candidate_if_fresh(&current())
                 .expect("fresh context")
@@ -223,15 +217,9 @@ mod tests {
     fn stale_planner_epoch_blocks_selected_flat_candidate() {
         let candidate = one_candidate();
         let policy = latency_policy(true).expect("policy");
-        let plan = plan_adapted_with_context(
-            &problem(),
-            &caps(),
-            &[candidate],
-            None,
-            &policy,
-            context(),
-        )
-        .expect("contextual plan");
+        let plan =
+            plan_adapted_with_context(&problem(), &caps(), &[candidate], None, &policy, context())
+                .expect("contextual plan");
         let stale = FreshnessSnapshot::new(PlannerEpoch::new(8), ObservationEpoch::new(11))
             .with_resource_generation(
                 logical_resource_id(&problem()).expect("logical resource"),
@@ -251,15 +239,9 @@ mod tests {
     fn changed_resource_generation_blocks_selected_flat_candidate() {
         let candidate = one_candidate();
         let policy = latency_policy(true).expect("policy");
-        let plan = plan_adapted_with_context(
-            &problem(),
-            &caps(),
-            &[candidate],
-            None,
-            &policy,
-            context(),
-        )
-        .expect("contextual plan");
+        let plan =
+            plan_adapted_with_context(&problem(), &caps(), &[candidate], None, &policy, context())
+                .expect("contextual plan");
         let resource = logical_resource_id(&problem()).expect("logical resource");
         let stale = FreshnessSnapshot::new(PlannerEpoch::new(7), ObservationEpoch::new(11))
             .with_resource_generation(resource.clone(), ResourceGeneration::new(6));
@@ -280,15 +262,9 @@ mod tests {
         let policy = latency_policy(true).expect("policy");
         let mut limited = caps();
         limited.max_workgroups_per_dimension = 31;
-        let plan = plan_adapted_with_context(
-            &problem(),
-            &limited,
-            &[candidate],
-            None,
-            &policy,
-            context(),
-        )
-        .expect("contextual dispatch plan");
+        let plan =
+            plan_adapted_with_context(&problem(), &limited, &[candidate], None, &policy, context())
+                .expect("contextual dispatch plan");
 
         assert_eq!(plan.dispatch_rejections.len(), 1);
         assert_eq!(
