@@ -15,7 +15,9 @@ Statuses are restricted to: `DONE`, `PARTIAL`, `MISSING`,
 `BLOCKED_BY_PLATFORM_CAPABILITY`, `OBSOLETE_OR_SUPERSEDED`.
 
 Baseline for this revision: `main` at commit `8cd1b257a599882b7a7bbc095465883ec38274ed`
-(2026-08-26). Every status below cites its evidence; "code exists" alone never implies DONE.
+(2026-08-26), reconciled again on the kernel-architecture branch series
+(#114–#120, August 2026). Every status below cites its evidence; "code exists"
+alone never implies DONE.
 
 ## Phase A/B — foundation and portable execution (M1–M3)
 
@@ -72,16 +74,18 @@ Baseline for this revision: `main` at commit `8cd1b257a599882b7a7bbc095465883ec3
 |---|---|---|
 | M20 FLAT Kernel IR | **MISSING** | No internal kernel IR exists on `main`; kernel structure is tied to handwritten WGSL text plus runtime enums (`RuntimeKernelId`, `WgpuKernelVariant`). Required: typed IR, validation, deterministic normalization/versioning/fingerprint, capability requirements, faithful representation of a qualified forward architecture. |
 | M21 portable WGSL emitter | **MISSING** | No IR-to-WGSL generator exists. Required: deterministic emission, source hashing/cache key, Naga validation, generated-vs-handwritten parity. |
-| M22 open cooperative/subgroup-matrix research gate | **MISSING** (gate not yet executed) | No capability inventory or feasibility record exists in `docs/`. wgpu 30 exposes no cooperative/subgroup-matrix feature flag (verified against `wgpu-types 30.0.x`); the gate must still be documented with specification sources before any roadmap status can change. |
-| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (pending M22 outcome) | No executable open matrix path is currently exposed by the runtime; scheduler work has no backend semantics to target. |
+| M22 open cooperative/subgroup-matrix research gate | **BLOCKED_BY_PLATFORM_CAPABILITY** (research outcome documented) | `docs/M22_OPEN_MATRIX_RESEARCH.md`: WGSL subgroup-matrix is a merged spec *proposal* still in design iteration; Dawn's implementation is experimental/unsafe-gated with D3D unsupported; Naga has experimental coop-mat IR but wgpu 30 exposes no feature flag or capability query, so FLAT's mandatory validate→pipeline→device chain has no portable executable path. IR extension point reserved. |
+| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (behind M22) | Interface reservation recorded in the M22 document; no backend semantics to target yet. |
 
 ## Phase I — autotuning (M24–M26)
 
-| Milestone | Status | Evidence / missing elements |
+Status after the kernel-architecture series (#117/#118/#119):
+
+| Milestone | Status | Evidence / remaining notes |
 |---|---|---|
-| M24 device capability model | PARTIAL | Done: `RuntimeDeviceCapabilities` + `RuntimeDeviceFingerprint` with deterministic canonical records and FNV-1a-64 fingerprints (`src/runtime_telemetry.rs`, `docs/M56_*`, `docs/M57_*`). Missing: static candidate-resource prefilter wired **before pipeline creation**, as recorded in `docs/M57_DEVICE_CAPABILITY_LIMITS.md`. |
-| M25 deterministic candidate generator | **MISSING** | No candidate generation module exists; variant selection today is fixed policy inside `src/wgpu_backend.rs` (`kernel_variant_for_head_dim`), not generated/ordered candidates. |
-| M26 benchmark-driven autotuner | PARTIAL (see split below) | Tuner core MISSING: no correctness-gated measurement/ranking loop exists in-repo. Persistent tuning-cache ownership was deliberately assigned to the SciRust ElasticAutoTuner integration (`docs/FLAT_ATTENTION_GUIDE.md` §6): that portion of M26 is OBSOLETE_OR_SUPERSEDED for this repository, provided FLAT exposes the deterministic problem/candidate/capability/evidence surfaces the integration consumes. |
+| M24 device capability model | DONE | Deterministic identity/limits model (`device_model`, host-side since #117) plus completed pre-pipeline filtering: `kernel_prefilter` checks configuration-static and problem-derived facts against explicit limits with typed rejections; dense Q4 construction requests exactly the five bind groups its contract requires (physical Thor previously granted 4 while executing the layouts, masking the fact). Boundary tests at limit and limit-1 for every rejection reason. |
+| M25 deterministic candidate generator | DONE | `src/kernel_candidates.rs`: fixed registry of active dense-family realizations (qualified scalar/vec4/subgroup; experimental double-buffer opt-in; rejected/retired structurally absent), lifecycle policy, problem executability, capability pruning, total order `(lifecycle rank, CandidateId)`, hard truncation cap; e2e host flow through emitted-and-Naga-validated sources. |
+| M26 benchmark-driven autotuner | DONE core; persistent cache OBSOLETE_OR_SUPERSEDED (SciRust ElasticAutoTuner owns persistence per guide §6) | `src/kernel_autotune.rs`: correctness-gate-before-timing, validated bounded protocol, per-candidate evidence with typed rejections, documented deterministic ranking (median → p95 → stable id), explicit empty outcomes; `src/kernel_autotune_wgpu.rs` production oracle-parity gate + transfer-inclusive timing harness (identical boundary across candidates); two live tuning sessions executed on physical Jetson Thor during development with structural-equality determinism assertions (`tests/kernel_autotune_device.rs`). Selection evidence records carry everything an external cache owner needs; nothing routes through tuned results yet. |
 
 ## Phase J — benchmarks and observability (M27–M29)
 
@@ -153,9 +157,14 @@ standing process.
 
 ## Current release blockers (engineering view)
 
-1. M20 Kernel IR + M21 WGSL emitter + M25 candidate generation + M26 autotuner core
-   ("autotuned tiled kernels" DoD line) — being addressed by the kernel-architecture PR
-   series.
+1. Runtime routing integration for generated/tuned candidates (#116/#119
+   deliver qualified, device-proven machinery; production selection remains
+   the explicitly-qualified handwritten paths until a dedicated routing PR
+   with regression coverage lands).
 2. Exact-candidate physical/performance manifests cited from
-   `docs/RELEASE_BENCHMARK_SNAPSHOT.md`.
-3. SciRust-side exact-pin and SciAgent decode/KV lifecycle gates (external repository).
+   `docs/RELEASE_BENCHMARK_SNAPSHOT.md` for the eventual release SHA.
+3. SciRust-side exact-pin and SciAgent decode/KV lifecycle gates (external
+   repository).
+4. Final 1.0 DoD wording "autotuned tiled kernels": satisfied at the
+   architecture level by this series; a release claim requires the routing
+   integration plus accepted exact-SHA benchmark evidence.

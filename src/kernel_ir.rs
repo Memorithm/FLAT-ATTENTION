@@ -248,7 +248,7 @@ pub enum ScoreReduction {
 }
 
 impl ScoreReduction {
-    const fn canonical(self) -> &'static str {
+    pub(crate) const fn canonical(self) -> &'static str {
         match self {
             Self::WorkgroupTree => "tree",
             Self::SubgroupAssisted => "subgroup",
@@ -280,9 +280,15 @@ impl QueryRows {
 }
 
 /// K/V rows staged per tile iteration; closed over existing machinery.
+///
+/// Staging strategy fixes the pairing: single buffering stages eight rows in
+/// one bank; double buffering stages four rows in each of two banks, so both
+/// realizations declare identical workgroup K/V capacity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KvTileRows {
-    /// Eight K/V rows per staged tile.
+    /// Four K/V rows per bank (double-buffered realization).
+    Four,
+    /// Eight K/V rows per staged tile (single-buffered realization).
     Eight,
 }
 
@@ -291,6 +297,7 @@ impl KvTileRows {
     #[must_use]
     pub const fn get(self) -> u32 {
         match self {
+            Self::Four => 4,
             Self::Eight => 8,
         }
     }
@@ -351,9 +358,11 @@ impl KernelConfig {
         ..Self::PORTABLE_SCALAR
     };
 
-    /// Experimental double-buffered vec4 realization (M7 lineage).
+    /// Experimental double-buffered vec4 realization (M7 lineage): two
+    /// 4-row banks replace the one 8-row tile at identical capacity.
     pub const DOUBLE_BUFFERED_VEC4: Self = Self {
         kv_staging: KvStaging::DoubleBuffered,
+        kv_tile_rows: KvTileRows::Four,
         ..Self::PORTABLE_VEC4
     };
 
@@ -362,6 +371,46 @@ impl KernelConfig {
         score_reduction: ScoreReduction::SubgroupAssisted,
         ..Self::PORTABLE_SCALAR
     };
+
+    /// Workgroup f32 scalars declared by this configuration (problem
+    /// independent), or overflow.
+    pub(crate) fn workgroup_storage_scalars(&self) -> Option<u64> {
+        let max_head_dim = u64::from(KERNEL_MAX_HEAD_DIM);
+        let query_rows = u64::from(self.query_rows.get());
+        let kv_tile = u64::from(self.kv_tile_rows.get());
+        let kv_buffers = u64::from(self.kv_staging.buffers());
+        let invocations = u64::from(self.workgroup_size.get());
+        let q = query_rows.checked_mul(max_head_dim)?;
+        let kv = kv_buffers
+            .checked_mul(2)?
+            .checked_mul(kv_tile)?
+            .checked_mul(max_head_dim)?;
+        let reduce = query_rows.checked_mul(invocations)?;
+        let state = 4_u64.checked_mul(query_rows)?;
+        q.checked_add(kv)?.checked_add(reduce)?.checked_add(state)
+    }
+
+    /// Capability requirements implied by the configuration alone, in
+    /// deterministic order. Problem-dependent facts (dispatch extents,
+    /// output binding size) are deliberately excluded; see
+    /// [`KernelModule::capability_requirements`].
+    #[must_use]
+    pub fn static_requirements(&self) -> Vec<CapabilityRequirement> {
+        let mut requirements = Vec::new();
+        if self.score_reduction == ScoreReduction::SubgroupAssisted {
+            requirements.push(CapabilityRequirement::SubgroupOperations);
+        }
+        requirements.push(CapabilityRequirement::MinWorkgroupInvocations(
+            self.workgroup_size.get(),
+        ));
+        if let Some(scalars) = self.workgroup_storage_scalars() {
+            requirements.push(CapabilityRequirement::MinWorkgroupStorageBytes(
+                u32::try_from(scalars.saturating_mul(4)).unwrap_or(u32::MAX),
+            ));
+        }
+        requirements.push(CapabilityRequirement::MinBindingEntries(5));
+        requirements
+    }
 
     /// Cross-checks configuration legality against the semantic problem.
     fn validate_against(&self, problem: &AttentionProblem) -> Result<(), KernelIrError> {
@@ -376,13 +425,21 @@ impl KernelConfig {
                 components: self.vector_width.components(),
             });
         }
-        if self.kv_staging == KvStaging::DoubleBuffered && self.vector_width != VectorWidth::Vec4 {
-            return Err(KernelIrError::DoubleBufferingRequiresVectorPath);
+        if self.kv_staging == KvStaging::DoubleBuffered {
+            if self.vector_width != VectorWidth::Vec4 {
+                return Err(KernelIrError::DoubleBufferingRequiresVectorPath);
+            }
+            // The M7 machinery exists exactly as two 4-row banks.
+            if self.kv_tile_rows != KvTileRows::Four {
+                return Err(KernelIrError::InvalidStagingTilePairing);
+            }
+        } else if self.kv_tile_rows != KvTileRows::Eight {
+            return Err(KernelIrError::InvalidStagingTilePairing);
         }
         Ok(())
     }
 
-    fn canonical_record(&self) -> String {
+    pub(crate) fn canonical_record(&self) -> String {
         format!(
             "qr={};kt={};wg={};vw={};stg={};red={}",
             self.query_rows.canonical(),
@@ -404,7 +461,7 @@ pub enum KernelFamily {
 }
 
 impl KernelFamily {
-    const fn canonical(self) -> &'static str {
+    pub(crate) const fn canonical(self) -> &'static str {
         match self {
             Self::DenseQ4Forward => "dense_q4_forward",
         }
@@ -628,22 +685,14 @@ impl KernelModule {
     }
 
     /// Capability requirements imposed on the executing adapter, in
-    /// deterministic order.
+    /// deterministic order. Combines configuration-static requirements with
+    /// problem-derived dispatch/output facts expressed as requirement entries.
     #[must_use]
     pub fn capability_requirements(&self) -> Vec<CapabilityRequirement> {
-        let mut requirements = Vec::new();
-        if self.config.score_reduction == ScoreReduction::SubgroupAssisted {
-            requirements.push(CapabilityRequirement::SubgroupOperations);
-        }
-        requirements.push(CapabilityRequirement::MinWorkgroupInvocations(
-            self.config.workgroup_size.get(),
-        ));
-        let storage_bytes = self.resources().workgroup_storage_bytes;
-        requirements.push(CapabilityRequirement::MinWorkgroupStorageBytes(
-            u32::try_from(storage_bytes).unwrap_or(u32::MAX),
-        ));
-        requirements.push(CapabilityRequirement::MinBindingEntries(5));
-        requirements
+        // The static prefix is exactly KernelConfig::static_requirements();
+        // the module adds nothing else today because output/dispatch facts
+        // are carried by `resources()` instead of duplicate entries.
+        self.config.static_requirements()
     }
 
     fn checked_resources(
@@ -757,6 +806,8 @@ pub enum KernelIrError {
     },
     /// Double buffering exists only on the vec4 realization.
     DoubleBufferingRequiresVectorPath,
+    /// Staging strategy and tile rows have no executable pairing.
+    InvalidStagingTilePairing,
     /// Workgroup-storage accounting overflowed checked bounds.
     WorkgroupStorageOverflow,
 }
@@ -787,6 +838,10 @@ impl fmt::Display for KernelIrError {
             Self::DoubleBufferingRequiresVectorPath => write!(
                 f,
                 "double-buffered K/V staging requires the vec4 realization"
+            ),
+            Self::InvalidStagingTilePairing => write!(
+                f,
+                "staging/tile pairing has no executable path: single buffers stage 8 rows, double buffers stage 4-row banks"
             ),
             Self::WorkgroupStorageOverflow => {
                 write!(f, "workgroup storage accounting overflowed checked bounds")
@@ -1033,11 +1088,25 @@ mod tests {
             KernelConfig::DOUBLE_BUFFERED_VEC4,
         )
         .unwrap();
+        // Two 4-row banks hold exactly what one 8-row tile holds: the M7
+        // transformation changes banking, not capacity.
         let kv_tile_bytes = 2 * 8 * 128 * 4;
+        let _ = kv_tile_bytes;
         assert_eq!(
             double.resources().workgroup_storage_bytes,
-            single.resources().workgroup_storage_bytes + kv_tile_bytes as u64
+            single.resources().workgroup_storage_bytes
         );
+        // And the pairing is enforced structurally.
+        assert!(KernelModule::build(
+            KernelFamily::DenseQ4Forward,
+            problem(128),
+            KernelConfig {
+                kv_staging: KvStaging::DoubleBuffered,
+                kv_tile_rows: KvTileRows::Eight,
+                ..KernelConfig::PORTABLE_VEC4
+            },
+        )
+        .is_err());
     }
 
     #[test]

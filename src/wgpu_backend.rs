@@ -10,6 +10,9 @@ use super::wgpu_internal;
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
+use super::kernel_candidates::{CandidateLifecycle, KernelCandidate};
+use super::kernel_ir::KernelConfig;
+use super::kernel_prefilter::{self, CapabilityRejection};
 use super::{
     validate_input, AttentionShape, AutotunerCacheStatus, FlatAttentionConfig, FlatAttentionError,
     FlatAttentionOutput, RuntimeDeviceCapabilities, RuntimeDeviceFingerprint,
@@ -61,6 +64,15 @@ pub enum WgpuFlatAttentionError {
         maximum_bytes: u64,
     },
     ForeignBuffer,
+    Preflight(CapabilityRejection),
+    CandidateNotEligible {
+        candidate_id: u64,
+        lifecycle: &'static str,
+    },
+    CandidateUnavailable {
+        candidate_id: u64,
+        reason: String,
+    },
     ResidentLength {
         tensor: &'static str,
         actual: usize,
@@ -102,6 +114,23 @@ impl fmt::Display for WgpuFlatAttentionError {
                 "resident attention requires {required_bytes} bytes per buffer, device maximum is {maximum_bytes}"
             ),
             Self::ForeignBuffer => write!(f, "resident buffer belongs to a different WGPU context"),
+            Self::Preflight(rejection) => {
+                write!(
+                    f,
+                    "capability preflight rejected the kernel configuration: {rejection}"
+                )
+            }
+            Self::CandidateNotEligible {
+                candidate_id,
+                lifecycle,
+            } => write!(
+                f,
+                "candidate {candidate_id:016x} has lifecycle {lifecycle} and is not eligible for default routing"
+            ),
+            Self::CandidateUnavailable { candidate_id, reason } => write!(
+                f,
+                "candidate {candidate_id:016x} is unavailable on this device: {reason}"
+            ),
             Self::ResidentLength {
                 tensor,
                 actual,
@@ -119,6 +148,7 @@ impl std::error::Error for WgpuFlatAttentionError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Core(error) => Some(error),
+            Self::Preflight(rejection) => Some(rejection),
             _ => None,
         }
     }
@@ -176,12 +206,20 @@ impl WgpuResidentAttentionOutput {
     }
 }
 
+#[derive(Clone)]
 struct WgpuFlatAttentionInner {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
-    vec4_pipeline: wgpu::ComputePipeline,
-    double_buffer_pipeline: wgpu::ComputePipeline,
+    vec4_pipeline: Option<wgpu::ComputePipeline>,
+    double_buffer_pipeline: Option<wgpu::ComputePipeline>,
+    /// Why the vec4 variant was capability-filtered, if it was.
+    vec4_filtered_reason: Option<String>,
+    /// Why the double-buffer variant was capability-filtered, if it was.
+    double_buffer_filtered_reason: Option<String>,
+    /// Candidate identity when this context was pinned through
+    /// [`WgpuFlatAttention::with_kernel_candidate`].
+    pinned_candidate: Option<u64>,
     adapter_name: String,
     device_fingerprint: RuntimeDeviceFingerprint,
     device_capabilities: RuntimeDeviceCapabilities,
@@ -215,6 +253,97 @@ impl WgpuFlatAttention {
         policy: WgpuSubgroupPolicy,
     ) -> Result<Self, WgpuFlatAttentionError> {
         Self::with_subgroup_vectorization_and_double_buffering(policy, true, false)
+    }
+
+    /// Construct a context pinned to one qualified kernel candidate.
+    ///
+    /// This is the opt-in routing surface for tuned results: callers obtain a
+    /// candidate from deterministic generation or an autotuning session and
+    /// pin it explicitly. Semantics:
+    ///
+    /// - only [`CandidateLifecycle::Qualified`] candidates are eligible;
+    ///   anything else is rejected with a typed error **before** any device
+    ///   contact;
+    /// - if the device cannot host the candidate, construction fails with a
+    ///   typed error instead of silently substituting another realization;
+    /// - no CPU fallback exists anywhere behind this constructor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WgpuFlatAttentionError::CandidateNotEligible`] for
+    /// non-qualified lifecycles, [`WgpuFlatAttentionError::Preflight`] when
+    /// the portable floor is unavailable, and
+    /// [`WgpuFlatAttentionError::CandidateUnavailable`] when the specific
+    /// candidate cannot be hosted on this device.
+    pub fn with_kernel_candidate(
+        candidate: &KernelCandidate,
+    ) -> Result<Self, WgpuFlatAttentionError> {
+        if candidate.lifecycle != CandidateLifecycle::Qualified {
+            return Err(WgpuFlatAttentionError::CandidateNotEligible {
+                candidate_id: candidate.id.get(),
+                lifecycle: match candidate.lifecycle {
+                    CandidateLifecycle::Qualified => "qualified",
+                    CandidateLifecycle::Experimental => "experimental",
+                },
+            });
+        }
+        use super::kernel_ir::{KvStaging, ScoreReduction, VectorWidth};
+        let (policy, vectorization, double_buffering) =
+            if candidate.config.score_reduction == ScoreReduction::SubgroupAssisted {
+                (WgpuSubgroupPolicy::Require, false, false)
+            } else {
+                (
+                    WgpuSubgroupPolicy::Disable,
+                    candidate.config.vector_width == VectorWidth::Vec4,
+                    candidate.config.kv_staging == KvStaging::DoubleBuffered,
+                )
+            };
+        let context = Self::with_subgroup_vectorization_and_double_buffering(
+            policy,
+            vectorization,
+            double_buffering,
+        )?;
+        let inner = &context.inner;
+        let requested_subgroup =
+            candidate.config.score_reduction == super::kernel_ir::ScoreReduction::SubgroupAssisted;
+        let hosted = if requested_subgroup {
+            // Subgroup selection has priority; Require policy guarantees it
+            // or failed construction above.
+            inner.kernel_variant == WgpuKernelVariant::Q4Subgroup
+        } else {
+            match candidate.runtime_kernel_id() {
+                Some(RuntimeKernelId::Q4Vec4Portable) => inner.vec4_pipeline.is_some(),
+                Some(RuntimeKernelId::Q4Vec4DoubleBuffered) => {
+                    inner.double_buffer_pipeline.is_some()
+                }
+                _ => true,
+            }
+        };
+        if !hosted {
+            return Err(WgpuFlatAttentionError::CandidateUnavailable {
+                candidate_id: candidate.id.get(),
+                reason: inner
+                    .vec4_filtered_reason
+                    .clone()
+                    .or_else(|| inner.double_buffer_filtered_reason.clone())
+                    .unwrap_or_else(|| {
+                        "required subgroup realization was not selected".to_string()
+                    }),
+            });
+        }
+        Ok(Self {
+            inner: Arc::new(WgpuFlatAttentionInner {
+                pinned_candidate: Some(candidate.id.get()),
+                ..inner.as_ref().clone()
+            }),
+        })
+    }
+
+    /// Identity of the pinned routing candidate, if this context was created
+    /// through [`Self::with_kernel_candidate`].
+    #[must_use]
+    pub fn selected_candidate_id(&self) -> Option<u64> {
+        self.inner.pinned_candidate
     }
 
     pub fn with_subgroup_policy_and_vectorization(
@@ -270,13 +399,59 @@ impl WgpuFlatAttention {
             vendor: adapter_info.vendor,
             device: adapter_info.device,
         };
+        // The dense Q4 contract binds five entries (Q/K/V/O|LSE storage plus
+        // the uniform). Request exactly what the kernel architecture requires
+        // so granted limits reflect it instead of capping bind groups below
+        // the shader layout and masking real capability facts.
+        let required_limits = wgpu::Limits {
+            max_bind_groups: 5,
+            ..wgpu::Limits::downlevel_defaults()
+        };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("flat-attention-q4"),
             required_features,
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            required_limits,
             ..Default::default()
         }))
         .map_err(|err| WgpuFlatAttentionError::Execution(format!("request_device: {err}")))?;
+
+        // M24 completion: static capability requirements are checked BEFORE
+        // pipeline creation. The portable scalar path is mandatory; the
+        // subgroup/vec4/double-buffer variants are optional and degrade with
+        // explicit telemetry reasons when this device cannot host them.
+        let device_limits_early = adapter.limits();
+        let preflight_capabilities = RuntimeDeviceCapabilities {
+            max_workgroups_per_dimension: device_limits_early.max_compute_workgroups_per_dimension,
+            max_workgroup_size_x: device_limits_early.max_compute_workgroup_size_x,
+            max_workgroup_size_y: device_limits_early.max_compute_workgroup_size_y,
+            max_workgroup_size_z: device_limits_early.max_compute_workgroup_size_z,
+            max_workgroup_storage_bytes: device_limits_early.max_compute_workgroup_storage_size,
+            max_binding_entries: device_limits_early.max_bind_groups,
+            max_storage_buffer_binding_size: u32::try_from(
+                device_limits_early.max_storage_buffer_binding_size,
+            )
+            .unwrap_or(u32::MAX),
+            subgroup_supported,
+            subgroup_min_size,
+            subgroup_max_size,
+            f16_supported: adapter_features.contains(wgpu::Features::SHADER_F16),
+        };
+        kernel_prefilter::check_static(
+            &KernelConfig::PORTABLE_SCALAR.static_requirements(),
+            &preflight_capabilities,
+        )
+        .map_err(WgpuFlatAttentionError::Preflight)?;
+
+        let subgroup_static_supported = request_subgroup
+            && kernel_prefilter::check_static(
+                &KernelConfig::SUBGROUP_ASSISTED.static_requirements(),
+                &preflight_capabilities,
+            )
+            .is_ok();
+        if request_subgroup && !subgroup_static_supported && policy == WgpuSubgroupPolicy::Require {
+            return Err(WgpuFlatAttentionError::RequiredSubgroupUnavailable);
+        }
+        let request_subgroup = request_subgroup && subgroup_static_supported;
 
         let (pipeline, kernel_variant, fallback_reason) = if request_subgroup {
             match create_pipeline(
@@ -304,20 +479,64 @@ impl WgpuFlatAttention {
             )
         };
 
-        let vec4_pipeline = create_pipeline(
-            &device,
-            FLAT_FWD_VEC4_WGSL,
-            "flat-attention-forward-q4-vec4",
-        )
-        .map_err(|error| WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}")))?;
-        let double_buffer_pipeline = create_pipeline(
-            &device,
-            FLAT_FWD_DOUBLE_BUFFER_WGSL,
-            "flat-attention-forward-q4-double-buffer",
-        )
-        .map_err(|error| {
-            WgpuFlatAttentionError::Execution(format!("M7 double-buffer pipeline: {error}"))
-        })?;
+        let (vec4_pipeline, vec4_filtered_reason) = match kernel_prefilter::check_static(
+            &KernelConfig::PORTABLE_VEC4.static_requirements(),
+            &preflight_capabilities,
+        ) {
+            Ok(()) => (
+                Some(
+                    create_pipeline(
+                        &device,
+                        FLAT_FWD_VEC4_WGSL,
+                        "flat-attention-forward-q4-vec4",
+                    )
+                    .map_err(|error| {
+                        WgpuFlatAttentionError::Execution(format!("M6 vec4 pipeline: {error}"))
+                    })?,
+                ),
+                None,
+            ),
+            Err(rejection) => (
+                None,
+                Some(format!(
+                    "vec4 variant filtered before pipeline creation: {rejection}"
+                )),
+            ),
+        };
+        let (double_buffer_pipeline, double_buffer_filtered_reason) =
+            match kernel_prefilter::check_static(
+                &KernelConfig::DOUBLE_BUFFERED_VEC4.static_requirements(),
+                &preflight_capabilities,
+            ) {
+                Ok(()) if vectorization_enabled && vec4_pipeline.is_some() => (
+                    Some(
+                        create_pipeline(
+                            &device,
+                            FLAT_FWD_DOUBLE_BUFFER_WGSL,
+                            "flat-attention-forward-q4-double-buffer",
+                        )
+                        .map_err(|error| {
+                            WgpuFlatAttentionError::Execution(format!(
+                                "M7 double-buffer pipeline: {error}"
+                            ))
+                        })?,
+                    ),
+                    None,
+                ),
+                Ok(()) => (
+                    None,
+                    Some(
+                        "double-buffer variant inactive: requires an enabled vec4 realization"
+                            .to_string(),
+                    ),
+                ),
+                Err(rejection) => (
+                    None,
+                    Some(format!(
+                        "double-buffer variant filtered before pipeline creation: {rejection}"
+                    )),
+                ),
+            };
         let max_workgroups_per_dimension = device.limits().max_compute_workgroups_per_dimension;
         let device_limits = device.limits();
         let device_features = device.features();
@@ -345,6 +564,9 @@ impl WgpuFlatAttention {
                 pipeline,
                 vec4_pipeline,
                 double_buffer_pipeline,
+                vec4_filtered_reason,
+                double_buffer_filtered_reason,
+                pinned_candidate: None,
                 adapter_name,
                 device_fingerprint,
                 device_capabilities,
@@ -422,15 +644,34 @@ impl WgpuFlatAttention {
             .checked_mul(shape.heads)
             .ok_or(FlatAttentionError::ShapeOverflow)?;
         let selected = self.kernel_variant_for_head_dim(shape.head_dim);
+        let wants_vec4 = self.inner.vectorization_enabled && matches!(shape.head_dim, 64 | 128);
         let fallback_reason = self.inner.fallback_reason.clone().or_else(|| {
-            (self.inner.vectorization_enabled
+            if self.inner.vectorization_enabled
                 && selected == WgpuKernelVariant::Q4Portable
-                && !matches!(shape.head_dim, 64 | 128))
-            .then(|| {
-                format!(
+                && !matches!(shape.head_dim, 64 | 128)
+            {
+                // No vec4 machinery exists for this head dimension at all.
+                Some(format!(
                     "vec4 specialization unavailable for head_dim={}",
                     shape.head_dim
-                )
+                ))
+            } else if wants_vec4 && selected == WgpuKernelVariant::Q4Portable {
+                // The dimension has vec4 machinery, but the capability
+                // preflight filtered it before pipeline creation.
+                self.inner.vec4_filtered_reason.clone()
+            } else {
+                None
+            }
+            .or_else(|| {
+                (self.inner.double_buffering_enabled
+                    && self.inner.double_buffer_filtered_reason.is_some()
+                    && selected != WgpuKernelVariant::Q4Vec4DoubleBuffered)
+                    .then(|| {
+                        format!(
+                            "double-buffer specialization unavailable for head_dim={}",
+                            shape.head_dim
+                        )
+                    })
             })
         });
         Ok(RuntimeDispatchTelemetry {
@@ -466,13 +707,28 @@ impl WgpuFlatAttention {
             WgpuKernelVariant::Q4Subgroup
         } else if self.inner.double_buffering_enabled
             && self.inner.vectorization_enabled
+            && self.inner.double_buffer_pipeline.is_some()
             && matches!(head_dim, 64 | 128)
         {
             WgpuKernelVariant::Q4Vec4DoubleBuffered
-        } else if self.inner.vectorization_enabled && matches!(head_dim, 64 | 128) {
+        } else if self.inner.vectorization_enabled
+            && self.inner.vec4_pipeline.is_some()
+            && matches!(head_dim, 64 | 128)
+        {
             WgpuKernelVariant::Q4Vec4Portable
         } else {
             WgpuKernelVariant::Q4Portable
+        }
+    }
+
+    /// Whether a variant survived the capability preflight on this device.
+    #[must_use]
+    pub fn variant_available(&self, variant: WgpuKernelVariant) -> bool {
+        match variant {
+            WgpuKernelVariant::Q4Portable => true,
+            WgpuKernelVariant::Q4Vec4Portable => self.inner.vec4_pipeline.is_some(),
+            WgpuKernelVariant::Q4Vec4DoubleBuffered => self.inner.double_buffer_pipeline.is_some(),
+            WgpuKernelVariant::Q4Subgroup => self.inner.kernel_variant == variant,
         }
     }
 
@@ -648,17 +904,26 @@ impl WgpuFlatAttention {
     }
 
     fn pipeline_for_head_dim(&self, head_dim: usize) -> (&wgpu::ComputePipeline, &'static str) {
+        // Selection guarantees the chosen variant exists; the fallback arms
+        // are defensive only and preserve the qualified portable pipeline.
         match self.kernel_variant_for_head_dim(head_dim) {
             WgpuKernelVariant::Q4Subgroup => {
                 (&self.inner.pipeline, "flat-attention-forward-q4-subgroup")
             }
             WgpuKernelVariant::Q4Vec4DoubleBuffered => (
-                &self.inner.double_buffer_pipeline,
+                self.inner
+                    .double_buffer_pipeline
+                    .as_ref()
+                    .unwrap_or(&self.inner.pipeline),
                 "flat-attention-forward-q4-double-buffer",
             ),
-            WgpuKernelVariant::Q4Vec4Portable => {
-                (&self.inner.vec4_pipeline, "flat-attention-forward-q4-vec4")
-            }
+            WgpuKernelVariant::Q4Vec4Portable => (
+                self.inner
+                    .vec4_pipeline
+                    .as_ref()
+                    .unwrap_or(&self.inner.pipeline),
+                "flat-attention-forward-q4-vec4",
+            ),
             WgpuKernelVariant::Q4Portable => (&self.inner.pipeline, "flat-attention-forward-q4"),
         }
     }

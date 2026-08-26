@@ -6,6 +6,35 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Added opt-in runtime routing of tuned results: `with_kernel_candidate` pins
+  one qualified candidate into a dense Q4 context with strict semantics
+  (typed lifecycle refusal before device contact, typed unavailability
+  instead of silent substitution, no CPU fallback) and exposes the pinned
+  identity via `selected_candidate_id`. Device-qualified on physical Thor.
+- Added the correctness-gated autotuner core (M26): pluggable
+  correctness/timing surfaces with a validated bounded benchmark protocol,
+  per-candidate evidence records (measured vs typed rejections), a documented
+  deterministic rank order (median, then p95, then stable candidate id), an
+  explicit empty-outcome, and no silent fallbacks. A production transfer-
+  inclusive WGPU harness (oracle parity gate plus forward-path timing,
+  identical boundary across candidates) enables real-device sessions; the
+  dense Q4 context now requests exactly the five bind groups its kernel
+  contract requires so granted limits reflect true capability facts.
+- Added deterministic bounded candidate generation (M25): the registered
+  active dense-family realizations map `problem + capabilities + policy` to a
+  stably ordered candidate list with configuration-derived identities,
+  lifecycle eligibility (experimental opt-in only; rejected/retired
+  realizations are structurally absent), capability prefiltering, and a hard
+  per-call cap. Planning surface only: candidates carry static requirements,
+  never measured performance, and nothing routes through them yet.
+- Completed the M24 capability prefilter: configuration-static requirements
+  are now checked against explicit device limits BEFORE pipeline creation in
+  the dense Q4 context, with typed `CapabilityRejection` reasons. Optional
+  vec4/double-buffer pipelines degrade to the qualified portable path with
+  explicit telemetry reasons instead of opaque backend failures, and new
+  availability accessors expose what survived the preflight. The device
+  identity/capability/telemetry model moved to a host-side module so
+  prefiltering and candidate planning run without a GPU runtime.
 - Added deterministic WGSL emission from the FLAT Kernel IR for the dense Q4
   forward realizations (scalar, vec4, double-buffered, subgroup-assisted).
   Generated sources are byte-deterministic under an explicit codegen version,
