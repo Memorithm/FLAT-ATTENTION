@@ -394,7 +394,7 @@ fn realization_identity(candidate: &FlatKernelCandidate) -> String {
 fn workload_fingerprint(problem: &AttentionProblem) -> Fingerprint {
     Fingerprint::EMPTY
         .text(WORKLOAD_FINGERPRINT_DOMAIN)
-        .text(problem.canonical_record())
+        .text(&problem.canonical_record())
 }
 
 #[cfg(test)]
