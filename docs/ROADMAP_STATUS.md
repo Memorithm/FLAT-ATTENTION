@@ -74,8 +74,8 @@ alone never implies DONE.
 |---|---|---|
 | M20 FLAT Kernel IR | **MISSING** | No internal kernel IR exists on `main`; kernel structure is tied to handwritten WGSL text plus runtime enums (`RuntimeKernelId`, `WgpuKernelVariant`). Required: typed IR, validation, deterministic normalization/versioning/fingerprint, capability requirements, faithful representation of a qualified forward architecture. |
 | M21 portable WGSL emitter | **MISSING** | No IR-to-WGSL generator exists. Required: deterministic emission, source hashing/cache key, Naga validation, generated-vs-handwritten parity. |
-| M22 open cooperative/subgroup-matrix research gate | **MISSING** (gate not yet executed) | No capability inventory or feasibility record exists in `docs/`. wgpu 30 exposes no cooperative/subgroup-matrix feature flag (verified against `wgpu-types 30.0.x`); the gate must still be documented with specification sources before any roadmap status can change. |
-| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (pending M22 outcome) | No executable open matrix path is currently exposed by the runtime; scheduler work has no backend semantics to target. |
+| M22 open cooperative/subgroup-matrix research gate | **BLOCKED_BY_PLATFORM_CAPABILITY** (research outcome documented) | `docs/M22_OPEN_MATRIX_RESEARCH.md`: WGSL subgroup-matrix is a merged spec *proposal* still in design iteration; Dawn's implementation is experimental/unsafe-gated with D3D unsupported; Naga has experimental coop-mat IR but wgpu 30 exposes no feature flag or capability query, so FLAT's mandatory validate→pipeline→device chain has no portable executable path. IR extension point reserved. |
+| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (behind M22) | Interface reservation recorded in the M22 document; no backend semantics to target yet. |
 
 ## Phase I — autotuning (M24–M26)
 
