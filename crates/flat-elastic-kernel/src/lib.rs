@@ -70,7 +70,9 @@ impl fmt::Display for AdapterError {
             Self::ElasticCandidate(message) => {
                 write!(f, "Elastic candidate adaptation failed: {message}")
             }
-            Self::InvalidElasticIdentity => write!(f, "adapter-generated Elastic identity is invalid"),
+            Self::InvalidElasticIdentity => {
+                write!(f, "adapter-generated Elastic identity is invalid")
+            }
             Self::InvalidTimingEvidence => write!(f, "FLAT timing evidence is invalid"),
             Self::IntegerOverflow => write!(f, "adapter integer conversion overflowed"),
         }
@@ -233,13 +235,7 @@ pub fn generate_and_plan(
     elastic_policy: &ElasticSelectionPolicy,
 ) -> Result<AdapterPlan, AdapterError> {
     let candidates = generate_candidates(problem, capabilities, flat_policy);
-    plan_adapted(
-        problem,
-        capabilities,
-        &candidates,
-        tuning,
-        elastic_policy,
-    )
+    plan_adapted(problem, capabilities, &candidates, tuning, elastic_policy)
 }
 
 fn adapt_candidate(
@@ -369,9 +365,7 @@ fn workload_fingerprint(problem: &AttentionProblem) -> Fingerprint {
 mod tests {
     use super::*;
     use elastic_kernel::{DecisiveEvidence, Feature, RejectedReason};
-    use flat_attention::kernel_autotune::{
-        CorrectnessOutcome, MeasurementRejection, TimingSample,
-    };
+    use flat_attention::kernel_autotune::{CorrectnessOutcome, MeasurementRejection, TimingSample};
     use flat_attention::kernel_ir::ScoreReduction;
 
     fn problem() -> AttentionProblem {
@@ -408,15 +402,14 @@ mod tests {
             .iter()
             .copied()
             .map(|candidate| {
-                let median_us = if candidate.config.score_reduction
-                    == ScoreReduction::SubgroupAssisted
-                {
-                    40.0
-                } else if candidate.config.vector_width.components() == 4 {
-                    60.0
-                } else {
-                    100.0
-                };
+                let median_us =
+                    if candidate.config.score_reduction == ScoreReduction::SubgroupAssisted {
+                        40.0
+                    } else if candidate.config.vector_width.components() == 4 {
+                        60.0
+                    } else {
+                        100.0
+                    };
                 (
                     candidate,
                     CandidateEvidence::Measured {
@@ -442,7 +435,10 @@ mod tests {
             snapshot.feature_support(Feature::MatrixOps),
             FeatureSupport::Unknown
         );
-        assert_eq!(snapshot.feature_support(Feature::ShaderF16), FeatureSupport::Known(true));
+        assert_eq!(
+            snapshot.feature_support(Feature::ShaderF16),
+            FeatureSupport::Known(true)
+        );
     }
 
     #[test]
@@ -459,9 +455,6 @@ mod tests {
             ScoreReduction::SubgroupAssisted
         );
 
-        // Offer the exact same candidate set to a profile without subgroup
-        // support. The generic Elastic planner must reject the subgroup
-        // realization and select the next measured legal candidate.
         let portable = plan_adapted(
             &problem(),
             &caps(false),
@@ -556,8 +549,14 @@ mod tests {
         };
         let policy = latency_policy(false).expect("policy");
         assert_eq!(
-            plan_adapted(&problem(), &caps(true), &[candidate], Some(&tuning), &policy)
-                .expect_err("NaN evidence must fail"),
+            plan_adapted(
+                &problem(),
+                &caps(true),
+                &[candidate],
+                Some(&tuning),
+                &policy
+            )
+            .expect_err("NaN evidence must fail"),
             AdapterError::InvalidTimingEvidence
         );
     }
