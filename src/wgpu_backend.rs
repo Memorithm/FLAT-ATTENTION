@@ -10,6 +10,7 @@ use super::wgpu_internal;
 use std::fmt;
 use std::sync::{mpsc, Arc};
 
+use super::kernel_candidates::{CandidateLifecycle, KernelCandidate};
 use super::kernel_ir::KernelConfig;
 use super::kernel_prefilter::{self, CapabilityRejection};
 use super::{
@@ -64,6 +65,14 @@ pub enum WgpuFlatAttentionError {
     },
     ForeignBuffer,
     Preflight(CapabilityRejection),
+    CandidateNotEligible {
+        candidate_id: u64,
+        lifecycle: &'static str,
+    },
+    CandidateUnavailable {
+        candidate_id: u64,
+        reason: String,
+    },
     ResidentLength {
         tensor: &'static str,
         actual: usize,
@@ -106,8 +115,22 @@ impl fmt::Display for WgpuFlatAttentionError {
             ),
             Self::ForeignBuffer => write!(f, "resident buffer belongs to a different WGPU context"),
             Self::Preflight(rejection) => {
-                write!(f, "capability preflight rejected the kernel configuration: {rejection}")
+                write!(
+                    f,
+                    "capability preflight rejected the kernel configuration: {rejection}"
+                )
             }
+            Self::CandidateNotEligible {
+                candidate_id,
+                lifecycle,
+            } => write!(
+                f,
+                "candidate {candidate_id:016x} has lifecycle {lifecycle} and is not eligible for default routing"
+            ),
+            Self::CandidateUnavailable { candidate_id, reason } => write!(
+                f,
+                "candidate {candidate_id:016x} is unavailable on this device: {reason}"
+            ),
             Self::ResidentLength {
                 tensor,
                 actual,
@@ -183,6 +206,7 @@ impl WgpuResidentAttentionOutput {
     }
 }
 
+#[derive(Clone)]
 struct WgpuFlatAttentionInner {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -193,6 +217,9 @@ struct WgpuFlatAttentionInner {
     vec4_filtered_reason: Option<String>,
     /// Why the double-buffer variant was capability-filtered, if it was.
     double_buffer_filtered_reason: Option<String>,
+    /// Candidate identity when this context was pinned through
+    /// [`WgpuFlatAttention::with_kernel_candidate`].
+    pinned_candidate: Option<u64>,
     adapter_name: String,
     device_fingerprint: RuntimeDeviceFingerprint,
     device_capabilities: RuntimeDeviceCapabilities,
@@ -226,6 +253,97 @@ impl WgpuFlatAttention {
         policy: WgpuSubgroupPolicy,
     ) -> Result<Self, WgpuFlatAttentionError> {
         Self::with_subgroup_vectorization_and_double_buffering(policy, true, false)
+    }
+
+    /// Construct a context pinned to one qualified kernel candidate.
+    ///
+    /// This is the opt-in routing surface for tuned results: callers obtain a
+    /// candidate from deterministic generation or an autotuning session and
+    /// pin it explicitly. Semantics:
+    ///
+    /// - only [`CandidateLifecycle::Qualified`] candidates are eligible;
+    ///   anything else is rejected with a typed error **before** any device
+    ///   contact;
+    /// - if the device cannot host the candidate, construction fails with a
+    ///   typed error instead of silently substituting another realization;
+    /// - no CPU fallback exists anywhere behind this constructor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WgpuFlatAttentionError::CandidateNotEligible`] for
+    /// non-qualified lifecycles, [`WgpuFlatAttentionError::Preflight`] when
+    /// the portable floor is unavailable, and
+    /// [`WgpuFlatAttentionError::CandidateUnavailable`] when the specific
+    /// candidate cannot be hosted on this device.
+    pub fn with_kernel_candidate(
+        candidate: &KernelCandidate,
+    ) -> Result<Self, WgpuFlatAttentionError> {
+        if candidate.lifecycle != CandidateLifecycle::Qualified {
+            return Err(WgpuFlatAttentionError::CandidateNotEligible {
+                candidate_id: candidate.id.get(),
+                lifecycle: match candidate.lifecycle {
+                    CandidateLifecycle::Qualified => "qualified",
+                    CandidateLifecycle::Experimental => "experimental",
+                },
+            });
+        }
+        use super::kernel_ir::{KvStaging, ScoreReduction, VectorWidth};
+        let (policy, vectorization, double_buffering) =
+            if candidate.config.score_reduction == ScoreReduction::SubgroupAssisted {
+                (WgpuSubgroupPolicy::Require, false, false)
+            } else {
+                (
+                    WgpuSubgroupPolicy::Disable,
+                    candidate.config.vector_width == VectorWidth::Vec4,
+                    candidate.config.kv_staging == KvStaging::DoubleBuffered,
+                )
+            };
+        let context = Self::with_subgroup_vectorization_and_double_buffering(
+            policy,
+            vectorization,
+            double_buffering,
+        )?;
+        let inner = &context.inner;
+        let requested_subgroup =
+            candidate.config.score_reduction == super::kernel_ir::ScoreReduction::SubgroupAssisted;
+        let hosted = if requested_subgroup {
+            // Subgroup selection has priority; Require policy guarantees it
+            // or failed construction above.
+            inner.kernel_variant == WgpuKernelVariant::Q4Subgroup
+        } else {
+            match candidate.runtime_kernel_id() {
+                Some(RuntimeKernelId::Q4Vec4Portable) => inner.vec4_pipeline.is_some(),
+                Some(RuntimeKernelId::Q4Vec4DoubleBuffered) => {
+                    inner.double_buffer_pipeline.is_some()
+                }
+                _ => true,
+            }
+        };
+        if !hosted {
+            return Err(WgpuFlatAttentionError::CandidateUnavailable {
+                candidate_id: candidate.id.get(),
+                reason: inner
+                    .vec4_filtered_reason
+                    .clone()
+                    .or_else(|| inner.double_buffer_filtered_reason.clone())
+                    .unwrap_or_else(|| {
+                        "required subgroup realization was not selected".to_string()
+                    }),
+            });
+        }
+        Ok(Self {
+            inner: Arc::new(WgpuFlatAttentionInner {
+                pinned_candidate: Some(candidate.id.get()),
+                ..inner.as_ref().clone()
+            }),
+        })
+    }
+
+    /// Identity of the pinned routing candidate, if this context was created
+    /// through [`Self::with_kernel_candidate`].
+    #[must_use]
+    pub fn selected_candidate_id(&self) -> Option<u64> {
+        self.inner.pinned_candidate
     }
 
     pub fn with_subgroup_policy_and_vectorization(
@@ -448,6 +566,7 @@ impl WgpuFlatAttention {
                 double_buffer_pipeline,
                 vec4_filtered_reason,
                 double_buffer_filtered_reason,
+                pinned_candidate: None,
                 adapter_name,
                 device_fingerprint,
                 device_capabilities,
