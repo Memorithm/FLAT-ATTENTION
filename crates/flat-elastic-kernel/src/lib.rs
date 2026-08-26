@@ -16,9 +16,9 @@
 use elastic_core::{BuiltinObjective, ContractId, LogicalResourceId, ObjectiveId};
 use elastic_eir::Fingerprint;
 use elastic_kernel::{
-    plan, BindingLimits, CapabilitySnapshot, Evidence, EvidenceUnit, FeatureRequirement,
-    FeatureSupport, KernelCandidate as ElasticKernelCandidate, KernelRequirements,
-    MeasuredQuantity, ObjectiveEvidence, RealizationIdentity, SelectionOutcome,
+    plan, BindingLimits, CapabilityRejectionReason, CapabilitySnapshot, DispatchGrid, Evidence,
+    EvidenceUnit, FeatureRequirement, FeatureSupport, KernelCandidate as ElasticKernelCandidate,
+    KernelRequirements, MeasuredQuantity, ObjectiveEvidence, RealizationIdentity, SelectionOutcome,
     SelectionPolicy as ElasticSelectionPolicy, SubgroupSupport, WorkgroupLimits,
 };
 use flat_attention::kernel_autotune::{CandidateEvidence, SelectionRecord as FlatTuningRecord};
@@ -31,9 +31,9 @@ use flat_attention::RuntimeDeviceCapabilities;
 use std::fmt;
 
 /// Exact ElasticXxx revision this adapter was compiled and reviewed against.
-pub const ELASTICXXX_REVISION: &str = "90b453d0d4357eee99817a42cc160bd94c279519";
-/// Adapter schema. Bump when identity/evidence translation semantics change.
-pub const ADAPTER_SCHEMA_VERSION: u32 = 1;
+pub const ELASTICXXX_REVISION: &str = "b20e062c091ed82f51ddd690053490be60fda5c7";
+/// Adapter schema. Bump when identity/evidence/capability translation semantics change.
+pub const ADAPTER_SCHEMA_VERSION: u32 = 2;
 /// Version tag attached to latency evidence translated from FLAT M26 records.
 pub const FLAT_M26_EVIDENCE_PROTOCOL_VERSION: u32 = 1;
 
@@ -81,15 +81,33 @@ impl fmt::Display for AdapterError {
 
 impl std::error::Error for AdapterError {}
 
+/// One workload-dependent dispatch rejection performed by the bridge before
+/// generic Elastic candidate selection.
+///
+/// `DispatchGrid` is intentionally separate from intrinsic
+/// [`KernelRequirements`], so these rejections are preserved explicitly here
+/// instead of being hidden or mislabeled as static candidate requirements.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DispatchRejection {
+    /// Stable Elastic realization identity of the rejected FLAT candidate.
+    pub realization: String,
+    /// Typed Elastic capability reason.
+    pub reason: CapabilityRejectionReason,
+}
+
 /// Result of one Elastic selection over a stable FLAT candidate set.
 #[derive(Debug, Clone)]
 pub struct AdapterPlan {
     /// Candidates offered at the FLAT boundary, in deterministic FLAT order.
     pub flat_candidates: Vec<FlatKernelCandidate>,
     /// Candidates actually offered to Elastic after explicit M26 correctness
-    /// rejections are removed.
+    /// rejections and workload dispatch-grid rejections are removed.
     pub elastic_candidates: Vec<ElasticKernelCandidate>,
-    /// Generic Elastic selection result, including rejection/evidence record.
+    /// Workload-dependent dispatch rejections performed before generic
+    /// selection, in deterministic FLAT candidate order.
+    pub dispatch_rejections: Vec<DispatchRejection>,
+    /// Generic Elastic selection result, including its own static capability
+    /// rejection/evidence record for the candidates it received.
     pub selection: SelectionOutcome,
 }
 
@@ -179,6 +197,9 @@ pub fn latency_policy(
 /// Supplying an M26 tuning record attaches real measured latency evidence.
 /// Candidates explicitly rejected by the M26 correctness/timing pipeline are
 /// not offered to Elastic; absence of a measurement remains `Unknown`.
+/// Workload-dependent dispatch grids are validated against the same Elastic
+/// capability snapshot before selection and retained as typed bridge-level
+/// rejections when they exceed a boundary.
 pub fn plan_adapted(
     problem: &AttentionProblem,
     capabilities: &RuntimeDeviceCapabilities,
@@ -190,6 +211,7 @@ pub fn plan_adapted(
     let logical_resource_id = logical_resource_id(problem)?;
     let workload = workload_fingerprint(problem);
     let mut elastic_candidates = Vec::with_capacity(flat_candidates.len());
+    let mut dispatch_rejections = Vec::new();
 
     for candidate in flat_candidates {
         let Some(evidence) = evidence_for_candidate(candidate, tuning)? else {
@@ -197,12 +219,16 @@ pub fn plan_adapted(
             // of the candidate's admissibility, not merely missing evidence.
             continue;
         };
-        elastic_candidates.push(adapt_candidate(
-            problem,
-            candidate,
-            logical_resource_id.clone(),
-            evidence,
-        )?);
+        let (elastic_candidate, dispatch_grid) =
+            adapt_candidate(problem, candidate, logical_resource_id.clone(), evidence)?;
+        if let Err(reason) = dispatch_grid.check_against(&snapshot) {
+            dispatch_rejections.push(DispatchRejection {
+                realization: realization_identity(candidate),
+                reason,
+            });
+            continue;
+        }
+        elastic_candidates.push(elastic_candidate);
     }
 
     let selection = plan(
@@ -216,6 +242,7 @@ pub fn plan_adapted(
     Ok(AdapterPlan {
         flat_candidates: flat_candidates.to_vec(),
         elastic_candidates,
+        dispatch_rejections,
         selection,
     })
 }
@@ -243,7 +270,7 @@ fn adapt_candidate(
     candidate: &FlatKernelCandidate,
     logical_resource_id: LogicalResourceId,
     evidence: ObjectiveEvidence,
-) -> Result<ElasticKernelCandidate, AdapterError> {
+) -> Result<(ElasticKernelCandidate, DispatchGrid), AdapterError> {
     let module = candidate
         .module_for(problem)
         .map_err(|error| AdapterError::FlatKernel(error.to_string()))?;
@@ -281,7 +308,7 @@ fn adapt_candidate(
         matrix_ops: FeatureRequirement::NotRequired,
     };
 
-    ElasticKernelCandidate::new(
+    let elastic_candidate = ElasticKernelCandidate::new(
         logical_resource_id,
         RealizationIdentity::new(realization_identity(candidate))
             .map_err(|_| AdapterError::InvalidElasticIdentity)?,
@@ -290,7 +317,12 @@ fn adapt_candidate(
         contract_id()?,
         evidence,
     )
-    .map_err(|error| AdapterError::ElasticCandidate(error.to_string()))
+    .map_err(|error| AdapterError::ElasticCandidate(error.to_string()))?;
+
+    Ok((
+        elastic_candidate,
+        DispatchGrid::new(resources.dispatch_extents),
+    ))
 }
 
 fn evidence_for_candidate(
@@ -358,7 +390,7 @@ fn realization_identity(candidate: &FlatKernelCandidate) -> String {
 fn workload_fingerprint(problem: &AttentionProblem) -> Fingerprint {
     Fingerprint::EMPTY
         .text(WORKLOAD_FINGERPRINT_DOMAIN)
-        .text(problem.canonical_record())
+        .text(&problem.canonical_record())
 }
 
 #[cfg(test)]
@@ -454,6 +486,7 @@ mod tests {
             rich_selected.config.score_reduction,
             ScoreReduction::SubgroupAssisted
         );
+        assert!(rich.dispatch_rejections.is_empty());
 
         let portable = plan_adapted(
             &problem(),
@@ -481,6 +514,42 @@ mod tests {
                 elastic_kernel::CapabilityRejectionReason::SubgroupUnsupported
             )
         )));
+    }
+
+    #[test]
+    fn dispatch_grid_exact_boundary_is_admitted_and_limit_minus_one_is_rejected() {
+        let candidate = candidates().into_iter().next().expect("candidate");
+        let policy = latency_policy(true).expect("policy");
+
+        let mut exact = caps(true);
+        exact.max_workgroups_per_dimension = 32;
+        let exact_plan = plan_adapted(&problem(), &exact, &[candidate], None, &policy)
+            .expect("exact boundary plan");
+        assert!(exact_plan.dispatch_rejections.is_empty());
+        assert_eq!(exact_plan.elastic_candidates.len(), 1);
+        assert!(matches!(
+            exact_plan.selection,
+            SelectionOutcome::Selected(_)
+        ));
+
+        let mut too_small = exact;
+        too_small.max_workgroups_per_dimension = 31;
+        let rejected = plan_adapted(&problem(), &too_small, &[candidate], None, &policy)
+            .expect("typed dispatch rejection plan");
+        assert!(rejected.elastic_candidates.is_empty());
+        assert_eq!(rejected.dispatch_rejections.len(), 1);
+        assert_eq!(
+            rejected.dispatch_rejections[0].reason,
+            CapabilityRejectionReason::DispatchGridExceeded {
+                axis: 0,
+                required_workgroups: 32,
+                available_workgroups: 31,
+            }
+        );
+        assert!(matches!(
+            rejected.selection,
+            SelectionOutcome::NoCandidate { offered: 0, .. }
+        ));
     }
 
     #[test]
