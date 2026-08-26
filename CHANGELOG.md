@@ -6,6 +6,14 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ### Kernel compilation platform
 
+- Added deterministic WGSL emission from the FLAT Kernel IR for the dense Q4
+  forward realizations (scalar, vec4, double-buffered, subgroup-assisted).
+  Generated sources are byte-deterministic under an explicit codegen version,
+  bounded by a hard generation budget, preserve the handwritten binding/uniform
+  contract exactly, and are qualified by new Naga parse/validation gates plus
+  device-level oracle and generated-vs-handwritten parity suites. Emission is
+  compiler infrastructure only: no runtime routing changes and no performance
+  claim; generated sources are not selected by any production path yet.
 - Added the experimental `kernel_ir` module: a validated, host-only FLAT Kernel
   IR for the qualified dense Q4 forward family, separating the semantic
   attention problem from tuning configuration, rejecting configurations

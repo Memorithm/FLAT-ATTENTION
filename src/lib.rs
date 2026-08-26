@@ -21,6 +21,11 @@ mod fingerprint;
 /// runtime routing and makes no performance claim.
 pub mod kernel_ir;
 
+/// Deterministic WGSL emission from the FLAT Kernel IR. Compiler
+/// infrastructure; generated sources require Naga/device qualification before
+/// any routing use and carry no performance claim.
+pub mod kernel_wgsl;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
