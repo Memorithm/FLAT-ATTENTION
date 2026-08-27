@@ -38,3 +38,17 @@ path = "fuzz_targets/api_v1_contract.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "kernel_ir"
+path = "fuzz_targets/kernel_ir.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tuning_cache"
+path = "fuzz_targets/tuning_cache.rs"
+test = false
+doc = false
+bench = false

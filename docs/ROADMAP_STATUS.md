@@ -70,12 +70,14 @@ alone never implies DONE.
 
 ## Phase H — code generation and matrix engines (M20–M23)
 
-| Milestone | Status | Missing elements / notes |
+Status after the kernel-architecture series (#115/#116/#120):
+
+| Milestone | Status | Evidence / remaining notes |
 |---|---|---|
-| M20 FLAT Kernel IR | **MISSING** | No internal kernel IR exists on `main`; kernel structure is tied to handwritten WGSL text plus runtime enums (`RuntimeKernelId`, `WgpuKernelVariant`). Required: typed IR, validation, deterministic normalization/versioning/fingerprint, capability requirements, faithful representation of a qualified forward architecture. |
-| M21 portable WGSL emitter | **MISSING** | No IR-to-WGSL generator exists. Required: deterministic emission, source hashing/cache key, Naga validation, generated-vs-handwritten parity. |
-| M22 open cooperative/subgroup-matrix research gate | **MISSING** (gate not yet executed) | No capability inventory or feasibility record exists in `docs/`. wgpu 30 exposes no cooperative/subgroup-matrix feature flag (verified against `wgpu-types 30.0.x`); the gate must still be documented with specification sources before any roadmap status can change. |
-| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (pending M22 outcome) | No executable open matrix path is currently exposed by the runtime; scheduler work has no backend semantics to target. |
+| M20 FLAT Kernel IR | DONE (implementation + correctness qualification; routing integration pending by design) | `src/kernel_ir.rs`: validated dense-Q4 problem/config separation, closed tuning enumerations over real executable machinery, checked resources/dispatch math, staged/tile pairing enforced structurally, versioned canonical records + FNV-1a-64 identities; 15 unit tests pinning handwritten-array footprints |
+| M21 portable WGSL emitter | DONE (implementation + correctness qualification; not production-routed) | `src/kernel_wgsl.rs`: byte-deterministic emission for scalar/vec4/double-buffer/subgroup realizations under `CodegenVersion`, bounded by a hard budget; `tests/kernel_codegen.rs` Naga gates (incl. SUBGROUP capability); `tests/kernel_codegen_device.rs` proves validation-scoped pipeline creation plus O/LSE parity vs oracle and vs each handwritten counterpart on a live adapter (executed on physical Jetson Thor during development) |
+| M22 open cooperative/subgroup-matrix research gate | **BLOCKED_BY_PLATFORM_CAPABILITY** (research outcome documented) | `docs/M22_OPEN_MATRIX_RESEARCH.md`: WGSL subgroup-matrix is a merged spec *proposal* still in design iteration; Dawn's implementation is experimental/unsafe-gated with D3D unsupported; Naga has experimental coop-mat IR but wgpu 30 exposes no feature flag or capability query, so FLAT's mandatory validate→pipeline→device chain has no portable executable path. IR extension point reserved. |
+| M23 matrix fragment scheduler | **BLOCKED_BY_PLATFORM_CAPABILITY** (behind M22) | Interface reservation recorded in the M22 document; no backend semantics to target yet. |
 
 ## Phase I — autotuning (M24–M26)
 
@@ -85,7 +87,7 @@ Status after the kernel-architecture series (#117/#118/#119):
 |---|---|---|
 | M24 device capability model | DONE | Deterministic identity/limits model (`device_model`, host-side since #117) plus completed pre-pipeline filtering: `kernel_prefilter` checks configuration-static and problem-derived facts against explicit limits with typed rejections; dense Q4 construction requests exactly the five bind groups its contract requires (physical Thor previously granted 4 while executing the layouts, masking the fact). Boundary tests at limit and limit-1 for every rejection reason. |
 | M25 deterministic candidate generator | DONE | `src/kernel_candidates.rs`: fixed registry of active dense-family realizations (qualified scalar/vec4/subgroup; experimental double-buffer opt-in; rejected/retired structurally absent), lifecycle policy, problem executability, capability pruning, total order `(lifecycle rank, CandidateId)`, hard truncation cap; e2e host flow through emitted-and-Naga-validated sources. |
-| M26 benchmark-driven autotuner | DONE core; persistent cache OBSOLETE_OR_SUPERSEDED (SciRust ElasticAutoTuner owns persistence per guide §6) | `src/kernel_autotune.rs`: correctness-gate-before-timing, validated bounded protocol, per-candidate evidence with typed rejections, documented deterministic ranking (median → p95 → stable id), explicit empty outcomes; `src/kernel_autotune_wgpu.rs` production oracle-parity gate + transfer-inclusive timing harness (identical boundary across candidates); two live tuning sessions executed on physical Jetson Thor during development with structural-equality determinism assertions (`tests/kernel_autotune_device.rs`). Selection evidence records carry everything an external cache owner needs; nothing routes through tuned results yet. |
+| M26 benchmark-driven autotuner | DONE | `src/kernel_autotune.rs` + `src/kernel_autotune_wgpu.rs` + `src/kernel_cache.rs`: correctness-gate-before-timing, validated bounded protocol, per-candidate evidence with typed rejections, deterministic ranking (median → p95 → stable id), explicit empty outcomes; production oracle-parity gate + transfer-inclusive harness; safe persistent cache (`kernel_cache`) with schema versioning, bounded parsing, corruption handling, and atomic writes; also usable as advisory cache for FLAT's own evidence (SciRust ElasticAutoTuner may use its own format for integration). Two live tuning sessions on physical Thor. |
 
 ## Phase J — benchmarks and observability (M27–M29)
 
@@ -118,7 +120,7 @@ Status after the kernel-architecture series (#117/#118/#119):
 | Milestone | Status | Evidence |
 |---|---|---|
 | M38 property/stress | DONE | `tests/m38_property_stress.rs`, `docs/M38_PROPERTY_STRESS.md` |
-| M39 host fuzzing | DONE | `fuzz/` targets (shape/oracle, paged-KV state machine, api::v1), weekly deep session + per-PR sessions, CodeQL |
+| M39 host fuzzing | DONE | `fuzz/` targets (shape/oracle, paged-KV state machine, api::v1, **kernel_ir**, **tuning_cache**), weekly deep session + per-PR sessions, CodeQL |
 | M40 benchmark manifests | DONE | `src/benchmark_manifest.rs`, `docs/M40_BENCHMARK_MANIFESTS.md` |
 
 ## Phase N — productization (M41–M43)
@@ -147,7 +149,7 @@ standing process.
 | No N×N probability storage | DONE | streaming/recompute construction, allocation accounting examples |
 | Mixed-precision path where supported | DONE | packed-f16 family |
 | Portable WGPU execution | DONE | three-platform portability gates |
-| Autotuned tiled kernels | **MISSING** | requires M20/M21/M25/M26 core |
+| Autotuned tiled kernels | DONE (architecture) — `kernel_ir` + `kernel_wgsl` + `kernel_candidates` + `kernel_autotune` + `kernel_cache` + opt-in `with_kernel_candidate` routing; M22/M23 blocked by platform | `src/kernel_*.rs`, `tests/kernel_*.rs`, `tests/kernel_codegen_device.rs`, `tests/kernel_autotune_device.rs` |
 | SciRust integration | DONE (exact-head pin check outstanding) | release checklist item |
 | SciAgent prefill/decode integration | PARTIAL | decode/KV lifecycle gate on release revision outstanding (external) |
 | Reproducible benchmark suite | DONE | M27/M40 harnesses |
