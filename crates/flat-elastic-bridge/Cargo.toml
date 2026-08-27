@@ -1,0 +1,20 @@
+[package]
+name = "flat-elastic-bridge"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Adapter translating FLAT-ATTENTION kernel candidates into generic Elastic kernel-planning contracts"
+repository = "https://github.com/Memorithm/FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../.." }
+elastic-core = { git = "https://github.com/Memorithm/ElasticXxx", rev = "f2b32bc" }
+elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx", rev = "f2b32bc" }
+elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx", rev = "f2b32bc" }
+
+[features]
+default = ["std"]
+std = []
+wgpu = ["flat-attention/wgpu"]

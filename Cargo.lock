@@ -161,6 +161,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "elastic-core"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx?rev=f2b32bc#f2b32bc257965e23c07e3a753873de3cf38a3164"
+
+[[package]]
+name = "elastic-eir"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx?rev=f2b32bc#f2b32bc257965e23c07e3a753873de3cf38a3164"
+dependencies = [
+ "elastic-core",
+]
+
+[[package]]
+name = "elastic-kernel"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ElasticXxx?rev=f2b32bc#f2b32bc257965e23c07e3a753873de3cf38a3164"
+dependencies = [
+ "elastic-core",
+ "elastic-eir",
+]
+
+[[package]]
 name = "epg-core"
 version = "0.1.0"
 
@@ -189,6 +211,16 @@ dependencies = [
  "ordered-float",
  "pollster",
  "wgpu",
+]
+
+[[package]]
+name = "flat-elastic-bridge"
+version = "0.1.0"
+dependencies = [
+ "elastic-core",
+ "elastic-eir",
+ "elastic-kernel",
+ "flat-attention",
 ]
 
 [[package]]
