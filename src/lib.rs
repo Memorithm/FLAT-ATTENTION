@@ -45,6 +45,10 @@ mod kernel_autotune_wgpu;
 #[cfg(feature = "wgpu")]
 pub use kernel_autotune_wgpu::{probe_capabilities, OracleParityGate, ResidentForwardHarness};
 
+/// Safe persistent tuning cache for autotuning evidence (advisory, not
+/// authoritative). Corruption or staleness invalidates entries safely.
+pub mod kernel_cache;
+
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
