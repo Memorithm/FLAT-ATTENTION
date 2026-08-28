@@ -49,11 +49,7 @@ pub struct ExecutionBinding {
 impl ExecutionBinding {
     /// Construct one semantic/runtime compatibility assertion.
     #[must_use]
-    pub const fn new(
-        semantic: SemanticId,
-        role: ExecutionRole,
-        kernel: RuntimeKernelId,
-    ) -> Self {
+    pub const fn new(semantic: SemanticId, role: ExecutionRole, kernel: RuntimeKernelId) -> Self {
         Self {
             semantic,
             role,
@@ -159,7 +155,11 @@ pub fn standard_softmax_runtime_catalog() -> SemanticExecutionCatalog {
     let semantic = SemanticId::new(SemanticFamily::StandardSoftmax, "standard-softmax", 1)
         .expect("the built-in StandardSoftmax v1 identity is valid");
     SemanticExecutionCatalog::new([
-        ExecutionBinding::new(semantic.clone(), ExecutionRole::Forward, RuntimeKernelId::Q4Portable),
+        ExecutionBinding::new(
+            semantic.clone(),
+            ExecutionRole::Forward,
+            RuntimeKernelId::Q4Portable,
+        ),
         ExecutionBinding::new(
             semantic.clone(),
             ExecutionRole::Forward,
@@ -170,7 +170,11 @@ pub fn standard_softmax_runtime_catalog() -> SemanticExecutionCatalog {
             ExecutionRole::Forward,
             RuntimeKernelId::Q4Vec4DoubleBuffered,
         ),
-        ExecutionBinding::new(semantic.clone(), ExecutionRole::Forward, RuntimeKernelId::Q4Subgroup),
+        ExecutionBinding::new(
+            semantic.clone(),
+            ExecutionRole::Forward,
+            RuntimeKernelId::Q4Subgroup,
+        ),
         ExecutionBinding::new(
             semantic.clone(),
             ExecutionRole::Forward,
