@@ -22,7 +22,7 @@ use ada_semantic::{
     AffinityRule, InputTransform, MaskRule, OutputRule, SelectionRule, ValueMixRule, WeightRule,
 };
 use ada_workload::{AttentionTopology, HeadGrouping};
-use flat_attention::{AttentionShape, FlatAttentionConfig, forward_reference};
+use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig};
 
 /// Caller-owned numerical allowance for the explicit ADA-f64 to FLAT-f32
 /// integration comparison.
@@ -263,8 +263,7 @@ pub fn import_and_verify(
                 tolerance_bits: parity.max_abs_difference.to_bits(),
             });
         }
-        flat_worst_max_abs_difference =
-            flat_worst_max_abs_difference.max(max_abs_difference);
+        flat_worst_max_abs_difference = flat_worst_max_abs_difference.max(max_abs_difference);
     }
 
     let report = FlatParityReport {
@@ -293,7 +292,8 @@ fn validate_bridge_contract(bundle: &FlatGraduationBundle) -> Result<(), Graduat
             "weighting must be ordinary softmax".into(),
         ));
     }
-    if semantic.value_mix() != ValueMixRule::WeightedSum || semantic.output() != OutputRule::Identity
+    if semantic.value_mix() != ValueMixRule::WeightedSum
+        || semantic.output() != OutputRule::Identity
     {
         return Err(GraduationImportError::UnsupportedSemantic(
             "value mixing/output must be weighted-sum plus identity".into(),
