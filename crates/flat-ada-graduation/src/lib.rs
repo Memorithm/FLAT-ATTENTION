@@ -22,7 +22,8 @@ use ada_semantic::{
     AffinityRule, InputTransform, MaskRule, OutputRule, SelectionRule, ValueMixRule, WeightRule,
 };
 use ada_workload::{AttentionTopology, HeadGrouping};
-use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig};
+use flat_attention::AttentionShape;
+use flat_semantic::v1::StandardSoftmaxSemantic;
 
 /// Caller-owned numerical allowance for the explicit ADA-f64 to FLAT-f32
 /// integration comparison.
@@ -85,10 +86,16 @@ impl FlatParityReport {
 
 /// Canonically decoded ADA graduation artifact that has passed both ADA exact
 /// replay and the narrow FLAT scalar parity gate.
+///
+/// The retained ADA bundle remains the scientific provenance source. The
+/// separate native FLAT semantic is the executable control-plane mapping and
+/// deliberately contains no ADA candidate identity, kernel, device, or timing
+/// evidence.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportedGraduation {
     bundle: FlatGraduationBundle,
     report: FlatParityReport,
+    flat_semantic: StandardSoftmaxSemantic,
 }
 
 impl ImportedGraduation {
@@ -102,6 +109,13 @@ impl ImportedGraduation {
     #[must_use]
     pub const fn report(&self) -> FlatParityReport {
         self.report
+    }
+
+    /// Native FLAT executable semantic produced only after the ADA artifact and
+    /// scalar parity gate both pass.
+    #[must_use]
+    pub const fn flat_semantic(&self) -> StandardSoftmaxSemantic {
+        self.flat_semantic
     }
 }
 
@@ -212,6 +226,8 @@ pub fn import_and_verify(
         AffinityRule::ScaledDotProduct { scale } => narrow_scalar("softmax_scale", scale)?,
     };
     let causal = matches!(bundle.semantic().mask(), MaskRule::Causal);
+    let flat_semantic = StandardSoftmaxSemantic::new(causal, scale)
+        .map_err(|error| GraduationImportError::FlatReference(error.to_string()))?;
     let mut flat_worst_max_abs_difference = 0.0_f64;
 
     for fixture in &fixtures {
@@ -233,25 +249,17 @@ pub fn import_and_verify(
             seq_len: replay_input.query_count(),
             head_dim: replay_input.q_dimension(),
         };
-        let flat_output = forward_reference(
-            &q,
-            &k,
-            &v,
-            shape,
-            FlatAttentionConfig {
-                causal,
-                softmax_scale: Some(scale),
-            },
-        )
-        .map_err(|error| GraduationImportError::FlatReference(error.to_string()))?;
+        let flat_output = flat_semantic
+            .forward_reference(&q, &k, &v, shape)
+            .map_err(|error| GraduationImportError::FlatReference(error.to_string()))?;
 
-        if flat_output.output.len() != ada_output.output().len() {
+        if flat_output.output().len() != ada_output.output().len() {
             return Err(GraduationImportError::UnsupportedWorkload(
                 "FLAT and ADA output element counts differ".into(),
             ));
         }
         let max_abs_difference = flat_output
-            .output
+            .output()
             .iter()
             .zip(ada_output.output())
             .map(|(&flat, &ada)| (f64::from(flat) - ada).abs())
@@ -272,7 +280,11 @@ pub fn import_and_verify(
         flat_worst_max_abs_difference,
         flat_max_abs_difference_allowed: parity.max_abs_difference,
     };
-    Ok(ImportedGraduation { bundle, report })
+    Ok(ImportedGraduation {
+        bundle,
+        report,
+        flat_semantic,
+    })
 }
 
 fn validate_bridge_contract(bundle: &FlatGraduationBundle) -> Result<(), GraduationImportError> {
