@@ -1,0 +1,12 @@
+[package]
+name = "flat-semantic-selection"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Deterministic semantic selection policy for FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-semantic = { path = "../flat-semantic" }
+flat-semantic-registry = { path = "../flat-semantic-registry" }
