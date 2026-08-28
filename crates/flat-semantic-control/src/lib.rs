@@ -158,12 +158,13 @@ impl SemanticSelectionPolicy {
             .iter()
             .enumerate()
             .find(|(_, semantic)| registry.contains(semantic))
-            .map_or(SemanticSelectionDecision::NoRegisteredPreference, |(rank, semantic)| {
-                SemanticSelectionDecision::Selected {
+            .map_or(
+                SemanticSelectionDecision::NoRegisteredPreference,
+                |(rank, semantic)| SemanticSelectionDecision::Selected {
                     semantic: semantic.clone(),
                     preference_rank: rank,
-                }
-            })
+                },
+            )
     }
 
     /// Stable caller-intent record excluding execution information.
@@ -241,7 +242,10 @@ impl Display for SemanticControlError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::StateContractMismatch { expected, actual } => {
-                write!(formatter, "semantic state mismatch: expected {expected:?}, got {actual:?}")
+                write!(
+                    formatter,
+                    "semantic state mismatch: expected {expected:?}, got {actual:?}"
+                )
             }
             Self::EmptySelectionPolicy => {
                 formatter.write_str("semantic selection policy must not be empty")
@@ -271,8 +275,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 mod tests {
     use super::*;
     use flat_semantic::v1::{
-        MaskSemantics, SavedStateContract, SemanticFamily, StandardSoftmaxSemantic,
-        WeightSemantics,
+        MaskSemantics, SavedStateContract, SemanticFamily, StandardSoftmaxSemantic, WeightSemantics,
     };
 
     fn semantic(family: SemanticFamily, name: &str, revision: u32) -> SemanticId {
@@ -307,13 +310,18 @@ mod tests {
         assert_eq!(request.payload().token, 7);
         assert_eq!(request.payload().gate, 3);
         assert_eq!(request.semantic().name(), "delta-memory");
-        assert!(matches!(request.state(), SemanticState::Recurrent(state) if state == &[11, 12, 13]));
+        assert!(
+            matches!(request.state(), SemanticState::Recurrent(state) if state == &[11, 12, 13])
+        );
     }
 
     #[test]
     fn request_state_contract_fails_closed() {
-        let standard = StandardSoftmaxSemantic::new(false, 0.5).unwrap().descriptor();
-        let error = SemanticRequest::new(standard, (), SemanticState::Recurrent(5_u32)).unwrap_err();
+        let standard = StandardSoftmaxSemantic::new(false, 0.5)
+            .unwrap()
+            .descriptor();
+        let error =
+            SemanticRequest::new(standard, (), SemanticState::Recurrent(5_u32)).unwrap_err();
         assert_eq!(
             error,
             SemanticControlError::StateContractMismatch {
@@ -322,12 +330,9 @@ mod tests {
             }
         );
 
-        let error = SemanticRequest::<(), u32>::new(
-            recurrent_descriptor(),
-            (),
-            SemanticState::Stateless,
-        )
-        .unwrap_err();
+        let error =
+            SemanticRequest::<(), u32>::new(recurrent_descriptor(), (), SemanticState::Stateless)
+                .unwrap_err();
         assert_eq!(
             error,
             SemanticControlError::StateContractMismatch {
