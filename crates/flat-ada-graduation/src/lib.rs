@@ -117,10 +117,10 @@ pub enum GraduationImportError {
     AdaReplay(String),
     /// The semantic is valid ADA research output but not the StandardSoftmax
     /// subset currently executable by FLAT's scalar reference bridge.
-    UnsupportedSemantic(&'static str),
+    UnsupportedSemantic(String),
     /// The workload is valid ADA research output but outside the current FLAT
     /// scalar bridge domain.
-    UnsupportedWorkload(&'static str),
+    UnsupportedWorkload(String),
     /// One finite f64 value overflows while narrowing to FLAT's f32 reference
     /// input domain.
     F32NarrowingOverflow {
@@ -247,7 +247,7 @@ pub fn import_and_verify(
 
         if flat_output.output.len() != ada_output.output().len() {
             return Err(GraduationImportError::UnsupportedWorkload(
-                "FLAT and ADA output element counts differ",
+                "FLAT and ADA output element counts differ".into(),
             ));
         }
         let max_abs_difference = flat_output
@@ -280,34 +280,34 @@ fn validate_bridge_contract(bundle: &FlatGraduationBundle) -> Result<(), Graduat
     let semantic = bundle.semantic();
     if semantic.input_transform() != InputTransform::Identity {
         return Err(GraduationImportError::UnsupportedSemantic(
-            "input transform must be identity",
+            "input transform must be identity".into(),
         ));
     }
     if semantic.selection() != SelectionRule::All {
         return Err(GraduationImportError::UnsupportedSemantic(
-            "selection must retain all visible keys",
+            "selection must retain all visible keys".into(),
         ));
     }
     if semantic.weight() != WeightRule::Softmax {
         return Err(GraduationImportError::UnsupportedSemantic(
-            "weighting must be ordinary softmax",
+            "weighting must be ordinary softmax".into(),
         ));
     }
     if semantic.value_mix() != ValueMixRule::WeightedSum || semantic.output() != OutputRule::Identity
     {
         return Err(GraduationImportError::UnsupportedSemantic(
-            "value mixing/output must be weighted-sum plus identity",
+            "value mixing/output must be weighted-sum plus identity".into(),
         ));
     }
     if !matches!(semantic.mask(), MaskRule::Unmasked | MaskRule::Causal) {
         return Err(GraduationImportError::UnsupportedSemantic(
-            "only unmasked or causal visibility is executable",
+            "only unmasked or causal visibility is executable".into(),
         ));
     }
 
     semantic
         .validate_for_workload(bundle.workload())
-        .map_err(|error| GraduationImportError::UnsupportedWorkload(Box::leak(error.to_string().into_boxed_str())))?;
+        .map_err(|error| GraduationImportError::UnsupportedWorkload(error.to_string()))?;
 
     let geometry = bundle.workload().geometry();
     if geometry.sequence_lengths().batch_count() != 1
@@ -316,39 +316,33 @@ fn validate_bridge_contract(bundle: &FlatGraduationBundle) -> Result<(), Graduat
         || geometry.head_grouping() != HeadGrouping::MultiHead
     {
         return Err(GraduationImportError::UnsupportedWorkload(
-            "current bridge is single-batch, single-head MHA",
+            "current bridge is single-batch, single-head MHA".into(),
         ));
     }
     if geometry.topology() != AttentionTopology::SelfAttention {
         return Err(GraduationImportError::UnsupportedWorkload(
-            "current FLAT scalar bridge requires self-attention",
+            "current FLAT scalar bridge requires self-attention".into(),
         ));
     }
     let query_length = geometry
         .sequence_lengths()
         .query_length_for(0)
-        .ok_or(GraduationImportError::UnsupportedWorkload(
-            "missing query length",
-        ))?;
+        .ok_or_else(|| GraduationImportError::UnsupportedWorkload("missing query length".into()))?;
     let kv_length = geometry
         .sequence_lengths()
         .kv_length_for(0)
-        .ok_or(GraduationImportError::UnsupportedWorkload(
-            "missing KV length",
-        ))?;
+        .ok_or_else(|| GraduationImportError::UnsupportedWorkload("missing KV length".into()))?;
     if query_length != kv_length {
         return Err(GraduationImportError::UnsupportedWorkload(
-            "current FLAT scalar bridge requires square Q/KV sequence lengths",
+            "current FLAT scalar bridge requires square Q/KV sequence lengths".into(),
         ));
     }
-    let qk_dimension = geometry
-        .qk_dimension()
-        .ok_or(GraduationImportError::UnsupportedWorkload(
-            "explicit Q/K dimension is required",
-        ))?;
+    let qk_dimension = geometry.qk_dimension().ok_or_else(|| {
+        GraduationImportError::UnsupportedWorkload("explicit Q/K dimension is required".into())
+    })?;
     if qk_dimension != geometry.value_dimension() {
         return Err(GraduationImportError::UnsupportedWorkload(
-            "current FLAT scalar bridge requires Q/K and V dimensions to match",
+            "current FLAT scalar bridge requires Q/K and V dimensions to match".into(),
         ));
     }
     Ok(())
