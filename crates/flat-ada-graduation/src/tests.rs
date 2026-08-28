@@ -1,11 +1,11 @@
-use super::{
-    FlatParityConfig, GraduationImportError, import_and_verify, narrow_tensor,
-};
+use super::{import_and_verify, narrow_tensor, FlatParityConfig, GraduationImportError};
 use ada_a10_evidence_schema::{
     EvidenceWorkloadFingerprint, SemanticEvidenceRecord, SemanticEvidenceSpec,
 };
 use ada_cegis::{CegisConfig, CegisEngine};
-use ada_core::{DiagnosticEvidenceKind, ImplementationCandidateId, QualificationVerdict, SemanticId};
+use ada_core::{
+    DiagnosticEvidenceKind, ImplementationCandidateId, QualificationVerdict, SemanticId,
+};
 use ada_cost_model::{CostAssumptions, OperationProfile};
 use ada_graduation::{FlatGraduationBundle, GraduationObjectives};
 use ada_implementation::{
@@ -19,7 +19,7 @@ use ada_qualification::{
 };
 use ada_replay::{ReplayCaseSpec, ReplayReferenceInput};
 use ada_search::{
-    MAX_PROGRAM_COST, SearchBudget, SearchEngine, SemanticSearchConfig, SemanticSearchSpace,
+    SearchBudget, SearchEngine, SemanticSearchConfig, SemanticSearchSpace, MAX_PROGRAM_COST,
 };
 use ada_semantic::{InputTransform, MaskRule, SelectionRule, SemanticProgram, WeightRule};
 use ada_workload::{
@@ -68,12 +68,7 @@ fn replay_input(queries: Vec<f64>, keys: Vec<f64>, values: Vec<f64>) -> ReplayRe
     .unwrap()
 }
 
-fn expected_softmax(
-    queries: &[f64],
-    keys: &[f64],
-    values: &[f64],
-    scale: f64,
-) -> Vec<f64> {
+fn expected_softmax(queries: &[f64], keys: &[f64], values: &[f64], scale: f64) -> Vec<f64> {
     queries
         .iter()
         .map(|&query| {
@@ -135,12 +130,9 @@ fn qualified(
     workload: &WorkloadContract,
 ) -> EvidenceBoundQualification {
     let survivor = &result.survivors()[0];
-    let oracle = BoundedOracleQualification::from_cegis_result(
-        result,
-        survivor.fingerprint(),
-        workload,
-    )
-    .unwrap();
+    let oracle =
+        BoundedOracleQualification::from_cegis_result(result, survivor.fingerprint(), workload)
+            .unwrap();
     let record = evidence(
         survivor.candidate().descriptor().id().clone(),
         oracle.workload_fingerprint(),
@@ -224,10 +216,12 @@ fn graduation(
         CostAssumptions::default(),
         GraduationObjectives {
             measured: MeasuredCost::default(),
-            quality: vec![
-                QualityMetric::new("fixture_pass", Some(1.0), ObjectiveDirection::Maximize)
-                    .unwrap(),
-            ],
+            quality: vec![QualityMetric::new(
+                "fixture_pass",
+                Some(1.0),
+                ObjectiveDirection::Maximize,
+            )
+            .unwrap()],
         },
         QualificationVerdict::ContinueResearch,
     )
@@ -257,7 +251,10 @@ fn standard_softmax_self_attention_imports_after_exact_ada_replay() {
         imported.report().flat_worst_max_abs_difference().to_bits(),
         0
     );
-    assert_eq!(imported.bundle().to_canonical_text(), bundle.to_canonical_text());
+    assert_eq!(
+        imported.bundle().to_canonical_text(),
+        bundle.to_canonical_text()
+    );
 }
 
 #[test]
