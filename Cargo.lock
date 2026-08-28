@@ -410,6 +410,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "flat-semantic-execution"
+version = "0.1.0"
+dependencies = [
+ "flat-attention",
+ "flat-semantic",
+ "flat-semantic-control",
+]
+
+[[package]]
 name = "flat-semantic-registry"
 version = "0.1.0"
 dependencies = [
