@@ -1,0 +1,25 @@
+[package]
+name = "flat-ada-graduation"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+license-file = "../../LICENSE.md"
+description = "Fail-closed ADA graduation import and scalar FLAT parity gate"
+
+[dependencies]
+flat-attention = { path = "../.." }
+ada-core = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-graduation = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-replay = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-semantic = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-workload = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+
+[dev-dependencies]
+ada-a10-evidence-schema = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-cegis = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-cost-model = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-implementation = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-objective = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-qualification = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
+ada-search = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
