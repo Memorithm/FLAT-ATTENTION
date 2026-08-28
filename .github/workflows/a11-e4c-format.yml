@@ -1,0 +1,38 @@
+name: A11 E4c rustfmt
+
+on:
+  push:
+    branches:
+      - research/a11-e4c-semantic-contract
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: research/a11-e4c-semantic-contract
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt
+      - name: Apply workspace formatter
+        run: cargo fmt --all
+      - name: Commit only the expected E4c formatting change
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only)"
+          if [ -z "$changed" ]; then
+            echo "Already formatted"
+            exit 0
+          fi
+          test "$changed" = "crates/flat-semantic/src/lib.rs"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/flat-semantic/src/lib.rs
+          git commit -m "style(a11): format semantic control plane"
+          git push origin HEAD:research/a11-e4c-semantic-contract
