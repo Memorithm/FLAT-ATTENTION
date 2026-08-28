@@ -506,13 +506,15 @@ pub mod v1 {
         #[test]
         fn semantic_identity_is_independent_of_kernel_selection() {
             let semantic = StandardSoftmaxSemantic::new(false, 0.5).unwrap();
-            let descriptor = semantic.descriptor();
-            let kernels = [RuntimeKernelId::Q4Portable, RuntimeKernelId::Q4Subgroup];
-            for kernel in kernels {
-                let _execution_choice = kernel;
-                assert_eq!(semantic.descriptor(), descriptor);
-                assert_eq!(semantic.stable_fingerprint(), semantic.stable_fingerprint());
-            }
+            let record = semantic.canonical_record();
+            let bindings = [
+                (semantic.stable_fingerprint(), RuntimeKernelId::Q4Portable),
+                (semantic.stable_fingerprint(), RuntimeKernelId::Q4Subgroup),
+            ];
+            assert_eq!(bindings[0].0, bindings[1].0);
+            assert_ne!(bindings[0].1, bindings[1].1);
+            assert!(!record.contains("Q4Portable"));
+            assert!(!record.contains("Q4Subgroup"));
         }
 
         #[test]
