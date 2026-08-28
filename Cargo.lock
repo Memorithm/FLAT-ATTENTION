@@ -3,6 +3,124 @@
 version = 4
 
 [[package]]
+name = "ada-a10-evidence-schema"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-core",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-cegis"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-search",
+]
+
+[[package]]
+name = "ada-core"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+
+[[package]]
+name = "ada-cost-model"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-implementation",
+ "ada-objective",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-graduation"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-a10-evidence-schema",
+ "ada-cegis",
+ "ada-core",
+ "ada-cost-model",
+ "ada-implementation",
+ "ada-objective",
+ "ada-qualification",
+ "ada-semantic",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-implementation"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-core",
+]
+
+[[package]]
+name = "ada-ir"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+
+[[package]]
+name = "ada-objective"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+
+[[package]]
+name = "ada-qualification"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-a10-evidence-schema",
+ "ada-cegis",
+ "ada-core",
+ "ada-search",
+ "ada-semantic",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-replay"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-cegis",
+ "ada-graduation",
+ "ada-qualification",
+ "ada-semantic",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-search"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-core",
+ "ada-ir",
+ "ada-semantic",
+]
+
+[[package]]
+name = "ada-semantic"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-core",
+ "ada-workload",
+]
+
+[[package]]
+name = "ada-workload"
+version = "0.1.0"
+source = "git+https://github.com/Memorithm/ADA?rev=f5075ac505df68f14199103eef189a061c4f3d3e#f5075ac505df68f14199103eef189a061c4f3d3e"
+dependencies = [
+ "ada-core",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -201,6 +319,25 @@ dependencies = [
  "naga",
  "pollster",
  "wgpu",
+]
+
+[[package]]
+name = "flat-ada-graduation"
+version = "0.1.0"
+dependencies = [
+ "ada-a10-evidence-schema",
+ "ada-cegis",
+ "ada-core",
+ "ada-cost-model",
+ "ada-graduation",
+ "ada-implementation",
+ "ada-objective",
+ "ada-qualification",
+ "ada-replay",
+ "ada-search",
+ "ada-semantic",
+ "ada-workload",
+ "flat-attention",
 ]
 
 [[package]]
