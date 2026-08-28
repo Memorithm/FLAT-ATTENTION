@@ -229,12 +229,8 @@ mod tests {
         let toeplitz = semantic(SemanticFamily::ToeplitzStructured, "toeplitz-research", 3);
         let recurrent = semantic(SemanticFamily::RecurrentMemory, "delta-memory", 2);
 
-        let forward = SemanticRegistry::new([
-            recurrent.clone(),
-            standard.clone(),
-            toeplitz.clone(),
-        ])
-        .unwrap();
+        let forward =
+            SemanticRegistry::new([recurrent.clone(), standard.clone(), toeplitz.clone()]).unwrap();
         let reversed = SemanticRegistry::new([toeplitz, standard, recurrent]).unwrap();
 
         assert_eq!(forward.entries(), reversed.entries());
