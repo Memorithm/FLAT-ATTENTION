@@ -12,7 +12,7 @@
 
 use std::fmt::{Display, Formatter, Write};
 
-use flat_semantic::v1::{SemanticDescriptor, SemanticId, StateSemantics};
+use flat_semantic::v1::{SemanticDescriptor, SemanticFamily, SemanticId, StateSemantics};
 use flat_semantic_registry::SemanticRegistry;
 
 /// Version of this semantic control-plane contract.
@@ -123,8 +123,9 @@ impl SemanticSelectionPolicy {
     ///
     /// # Errors
     ///
-    /// Empty policies and duplicate exact identities are rejected because both
-    /// would make provenance or fallback intent ambiguous.
+    /// Empty policies, duplicate exact identities, and semantic families not
+    /// assigned a stable control-v1 tag are rejected. This prevents ambiguous
+    /// caller intent and provenance collisions.
     pub fn new(
         preferences: impl IntoIterator<Item = SemanticId>,
     ) -> Result<Self, SemanticControlError> {
@@ -133,6 +134,11 @@ impl SemanticSelectionPolicy {
             return Err(SemanticControlError::EmptySelectionPolicy);
         }
         for (index, semantic) in preferences.iter().enumerate() {
+            if family_tag(semantic.family()).is_none() {
+                return Err(SemanticControlError::UnsupportedFamily {
+                    semantic: semantic.clone(),
+                });
+            }
             if preferences[..index].contains(semantic) {
                 return Err(SemanticControlError::DuplicatePreference {
                     semantic: semantic.clone(),
@@ -175,9 +181,11 @@ impl SemanticSelectionPolicy {
             self.preferences.len()
         );
         for (rank, semantic) in self.preferences.iter().enumerate() {
+            let family = family_tag(semantic.family())
+                .expect("constructor rejects families without a control-v1 tag");
             let _ = writeln!(
                 record,
-                "rank={rank};name={};revision={}",
+                "rank={rank};family={family};name={};revision={}",
                 semantic.name(),
                 semantic.revision()
             );
@@ -231,6 +239,11 @@ pub enum SemanticControlError {
     },
     /// No semantic was supplied to the explicit preference policy.
     EmptySelectionPolicy,
+    /// A future semantic family has no stable control-v1 provenance tag yet.
+    UnsupportedFamily {
+        /// Identity whose family is unknown to this control contract.
+        semantic: SemanticId,
+    },
     /// One exact semantic identity appears more than once in the policy.
     DuplicatePreference {
         /// Duplicated identity.
@@ -250,6 +263,13 @@ impl Display for SemanticControlError {
             Self::EmptySelectionPolicy => {
                 formatter.write_str("semantic selection policy must not be empty")
             }
+            Self::UnsupportedFamily { semantic } => write!(
+                formatter,
+                "semantic family for {} revision {} is not supported by control contract v{}",
+                semantic.name(),
+                semantic.revision(),
+                SEMANTIC_CONTROL_VERSION
+            ),
             Self::DuplicatePreference { semantic } => write!(
                 formatter,
                 "semantic {} revision {} appears more than once in the selection policy",
@@ -261,6 +281,21 @@ impl Display for SemanticControlError {
 }
 
 impl std::error::Error for SemanticControlError {}
+
+const fn family_tag(family: SemanticFamily) -> Option<&'static str> {
+    match family {
+        SemanticFamily::StandardSoftmax => Some("standard-softmax"),
+        SemanticFamily::DifferentialSigned => Some("differential-signed"),
+        SemanticFamily::ToeplitzStructured => Some("toeplitz-structured"),
+        SemanticFamily::ProlateConcentration => Some("prolate-concentration"),
+        SemanticFamily::GroundStateGreen => Some("ground-state-green"),
+        SemanticFamily::SpectralFlow => Some("spectral-flow"),
+        SemanticFamily::RecurrentMemory => Some("recurrent-memory"),
+        SemanticFamily::Hybrid => Some("hybrid"),
+        SemanticFamily::Experimental => Some("experimental"),
+        _ => None,
+    }
+}
 
 fn fnv1a64(bytes: &[u8]) -> u64 {
     let mut hash = 0xcbf29ce484222325_u64;
@@ -275,7 +310,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 mod tests {
     use super::*;
     use flat_semantic::v1::{
-        MaskSemantics, SavedStateContract, SemanticFamily, StandardSoftmaxSemantic, WeightSemantics,
+        MaskSemantics, SavedStateContract, StandardSoftmaxSemantic, WeightSemantics,
     };
 
     fn semantic(family: SemanticFamily, name: &str, revision: u32) -> SemanticId {
@@ -310,8 +345,9 @@ mod tests {
         assert_eq!(request.payload().token, 7);
         assert_eq!(request.payload().gate, 3);
         assert_eq!(request.semantic().name(), "delta-memory");
-        assert!(
-            matches!(request.state(), SemanticState::Recurrent(state) if state == &[11, 12, 13])
+        assert_eq!(
+            request.state(),
+            &SemanticState::Recurrent(vec![11_u8, 12, 13])
         );
     }
 
@@ -369,6 +405,25 @@ mod tests {
             unavailable.select(&registry),
             SemanticSelectionDecision::NoRegisteredPreference
         );
+    }
+
+    #[test]
+    fn policy_provenance_distinguishes_semantic_families() {
+        let experimental = SemanticSelectionPolicy::new([semantic(
+            SemanticFamily::Experimental,
+            "candidate",
+            1,
+        )])
+        .unwrap();
+        let recurrent = SemanticSelectionPolicy::new([semantic(
+            SemanticFamily::RecurrentMemory,
+            "candidate",
+            1,
+        )])
+        .unwrap();
+
+        assert_ne!(experimental.canonical_record(), recurrent.canonical_record());
+        assert_ne!(experimental.stable_fingerprint(), recurrent.stable_fingerprint());
     }
 
     #[test]
