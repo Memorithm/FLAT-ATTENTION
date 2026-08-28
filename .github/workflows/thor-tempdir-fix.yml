@@ -1,0 +1,46 @@
+name: Thor Rust tempdir fix
+
+on:
+  push:
+    branches:
+      - ci/thor-rust-tempdir
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ci/thor-rust-tempdir
+      - name: Give rustc an isolated writable temp directory
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for name in ("m48-thor-qualification.yml", "m53-thor-qualification.yml"):
+              path = Path(".github/workflows") / name
+              text = path.read_text()
+              old = '''          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$build_dir/target"\n          chmod 700 "$runtime_dir/xdg"\n          echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"\n          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"\n          echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"\n'''
+              new = '''          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$runtime_dir/tmp" "$build_dir/target"\n          chmod 700 "$runtime_dir/xdg" "$runtime_dir/tmp"\n          echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"\n          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"\n          echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"\n          echo "TMPDIR=$runtime_dir/tmp" >> "$GITHUB_ENV"\n'''
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected one isolated-directory block in {path}")
+              path.write_text(text.replace(old, new))
+          PY
+      - name: Validate workflow patch
+        run: |
+          set -euo pipefail
+          for file in .github/workflows/m48-thor-qualification.yml .github/workflows/m53-thor-qualification.yml; do
+            grep -F '"$runtime_dir/tmp"' "$file" >/dev/null
+            grep -F 'echo "TMPDIR=$runtime_dir/tmp" >> "$GITHUB_ENV"' "$file" >/dev/null
+          done
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/m48-thor-qualification.yml .github/workflows/m53-thor-qualification.yml
+          git commit -m "ci: isolate rustc tempdir on Thor qualifications"
+          git push origin HEAD:ci/thor-rust-tempdir
