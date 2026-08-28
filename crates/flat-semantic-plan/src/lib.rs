@@ -149,8 +149,7 @@ pub fn plan_forward_execution(
         return ForwardPlanningOutcome::NoSemanticSelection;
     };
 
-    let compatible_runtime_kernels =
-        catalog.compatible_kernels(selection, ExecutionRole::Forward);
+    let compatible_runtime_kernels = catalog.compatible_kernels(selection, ExecutionRole::Forward);
     if compatible_runtime_kernels.is_empty() {
         return ForwardPlanningOutcome::NoCompatibleRuntimeFamily {
             semantic: semantic.clone(),
@@ -260,9 +259,9 @@ mod tests {
         assert_eq!(plan.selection_policy(), policy);
         assert!(!plan.candidates().is_empty());
         assert!(plan.candidates().iter().all(|candidate| {
-            candidate.runtime_kernel_id().is_some_and(|kernel| {
-                plan.compatible_runtime_kernels().contains(&kernel)
-            })
+            candidate
+                .runtime_kernel_id()
+                .is_some_and(|kernel| plan.compatible_runtime_kernels().contains(&kernel))
         }));
         assert!(plan
             .candidates()
@@ -277,13 +276,8 @@ mod tests {
         let problem = problem();
         let policy = SelectionPolicy::default();
 
-        let with_subgroup = plan_forward_execution(
-            &catalog,
-            &selection,
-            &problem,
-            &capabilities(true),
-            &policy,
-        );
+        let with_subgroup =
+            plan_forward_execution(&catalog, &selection, &problem, &capabilities(true), &policy);
         let without_subgroup = plan_forward_execution(
             &catalog,
             &selection,
