@@ -1,0 +1,12 @@
+[package]
+name = "flat-semantic-control"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+license-file = "../../LICENSE.md"
+description = "Backend-neutral semantic request/state and selection policy contracts for FLAT-ATTENTION"
+
+[dependencies]
+flat-semantic = { path = "../flat-semantic" }
+flat-semantic-registry = { path = "../flat-semantic-registry" }
