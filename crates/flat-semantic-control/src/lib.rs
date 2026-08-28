@@ -409,12 +409,9 @@ mod tests {
 
     #[test]
     fn policy_provenance_distinguishes_semantic_families() {
-        let experimental = SemanticSelectionPolicy::new([semantic(
-            SemanticFamily::Experimental,
-            "candidate",
-            1,
-        )])
-        .unwrap();
+        let experimental =
+            SemanticSelectionPolicy::new([semantic(SemanticFamily::Experimental, "candidate", 1)])
+                .unwrap();
         let recurrent = SemanticSelectionPolicy::new([semantic(
             SemanticFamily::RecurrentMemory,
             "candidate",
@@ -422,8 +419,14 @@ mod tests {
         )])
         .unwrap();
 
-        assert_ne!(experimental.canonical_record(), recurrent.canonical_record());
-        assert_ne!(experimental.stable_fingerprint(), recurrent.stable_fingerprint());
+        assert_ne!(
+            experimental.canonical_record(),
+            recurrent.canonical_record()
+        );
+        assert_ne!(
+            experimental.stable_fingerprint(),
+            recurrent.stable_fingerprint()
+        );
     }
 
     #[test]
