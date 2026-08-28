@@ -402,6 +402,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "flat-semantic-control"
+version = "0.1.0"
+dependencies = [
+ "flat-semantic",
+ "flat-semantic-registry",
+]
+
+[[package]]
 name = "flat-semantic-registry"
 version = "0.1.0"
 dependencies = [
