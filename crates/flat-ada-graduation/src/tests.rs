@@ -26,6 +26,9 @@ use ada_workload::{
     AttentionGeometry, AttentionTopology, GeometrySpec, HeadGrouping, MaskKind, MaskSpec,
     PrecisionPolicy, ScalarPrecision, SequenceLengths, WorkloadContract, WorkloadOptions,
 };
+use flat_semantic::v1::{
+    MaskSemantics, SavedStateContract, SemanticFamily, StateSemantics, WeightSemantics,
+};
 
 fn workload(topology: AttentionTopology) -> WorkloadContract {
     let geometry = AttentionGeometry::new(GeometrySpec {
@@ -251,6 +254,18 @@ fn standard_softmax_self_attention_imports_after_exact_ada_replay() {
         imported.bundle().to_canonical_text(),
         bundle.to_canonical_text()
     );
+
+    let semantic = imported.flat_semantic();
+    let descriptor = semantic.descriptor();
+    assert_eq!(descriptor.id().family(), SemanticFamily::StandardSoftmax);
+    assert_eq!(descriptor.id().name(), "standard-softmax");
+    assert_eq!(descriptor.id().revision(), 1);
+    assert_eq!(descriptor.mask(), MaskSemantics::Bidirectional);
+    assert_eq!(descriptor.state(), StateSemantics::Stateless);
+    assert_eq!(descriptor.weights(), WeightSemantics::ProbabilitySimplex);
+    assert_eq!(descriptor.saved_state(), SavedStateContract::LogSumExp);
+    assert_eq!(semantic.score_scale().to_bits(), 1.0_f32.to_bits());
+    assert!(!semantic.causal());
 }
 
 #[test]
@@ -323,6 +338,10 @@ fn f32_parity_tolerance_is_separate_from_ada_oracle_tolerance() {
     assert!(imported.report().ada_worst_max_abs_error() <= 1.0e-14);
     assert!(imported.report().flat_worst_max_abs_difference() > 0.0);
     assert!(imported.report().flat_worst_max_abs_difference() <= 1.0e-5);
+    assert_eq!(
+        imported.flat_semantic().score_scale().to_bits(),
+        (scale as f32).to_bits()
+    );
 }
 
 #[test]
