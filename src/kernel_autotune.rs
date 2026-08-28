@@ -253,34 +253,109 @@ fn rank_key(sample: &TimingSample, candidate: &KernelCandidate) -> (u128, u128, 
     )
 }
 
-/// Run one bounded tuning session.
+/// Maximum number of candidates accepted by the explicit-candidate tuning seam.
 ///
-/// Candidates come from [`generate_candidates`] under `policy`; each passes
-/// the correctness gate before any timing occurs; ranking follows
-/// [`rank_key`]. The function returns full per-candidate evidence whether or
-/// not a selection exists.
-#[must_use]
-pub fn tune(
+/// This tracks the bounded active candidate registry. Callers cannot turn the
+/// explicit seam into an unbounded timing loop by supplying an arbitrary list.
+pub const MAX_EXPLICIT_TUNING_CANDIDATES: usize = crate::kernel_candidates::REGISTRY_LEN;
+
+/// Structural failures in a caller-supplied explicit candidate set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplicitCandidateSetError {
+    /// The caller supplied more candidates than the bounded active registry.
+    TooManyCandidates {
+        /// Number supplied by the caller.
+        actual: usize,
+        /// Hard bound accepted by this contract version.
+        maximum: usize,
+    },
+    /// The same stable candidate identity appeared more than once.
+    DuplicateCandidateId {
+        /// Duplicated stable candidate identity.
+        candidate_id: u64,
+    },
+    /// Candidate order was not the canonical generator order.
+    NonCanonicalOrder {
+        /// Stable identity immediately before the inversion.
+        previous_id: u64,
+        /// Stable identity that violated canonical order.
+        current_id: u64,
+    },
+}
+
+impl fmt::Display for ExplicitCandidateSetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TooManyCandidates { actual, maximum } => write!(
+                f,
+                "explicit tuning candidate count {actual} exceeds bounded maximum {maximum}"
+            ),
+            Self::DuplicateCandidateId { candidate_id } => write!(
+                f,
+                "explicit tuning candidate set repeats stable id {candidate_id:016x}"
+            ),
+            Self::NonCanonicalOrder {
+                previous_id,
+                current_id,
+            } => write!(
+                f,
+                "explicit tuning candidate order is non-canonical: {previous_id:016x} before {current_id:016x}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ExplicitCandidateSetError {}
+
+fn validate_explicit_candidate_set(
+    candidates: &[KernelCandidate],
+) -> Result<(), ExplicitCandidateSetError> {
+    if candidates.len() > MAX_EXPLICIT_TUNING_CANDIDATES {
+        return Err(ExplicitCandidateSetError::TooManyCandidates {
+            actual: candidates.len(),
+            maximum: MAX_EXPLICIT_TUNING_CANDIDATES,
+        });
+    }
+    for window in candidates.windows(2) {
+        let previous = window[0];
+        let current = window[1];
+        if previous.id == current.id {
+            return Err(ExplicitCandidateSetError::DuplicateCandidateId {
+                candidate_id: current.id.get(),
+            });
+        }
+        if (previous.lifecycle, previous.id) > (current.lifecycle, current.id) {
+            return Err(ExplicitCandidateSetError::NonCanonicalOrder {
+                previous_id: previous.id.get(),
+                current_id: current.id.get(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn empty_selection_record() -> SelectionRecord {
+    SelectionRecord {
+        selected: None,
+        per_candidate: Vec::new(),
+    }
+}
+
+fn tune_candidate_slice(
     problem: &AttentionProblem,
-    capabilities: &RuntimeDeviceCapabilities,
-    policy: &SelectionPolicy,
+    candidates: &[KernelCandidate],
     protocol: BenchmarkProtocol,
     gate: &mut dyn CorrectnessGate,
     harness: &mut dyn TimingHarness,
 ) -> SelectionRecord {
     if protocol.validate().is_err() {
-        // A caller bypassing validation still cannot create unbounded work:
-        // fall back to the conservative protocol rather than panicking.
-        return SelectionRecord {
-            selected: None,
-            per_candidate: Vec::new(),
-        };
+        return empty_selection_record();
     }
-    let candidates = generate_candidates(problem, capabilities, policy);
+
     let mut per_candidate = Vec::with_capacity(candidates.len());
     let mut best: Option<(KernelCandidate, TimingSample)> = None;
 
-    for candidate in candidates {
+    for candidate in candidates.iter().copied() {
         match gate.verify(&candidate, problem) {
             Ok(()) => {}
             Err(reason) => {
@@ -324,6 +399,59 @@ pub fn tune(
         selected: best.map(|(candidate, timing)| SelectedCandidate { candidate, timing }),
         per_candidate,
     }
+}
+
+/// Tune one caller-supplied, already-admissible candidate subset.
+///
+/// This seam exists for higher-level planners that already performed semantic,
+/// problem and device admissibility filtering. It never regenerates candidates.
+/// The supplied slice must preserve the canonical `(lifecycle, stable-id)` order
+/// emitted by FLAT candidate generation and is bounded by the active registry.
+///
+/// Correctness still gates timing for every supplied candidate and ranking uses
+/// the same deterministic median/p95/stable-id rule as [`tune`].
+///
+/// # Errors
+///
+/// Returns [`ExplicitCandidateSetError`] when the supplied set exceeds the
+/// bounded registry, repeats a stable candidate identity, or is not in canonical
+/// generator order.
+pub fn tune_candidates(
+    problem: &AttentionProblem,
+    candidates: &[KernelCandidate],
+    protocol: BenchmarkProtocol,
+    gate: &mut dyn CorrectnessGate,
+    harness: &mut dyn TimingHarness,
+) -> Result<SelectionRecord, ExplicitCandidateSetError> {
+    validate_explicit_candidate_set(candidates)?;
+    Ok(tune_candidate_slice(
+        problem, candidates, protocol, gate, harness,
+    ))
+}
+
+/// Run one bounded tuning session over FLAT-generated candidates.
+///
+/// Candidates come from [`generate_candidates`] under `policy`; each passes
+/// the correctness gate before any timing occurs; ranking follows
+/// [`rank_key`]. The function returns full per-candidate evidence whether or
+/// not a selection exists.
+///
+/// Existing behavior remains unchanged; the generated candidate list is passed
+/// to the same internal tuning path used by [`tune_candidates`].
+#[must_use]
+pub fn tune(
+    problem: &AttentionProblem,
+    capabilities: &RuntimeDeviceCapabilities,
+    policy: &SelectionPolicy,
+    protocol: BenchmarkProtocol,
+    gate: &mut dyn CorrectnessGate,
+    harness: &mut dyn TimingHarness,
+) -> SelectionRecord {
+    if protocol.validate().is_err() {
+        return empty_selection_record();
+    }
+    let candidates = generate_candidates(problem, capabilities, policy);
+    tune_candidate_slice(problem, &candidates, protocol, gate, harness)
 }
 
 /// Convenience constructor mirroring the registry semantics for tests and
@@ -680,5 +808,136 @@ mod tests {
         let mut sorted = ids.clone();
         sorted.sort_unstable();
         assert_eq!(ids, sorted);
+    }
+
+    #[test]
+    fn explicit_candidate_subset_is_the_only_surface_measured() {
+        let problem = problem();
+        let candidates = generate_candidates(&problem, &caps(true), &SelectionPolicy::default());
+        let subset = candidates
+            .into_iter()
+            .filter(|candidate| candidate.runtime_kernel_id() == Some(RuntimeKernelId::Q4Portable))
+            .collect::<Vec<_>>();
+        assert_eq!(subset.len(), 1);
+
+        let mut harness = ScriptedHarness {
+            latencies_ns: vec![(RuntimeKernelId::Q4Portable, Ok(2_000))],
+            measured: Vec::new(),
+        };
+        let record = tune_candidates(
+            &problem,
+            &subset,
+            BenchmarkProtocol::CONSERVATIVE,
+            &mut AcceptingGate,
+            &mut harness,
+        )
+        .unwrap();
+
+        assert_eq!(harness.measured, vec![RuntimeKernelId::Q4Portable]);
+        assert_eq!(record.per_candidate.len(), 1);
+        assert_eq!(
+            record
+                .selected
+                .expect("the explicit portable candidate should be selected")
+                .candidate
+                .runtime_kernel_id(),
+            Some(RuntimeKernelId::Q4Portable)
+        );
+    }
+
+    #[test]
+    fn explicit_candidate_set_rejects_noncanonical_order_before_timing() {
+        let problem = problem();
+        let generated = generate_candidates(&problem, &caps(true), &SelectionPolicy::default());
+        assert!(generated.len() >= 2);
+        let subset = vec![generated[1], generated[0]];
+        let mut harness = ScriptedHarness {
+            latencies_ns: Vec::new(),
+            measured: Vec::new(),
+        };
+
+        let error = tune_candidates(
+            &problem,
+            &subset,
+            BenchmarkProtocol::CONSERVATIVE,
+            &mut AcceptingGate,
+            &mut harness,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ExplicitCandidateSetError::NonCanonicalOrder { .. }
+        ));
+        assert!(harness.measured.is_empty());
+    }
+
+    #[test]
+    fn explicit_candidate_set_rejects_duplicate_identity_before_timing() {
+        let problem = problem();
+        let generated = generate_candidates(&problem, &caps(false), &SelectionPolicy::default());
+        let duplicate = vec![generated[0], generated[0]];
+        let mut harness = ScriptedHarness {
+            latencies_ns: Vec::new(),
+            measured: Vec::new(),
+        };
+
+        let error = tune_candidates(
+            &problem,
+            &duplicate,
+            BenchmarkProtocol::CONSERVATIVE,
+            &mut AcceptingGate,
+            &mut harness,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            ExplicitCandidateSetError::DuplicateCandidateId {
+                candidate_id: generated[0].id.get(),
+            }
+        );
+        assert!(harness.measured.is_empty());
+    }
+
+    #[test]
+    fn legacy_tune_matches_explicit_generated_candidate_path() {
+        let problem = problem();
+        let capabilities = caps(true);
+        let policy = SelectionPolicy::default();
+        let candidates = generate_candidates(&problem, &capabilities, &policy);
+        let latencies = vec![
+            (RuntimeKernelId::Q4Portable, Ok(4_000)),
+            (RuntimeKernelId::Q4Vec4Portable, Ok(2_500)),
+            (RuntimeKernelId::Q4Subgroup, Ok(3_000)),
+        ];
+        let mut legacy_harness = ScriptedHarness {
+            latencies_ns: latencies.clone(),
+            measured: Vec::new(),
+        };
+        let mut explicit_harness = ScriptedHarness {
+            latencies_ns: latencies,
+            measured: Vec::new(),
+        };
+
+        let legacy = tune(
+            &problem,
+            &capabilities,
+            &policy,
+            BenchmarkProtocol::CONSERVATIVE,
+            &mut AcceptingGate,
+            &mut legacy_harness,
+        );
+        let explicit = tune_candidates(
+            &problem,
+            &candidates,
+            BenchmarkProtocol::CONSERVATIVE,
+            &mut AcceptingGate,
+            &mut explicit_harness,
+        )
+        .unwrap();
+
+        assert_eq!(legacy, explicit);
+        assert_eq!(legacy_harness.measured, explicit_harness.measured);
     }
 }
