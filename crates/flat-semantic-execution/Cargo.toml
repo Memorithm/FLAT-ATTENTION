@@ -1,0 +1,13 @@
+[package]
+name = "flat-semantic-execution"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+license-file = "../../LICENSE.md"
+description = "Deterministic semantic-to-runtime execution compatibility catalog for FLAT-ATTENTION"
+
+[dependencies]
+flat-attention = { path = "../.." }
+flat-semantic = { path = "../flat-semantic" }
+flat-semantic-control = { path = "../flat-semantic-control" }
