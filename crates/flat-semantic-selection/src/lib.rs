@@ -245,8 +245,12 @@ mod tests {
         let broad = SemanticRegistry::new([extra, standard.clone()]).unwrap();
         let request = SemanticSelectionRequest::new(standard.clone());
 
-        let narrow_decision = ExactSemanticSelectionPolicy.select(&narrow, &request).unwrap();
-        let broad_decision = ExactSemanticSelectionPolicy.select(&broad, &request).unwrap();
+        let narrow_decision = ExactSemanticSelectionPolicy
+            .select(&narrow, &request)
+            .unwrap();
+        let broad_decision = ExactSemanticSelectionPolicy
+            .select(&broad, &request)
+            .unwrap();
 
         assert_eq!(narrow_decision.semantic(), &standard);
         assert_eq!(broad_decision.semantic(), &standard);

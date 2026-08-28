@@ -409,6 +409,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "flat-semantic-selection"
+version = "0.1.0"
+dependencies = [
+ "flat-semantic",
+ "flat-semantic-registry",
+]
+
+[[package]]
 name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
