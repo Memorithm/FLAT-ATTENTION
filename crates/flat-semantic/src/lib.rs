@@ -239,7 +239,9 @@ pub mod v1 {
         fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Self::EmptyName => formatter.write_str("semantic name must not be empty"),
-                Self::InvalidName => formatter.write_str("semantic name is not a valid stable slug"),
+                Self::InvalidName => {
+                    formatter.write_str("semantic name is not a valid stable slug")
+                }
                 Self::ZeroRevision => formatter.write_str("semantic revision must be non-zero"),
             }
         }
@@ -485,7 +487,8 @@ pub mod v1 {
                 softmax_scale: Some(0.625),
             };
             let legacy = forward_reference(&q, &k, &v, shape, config).unwrap();
-            let semantic = StandardSoftmaxSemantic::from_flat_config(config, shape.head_dim).unwrap();
+            let semantic =
+                StandardSoftmaxSemantic::from_flat_config(config, shape.head_dim).unwrap();
             let generic = semantic.forward_reference(&q, &k, &v, shape).unwrap();
             let (output, saved) = generic.into_parts();
             assert_eq!(output, legacy.output);
@@ -500,7 +503,10 @@ pub mod v1 {
             let output = SemanticForwardOutput::new(vec![1.0_f32], SemanticSavedState::None);
             assert_eq!(output.saved_state().contract(), SavedStateContract::None);
             let semantic = StandardSoftmaxSemantic::new(false, 1.0).unwrap();
-            assert_eq!(semantic.descriptor().saved_state(), SavedStateContract::LogSumExp);
+            assert_eq!(
+                semantic.descriptor().saved_state(),
+                SavedStateContract::LogSumExp
+            );
         }
 
         #[test]
