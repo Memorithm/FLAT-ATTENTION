@@ -338,6 +338,7 @@ dependencies = [
  "ada-semantic",
  "ada-workload",
  "flat-attention",
+ "flat-semantic",
 ]
 
 [[package]]
@@ -391,6 +392,13 @@ dependencies = [
  "naga",
  "pollster",
  "wgpu",
+]
+
+[[package]]
+name = "flat-semantic"
+version = "0.1.0"
+dependencies = [
+ "flat-attention",
 ]
 
 [[package]]

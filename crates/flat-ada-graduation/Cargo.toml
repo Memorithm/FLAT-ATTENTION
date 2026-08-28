@@ -9,6 +9,7 @@ description = "Fail-closed ADA graduation import and scalar FLAT parity gate"
 
 [dependencies]
 flat-attention = { path = "../.." }
+flat-semantic = { path = "../flat-semantic" }
 ada-core = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
 ada-graduation = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
 ada-replay = { git = "https://github.com/Memorithm/ADA", rev = "f5075ac505df68f14199103eef189a061c4f3d3e" }
