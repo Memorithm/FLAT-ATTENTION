@@ -175,16 +175,14 @@ fn graduation(
     topology: AttentionTopology,
     selection: SelectionRule,
     scale: f64,
-    queries: Vec<f64>,
-    keys: Vec<f64>,
-    values: Vec<f64>,
+    input: ReplayReferenceInput,
     expected: Vec<f64>,
     ada_tolerance: f64,
 ) -> FlatGraduationBundle {
     let workload = workload(topology);
     let fixture = ReplayCaseSpec {
         workload: workload.clone(),
-        input: replay_input(queries, keys, values),
+        input,
         expected_output: expected,
         max_abs_tolerance: ada_tolerance,
     }
@@ -234,9 +232,7 @@ fn standard_softmax_self_attention_imports_after_exact_ada_replay() {
         AttentionTopology::SelfAttention,
         SelectionRule::All,
         1.0,
-        vec![0.0, 0.0],
-        vec![1.0, -1.0],
-        vec![2.0, 4.0],
+        replay_input(vec![0.0, 0.0], vec![1.0, -1.0], vec![2.0, 4.0]),
         vec![3.0, 3.0],
         0.0,
     );
@@ -263,9 +259,7 @@ fn non_all_selection_is_valid_ada_but_rejected_by_current_flat_bridge() {
         AttentionTopology::SelfAttention,
         SelectionRule::Window { radius: 0 },
         1.0,
-        vec![0.0, 0.0],
-        vec![1.0, -1.0],
-        vec![2.0, 4.0],
+        replay_input(vec![0.0, 0.0], vec![1.0, -1.0], vec![2.0, 4.0]),
         vec![2.0, 4.0],
         0.0,
     );
@@ -284,9 +278,7 @@ fn cross_attention_is_valid_ada_but_rejected_by_current_flat_bridge() {
         AttentionTopology::CrossAttention,
         SelectionRule::All,
         1.0,
-        vec![0.0, 0.0],
-        vec![1.0, -1.0],
-        vec![2.0, 4.0],
+        replay_input(vec![0.0, 0.0], vec![1.0, -1.0], vec![2.0, 4.0]),
         vec![3.0, 3.0],
         0.0,
     );
@@ -306,13 +298,12 @@ fn f32_parity_tolerance_is_separate_from_ada_oracle_tolerance() {
     let values = vec![0.7, -1.1];
     let scale = 0.3;
     let expected = expected_softmax(&queries, &keys, &values, scale);
+    let input = replay_input(queries, keys, values);
     let bundle = graduation(
         AttentionTopology::SelfAttention,
         SelectionRule::All,
         scale,
-        queries,
-        keys,
-        values,
+        input,
         expected,
         1.0e-14,
     );
