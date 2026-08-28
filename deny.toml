@@ -45,9 +45,10 @@ wildcards = "allow"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Cross-repository ADA integration is intentionally pinned to an immutable
-# commit. No branch/tag/floating git dependency is accepted by this workspace.
+# Cross-repository integrations are accepted only from these reviewed sources,
+# and every git dependency in the workspace must use an immutable `rev`.
 required-git-spec = "rev"
 allow-git = [
     "https://github.com/Memorithm/ADA",
+    "https://github.com/Memorithm/ElasticXxx.git",
 ]
