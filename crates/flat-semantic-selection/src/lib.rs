@@ -110,6 +110,43 @@ impl SemanticSelectionDecision {
         self.semantic_identity_fingerprint
     }
 
+    /// Validate this decision against a current registry without reselecting or
+    /// substituting another semantic.
+    ///
+    /// # Errors
+    ///
+    /// Fails closed when the exact semantic is no longer registered, when the
+    /// selected identity fingerprint no longer matches, or when the complete
+    /// registry fingerprint differs from the registry that authorized this
+    /// decision.
+    pub fn validate_against_registry(
+        &self,
+        registry: &SemanticRegistry,
+    ) -> Result<(), SemanticSelectionValidationError> {
+        let current = ExactSemanticSelectionPolicy
+            .select(
+                registry,
+                &SemanticSelectionRequest::new(self.semantic.clone()),
+            )
+            .map_err(SemanticSelectionValidationError::Selection)?;
+
+        if current.semantic_identity_fingerprint != self.semantic_identity_fingerprint {
+            return Err(
+                SemanticSelectionValidationError::SemanticIdentityFingerprintMismatch {
+                    decision: self.semantic_identity_fingerprint,
+                    current: current.semantic_identity_fingerprint,
+                },
+            );
+        }
+        if current.registry_fingerprint != self.registry_fingerprint {
+            return Err(SemanticSelectionValidationError::RegistryFingerprintMismatch {
+                decision: self.registry_fingerprint,
+                current: current.registry_fingerprint,
+            });
+        }
+        Ok(())
+    }
+
     /// Canonical selection record.
     ///
     /// The record deliberately excludes kernel, backend, device, benchmark,
@@ -131,6 +168,45 @@ impl SemanticSelectionDecision {
         fnv1a64(self.canonical_record().as_bytes())
     }
 }
+
+/// Fail-closed validation errors for a previously produced selection decision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemanticSelectionValidationError {
+    /// Exact revalidation of the selected semantic failed.
+    Selection(SemanticSelectionError),
+    /// The selected identity no longer has the same canonical fingerprint.
+    SemanticIdentityFingerprintMismatch {
+        /// Fingerprint recorded when the decision was produced.
+        decision: u64,
+        /// Fingerprint computed from the current registry entry.
+        current: u64,
+    },
+    /// The complete registry changed after the decision was produced.
+    RegistryFingerprintMismatch {
+        /// Registry fingerprint recorded by the decision.
+        decision: u64,
+        /// Fingerprint of the current registry.
+        current: u64,
+    },
+}
+
+impl Display for SemanticSelectionValidationError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Selection(error) => write!(formatter, "semantic selection is no longer valid: {error}"),
+            Self::SemanticIdentityFingerprintMismatch { decision, current } => write!(
+                formatter,
+                "semantic identity fingerprint changed: decision={decision:016x} current={current:016x}"
+            ),
+            Self::RegistryFingerprintMismatch { decision, current } => write!(
+                formatter,
+                "semantic registry fingerprint changed: decision={decision:016x} current={current:016x}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SemanticSelectionValidationError {}
 
 /// Fail-closed semantic-selection errors.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,6 +283,7 @@ mod tests {
         assert_eq!(first.semantic(), &standard);
         assert_eq!(first.registry_fingerprint(), registry.stable_fingerprint());
         assert_eq!(first.stable_fingerprint(), second.stable_fingerprint());
+        first.validate_against_registry(&registry).unwrap();
     }
 
     #[test]
@@ -265,6 +342,36 @@ mod tests {
         assert_ne!(
             narrow_decision.stable_fingerprint(),
             broad_decision.stable_fingerprint()
+        );
+        assert_eq!(
+            narrow_decision.validate_against_registry(&broad),
+            Err(SemanticSelectionValidationError::RegistryFingerprintMismatch {
+                decision: narrow.stable_fingerprint(),
+                current: broad.stable_fingerprint(),
+            })
+        );
+    }
+
+    #[test]
+    fn removed_exact_semantic_fails_revalidation_without_fallback() {
+        let selected = semantic(SemanticFamily::Experimental, "candidate", 1);
+        let replacement = semantic(SemanticFamily::Experimental, "candidate", 2);
+        let original = SemanticRegistry::new([selected.clone()]).unwrap();
+        let current = SemanticRegistry::new([replacement]).unwrap();
+        let decision = ExactSemanticSelectionPolicy
+            .select(
+                &original,
+                &SemanticSelectionRequest::new(selected.clone()),
+            )
+            .unwrap();
+
+        assert_eq!(
+            decision.validate_against_registry(&current),
+            Err(SemanticSelectionValidationError::Selection(
+                SemanticSelectionError::UnregisteredSemantic {
+                    requested: selected,
+                },
+            ))
         );
     }
 
