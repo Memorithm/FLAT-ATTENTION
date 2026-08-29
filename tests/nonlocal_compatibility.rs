@@ -53,11 +53,7 @@ fn rotate_rows(
     rotated
 }
 
-fn scatter_to_paged_storage(
-    logical: &[f32],
-    table: &PagedKvTable,
-    head_dim: usize,
-) -> Vec<f32> {
+fn scatter_to_paged_storage(logical: &[f32], table: &PagedKvTable, head_dim: usize) -> Vec<f32> {
     let config = table.config();
     let mut physical = vec![0.0_f32; config.capacity_tokens().unwrap() * head_dim];
     for logical_token in 0..table.len() {
@@ -71,11 +67,7 @@ fn scatter_to_paged_storage(
     physical
 }
 
-fn gather_from_paged_storage(
-    physical: &[f32],
-    table: &PagedKvTable,
-    head_dim: usize,
-) -> Vec<f32> {
+fn gather_from_paged_storage(physical: &[f32], table: &PagedKvTable, head_dim: usize) -> Vec<f32> {
     let config = table.config();
     let mut logical = vec![0.0_f32; table.len() * head_dim];
     for logical_token in 0..table.len() {
