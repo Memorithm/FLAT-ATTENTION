@@ -4,12 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "src/**"
-      - "crates/**"
-      - "Cargo.toml"
-      - "docs/RELEASE_CHECKLIST.md"
-      - ".github/workflows/semver.yml"
   pull_request:
     paths:
       - "src/**"
@@ -38,20 +32,43 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          # The explicit baseline below may be any reachable repository commit.
+          # Exact git baselines below may be any reachable repository commit.
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
-        with:
-          toolchain: 1.89.0
+      - name: Resolve exact semver baseline
+        id: baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            pull_request)
+              # Resolve the base branch fetched for this run instead of trusting
+              # a possibly stale base SHA embedded in the PR event payload.
+              baseline="$(git rev-parse 'origin/${{ github.event.pull_request.base.ref }}')"
+              ;;
+            push)
+              baseline="${{ github.event.before }}"
+              ;;
+            workflow_dispatch)
+              baseline="${{ inputs.baseline_rev }}"
+              ;;
+            *)
+              echo "unsupported event: ${{ github.event_name }}" >&2
+              exit 1
+              ;;
+          esac
+          git cat-file -e "${baseline}^{commit}"
+          baseline="$(git rev-parse "${baseline}^{commit}")"
+          echo "sha=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "semver_baseline=${baseline}"
       # FLAT is intentionally unpublished. Compare against an explicit git
-      # baseline instead of relying on crates.io discovery: PRs use the exact
-      # base SHA, main pushes use the previous main SHA, and manual release
-      # qualification requires the caller to name the baseline revision.
+      # baseline instead of relying on crates.io discovery. This analyzer uses
+      # its supported stable Rust toolchain; the declared Rust 1.89 MSRV is
+      # independently enforced by the main CI workflow.
       - name: Check semver breaking changes
         uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239
         with:
           verbose: false
           feature-group: all-features
           release-type: patch
-          rust-toolchain: manual
-          baseline-rev: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || inputs.baseline_rev }}
+          rust-toolchain: stable
+          baseline-rev: ${{ steps.baseline.outputs.sha }}
