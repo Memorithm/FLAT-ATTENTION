@@ -5,6 +5,13 @@
 //! handles. Backend adapters may consume the resident form with their own buffer
 //! type while preserving the same validated contract.
 
+/// Research-only structured-history attention contract and scalar oracle.
+///
+/// Kept outside `v1` so the production reusable API and its defaults remain
+/// unchanged while experimental semantics are qualified independently.
+#[path = "research_nonlocal.rs"]
+pub mod research_nonlocal;
+
 /// Explicit WGPU-facing reusable state that is intentionally outside the
 /// backend-neutral `v1` namespace.
 #[cfg(feature = "wgpu")]
