@@ -139,10 +139,12 @@ impl SemanticSelectionDecision {
             );
         }
         if current.registry_fingerprint != self.registry_fingerprint {
-            return Err(SemanticSelectionValidationError::RegistryFingerprintMismatch {
-                decision: self.registry_fingerprint,
-                current: current.registry_fingerprint,
-            });
+            return Err(
+                SemanticSelectionValidationError::RegistryFingerprintMismatch {
+                    decision: self.registry_fingerprint,
+                    current: current.registry_fingerprint,
+                },
+            );
         }
         Ok(())
     }
@@ -345,10 +347,12 @@ mod tests {
         );
         assert_eq!(
             narrow_decision.validate_against_registry(&broad),
-            Err(SemanticSelectionValidationError::RegistryFingerprintMismatch {
-                decision: narrow.stable_fingerprint(),
-                current: broad.stable_fingerprint(),
-            })
+            Err(
+                SemanticSelectionValidationError::RegistryFingerprintMismatch {
+                    decision: narrow.stable_fingerprint(),
+                    current: broad.stable_fingerprint(),
+                }
+            )
         );
     }
 
@@ -359,10 +363,7 @@ mod tests {
         let original = SemanticRegistry::new([selected.clone()]).unwrap();
         let current = SemanticRegistry::new([replacement]).unwrap();
         let decision = ExactSemanticSelectionPolicy
-            .select(
-                &original,
-                &SemanticSelectionRequest::new(selected.clone()),
-            )
+            .select(&original, &SemanticSelectionRequest::new(selected.clone()))
             .unwrap();
 
         assert_eq!(
