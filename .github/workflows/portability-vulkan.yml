@@ -12,6 +12,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "docs/M34_VULKAN_LINUX.md"
+      - "docs/RELEASE_CHECKLIST.md"
       - ".github/workflows/portability-vulkan.yml"
   workflow_dispatch:
 
