@@ -12,3 +12,7 @@ flat-attention = { path = "../.." }
 flat-semantic = { path = "../flat-semantic" }
 flat-semantic-control = { path = "../flat-semantic-control" }
 flat-semantic-execution = { path = "../flat-semantic-execution" }
+flat-semantic-selection = { path = "../flat-semantic-selection" }
+
+[dev-dependencies]
+flat-semantic-registry = { path = "../flat-semantic-registry" }
