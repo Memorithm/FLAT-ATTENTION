@@ -7,6 +7,8 @@
 
 #![cfg(feature = "wgpu")]
 
+use std::sync::{Mutex, MutexGuard};
+
 use flat_attention::kernel_autotune::{tune, BenchmarkProtocol};
 use flat_attention::kernel_candidates::CandidateLifecycle;
 use flat_attention::kernel_candidates::{generate_candidates, SelectionPolicy};
@@ -48,6 +50,16 @@ fn problem() -> AttentionProblem {
     .unwrap()
 }
 
+fn live_wgpu_guard() -> MutexGuard<'static, ()> {
+    // These tests create independent live WGPU contexts. Keep live-device
+    // qualification deterministic across drivers by preventing the Rust test
+    // harness from initializing multiple contexts concurrently in this binary.
+    static LIVE_WGPU_LOCK: Mutex<()> = Mutex::new(());
+    LIVE_WGPU_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 fn require_adapter() -> bool {
     if WgpuFlatAttention::new().is_ok() {
         return true;
@@ -65,9 +77,9 @@ fn experimental_candidate_is_refused_before_any_device_contact() {
     // M7 realization; default routing must refuse it by lifecycle alone.
     let candidates = generate_candidates(
         &problem(),
-        // Synthetic capabilities are fine here: the refusal must happen
-        // before any adapter query.
-        &flat_attention::probe_capabilities().unwrap_or(synthetic_caps()),
+        // Deliberately synthetic: this test's contract is that lifecycle
+        // rejection happens before any adapter/device contact.
+        &synthetic_caps(),
         &SelectionPolicy {
             allow_experimental: true,
             ..SelectionPolicy::default()
@@ -96,6 +108,7 @@ fn experimental_candidate_is_refused_before_any_device_contact() {
 
 #[test]
 fn pinned_tuned_candidate_routes_and_matches_oracle() {
+    let _live_wgpu_guard = live_wgpu_guard();
     if !require_adapter() {
         return;
     }
@@ -184,6 +197,7 @@ fn pinned_tuned_candidate_routes_and_matches_oracle() {
 
 #[test]
 fn every_qualified_candidate_is_pinnable_or_typed_unavailable() {
+    let _live_wgpu_guard = live_wgpu_guard();
     if !require_adapter() {
         return;
     }
