@@ -1,7 +1,7 @@
 use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 use flat_attention::{
-    forward_reference_grouped_rope, FlatAttentionConfig, GroupedAttentionShape,
-    RotaryEmbeddingConfig,
+    forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
+    AsymmetricRotaryEmbeddingConfig, FlatAttentionConfig,
 };
 use flat_semantic::v1::NonlocalHistorySoftmaxSemantic;
 
@@ -12,13 +12,15 @@ fn deterministic_values(len: usize, phase: f32) -> Vec<f32> {
 }
 
 #[test]
-fn admitting_nonlocal_semantic_does_not_change_rope_reference_behavior() {
-    let shape = GroupedAttentionShape {
+fn admitting_nonlocal_semantic_does_not_change_asymmetric_rope_reference_behavior() {
+    let shape = AsymmetricGroupedAttentionShape {
         batch: 1,
         q_heads: 4,
         kv_heads: 2,
-        seq_len: 5,
+        query_len: 2,
+        kv_len: 7,
         head_dim: 8,
+        query_position_offset: 5,
     };
     let q = deterministic_values(shape.q_tensor_len().unwrap(), 0.1);
     let k = deterministic_values(shape.kv_tensor_len().unwrap(), 0.7);
@@ -27,12 +29,16 @@ fn admitting_nonlocal_semantic_does_not_change_rope_reference_behavior() {
         causal: true,
         softmax_scale: Some(0.5),
     };
-    let rotary = RotaryEmbeddingConfig {
+    let rotary = AsymmetricRotaryEmbeddingConfig {
         theta: 10_000.0,
-        position_offset: 17,
+        query_position_offset: 105,
+        kv_position_offset: 100,
     };
 
-    let before = forward_reference_grouped_rope(&q, &k, &v, shape, config, rotary).unwrap();
+    let before = forward_reference_projection_grouped_rope_asymmetric(
+        &q, &k, &v, shape, config, rotary,
+    )
+    .unwrap();
 
     let semantic = NonlocalHistorySoftmaxSemantic::new(
         config,
@@ -42,7 +48,10 @@ fn admitting_nonlocal_semantic_does_not_change_rope_reference_behavior() {
     let descriptor = semantic.descriptor();
     assert_eq!(descriptor.id().name(), "nonlocal-history-softmax");
 
-    let after = forward_reference_grouped_rope(&q, &k, &v, shape, config, rotary).unwrap();
+    let after = forward_reference_projection_grouped_rope_asymmetric(
+        &q, &k, &v, shape, config, rotary,
+    )
+    .unwrap();
     assert_eq!(after, before);
 }
 
