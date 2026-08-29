@@ -7,6 +7,8 @@
 
 #![cfg(feature = "wgpu")]
 
+use std::sync::{Mutex, MutexGuard};
+
 use flat_attention::kernel_autotune::{tune, BenchmarkProtocol, SelectionRecord};
 use flat_attention::kernel_candidates::SelectionPolicy;
 use flat_attention::kernel_ir::AttentionProblem;
@@ -29,6 +31,16 @@ fn problem() -> AttentionProblem {
         },
     )
     .unwrap()
+}
+
+fn live_wgpu_guard() -> MutexGuard<'static, ()> {
+    // The Rust test harness may run these live-device autotuner sessions in
+    // parallel. Some physical Vulkan drivers are not stable when independent
+    // WGPU contexts are initialized and exercised concurrently in this binary.
+    static LIVE_WGPU_LOCK: Mutex<()> = Mutex::new(());
+    LIVE_WGPU_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn require_adapter() -> bool {
@@ -71,6 +83,7 @@ fn run_session() -> SelectionRecord {
 
 #[test]
 fn tuning_session_produces_evidence_on_live_adapter() {
+    let _live_wgpu_guard = live_wgpu_guard();
     if !require_adapter() {
         return;
     }
@@ -122,6 +135,7 @@ fn repeated_sessions_rank_identically_under_identical_conditions() {
     // Determinism contract at protocol level: same inputs produce the same
     // candidate consideration order and identity set. Timing values may vary
     // between sessions; identities and structure must not.
+    let _live_wgpu_guard = live_wgpu_guard();
     if !require_adapter() {
         return;
     }

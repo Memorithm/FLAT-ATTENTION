@@ -2,10 +2,10 @@
 //!
 //! This module adds recommendation freshness to the existing adapter without
 //! weakening or replacing any FLAT safety gate. Candidate translation,
-//! correctness/timing evidence, and workload-dependent [`DispatchGrid`]
-//! validation are identical to the ordinary adapter path. The only additional
-//! step is binding the generic Elastic selection to a caller-supplied
-//! [`RecommendationContext`].
+//! correctness/timing evidence, and workload-dependent
+//! [`elastic_kernel::DispatchGrid`] validation are identical to the ordinary
+//! adapter path. The only additional step is binding the generic Elastic
+//! selection to a caller-supplied [`RecommendationContext`].
 
 use super::{
     adapt_candidate, capability_snapshot, evidence_for_candidate, logical_resource_id,

@@ -1,6 +1,6 @@
 #![cfg(feature = "wgpu")]
 
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex, MutexGuard};
 
 use flat_attention::{
     forward_reference_projection_grouped_rope_asymmetric, AsymmetricGroupedAttentionShape,
@@ -11,6 +11,16 @@ use flat_attention::{
 
 const ATOL: f32 = 1.5e-4;
 const RTOL: f32 = 1.0e-3;
+
+fn live_wgpu_guard() -> MutexGuard<'static, ()> {
+    // M48 qualification creates independent live WGPU devices. Keep device
+    // initialization deterministic across drivers when the Rust test harness
+    // runs these tests concurrently.
+    static LIVE_WGPU_LOCK: Mutex<()> = Mutex::new(());
+    LIVE_WGPU_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 fn fixture(len: usize, phase: f32) -> Vec<f32> {
     (0..len)
@@ -103,6 +113,7 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
 
 #[test]
 fn m48_sciagent_decode_matches_oracle() {
+    let _live_wgpu_guard = live_wgpu_guard();
     let instance = wgpu::Instance::default();
     let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
@@ -175,6 +186,7 @@ fn m48_sciagent_decode_matches_oracle() {
 
 #[test]
 fn m48_causal_offset_masks_future_kv() {
+    let _live_wgpu_guard = live_wgpu_guard();
     let instance = wgpu::Instance::default();
     let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
@@ -261,6 +273,7 @@ fn m48_causal_offset_masks_future_kv() {
 
 #[test]
 fn m48_zero_kv_heads_returns_validation_error() {
+    let _live_wgpu_guard = live_wgpu_guard();
     let instance = wgpu::Instance::default();
     let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         return;
@@ -311,6 +324,7 @@ fn m48_zero_kv_heads_returns_validation_error() {
 
 #[test]
 fn m48_is_opt_in() {
+    let _live_wgpu_guard = live_wgpu_guard();
     let instance = wgpu::Instance::default();
     let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
         return;

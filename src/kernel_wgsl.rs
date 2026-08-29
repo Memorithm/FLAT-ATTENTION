@@ -1,6 +1,6 @@
 //! Deterministic WGSL emission from the FLAT Kernel IR (roadmap M21).
 //!
-//! The emitter walks the validated [`KernelModule`] phase program and produces
+//! The emitter walks the validated [`crate::kernel_ir::KernelModule`] phase program and produces
 //! canonical WGSL text for the dense Q4 forward realizations:
 //!
 //! - scalar portable (M2/M4 lineage),

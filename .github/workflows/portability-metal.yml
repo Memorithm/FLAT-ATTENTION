@@ -12,6 +12,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "docs/M36_METAL.md"
+      - "docs/RELEASE_CHECKLIST.md"
       - ".github/workflows/portability-metal.yml"
   workflow_dispatch:
 
