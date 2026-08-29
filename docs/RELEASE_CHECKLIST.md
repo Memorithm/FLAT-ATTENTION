@@ -11,10 +11,14 @@ A release candidate is not a release until every mandatory item below is satisfi
 
 ## Exact-head software gates
 
+- [ ] `Cargo.lock` is synchronized with the complete workspace graph.
 - [ ] rustfmt succeeds at the declared MSRV/toolchain.
 - [ ] strict Clippy succeeds with warnings denied.
-- [ ] `cargo test --all-features` succeeds.
+- [ ] `cargo test --workspace --all-features` succeeds.
+- [ ] documentation builds for the complete workspace with rustdoc warnings denied.
 - [ ] WGSL/Naga validation succeeds.
+- [ ] API semver checks succeed against the intended baseline.
+- [ ] supply-chain checks succeed for advisories, licenses, and source policy.
 - [ ] Linux/Vulkan qualification succeeds.
 - [ ] Windows/D3D12 qualification succeeds.
 - [ ] macOS/Metal qualification succeeds.
