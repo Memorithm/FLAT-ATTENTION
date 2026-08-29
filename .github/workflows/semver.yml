@@ -1,12 +1,28 @@
 name: semver
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "docs/RELEASE_CHECKLIST.md"
+      - ".github/workflows/semver.yml"
   pull_request:
     paths:
       - "src/**"
       - "crates/**"
       - "Cargo.toml"
       - "docs/RELEASE_CHECKLIST.md"
+      - ".github/workflows/semver.yml"
+  workflow_dispatch:
+    inputs:
+      baseline_rev:
+        description: "Exact git revision to use as the API compatibility baseline"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -22,16 +38,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          # cargo-semver-checks diffs against the merge base; a full history
-          # keeps the baseline resolution reliable.
+          # The explicit baseline below may be any reachable repository commit.
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: 1.89.0
-      # The crate is unpublished; this guards the future 1.0 contract against
-      # accidental breaking changes between PRs.
+      # FLAT is intentionally unpublished. Compare against an explicit git
+      # baseline instead of relying on crates.io discovery: PRs use the exact
+      # base SHA, main pushes use the previous main SHA, and manual release
+      # qualification requires the caller to name the baseline revision.
       - name: Check semver breaking changes
         uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239
         with:
           verbose: false
           feature-group: all-features
+          release-type: patch
+          rust-toolchain: manual
+          baseline-rev: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || inputs.baseline_rev }}
