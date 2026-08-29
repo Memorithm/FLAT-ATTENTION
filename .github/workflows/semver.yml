@@ -6,6 +6,7 @@ on:
       - "src/**"
       - "crates/**"
       - "Cargo.toml"
+      - "docs/RELEASE_CHECKLIST.md"
 
 permissions:
   contents: read
