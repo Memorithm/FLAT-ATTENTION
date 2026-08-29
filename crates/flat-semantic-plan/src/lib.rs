@@ -7,6 +7,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod exact_selection;
+
 use flat_attention::{
     kernel_autotune::{
         tune_candidates, BenchmarkProtocol, CorrectnessGate, ExplicitCandidateSetError,
