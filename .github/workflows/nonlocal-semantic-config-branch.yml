@@ -1,0 +1,64 @@
+name: Feature branch nonlocal semantic config
+
+on:
+  push:
+    branches:
+      - feat/nonlocal-history-semantic-config
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-validate:
+    if: github.repository == 'Memorithm/FLAT-ATTENTION' && github.actor == 'CHECKUPAUTO'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact feature branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: feat/nonlocal-history-semantic-config
+          fetch-depth: 0
+
+      - name: Install pinned nightly and MSRV
+        run: |
+          rustup toolchain install nightly-2026-07-02 --profile minimal --component rustfmt --component clippy
+          rustup toolchain install 1.89.0 --profile minimal
+
+      - name: Wire research-history module
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('crates/flat-semantic/src/lib.rs')
+          text = path.read_text()
+          marker = '#![forbid(unsafe_code)]\n\n'
+          export = '#![forbid(unsafe_code)]\n\n/// Research-only typed history semantic configuration.\npub mod research_history;\n\n'
+          if 'pub mod research_history;' not in text:
+              if marker not in text:
+                  raise SystemExit('flat-semantic module marker not found')
+              text = text.replace(marker, export, 1)
+          path.write_text(text)
+
+      - name: Format and validate semantic stack
+        run: |
+          cargo +nightly-2026-07-02 fmt --all
+          cargo +nightly-2026-07-02 fmt --all -- --check
+          cargo +nightly-2026-07-02 clippy -p flat-semantic -p flat-semantic-control --all-targets --locked -- -D warnings
+          cargo +1.89.0 test -p flat-semantic --locked
+          cargo +1.89.0 test -p flat-semantic-control --locked
+          cargo +1.89.0 doc -p flat-semantic -p flat-semantic-control --no-deps --locked
+
+      - name: Commit only semantic wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          allowed='^( M crates/flat-semantic/src/lib.rs| M crates/flat-semantic/src/research_history.rs)$'
+          unexpected="$(git status --porcelain --untracked-files=no | grep -Ev "$allowed" || true)"
+          test -z "$unexpected" || { echo "$unexpected"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/flat-semantic/src/lib.rs crates/flat-semantic/src/research_history.rs
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "feat(semantic): wire typed nonlocal history config"
+          git push origin HEAD:feat/nonlocal-history-semantic-config
