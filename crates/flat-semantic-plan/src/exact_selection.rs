@@ -7,7 +7,9 @@
 //! and autotuner. The exact selection is never replaced by a runtime outcome.
 
 use flat_attention::{
-    kernel_autotune::{BenchmarkProtocol, CorrectnessGate, ExplicitCandidateSetError, TimingHarness},
+    kernel_autotune::{
+        BenchmarkProtocol, CorrectnessGate, ExplicitCandidateSetError, TimingHarness,
+    },
     kernel_candidates::SelectionPolicy,
     kernel_ir::AttentionProblem,
     RuntimeDeviceCapabilities, RuntimeKernelId,
@@ -17,8 +19,8 @@ use flat_semantic_execution::SemanticExecutionCatalog;
 use flat_semantic_selection::SemanticSelectionDecision as ExactSemanticSelectionDecision;
 
 use crate::{
-    plan_forward_execution, tune_forward_execution_plan, ForwardExecutionPlan, ForwardPlanningOutcome,
-    ForwardTuningRecord,
+    plan_forward_execution, tune_forward_execution_plan, ForwardExecutionPlan,
+    ForwardPlanningOutcome, ForwardTuningRecord,
 };
 
 /// Forward plan whose semantic provenance is the exact registered-selection
@@ -180,11 +182,13 @@ pub fn tune_exact_forward_execution_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_attention::kernel_autotune::{TimingSample, TimingHarness};
+    use flat_attention::kernel_autotune::{TimingHarness, TimingSample};
     use flat_attention::kernel_candidates::KernelCandidate;
     use flat_attention::{AttentionShape, FlatAttentionConfig};
     use flat_semantic::v1::{SemanticFamily, SemanticId};
-    use flat_semantic_execution::{standard_softmax_runtime_catalog, ExecutionBinding, ExecutionRole};
+    use flat_semantic_execution::{
+        standard_softmax_runtime_catalog, ExecutionBinding, ExecutionRole,
+    };
     use flat_semantic_registry::SemanticRegistry;
     use flat_semantic_selection::{ExactSemanticSelectionPolicy, SemanticSelectionRequest};
 
@@ -284,7 +288,10 @@ mod tests {
             &mut harness,
         )
         .unwrap();
-        assert_eq!(record.selection().stable_fingerprint(), selection_fingerprint);
+        assert_eq!(
+            record.selection().stable_fingerprint(),
+            selection_fingerprint
+        );
         assert_eq!(record.tuning().semantic(), selection.semantic());
     }
 
