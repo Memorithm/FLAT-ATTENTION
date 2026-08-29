@@ -14,8 +14,8 @@
 //!   carrying either evidence or a typed rejection; an empty legal candidate
 //!   set is an explicit outcome, never a silent fallback.
 //!
-//! Timing is delegated to a pluggable [`TimingHarness`] and correctness to a
-//! pluggable [`CorrectnessGate`], so this core stays host-only and fully
+//! Timing is delegated to a pluggable [`crate::kernel_autotune::TimingHarness`] and correctness to a
+//! pluggable [`crate::kernel_autotune::CorrectnessGate`], so this core stays host-only and fully
 //! testable with controlled doubles. Production harnesses must document
 //! their measurement boundary (resident vs transfer-inclusive) and reuse the
 //! repository's established methodology; software-adapter timings are
@@ -433,7 +433,7 @@ pub fn tune_candidates(
 ///
 /// Candidates come from [`generate_candidates`] under `policy`; each passes
 /// the correctness gate before any timing occurs; ranking follows
-/// [`rank_key`]. The function returns full per-candidate evidence whether or
+/// `rank_key`. The function returns full per-candidate evidence whether or
 /// not a selection exists.
 ///
 /// Existing behavior remains unchanged; the generated candidate list is passed
@@ -658,8 +658,6 @@ mod tests {
             },
             &mut harness,
         );
-        // The failing candidate must not appear in the measurement log even
-        // though it would have been fastest.
         assert!(!harness.measured.contains(&RuntimeKernelId::Q4Vec4Portable));
         let selected = record.selected.expect("a legal candidate must win");
         assert_ne!(
@@ -730,7 +728,6 @@ mod tests {
             ],
             measured: Vec::new(),
         };
-        // Restrict the candidate set so exactly the two tied candidates run.
         let policy = SelectionPolicy {
             allow_experimental: false,
             max_candidates: 2,
@@ -755,7 +752,6 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        // Winner carries the smaller of the two tied ids.
         assert_eq!(
             selected.candidate.id.get(),
             ids.iter().copied().min().unwrap()
