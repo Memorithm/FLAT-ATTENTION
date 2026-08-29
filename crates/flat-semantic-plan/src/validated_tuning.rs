@@ -141,11 +141,7 @@ mod tests {
     }
 
     impl CorrectnessGate for CountingGate {
-        fn verify(
-            &mut self,
-            _: &KernelCandidate,
-            _: &AttentionProblem,
-        ) -> Result<(), String> {
+        fn verify(&mut self, _: &KernelCandidate, _: &AttentionProblem) -> Result<(), String> {
             self.calls += 1;
             Ok(())
         }
