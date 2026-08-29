@@ -7,14 +7,14 @@
 //!
 //! Two checks are provided:
 //!
-//! - [`check_static`]: configuration-imposed facts only (subgroup support,
+//! - [`crate::kernel_prefilter::check_static`]: configuration-imposed facts only (subgroup support,
 //!   workgroup invocations/storage, bind-group entries). Usable at context
 //!   construction time when no problem is known yet.
-//! - [`check_dispatch`]: problem-derived facts (dispatch extents and packed
+//! - [`crate::kernel_prefilter::check_dispatch`]: problem-derived facts (dispatch extents and packed
 //!   output binding size) against the same limits.
 //!
-//! [`check_module`] runs both. Every rejection is an explicit
-//! [`CapabilityRejection`]; nothing here silently substitutes another
+//! [`crate::kernel_prefilter::check_module`] runs both. Every rejection is an explicit
+//! [`crate::kernel_prefilter::CapabilityRejection`]; nothing here silently substitutes another
 //! implementation. Marketing names are never consulted.
 
 use crate::device_model::RuntimeDeviceCapabilities;
