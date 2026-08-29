@@ -12,6 +12,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "docs/M35_D3D12_WINDOWS.md"
+      - "docs/RELEASE_CHECKLIST.md"
       - ".github/workflows/portability-d3d12.yml"
   workflow_dispatch:
 
