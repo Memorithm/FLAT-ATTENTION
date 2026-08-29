@@ -9,6 +9,7 @@
 
 pub mod exact_selection;
 pub mod validated_selection;
+pub mod validated_tuning;
 
 use flat_attention::{
     kernel_autotune::{
