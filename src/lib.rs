@@ -182,6 +182,15 @@ pub use wgpu_forward_grouped::{
     GroupedForwardError, GroupedForwardLayout, GroupedForwardPass, WgpuGroupedForwardPipeline,
 };
 
+/// Research-only WGPU execution candidate for the exact reference subset of
+/// `nonlocal-history-softmax@1`. This is opt-in and does not alter routing.
+#[cfg(feature = "wgpu")]
+mod research_nonlocal_wgpu;
+#[cfg(feature = "wgpu")]
+pub use research_nonlocal_wgpu::{
+    NonlocalWgpuCandidateError, NonlocalWgpuReferencePlan, WgpuNonlocalHistoryReferenceCandidate,
+};
+
 #[cfg(feature = "wgpu")]
 mod wgpu_rotary_grouped_backend;
 #[cfg(feature = "wgpu")]
