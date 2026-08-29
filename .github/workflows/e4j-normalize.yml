@@ -1,0 +1,44 @@
+name: E4j branch normalization
+
+on:
+  push:
+    branches:
+      - research/a11-e4j-exact-selection-provenance
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: research/a11-e4j-exact-selection-provenance
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Normalize and validate E4j
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          cargo fmt --all
+          cargo clippy -p flat-semantic-plan --all-targets --all-features -- -D warnings
+          cargo test -p flat-semantic-plan --all-features
+      - name: Commit normalized branch and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Cargo.lock crates/flat-semantic-plan/Cargo.toml crates/flat-semantic-plan/src/lib.rs crates/flat-semantic-plan/src/exact_selection.rs
+          git rm .github/workflows/e4j-normalize.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(a11): normalize E4j exact-selection bridge"
+          git push origin HEAD:research/a11-e4j-exact-selection-provenance
