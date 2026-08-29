@@ -162,9 +162,9 @@ impl fmt::Display for NonlocalAttentionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Flat(error) => write!(formatter, "FLAT validation failed: {error}"),
-            Self::NonCausalUnsupported => formatter.write_str(
-                "nonlocal-history-softmax revision 1 requires causal attention",
-            ),
+            Self::NonCausalUnsupported => {
+                formatter.write_str("nonlocal-history-softmax revision 1 requires causal attention")
+            }
             Self::InvalidHistoryWindow => {
                 formatter.write_str("history window must retain at least one token")
             }
@@ -245,9 +245,7 @@ pub fn forward_reference_nonlocal_history(
                 let visible_end = absolute_query_pos.saturating_add(1).min(shape.kv_len);
                 let history_start = match history_config.history_mode {
                     HistoryMode::Complete => 0,
-                    HistoryMode::Window { max_tokens } => {
-                        visible_end.saturating_sub(max_tokens)
-                    }
+                    HistoryMode::Window { max_tokens } => visible_end.saturating_sub(max_tokens),
                 };
                 let retained = visible_end - history_start;
 
