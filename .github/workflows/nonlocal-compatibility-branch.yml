@@ -1,0 +1,21 @@
+name: Nonlocal compatibility branch
+
+on:
+  push:
+    branches:
+      - research/nonlocal-compatibility-gates
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: research/nonlocal-compatibility-gates
+      - run: rustup toolchain install 1.89.0 --profile minimal --component rustfmt --component clippy
+      - name: Validate compatibility gates
+        run: |
+          cargo +1.89.0 fmt --all -- --check
+          cargo +1.89.0 clippy -p flat-semantic --all-targets --no-deps -- -D warnings
+          cargo +1.89.0 test -p flat-semantic --test nonlocal_compatibility
+          RUSTDOCFLAGS='-D warnings' cargo +1.89.0 doc -p flat-semantic --no-deps
