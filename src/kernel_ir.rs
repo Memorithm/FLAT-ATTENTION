@@ -8,8 +8,8 @@
 //!
 //! Two separations are enforced by construction:
 //!
-//! - [`AttentionProblem`] describes *what* is computed (semantic geometry).
-//! - [`KernelConfig`] describes *how* it is computed (tuning choices).
+//! - [`crate::kernel_ir::AttentionProblem`] describes *what* is computed (semantic geometry).
+//! - [`crate::kernel_ir::KernelConfig`] describes *how* it is computed (tuning choices).
 //!
 //! Modules can only be produced by validated builders, so illegal kernel
 //! descriptions (vector widths without an executable path, double buffering
@@ -20,8 +20,8 @@
 //! are not representable.
 //!
 //! Everything here is deterministic and host-only: equivalent modules produce
-//! byte-identical [`KernelModule::canonical_record`] text and stable
-//! [`KernelModule::structural_fingerprint`] values. Fingerprints follow the
+//! byte-identical [`crate::kernel_ir::KernelModule::canonical_record`] text and stable
+//! [`crate::kernel_ir::KernelModule::structural_fingerprint`] values. Fingerprints follow the
 //! repository's FNV-1a-64 discipline; they are cache-key/equality
 //! accelerators, **not** cryptographic authentication, and correctness
 //! decisions must rest on structural validation.
