@@ -249,6 +249,95 @@ pub mod v1 {
 
     impl std::error::Error for SemanticIdentityError {}
 
+    /// Concrete research semantic backed by FLAT's qualified scalar
+    /// structured-history oracle.
+    ///
+    /// This value is reference/control-plane support only. Constructing or
+    /// executing it does not register a WGPU candidate, select a kernel, or
+    /// alter the historical StandardSoftmax path.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct NonlocalHistorySoftmaxSemantic {
+        attention: FlatAttentionConfig,
+        history: flat_attention::api::research_nonlocal::NonlocalAttentionConfig,
+    }
+
+    impl NonlocalHistorySoftmaxSemantic {
+        /// Construct revision 1 after validating its causal/history contract.
+        ///
+        /// # Errors
+        ///
+        /// Rejects non-causal requests and invalid structured-history
+        /// configuration exactly as the scalar research oracle does.
+        pub fn new(
+            attention: FlatAttentionConfig,
+            history: flat_attention::api::research_nonlocal::NonlocalAttentionConfig,
+        ) -> Result<Self, flat_attention::api::research_nonlocal::NonlocalAttentionError> {
+            use flat_attention::api::research_nonlocal::NonlocalAttentionError;
+
+            history.validate()?;
+            if !attention.causal {
+                return Err(NonlocalAttentionError::NonCausalUnsupported);
+            }
+            Ok(Self { attention, history })
+        }
+
+        /// Stable rule identity for research semantic revision 1.
+        ///
+        /// The identity contains no execution, device, kernel, or benchmark
+        /// choice and can therefore be used by the registry without depending
+        /// on the scalar-oracle request types.
+        #[must_use]
+        pub fn semantic_id() -> SemanticId {
+            use flat_attention::api::research_nonlocal::{
+                NONLOCAL_ATTENTION_SEMANTIC_NAME, NONLOCAL_ATTENTION_SEMANTIC_REVISION,
+            };
+
+            SemanticId::new(
+                SemanticFamily::Experimental,
+                NONLOCAL_ATTENTION_SEMANTIC_NAME,
+                NONLOCAL_ATTENTION_SEMANTIC_REVISION,
+            )
+            .expect("FLAT nonlocal semantic constants form a valid stable identity")
+        }
+
+        /// Stable reference-level descriptor for the research semantic.
+        #[must_use]
+        pub fn descriptor(self) -> SemanticDescriptor {
+            SemanticDescriptor::new(
+                Self::semantic_id(),
+                MaskSemantics::Causal,
+                StateSemantics::Stateless,
+                WeightSemantics::ProbabilitySimplex,
+                SavedStateContract::LogSumExp,
+            )
+        }
+
+        /// Execute only the deterministic scalar research oracle.
+        ///
+        /// # Errors
+        ///
+        /// Propagates the research oracle's validation and numerical errors.
+        pub fn execute(
+            self,
+            q: &[f32],
+            k: &[f32],
+            v: &[f32],
+            shape: flat_attention::AsymmetricGroupedAttentionShape,
+        ) -> Result<
+            flat_attention::api::research_nonlocal::NonlocalAttentionOutput,
+            flat_attention::api::research_nonlocal::NonlocalAttentionError,
+        > {
+            flat_attention::api::research_nonlocal::forward_reference_nonlocal_history(
+                q,
+                k,
+                v,
+                shape,
+                self.attention,
+                self.history,
+            )
+        }
+    }
+
     /// Concrete executable S0 semantic backed by FLAT's historical scalar
     /// StandardSoftmax oracle.
     ///
