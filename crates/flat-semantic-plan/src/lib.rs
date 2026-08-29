@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 pub mod exact_selection;
+pub mod validated_selection;
 
 use flat_attention::{
     kernel_autotune::{
