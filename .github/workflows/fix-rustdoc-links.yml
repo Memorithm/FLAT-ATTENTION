@@ -1,0 +1,52 @@
+name: Fix release rustdoc links
+
+on:
+  push:
+    branches:
+      - release/1.0-hardening-20260829
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: release/1.0-hardening-20260829
+          fetch-depth: 0
+      - name: Qualify exact broken intra-doc links
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/kernel_ir.rs')
+          s = p.read_text()
+          replacements = {
+              '[`AttentionProblem`]': '[`crate::kernel_ir::AttentionProblem`]',
+              '[`KernelConfig`]': '[`crate::kernel_ir::KernelConfig`]',
+              '[`KernelModule::canonical_record`]': '[`crate::kernel_ir::KernelModule::canonical_record`]',
+              '[`KernelModule::structural_fingerprint`]': '[`crate::kernel_ir::KernelModule::structural_fingerprint`]',
+          }
+          for old, new in replacements.items():
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one {old!r}, found {count}')
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --numstat -- src/kernel_ir.rs | awk '{print $1+$2}')" -eq 8
+      - name: Commit narrow fix and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/kernel_ir.rs
+          git rm .github/workflows/fix-rustdoc-links.yml
+          git commit -m "docs: qualify kernel IR intra-doc links"
+          git push origin HEAD:release/1.0-hardening-20260829
