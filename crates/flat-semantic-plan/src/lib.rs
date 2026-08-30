@@ -71,7 +71,9 @@ impl ForwardExecutionPlan {
 /// Tuning evidence bound to the exact semantic plan that admitted its candidates.
 ///
 /// `selection` is benchmark evidence among the plan's implementations. It is
-/// never a semantic ranking and cannot replace `semantic`.
+/// never a semantic ranking and cannot replace `semantic`. The exact benchmark
+/// protocol is retained even when no candidate produces timing evidence, so
+/// warm-up and measured-iteration provenance is not inferred from outcomes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ForwardTuningRecord {
     semantic: SemanticId,
@@ -79,6 +81,7 @@ pub struct ForwardTuningRecord {
     device_capability_fingerprint: u64,
     selection_policy: SelectionPolicy,
     compatible_runtime_kernels: Vec<RuntimeKernelId>,
+    benchmark_protocol: BenchmarkProtocol,
     selection: SelectionRecord,
 }
 
@@ -103,6 +106,11 @@ impl ForwardTuningRecord {
     pub fn compatible_runtime_kernels(&self) -> &[RuntimeKernelId] {
         &self.compatible_runtime_kernels
     }
+    /// Exact warm-up/measurement protocol requested for this tuning session.
+    #[must_use]
+    pub const fn benchmark_protocol(&self) -> BenchmarkProtocol {
+        self.benchmark_protocol
+    }
     #[must_use]
     pub const fn selection(&self) -> &SelectionRecord {
         &self.selection
@@ -114,7 +122,8 @@ impl ForwardTuningRecord {
 /// This delegates correctness, timing and deterministic benchmark ranking to
 /// FLAT's existing explicit-candidate autotuning seam. No candidates are
 /// generated here, so the semantic planner's candidate restriction cannot be
-/// silently widened.
+/// silently widened. The requested benchmark protocol is retained verbatim in
+/// the returned provenance record.
 ///
 /// # Errors
 /// Returns the explicit-candidate structural error if a malformed plan reaches
@@ -133,6 +142,7 @@ pub fn tune_forward_execution_plan(
         device_capability_fingerprint: plan.device_capability_fingerprint(),
         selection_policy: plan.selection_policy(),
         compatible_runtime_kernels: plan.compatible_runtime_kernels().to_vec(),
+        benchmark_protocol: protocol,
         selection,
     })
 }
@@ -355,21 +365,17 @@ mod tests {
         let mut harness = ScriptedHarness {
             measured: Vec::new(),
         };
-        let record = tune_forward_execution_plan(
-            &plan,
-            BenchmarkProtocol {
-                warmups: 1,
-                iterations: 2,
-            },
-            &mut gate,
-            &mut harness,
-        )
-        .unwrap();
+        let protocol = BenchmarkProtocol {
+            warmups: 7,
+            iterations: 11,
+        };
+        let record = tune_forward_execution_plan(&plan, protocol, &mut gate, &mut harness).unwrap();
         assert_eq!(record.semantic(), &standard);
         assert_eq!(
             record.device_capability_fingerprint(),
             plan.device_capability_fingerprint()
         );
+        assert_eq!(record.benchmark_protocol(), protocol);
         assert_eq!(harness.measured, vec![RuntimeKernelId::Q4Portable]);
         assert_eq!(record.selection().per_candidate.len(), 1);
         assert_eq!(
