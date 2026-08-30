@@ -369,13 +369,7 @@ mod tests {
             warmups: 7,
             iterations: 11,
         };
-        let record = tune_forward_execution_plan(
-            &plan,
-            protocol,
-            &mut gate,
-            &mut harness,
-        )
-        .unwrap();
+        let record = tune_forward_execution_plan(&plan, protocol, &mut gate, &mut harness).unwrap();
         assert_eq!(record.semantic(), &standard);
         assert_eq!(
             record.device_capability_fingerprint(),
