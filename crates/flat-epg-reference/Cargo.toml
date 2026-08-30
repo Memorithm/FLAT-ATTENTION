@@ -10,3 +10,4 @@ license-file = "../../LICENSE.md"
 [dependencies]
 epg-core = { path = "../epg-core" }
 flat-attention = { path = "../.." }
+flat-semantic = { path = "../flat-semantic" }
