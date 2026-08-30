@@ -118,6 +118,17 @@ pub struct NoIntervention;
 
 impl ResearchObserver for NoIntervention {}
 
+/// Mutable research-only observation state passed to the observed oracle.
+///
+/// Grouping the observer and bounded trace keeps instrumentation state explicit
+/// without widening the production/reference API surface.
+pub struct ResearchObservationContext<'a, O: ResearchObserver> {
+    /// Intervention/observation hook for this execution.
+    pub observer: &'a mut O,
+    /// Bounded trace retaining deterministic research events.
+    pub trace: &'a mut BoundedResearchTrace,
+}
+
 /// Bounded in-memory trace for research execution.
 ///
 /// Once `max_events` is reached, execution continues and additional events are
@@ -214,8 +225,7 @@ pub fn forward_reference_grouped_epg_observed<O: ResearchObserver>(
     shape: GroupedAttentionShape,
     config: FlatAttentionConfig,
     epg: EpgEmbeddingConfig,
-    observer: &mut O,
-    trace: &mut BoundedResearchTrace,
+    research: &mut ResearchObservationContext<'_, O>,
 ) -> Result<FlatAttentionOutput, EpgError> {
     let group_size = shape.group_size()?;
     epg.validate(shape.head_dim, shape.seq_len)?;
@@ -274,8 +284,10 @@ pub fn forward_reference_grouped_epg_observed<O: ResearchObserver>(
                         running_max_before: running_max,
                         running_sum_before: running_sum,
                     };
-                    trace.record(ResearchEvent::Contribution(observation));
-                    let intervention = observer.on_contribution(&observation);
+                    research
+                        .trace
+                        .record(ResearchEvent::Contribution(observation));
+                    let intervention = research.observer.on_contribution(&observation);
                     let effective_score = match intervention {
                         InterventionDecision::Keep | InterventionDecision::ZeroValue => score,
                         InterventionDecision::ZeroScore
@@ -336,8 +348,10 @@ pub fn forward_reference_grouped_epg_observed<O: ResearchObserver>(
                     lse: row_lse,
                     output_l2: output_l2_squared.sqrt(),
                 };
-                trace.record(ResearchEvent::QueryComplete(diagnostics));
-                observer.on_query_complete(&diagnostics);
+                research
+                    .trace
+                    .record(ResearchEvent::QueryComplete(diagnostics));
+                research.observer.on_query_complete(&diagnostics);
             }
         }
     }
@@ -391,8 +405,10 @@ mod tests {
             shape,
             config,
             epg,
-            &mut observer,
-            &mut trace,
+            &mut ResearchObservationContext {
+                observer: &mut observer,
+                trace: &mut trace,
+            },
         )
         .unwrap();
 
@@ -425,8 +441,10 @@ mod tests {
             shape,
             config,
             epg,
-            &mut observer,
-            &mut trace,
+            &mut ResearchObservationContext {
+                observer: &mut observer,
+                trace: &mut trace,
+            },
         )
         .unwrap();
 
@@ -460,8 +478,10 @@ mod tests {
             shape,
             config,
             epg,
-            &mut observer,
-            &mut trace,
+            &mut ResearchObservationContext {
+                observer: &mut observer,
+                trace: &mut trace,
+            },
         )
         .unwrap();
 
@@ -524,8 +544,10 @@ mod tests {
             shape,
             config,
             epg,
-            &mut observer,
-            &mut trace,
+            &mut ResearchObservationContext {
+                observer: &mut observer,
+                trace: &mut trace,
+            },
         )
         .unwrap();
 
