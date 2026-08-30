@@ -437,7 +437,10 @@ mod tests {
         plan
     }
 
-    fn tune(plan: &ExactForwardExecutionPlan, protocol: BenchmarkProtocol) -> ExactForwardTuningRecord {
+    fn tune(
+        plan: &ExactForwardExecutionPlan,
+        protocol: BenchmarkProtocol,
+    ) -> ExactForwardTuningRecord {
         let mut gate = PassGate;
         let mut harness = Harness;
         tune_exact_forward_execution_plan(plan, protocol, &mut gate, &mut harness).unwrap()
