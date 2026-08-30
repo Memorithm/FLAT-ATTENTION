@@ -79,7 +79,7 @@ jobs:
           git rm .github/workflows/fix-pr164-clippy.yml
           git add crates/flat-epg-reference/src/lib.rs crates/flat-epg-reference/src/research_observability.rs
           changed="$(git diff --cached --name-only | sort)"
-          expected="$(printf '%s\n' crates/flat-epg-reference/src/lib.rs crates/flat-epg-reference/src/research_observability.rs | sort)"
+          expected="$(printf '%s\n' .github/workflows/fix-pr164-clippy.yml crates/flat-epg-reference/src/lib.rs crates/flat-epg-reference/src/research_observability.rs | sort)"
           test "$changed" = "$expected"
           git config user.name CHECKUPAUTO
           git config user.email actions@github.com
