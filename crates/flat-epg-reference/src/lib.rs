@@ -17,4 +17,5 @@ pub use oracle::forward_reference_grouped_epg;
 pub use research_observability::{
     forward_reference_grouped_epg_observed, BoundedResearchTrace, ContributionObservation,
     InterventionDecision, NoIntervention, QueryDiagnostics, ResearchEvent, ResearchObserver,
+    ResearchSemanticIdentity,
 };
