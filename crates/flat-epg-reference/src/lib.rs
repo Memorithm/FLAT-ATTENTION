@@ -3,6 +3,7 @@
 //! This crate is intentionally separate from FLAT's production kernel surface.
 //! It adapts the runtime-neutral `epg-core` contract to FLAT's public attention
 //! contracts and provides the oracle used to qualify future fused kernels.
+//! Research observability is opt-in and does not participate in production routing.
 
 #![forbid(unsafe_code)]
 
