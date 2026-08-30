@@ -150,8 +150,7 @@ mod tests {
     };
     use flat_semantic::v1::{SemanticFamily, SemanticId};
     use flat_semantic_execution::{
-        standard_softmax_runtime_catalog, ExecutionBinding, ExecutionRole,
-        SemanticExecutionCatalog,
+        standard_softmax_runtime_catalog, ExecutionBinding, ExecutionRole, SemanticExecutionCatalog,
     };
     use flat_semantic_registry::SemanticRegistry;
     use flat_semantic_selection::{
