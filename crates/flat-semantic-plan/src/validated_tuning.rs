@@ -1,14 +1,19 @@
-//! Fail-closed registry revalidation before exact semantic tuning.
+//! Fail-closed provenance revalidation before exact semantic tuning.
 //!
 //! Planning-time validation is not sufficient when an exact execution plan is
-//! retained across a registry update. This bridge revalidates the exact
-//! selection embedded in the plan immediately before correctness-gated timing.
-//! A stale decision therefore cannot reach either the correctness gate or the
-//! timing harness, and no replacement semantic or candidate set is synthesized.
+//! retained across registry or execution-catalog updates. These bridges
+//! revalidate the exact semantic selection immediately before
+//! correctness-gated timing and can additionally require the current forward
+//! execution surface to match the one recorded in the plan. A stale decision
+//! or changed compatible-kernel surface therefore cannot reach either the
+//! correctness gate or the timing harness, and no replacement semantic or
+//! candidate set is synthesized.
 
 use flat_attention::kernel_autotune::{
     BenchmarkProtocol, CorrectnessGate, ExplicitCandidateSetError, TimingHarness,
 };
+use flat_attention::RuntimeKernelId;
+use flat_semantic_execution::{ExecutionRole, SemanticExecutionCatalog};
 use flat_semantic_registry::SemanticRegistry;
 use flat_semantic_selection::SemanticSelectionValidationError;
 
@@ -35,6 +40,29 @@ impl From<SemanticSelectionValidationError> for ValidatedExactForwardTuningError
 impl From<ExplicitCandidateSetError> for ValidatedExactForwardTuningError {
     fn from(value: ExplicitCandidateSetError) -> Self {
         Self::CandidateSet(value)
+    }
+}
+
+/// Failure while validating the current execution catalog and then performing
+/// the existing exact semantic tuning checks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CatalogValidatedExactForwardTuningError {
+    /// Forward compatibility for the exact selected semantic changed since the
+    /// execution plan was produced.
+    ExecutionCatalogDrift {
+        /// Canonical compatible runtime surface recorded in the plan.
+        planned: Vec<RuntimeKernelId>,
+        /// Canonical compatible runtime surface declared by the current
+        /// execution catalog.
+        current: Vec<RuntimeKernelId>,
+    },
+    /// Registry provenance or explicit candidate-set validation failed.
+    Tuning(ValidatedExactForwardTuningError),
+}
+
+impl From<ValidatedExactForwardTuningError> for CatalogValidatedExactForwardTuningError {
+    fn from(value: ValidatedExactForwardTuningError) -> Self {
+        Self::Tuning(value)
     }
 }
 
@@ -65,15 +93,66 @@ pub fn tune_validated_exact_forward_execution_plan(
     )?)
 }
 
+/// Require the current execution catalog to preserve the exact forward runtime
+/// surface recorded in the plan, then perform the existing registry-validated
+/// tuning path.
+///
+/// Only bindings for the already-selected semantic and forward role are
+/// compared. Unrelated catalog changes do not invalidate the plan. A changed
+/// relevant surface fails closed before correctness verification or timing; it
+/// is never widened, regenerated, or interpreted as permission to select a
+/// different semantic.
+///
+/// # Errors
+///
+/// Returns [`CatalogValidatedExactForwardTuningError::ExecutionCatalogDrift`]
+/// when the current compatible forward runtime surface differs from the one
+/// recorded during planning, or wraps the existing validated tuning errors.
+pub fn tune_catalog_validated_exact_forward_execution_plan(
+    registry: &SemanticRegistry,
+    catalog: &SemanticExecutionCatalog,
+    plan: &ExactForwardExecutionPlan,
+    protocol: BenchmarkProtocol,
+    gate: &mut dyn CorrectnessGate,
+    harness: &mut dyn TimingHarness,
+) -> Result<ExactForwardTuningRecord, CatalogValidatedExactForwardTuningError> {
+    let current = catalog
+        .bindings()
+        .iter()
+        .filter(|binding| {
+            binding.semantic() == plan.selection().semantic()
+                && binding.role() == ExecutionRole::Forward
+        })
+        .map(|binding| binding.kernel())
+        .collect::<Vec<_>>();
+    let planned = plan.execution().compatible_runtime_kernels();
+    if current != planned {
+        return Err(
+            CatalogValidatedExactForwardTuningError::ExecutionCatalogDrift {
+                planned: planned.to_vec(),
+                current,
+            },
+        );
+    }
+    Ok(tune_validated_exact_forward_execution_plan(
+        registry, plan, protocol, gate, harness,
+    )?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use flat_attention::kernel_autotune::TimingSample;
     use flat_attention::kernel_candidates::{KernelCandidate, SelectionPolicy};
     use flat_attention::kernel_ir::AttentionProblem;
-    use flat_attention::{AttentionShape, FlatAttentionConfig, RuntimeDeviceCapabilities};
+    use flat_attention::{
+        AttentionShape, FlatAttentionConfig, RuntimeDeviceCapabilities, RuntimeKernelId,
+    };
     use flat_semantic::v1::{SemanticFamily, SemanticId};
-    use flat_semantic_execution::standard_softmax_runtime_catalog;
+    use flat_semantic_execution::{
+        standard_softmax_runtime_catalog, ExecutionBinding, ExecutionRole,
+        SemanticExecutionCatalog,
+    };
     use flat_semantic_registry::SemanticRegistry;
     use flat_semantic_selection::{
         ExactSemanticSelectionPolicy, SemanticSelectionRequest, SemanticSelectionValidationError,
@@ -222,6 +301,69 @@ mod tests {
                 }
             )
         );
+        assert_eq!(gate.calls, 0);
+        assert_eq!(harness.calls, 0);
+    }
+
+    #[test]
+    fn unchanged_execution_catalog_allows_validated_tuning() {
+        let registry = SemanticRegistry::new([semantic()]).unwrap();
+        let catalog = standard_softmax_runtime_catalog();
+        let plan = ready_plan(&registry);
+        let mut gate = CountingGate::default();
+        let mut harness = CountingHarness::default();
+
+        let record = tune_catalog_validated_exact_forward_execution_plan(
+            &registry,
+            &catalog,
+            &plan,
+            BenchmarkProtocol {
+                warmups: 1,
+                iterations: 2,
+            },
+            &mut gate,
+            &mut harness,
+        )
+        .unwrap();
+
+        assert_eq!(record.selection(), plan.selection());
+        assert!(gate.calls > 0);
+        assert!(harness.calls > 0);
+    }
+
+    #[test]
+    fn execution_catalog_drift_fails_before_correctness_or_timing() {
+        let registry = SemanticRegistry::new([semantic()]).unwrap();
+        let plan = ready_plan(&registry);
+        let current = SemanticExecutionCatalog::new([ExecutionBinding::new(
+            semantic(),
+            ExecutionRole::Forward,
+            RuntimeKernelId::Q4Portable,
+        )])
+        .unwrap();
+        let mut gate = CountingGate::default();
+        let mut harness = CountingHarness::default();
+
+        let error = tune_catalog_validated_exact_forward_execution_plan(
+            &registry,
+            &current,
+            &plan,
+            BenchmarkProtocol {
+                warmups: 1,
+                iterations: 2,
+            },
+            &mut gate,
+            &mut harness,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            CatalogValidatedExactForwardTuningError::ExecutionCatalogDrift {
+                planned,
+                current,
+            } if planned.len() > current.len() && current == vec![RuntimeKernelId::Q4Portable]
+        ));
         assert_eq!(gate.calls, 0);
         assert_eq!(harness.calls, 0);
     }
