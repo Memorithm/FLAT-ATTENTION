@@ -8,8 +8,13 @@
 
 mod geometry;
 mod oracle;
+mod research_observability;
 mod rotation;
 
 pub use epg_core::{EpgGeometryDescriptor, EpgGeometryKind, EpgPositionDomain};
 pub use geometry::{EpgEmbeddingConfig, EpgError, So4Geometry, EPG_CONTRACT_VERSION};
 pub use oracle::forward_reference_grouped_epg;
+pub use research_observability::{
+    forward_reference_grouped_epg_observed, BoundedResearchTrace, ContributionObservation,
+    InterventionDecision, NoIntervention, QueryDiagnostics, ResearchEvent, ResearchObserver,
+};
