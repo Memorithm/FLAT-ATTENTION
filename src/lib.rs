@@ -14,6 +14,13 @@ pub mod api;
 /// Machine-readable reproducible benchmark provenance.
 pub mod benchmark_manifest;
 
+/// Machine-readable evidence retention for the research-only nonlocal semantic.
+mod research_nonlocal_evidence;
+pub use research_nonlocal_evidence::{
+    NonlocalEvidenceError, NonlocalEvidenceManifest, ResearchEvidenceDisposition,
+    ResearchEvidenceScope, NONLOCAL_EVIDENCE_SCHEMA_VERSION,
+};
+
 mod fingerprint;
 
 /// Experimental FLAT Kernel IR: validated structural descriptions of
