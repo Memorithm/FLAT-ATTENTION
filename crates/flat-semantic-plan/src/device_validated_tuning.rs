@@ -12,8 +12,7 @@ use flat_semantic_registry::SemanticRegistry;
 
 use crate::exact_selection::{ExactForwardExecutionPlan, ExactForwardTuningRecord};
 use crate::validated_tuning::{
-    tune_catalog_validated_exact_forward_execution_plan,
-    CatalogValidatedExactForwardTuningError,
+    tune_catalog_validated_exact_forward_execution_plan, CatalogValidatedExactForwardTuningError,
 };
 
 /// Failure while validating current device provenance and then performing the
@@ -63,10 +62,9 @@ pub fn tune_device_validated_exact_forward_execution_plan(
     let planned = plan.execution().device_capability_fingerprint();
     let current = capabilities.stable_fingerprint();
     if current != planned {
-        return Err(DeviceValidatedExactForwardTuningError::DeviceCapabilityDrift {
-            planned,
-            current,
-        });
+        return Err(
+            DeviceValidatedExactForwardTuningError::DeviceCapabilityDrift { planned, current },
+        );
     }
     Ok(tune_catalog_validated_exact_forward_execution_plan(
         registry, catalog, plan, protocol, gate, harness,
