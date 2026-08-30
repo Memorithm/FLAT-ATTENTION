@@ -296,14 +296,12 @@ pub fn forward_reference_grouped_epg_observed<O: ResearchObserver>(
 
                     for dim in 0..shape.head_dim {
                         let value = if zero_value { 0.0 } else { v[kv_base + dim] };
-                        output[q_base + dim] =
-                            output[q_base + dim] * alpha + numerator * value;
+                        output[q_base + dim] = output[q_base + dim] * alpha + numerator * value;
                     }
                     running_sum = running_sum * alpha + numerator;
-                    weighted_score_sum =
-                        weighted_score_sum * alpha + numerator * effective_score;
-                    squared_numerator_sum = squared_numerator_sum * alpha * alpha
-                        + numerator * numerator;
+                    weighted_score_sum = weighted_score_sum * alpha + numerator * effective_score;
+                    squared_numerator_sum =
+                        squared_numerator_sum * alpha * alpha + numerator * numerator;
                     running_max = new_max;
                     visible_contributions = visible_contributions.saturating_add(1);
                 }
@@ -381,14 +379,9 @@ mod tests {
             causal: true,
             softmax_scale: None,
         };
-        let epg = EpgEmbeddingConfig::hybrid_so4(
-            10_000.0,
-            3,
-            8,
-            So4Geometry::Biplanar,
-        )
-        .unwrap();
-        let expected = crate::forward_reference_grouped_epg(&q, &k, &v, shape, config, epg).unwrap();
+        let epg = EpgEmbeddingConfig::hybrid_so4(10_000.0, 3, 8, So4Geometry::Biplanar).unwrap();
+        let expected =
+            crate::forward_reference_grouped_epg(&q, &k, &v, shape, config, epg).unwrap();
         let mut observer = NoIntervention;
         let mut trace = BoundedResearchTrace::new(256);
         let actual = forward_reference_grouped_epg_observed(
@@ -520,7 +513,8 @@ mod tests {
             softmax_scale: Some(1.0),
         };
         let epg = EpgEmbeddingConfig::so2(10_000.0, 0).unwrap();
-        let baseline = crate::forward_reference_grouped_epg(&q, &k, &v, shape, config, epg).unwrap();
+        let baseline =
+            crate::forward_reference_grouped_epg(&q, &k, &v, shape, config, epg).unwrap();
         let mut observer = ZeroFirstValue;
         let mut trace = BoundedResearchTrace::new(32);
         let intervened = forward_reference_grouped_epg_observed(
