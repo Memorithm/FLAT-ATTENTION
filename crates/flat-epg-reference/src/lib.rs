@@ -20,4 +20,3 @@ pub use research_observability::{
     InterventionDecision, NoIntervention, QueryDiagnostics, ResearchEvent,
     ResearchObservationContext, ResearchObserver, ResearchSemanticIdentity,
 };
-
