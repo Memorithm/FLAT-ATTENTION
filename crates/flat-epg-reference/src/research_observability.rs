@@ -7,7 +7,23 @@
 
 use crate::{rotation::epg_dot, EpgEmbeddingConfig, EpgError};
 use flat_attention::{FlatAttentionConfig, FlatAttentionOutput, GroupedAttentionShape};
-use flat_semantic::v1::{SemanticFamily, SemanticId};
+
+/// Stable semantic provenance carried by research traces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ResearchSemanticIdentity {
+    /// Stable semantic family slug.
+    pub family: &'static str,
+    /// Stable semantic rule slug.
+    pub name: &'static str,
+    /// Semantic rule revision.
+    pub revision: u32,
+}
+
+const STANDARD_SOFTMAX_IDENTITY: ResearchSemanticIdentity = ResearchSemanticIdentity {
+    family: "standard-softmax",
+    name: "standard-softmax",
+    revision: 1,
+};
 
 /// One logical score/value interaction in the research oracle.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -41,7 +57,7 @@ pub struct QueryDiagnostics {
     pub kv_head: usize,
     /// Query token position.
     pub query_position: usize,
-    /// Number of causally/admissibly visible contributions after intervention.
+    /// Number of causally/admissibly visible contributions.
     pub visible_contributions: usize,
     /// Shannon entropy of the post-intervention softmax row.
     pub entropy: f32,
@@ -108,7 +124,7 @@ impl ResearchObserver for NoIntervention {}
 /// counted in `dropped_events`; the trace never grows beyond the declared bound.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoundedResearchTrace {
-    semantic: SemanticId,
+    semantic: ResearchSemanticIdentity,
     max_events: usize,
     events: Vec<ResearchEvent>,
     dropped_events: usize,
@@ -118,10 +134,8 @@ impl BoundedResearchTrace {
     /// Construct a trace for the StandardSoftmax weighting rule used by EPG.
     #[must_use]
     pub fn new(max_events: usize) -> Self {
-        let semantic = SemanticId::new(SemanticFamily::StandardSoftmax, "standard-softmax", 1)
-            .expect("the canonical StandardSoftmax semantic identity is valid");
         Self {
-            semantic,
+            semantic: STANDARD_SOFTMAX_IDENTITY,
             max_events,
             events: Vec::with_capacity(max_events.min(1024)),
             dropped_events: 0,
@@ -130,8 +144,8 @@ impl BoundedResearchTrace {
 
     /// Semantic identity associated with the observed weighting rule.
     #[must_use]
-    pub const fn semantic(&self) -> &SemanticId {
-        &self.semantic
+    pub const fn semantic(&self) -> ResearchSemanticIdentity {
+        self.semantic
     }
 
     /// Maximum retained event count.
@@ -390,8 +404,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(actual, expected);
-        assert_eq!(trace.semantic().name(), "standard-softmax");
-        assert_eq!(trace.semantic().revision(), 1);
+        assert_eq!(trace.semantic().name, "standard-softmax");
+        assert_eq!(trace.semantic().revision, 1);
     }
 
     #[test]
