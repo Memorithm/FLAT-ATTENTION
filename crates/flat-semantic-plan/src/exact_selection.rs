@@ -6,22 +6,29 @@
 //! implementation admissibility and benchmark ranking to the existing planner
 //! and autotuner. The exact selection is never replaced by a runtime outcome.
 
+use std::fmt::Write as _;
+
 use flat_attention::{
     kernel_autotune::{
-        BenchmarkProtocol, CorrectnessGate, ExplicitCandidateSetError, TimingHarness,
+        BenchmarkProtocol, CandidateEvidence, CorrectnessGate, CorrectnessOutcome,
+        ExplicitCandidateSetError, MeasurementRejection, TimingHarness,
     },
-    kernel_candidates::SelectionPolicy,
+    kernel_candidates::{CandidateLifecycle, SelectionPolicy},
     kernel_ir::AttentionProblem,
     RuntimeDeviceCapabilities, RuntimeKernelId,
 };
 use flat_semantic_control::SemanticSelectionDecision as PreferenceSelectionDecision;
 use flat_semantic_execution::SemanticExecutionCatalog;
+use flat_semantic_registry::SemanticRegistry;
 use flat_semantic_selection::SemanticSelectionDecision as ExactSemanticSelectionDecision;
 
 use crate::{
     plan_forward_execution, tune_forward_execution_plan, ForwardExecutionPlan,
     ForwardPlanningOutcome, ForwardTuningRecord,
 };
+
+/// Version of the canonical exact-forward tuning provenance record.
+pub const EXACT_FORWARD_TUNING_PROVENANCE_VERSION: u16 = 1;
 
 /// Forward plan whose semantic provenance is the exact registered-selection
 /// decision from `flat-semantic-selection`.
@@ -105,6 +112,162 @@ impl ExactForwardTuningRecord {
     pub const fn tuning(&self) -> &ForwardTuningRecord {
         &self.tuning
     }
+
+    /// Canonical exportable record for exact semantic tuning provenance.
+    ///
+    /// The record binds mathematical semantic identity, exact registered
+    /// selection provenance, semantic problem geometry, planning-time device
+    /// capabilities, candidate-selection policy, benchmark protocol, compatible
+    /// runtime surface, every candidate outcome, and the final implementation
+    /// selection. Floating-point timings are serialized by IEEE-754 bit pattern
+    /// to avoid textual float ambiguity.
+    ///
+    /// This is evidence provenance only. It does not claim physical hardware
+    /// performance and does not alter semantic or implementation selection.
+    #[must_use]
+    pub fn canonical_provenance_record(&self) -> String {
+        let tuning = self.tuning();
+        let semantic_registry = SemanticRegistry::new([self.selection.semantic().clone()])
+            .expect("exact selection originated from a valid semantic registry");
+        let policy = tuning.selection_policy();
+        let protocol = tuning.benchmark_protocol();
+        let evidence = tuning.selection();
+        let mut record = format!(
+            "flat-exact-forward-tuning-v{EXACT_FORWARD_TUNING_PROVENANCE_VERSION}\nselection={}\nsemantic_identity={}\nproblem={}\ndevice_capabilities={:016x}\npolicy=allow_experimental:{},max_candidates:{}\nprotocol=warmups:{},iterations:{}\n",
+            escape_component(&self.selection.canonical_record()),
+            escape_component(&semantic_registry.canonical_record()),
+            escape_component(&tuning.problem().canonical_record()),
+            tuning.device_capability_fingerprint(),
+            u8::from(policy.allow_experimental),
+            policy.max_candidates,
+            protocol.warmups,
+            protocol.iterations,
+        );
+
+        let compatible = tuning.compatible_runtime_kernels();
+        let _ = writeln!(record, "compatible_runtime_count={}", compatible.len());
+        for (index, kernel) in compatible.iter().enumerate() {
+            let _ = writeln!(
+                record,
+                "compatible_runtime[{index}]={}",
+                runtime_kernel_tag(*kernel)
+            );
+        }
+
+        let _ = writeln!(record, "candidate_count={}", evidence.per_candidate.len());
+        for (index, (candidate, outcome)) in evidence.per_candidate.iter().enumerate() {
+            let runtime = candidate
+                .runtime_kernel_id()
+                .map_or("none", runtime_kernel_tag);
+            let lifecycle = match candidate.lifecycle {
+                CandidateLifecycle::Qualified => "qualified",
+                CandidateLifecycle::Experimental => "experimental",
+            };
+            let _ = write!(
+                record,
+                "candidate[{index}]=id:{:016x},runtime:{runtime},lifecycle:{lifecycle},",
+                candidate.id.get()
+            );
+            write_candidate_evidence(&mut record, outcome);
+            record.push('\n');
+        }
+
+        match &evidence.selected {
+            Some(selected) => {
+                let _ = writeln!(
+                    record,
+                    "selected=id:{:016x},median_bits:{:016x},p95_bits:{:016x},iterations:{}",
+                    selected.candidate.id.get(),
+                    selected.timing.median_us.to_bits(),
+                    selected.timing.p95_us.to_bits(),
+                    selected.timing.iterations,
+                );
+            }
+            None => record.push_str("selected=none\n"),
+        }
+        record
+    }
+
+    /// Stable FNV-1a-64 fingerprint of [`Self::canonical_provenance_record`].
+    ///
+    /// This is a deterministic provenance/cache-key aid, not a cryptographic
+    /// authenticity primitive.
+    #[must_use]
+    pub fn stable_provenance_fingerprint(&self) -> u64 {
+        fnv1a64(self.canonical_provenance_record().as_bytes())
+    }
+}
+
+fn write_candidate_evidence(record: &mut String, evidence: &CandidateEvidence) {
+    match evidence {
+        CandidateEvidence::Measured { timing } => {
+            let _ = write!(
+                record,
+                "evidence:measured,median_bits:{:016x},p95_bits:{:016x},iterations:{}",
+                timing.median_us.to_bits(),
+                timing.p95_us.to_bits(),
+                timing.iterations,
+            );
+        }
+        CandidateEvidence::Rejected { rejection } => match rejection {
+            MeasurementRejection::Correctness(CorrectnessOutcome::Passed) => {
+                record.push_str("evidence:rejected,reason:correctness-passed-without-measurement");
+            }
+            MeasurementRejection::Correctness(CorrectnessOutcome::Failed(reason)) => {
+                let _ = write!(
+                    record,
+                    "evidence:rejected,reason:correctness-failed,message:{}",
+                    escape_component(reason)
+                );
+            }
+            MeasurementRejection::Harness(reason) => {
+                let _ = write!(
+                    record,
+                    "evidence:rejected,reason:harness,message:{}",
+                    escape_component(reason)
+                );
+            }
+        },
+    }
+}
+
+const fn runtime_kernel_tag(kernel: RuntimeKernelId) -> &'static str {
+    match kernel {
+        RuntimeKernelId::Q4Portable => "q4-portable",
+        RuntimeKernelId::Q4Vec4Portable => "q4-vec4-portable",
+        RuntimeKernelId::Q4Vec4DoubleBuffered => "q4-vec4-double-buffered",
+        RuntimeKernelId::Q4Subgroup => "q4-subgroup",
+        RuntimeKernelId::GroupedForwardPortable => "grouped-forward-portable",
+        RuntimeKernelId::ResidentDecodePortable => "resident-decode-portable",
+        RuntimeKernelId::PagedDecodePortable => "paged-decode-portable",
+        RuntimeKernelId::GroupedBackwardRecomputePortable => "grouped-backward-recompute-portable",
+    }
+}
+
+fn escape_component(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '%' => escaped.push_str("%25"),
+            '\n' => escaped.push_str("%0a"),
+            '\r' => escaped.push_str("%0d"),
+            ';' => escaped.push_str("%3b"),
+            '=' => escaped.push_str("%3d"),
+            ',' => escaped.push_str("%2c"),
+            ':' => escaped.push_str("%3a"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
 }
 
 /// Plan implementations for one exact registered semantic decision.
@@ -259,6 +422,30 @@ mod tests {
         }
     }
 
+    fn ready_plan() -> ExactForwardExecutionPlan {
+        let selection = exact_selection();
+        let outcome = plan_exact_forward_execution(
+            &standard_softmax_runtime_catalog(),
+            &selection,
+            &problem(),
+            &capabilities(),
+            &SelectionPolicy::default(),
+        );
+        let ExactForwardPlanningOutcome::Ready(plan) = outcome else {
+            panic!("exact StandardSoftmax plan expected");
+        };
+        plan
+    }
+
+    fn tune(
+        plan: &ExactForwardExecutionPlan,
+        protocol: BenchmarkProtocol,
+    ) -> ExactForwardTuningRecord {
+        let mut gate = PassGate;
+        let mut harness = Harness;
+        tune_exact_forward_execution_plan(plan, protocol, &mut gate, &mut harness).unwrap()
+    }
+
     #[test]
     fn exact_selection_provenance_survives_planning_and_tuning() {
         let selection = exact_selection();
@@ -276,23 +463,74 @@ mod tests {
         assert_eq!(plan.selection().stable_fingerprint(), selection_fingerprint);
         assert_eq!(plan.execution().semantic(), selection.semantic());
 
-        let mut gate = PassGate;
-        let mut harness = Harness;
-        let record = tune_exact_forward_execution_plan(
+        let record = tune(
             &plan,
             BenchmarkProtocol {
                 warmups: 1,
                 iterations: 2,
             },
-            &mut gate,
-            &mut harness,
-        )
-        .unwrap();
+        );
         assert_eq!(
             record.selection().stable_fingerprint(),
             selection_fingerprint
         );
         assert_eq!(record.tuning().semantic(), selection.semantic());
+    }
+
+    #[test]
+    fn canonical_tuning_provenance_is_deterministic_and_semantic_visible() {
+        let plan = ready_plan();
+        let protocol = BenchmarkProtocol {
+            warmups: 7,
+            iterations: 11,
+        };
+        let first = tune(&plan, protocol);
+        let second = tune(&plan, protocol);
+
+        assert_eq!(
+            first.canonical_provenance_record(),
+            second.canonical_provenance_record()
+        );
+        assert_eq!(
+            first.stable_provenance_fingerprint(),
+            second.stable_provenance_fingerprint()
+        );
+        let record = first.canonical_provenance_record();
+        assert!(record.contains(
+            "semantic_identity=flat-semantic-registry-v1%3bcount%3d1%0afamily%3dstandard-softmax%3bname%3dstandard-softmax%3brevision%3d1%0a"
+        ));
+        assert!(record.contains("protocol=warmups:7,iterations:11"));
+        assert!(record.contains("problem=bh%3d4%3bn%3d129%3bd%3d64%3bcausal%3d1"));
+        assert!(record.contains("candidate_count="));
+        assert!(record.contains("selected=id:"));
+    }
+
+    #[test]
+    fn canonical_tuning_provenance_changes_with_measurement_protocol() {
+        let plan = ready_plan();
+        let first = tune(
+            &plan,
+            BenchmarkProtocol {
+                warmups: 1,
+                iterations: 2,
+            },
+        );
+        let second = tune(
+            &plan,
+            BenchmarkProtocol {
+                warmups: 3,
+                iterations: 5,
+            },
+        );
+
+        assert_ne!(
+            first.stable_provenance_fingerprint(),
+            second.stable_provenance_fingerprint()
+        );
+        assert_ne!(
+            first.canonical_provenance_record(),
+            second.canonical_provenance_record()
+        );
     }
 
     #[test]
