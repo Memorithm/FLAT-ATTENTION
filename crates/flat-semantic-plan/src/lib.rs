@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod device_validated_tuning;
 pub mod exact_selection;
 pub mod validated_selection;
 pub mod validated_tuning;
