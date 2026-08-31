@@ -178,16 +178,20 @@ impl ExactForwardBenchmarkEvidenceEnvelope {
             );
         }
         if BENCHMARK_MANIFEST_SCHEMA_VERSION != SUPPORTED_BENCHMARK_MANIFEST_SCHEMA_VERSION {
-            return Err(ExactForwardBenchmarkEvidenceError::UnsupportedBenchmarkManifestSchemaVersion {
-                actual: BENCHMARK_MANIFEST_SCHEMA_VERSION,
-                supported: SUPPORTED_BENCHMARK_MANIFEST_SCHEMA_VERSION,
-            });
+            return Err(
+                ExactForwardBenchmarkEvidenceError::UnsupportedBenchmarkManifestSchemaVersion {
+                    actual: BENCHMARK_MANIFEST_SCHEMA_VERSION,
+                    supported: SUPPORTED_BENCHMARK_MANIFEST_SCHEMA_VERSION,
+                },
+            );
         }
         if EXACT_FORWARD_TUNING_PROVENANCE_VERSION != SUPPORTED_SEMANTIC_PROVENANCE_VERSION {
-            return Err(ExactForwardBenchmarkEvidenceError::UnsupportedSemanticProvenanceVersion {
-                actual: EXACT_FORWARD_TUNING_PROVENANCE_VERSION,
-                supported: SUPPORTED_SEMANTIC_PROVENANCE_VERSION,
-            });
+            return Err(
+                ExactForwardBenchmarkEvidenceError::UnsupportedSemanticProvenanceVersion {
+                    actual: EXACT_FORWARD_TUNING_PROVENANCE_VERSION,
+                    supported: SUPPORTED_SEMANTIC_PROVENANCE_VERSION,
+                },
+            );
         }
 
         // Preserve BenchmarkManifest v1 byte-for-byte as its canonical JSON
@@ -304,8 +308,8 @@ mod tests {
     use flat_semantic_selection::{ExactSemanticSelectionPolicy, SemanticSelectionRequest};
 
     use crate::exact_selection::{
-        plan_exact_forward_execution, tune_exact_forward_execution_plan,
-        ExactForwardExecutionPlan, ExactForwardPlanningOutcome,
+        plan_exact_forward_execution, tune_exact_forward_execution_plan, ExactForwardExecutionPlan,
+        ExactForwardPlanningOutcome,
     };
 
     fn semantic() -> SemanticId {
@@ -540,61 +544,12 @@ mod tests {
         };
         let semantic = tune(protocol);
         let mut benchmark = manifest(protocol);
-        benchmark.q_heads_for_test_only();
-    }
-}
+        benchmark.problem.q_heads = 2;
+        benchmark.problem.kv_heads = 2;
+        benchmark.validate().unwrap();
 
-#[cfg(test)]
-trait BenchmarkManifestTestMutation {
-    fn q_heads_for_test_only(&mut self);
-}
-
-#[cfg(test)]
-impl BenchmarkManifestTestMutation for BenchmarkManifest {
-    fn q_heads_for_test_only(&mut self) {
-        self.problem.q_heads = 2;
-        self.problem.kv_heads = 2;
         assert_eq!(
-            ExactForwardBenchmarkEvidenceEnvelope::join(
-                self,
-                &{
-                    let plan = {
-                        let selected = SemanticId::new(
-                            SemanticFamily::StandardSoftmax,
-                            "standard-softmax",
-                            1,
-                        )
-                        .unwrap();
-                        let registry = SemanticRegistry::new([selected.clone()]).unwrap();
-                        let selection = ExactSemanticSelectionPolicy
-                            .select(&registry, &SemanticSelectionRequest::new(selected))
-                            .unwrap();
-                        let outcome = plan_exact_forward_execution(
-                            &standard_softmax_runtime_catalog(),
-                            &selection,
-                            &problem(),
-                            &capabilities(),
-                            &SelectionPolicy::default(),
-                        );
-                        let ExactForwardPlanningOutcome::Ready(plan) = outcome else {
-                            panic!("exact StandardSoftmax plan expected");
-                        };
-                        plan
-                    };
-                    let mut gate = PassGate;
-                    let mut harness = Harness;
-                    tune_exact_forward_execution_plan(
-                        &plan,
-                        BenchmarkProtocol {
-                            warmups: 3,
-                            iterations: 5,
-                        },
-                        &mut gate,
-                        &mut harness,
-                    )
-                    .unwrap()
-                },
-            ),
+            ExactForwardBenchmarkEvidenceEnvelope::join(&benchmark, &semantic),
             Err(ExactForwardBenchmarkEvidenceError::BenchmarkProblemMismatch)
         );
     }
