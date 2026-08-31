@@ -14,9 +14,7 @@ use flat_attention::{
     kernel_autotune::ProtocolError,
 };
 
-use crate::exact_selection::{
-    ExactForwardTuningRecord, EXACT_FORWARD_TUNING_PROVENANCE_VERSION,
-};
+use crate::exact_selection::{ExactForwardTuningRecord, EXACT_FORWARD_TUNING_PROVENANCE_VERSION};
 
 /// Version of this benchmark/semantic evidence envelope.
 pub const EXACT_FORWARD_BENCHMARK_EVIDENCE_SCHEMA_VERSION: u16 = 1;
@@ -60,7 +58,9 @@ impl fmt::Display for ExactForwardBenchmarkEvidenceError {
                 formatter,
                 "semantic provenance version {actual} is unsupported; expected {supported}"
             ),
-            Self::BenchmarkManifest(error) => write!(formatter, "invalid benchmark manifest: {error}"),
+            Self::BenchmarkManifest(error) => {
+                write!(formatter, "invalid benchmark manifest: {error}")
+            }
             Self::TuningProtocol(error) => write!(formatter, "invalid tuning protocol: {error}"),
             Self::BenchmarkProtocolMismatch => {
                 formatter.write_str("benchmark and semantic tuning protocols differ")
@@ -153,7 +153,9 @@ impl ExactForwardBenchmarkEvidenceEnvelope {
 
         let benchmark_problem = &benchmark.problem;
         let semantic_problem = tuning.problem();
-        let batch_heads = benchmark_problem.batch.checked_mul(benchmark_problem.q_heads);
+        let batch_heads = benchmark_problem
+            .batch
+            .checked_mul(benchmark_problem.q_heads);
 
         // AttentionProblem retains only dense folded batch×heads and one shared
         // sequence length. GQA/asymmetric identities therefore cannot be proven
@@ -161,10 +163,8 @@ impl ExactForwardBenchmarkEvidenceEnvelope {
         if benchmark_problem.q_heads != benchmark_problem.kv_heads
             || benchmark_problem.query_len != benchmark_problem.kv_len
             || batch_heads != usize::try_from(semantic_problem.batch_heads).ok()
-            || Some(benchmark_problem.query_len)
-                != usize::try_from(semantic_problem.seq_len).ok()
-            || Some(benchmark_problem.head_dim)
-                != usize::try_from(semantic_problem.head_dim).ok()
+            || Some(benchmark_problem.query_len) != usize::try_from(semantic_problem.seq_len).ok()
+            || Some(benchmark_problem.head_dim) != usize::try_from(semantic_problem.head_dim).ok()
             || benchmark_problem.causal != semantic_problem.causal
         {
             return Err(ExactForwardBenchmarkEvidenceError::BenchmarkProblemMismatch);
@@ -216,8 +216,7 @@ fn json_string(value: &str) -> String {
             '\t' => out.push_str("\\t"),
             character if character <= '\u{1f}' => {
                 use std::fmt::Write as _;
-                write!(out, "\\u{:04x}", character as u32)
-                    .expect("writing to String cannot fail");
+                write!(out, "\\u{:04x}", character as u32).expect("writing to String cannot fail");
             }
             character => out.push(character),
         }
@@ -242,11 +241,13 @@ mod tests {
     use flat_semantic_selection::{ExactSemanticSelectionPolicy, SemanticSelectionRequest};
 
     use crate::exact_selection::{
-        plan_exact_forward_execution, tune_exact_forward_execution_plan, ExactForwardPlanningOutcome,
+        plan_exact_forward_execution, tune_exact_forward_execution_plan,
+        ExactForwardPlanningOutcome,
     };
 
     fn record(protocol: BenchmarkProtocol) -> ExactForwardTuningRecord {
-        let semantic = SemanticId::new(SemanticFamily::StandardSoftmax, "standard-softmax", 1).unwrap();
+        let semantic =
+            SemanticId::new(SemanticFamily::StandardSoftmax, "standard-softmax", 1).unwrap();
         let registry = SemanticRegistry::new([semantic.clone()]).unwrap();
         let selection = ExactSemanticSelectionPolicy
             .select(&registry, &SemanticSelectionRequest::new(semantic))
@@ -362,9 +363,9 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.benchmark_manifest_json(), benchmark_json);
         assert_eq!(first.semantic_provenance(), semantic_record);
-        assert!(first.canonical_json().starts_with(
-            "{\"schema_version\":1,\"benchmark_manifest\":{\"schema_version\":1,"
-        ));
+        assert!(first
+            .canonical_json()
+            .starts_with("{\"schema_version\":1,\"benchmark_manifest\":{\"schema_version\":1,"));
     }
 
     #[test]
@@ -379,10 +380,12 @@ mod tests {
                 &manifest(protocol),
                 &record(protocol),
             ),
-            Err(ExactForwardBenchmarkEvidenceError::UnsupportedEnvelopeVersion {
-                actual: 2,
-                supported: EXACT_FORWARD_BENCHMARK_EVIDENCE_SCHEMA_VERSION,
-            })
+            Err(
+                ExactForwardBenchmarkEvidenceError::UnsupportedEnvelopeVersion {
+                    actual: 2,
+                    supported: EXACT_FORWARD_BENCHMARK_EVIDENCE_SCHEMA_VERSION,
+                }
+            )
         );
     }
 
