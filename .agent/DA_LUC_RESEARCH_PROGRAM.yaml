@@ -1,0 +1,213 @@
+schema_version: 1
+kind: flat_attention_da_luc_research_program
+status: research_only
+last_updated: "2026-09-01"
+repository: Memorithm/FLAT-ATTENTION
+merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
+
+name:
+  short: DA-LUC
+  expanded: Dynamic Asymmetric LUT-coded KV cache
+
+mission: >-
+  Define and qualify an attention-facing compressed KV representation and
+  q_len=1 decode semantics that can exploit subspace/codebook-indexed keys,
+  asymmetric low-bit values, and sparse outlier-preserving residuals without
+  materializing a full dense K/V tensor when the selected backend supports the
+  representation directly.
+
+scientific_positioning:
+  status: hypothesis_not_novelty_claim
+  prior_art_rule: >-
+    Treat low-bit KV quantization, asymmetric K/V treatment, outlier preservation,
+    vector/product quantization, codebooks, LUT scoring, and compressed-attention
+    kernels as established research areas until a specific difference is audited
+    and evidenced.
+  comparison_targets_when_reproducible:
+    - KIVI
+    - KVQuant
+    - QServe
+    - PQCache
+    - TensorRT_LLM_quantized_KV
+  terminology_guardrails:
+    - no_dense_KV_materialization_is_not_the_same_as_zero_dequantization
+    - eight_to_sixteen_x_is_a_research_target_not_a_memory_result
+    - exact_effective_bits_per_value_include_all_representation_overheads
+
+ownership:
+  FLAT_ATTENTION_owns:
+    - attention_semantics_for_consuming_a_DA_LUC_view
+    - deterministic_scalar_oracle
+    - versioned_attention_facing_representation_or_view_contract
+    - portable_or_open_codegen_candidate_paths_when_expressible
+    - numerical_error_budgets_and_attention_specific_correctness_gates
+  FLAT_ATTENTION_does_not_own:
+    - NNIS_CUDA_Driver_NVRTC_runtime_or_NVIDIA_specific_JIT_internals
+    - SLHAv2_internal_compressed_tile_or_cache_policy
+    - ElasticXxx_generic_resource_control_loop
+    - general_language_model_or_tokenizer_architecture
+  NNIS_boundary: >-
+    NNIS may implement an NVIDIA-specialized physical layout and kernel for a
+    qualified versioned DA-LUC contract. Backend-specific packing is not by
+    itself the cross-repository semantic contract.
+
+reference_semantics:
+  key_representation: >-
+    A key may be partitioned into subspaces represented by codebook indices plus
+    optional sparse residual entries. The scalar oracle must define exactly how
+    the reconstructed mathematical key is interpreted even when optimized paths
+    never materialize that dense key.
+  q_len_1_scoring: >-
+    An optimized decode path may precompute query-to-codebook lookup tables per
+    subspace, accumulate scores from cached indices, and add sparse residual
+    corrections while preserving the declared attention numerical policy.
+  value_representation: >-
+    K and V are explicitly asymmetric research axes. Initial V candidates should
+    include groupwise low-bit representations plus sparse residuals; do not assume
+    the K codebook representation is optimal for V.
+  dense_reference: >-
+    A dense uncompressed K/V oracle path remains mandatory for semantic and
+    quality comparison.
+
+versioned_contract_requirements:
+  must_define:
+    - schema_version
+    - logical_KV_shape_and_head_mapping
+    - K_subspace_partition
+    - K_codebook_shape_and_dtype
+    - packed_index_width_and_order
+    - V_representation_kind
+    - scale_and_zero_point_semantics_when_present
+    - residual_entry_semantics
+    - residual_index_or_bitmap_semantics
+    - page_or_segment_metadata_if_present
+    - alignment_and_padding_rules
+    - invalid_or_unsupported_combination_behavior
+  fail_closed_on:
+    - unknown_schema_version
+    - inconsistent_subspace_geometry
+    - out_of_range_codebook_index
+    - malformed_residual_metadata
+    - ambiguous_GQA_MQA_head_mapping
+    - unsupported_backend_capability
+
+exact_storage_accounting:
+  required_formula: >-
+    effective_bits_per_value =
+    (index_bits + codebook_bits + scale_zero_point_bits + residual_value_bits +
+    residual_index_or_bitmap_bits + page_metadata_bits + alignment_padding_bits)
+    / logical_KV_scalar_count
+  report:
+    - logical_KV_scalar_count
+    - total_representation_bytes
+    - effective_bits_per_value
+    - declared_dense_baseline_dtype_and_bytes
+    - compression_ratio_against_declared_dense_baseline
+    - codebook_residual_metadata_and_padding_breakdown
+
+quality_and_performance_policy:
+  isolated_correctness:
+    - encoded_dense_reconstruction_error
+    - attention_output_error_against_dense_scalar_oracle
+    - LSE_error_when_LSE_is_part_of_the_path
+    - causal_and_GQA_MQA_semantics_where_applicable
+  real_model_promotion:
+    - same_model_same_prompt_baseline_and_candidate
+    - quality_metric_or_generation_semantics_declared_explicitly
+    - memory_latency_and_tokens_per_second_reported_together
+    - exact_commit_device_driver_backend_and_problem_fingerprint
+  performance_claims:
+    - logical_IO_model_is_not_physical_bandwidth_evidence
+    - lavapipe_is_not_real_GPU_performance_evidence
+    - no_runtime_promotion_from_microbenchmark_only
+
+roadmap_alignment:
+  prerequisite_milestones:
+    - M14_resident_KV_cache_contract
+    - M15_q_len_1_decode_kernel
+  related_milestone:
+    - M16_chunked_prefill_and_paged_KV_groundwork
+  rule: >-
+    DA-LUC must extend versioned resident/decode contracts rather than bypassing
+    unfinished prerequisites or silently changing the existing dense API.
+
+research_phases:
+  - id: FDAL0
+    name: Audit and semantic envelope
+    status: pending
+    deliverables:
+      - audit_current_M14_M15_M16_progress_on_main
+      - audit_existing_compressed_KV_interfaces_in_FLAT_SLHAv2_and_NNIS
+      - prior_art_comparison_matrix
+      - smallest_versioned_DA_LUC_view_contract
+  - id: FDAL1
+    name: Deterministic representation oracle
+    status: blocked_on_FDAL0
+    deliverables:
+      - encode_decode_reference
+      - exact_storage_accounting
+      - K_and_V_error_sweeps
+      - sparse_outlier_residual_semantics
+  - id: FDAL2
+    name: Compressed decode oracle
+    status: blocked_on_FDAL1
+    deliverables:
+      - direct_q_len_1_LUT_key_scoring_reference
+      - sparse_residual_correction
+      - value_accumulation_reference
+      - equivalence_tests_against_dense_mathematical_semantics
+  - id: FDAL3
+    name: Portable or open-codegen candidate
+    status: blocked_on_FDAL2
+    deliverables:
+      - capability_gate_for_direct_compressed_consumption
+      - no_dense_K_materialization_when_candidate_selected
+      - explicit_fallback_to_qualified_dense_or_other_supported_path
+      - real_device_correctness_before_performance_promotion
+  - id: FDAL4
+    name: NNIS specialized adapter
+    status: blocked_on_versioned_contract_and_NNIS_readiness
+    deliverables:
+      - explicit_representation_version_handshake
+      - backend_specific_layout_mapping_without_semantic_drift
+      - shared_quality_and_storage_evidence_fields
+  - id: FDAL5
+    name: Dynamic precision tiers
+    status: blocked_on_FDAL3
+    deliverables:
+      - explicit_hot_cold_page_or_segment_tiers
+      - deterministic_recency_and_attention_mass_routing_baselines
+      - no_implicit_precision_transition
+  - id: FDAL6
+    name: PHR-Lite routing research
+    status: blocked_until_a_non_semantic_DA_LUC_baseline_is_qualified
+    scope: >-
+      PHR-Lite may only rank or route KV pages/segments among explicit precision,
+      retention, offload, or eviction choices. It does not replace the tokenizer,
+      next-token objective, LM head, or transformer language representation.
+    required_controls:
+      - recency_only
+      - attention_mass_only
+      - deterministic_random_control
+      - identical_storage_budget
+      - identical_quality_workload
+    promotion_rule: >-
+      A semantic router is rejected unless it reproducibly improves a declared
+      objective over simpler controls under the same storage and quality budget.
+
+fail_closed_conditions:
+  - missing_dense_scalar_oracle
+  - unknown_DA_LUC_schema_version
+  - missing_exact_overhead_accounting
+  - unsupported_backend_direct_consumption
+  - quality_regression_outside_declared_budget
+  - performance_claim_without_real_hardware
+  - novelty_claim_without_prior_art_audit
+  - zero_dequantization_claim_when_conversion_is_still_performed
+  - eight_to_sixteen_x_claim_without_measured_effective_bits_per_value
+
+next_action: >-
+  Start FDAL0 only after rereading the ecosystem roadmap, ML maturity overlay,
+  default-branch ROADMAP.md, and the relevant NNIS/SLHAv2 contracts. The first
+  implementation must be the smallest oracle-backed/versioned contract, not an
+  optimized kernel or a speculative semantic router.
