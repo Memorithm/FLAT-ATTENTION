@@ -1,0 +1,65 @@
+schema_version: 1
+kind: memorithm_ml_maturity_program
+status: active
+last_updated: "2026-08-31"
+repository: Memorithm/FLAT-ATTENTION
+objective: >-
+  Raise specialized attention execution maturity to evidence-backed 5/5 and make
+  FLAT a swappable production attention capability for SciRust and NNIS, without
+  becoming a general model runtime.
+score_policy:
+  five_of_five_requires:
+    - forward_and_backward_or_explicit_inference_only_scope
+    - real_hardware_execution_and_reference_oracle_parity
+    - common_attention_shapes_dtypes_and_masking_modes_qualified
+    - reproducible_latency_bandwidth_memory_and_quality_evidence
+    - exact_head_required_CI_green
+  forbidden:
+    - promoting_logical_IO_counts_to_physical_bandwidth_claims
+    - promoting_lavapipe_results_to_real_GPU_performance_claims
+priority_program:
+  - id: FML0
+    name: Production attention contract
+    priority: P0
+    goals:
+      - publish_versioned_QKV_layout_dtype_mask_and_LSE_contracts
+      - add_SciRust_canonical_tensor_adapter
+      - add_NNIS_execution_adapter_when_device_and_memory_contracts_match
+      - keep_reference_scalar_oracle_independent
+  - id: FML1
+    name: DType and architecture coverage
+    priority: P0
+    goals:
+      - qualify_f32_bf16_f16_paths_as_supported_by_backends
+      - qualify_MHA_GQA_MQA_shapes_and_head_mapping
+      - support_causal_noncausal_and_relevant_sliding_or_paged_attention_modes_only_with_explicit_semantics
+      - retain_numerical_error_budgets_per_dtype
+  - id: FML2
+    name: Complete backward and training integration
+    priority: P0
+    goals:
+      - make_recomputation_backward_end_to_end_executable
+      - validate_gradients_against_independent_reference
+      - integrate_with_SciRust_autodiff_through_explicit_boundary
+    exit_criteria:
+      - representative_transformer_block_trains_with_FLAT_enabled_and_matches_reference_within_declared_tolerance
+  - id: FML3
+    name: KV and long context interoperability
+    priority: P0
+    goals:
+      - define_attention_view_contract_compatible_with_SLHAv2_and_TurboQuant_adapters
+      - avoid_hard_coding_compressed_KV_codec_semantics
+      - support_paged_or_segmented_KV_views_without_materializing_full_dense_KV_when_contract_allows
+  - id: FML4
+    name: Real hardware qualification matrix
+    priority: P0
+    goals:
+      - benchmark_representative_sequence_head_dim_batch_and_dtype_matrix
+      - record_adapter_driver_features_and_exact_commit
+      - compare_against_unfused_reference_and_at_least_one_relevant_external_baseline_when_possible
+      - export_machine_readable_results_for_Verify
+completion_definition: >-
+  FLAT is 5/5 only when real model paths can select it through a stable contract,
+  forward/backward semantics are oracle-qualified, common dtypes and attention
+  variants are covered, compressed/paged KV can be consumed without semantic
+  ownership leakage, and real-device evidence is reproducible.
