@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-08-31"
+last_updated: "2026-09-01"
 repository: Memorithm/FLAT-ATTENTION
 objective: >-
   Raise specialized attention execution maturity to evidence-backed 5/5 and make
@@ -17,6 +17,9 @@ score_policy:
   forbidden:
     - promoting_logical_IO_counts_to_physical_bandwidth_claims
     - promoting_lavapipe_results_to_real_GPU_performance_claims
+    - claiming_compressed_KV_memory_from_nominal_index_width_without_all_overheads
+    - claiming_zero_dequantization_when_scalar_or_register_conversion_occurs
+    - claiming_eight_to_sixteen_x_KV_reduction_without_measured_effective_bits_per_value
 priority_program:
   - id: FML0
     name: Production attention contract
@@ -50,6 +53,14 @@ priority_program:
       - define_attention_view_contract_compatible_with_SLHAv2_and_TurboQuant_adapters
       - avoid_hard_coding_compressed_KV_codec_semantics
       - support_paged_or_segmented_KV_views_without_materializing_full_dense_KV_when_contract_allows
+      - qualify_DA_LUC_only_through_the_dedicated_research_program
+      - preserve_dense_uncompressed_KV_as_the_semantic_and_quality_oracle
+      - require_exact_effective_bits_per_value_including_codebooks_residuals_metadata_and_padding
+      - keep_K_and_V_representation_choices_explicitly_asymmetric
+    exit_criteria:
+      - compressed_KV_view_schema_is_versioned_and_fails_closed_on_unknown_or_malformed_metadata
+      - dense_and_compressed_attention_paths_are_compared_under_declared_numerical_budgets
+      - real_model_quality_memory_latency_and_tokens_per_second_are_reported_together_before_promotion
   - id: FML4
     name: Real hardware qualification matrix
     priority: P0
@@ -58,6 +69,16 @@ priority_program:
       - record_adapter_driver_features_and_exact_commit
       - compare_against_unfused_reference_and_at_least_one_relevant_external_baseline_when_possible
       - export_machine_readable_results_for_Verify
+      - distinguish_no_dense_KV_materialization_from_zero_dequantization_claims
+  - id: FML5
+    name: Experimental semantic KV routing
+    priority: P2_research_only
+    goals:
+      - evaluate_PHR_Lite_only_as_KV_precision_retention_page_offload_or_eviction_routing
+      - compare_against_recency_attention_mass_and_deterministic_random_controls
+      - keep_tokenizer_next_token_objective_and_LM_head_outside_FLAT_ATTENTION_scope
+    exit_criteria:
+      - semantic_router_beats_simpler_controls_under_identical_storage_and_quality_budget_on_real_model_evidence
 completion_definition: >-
   FLAT is 5/5 only when real model paths can select it through a stable contract,
   forward/backward semantics are oracle-qualified, common dtypes and attention
