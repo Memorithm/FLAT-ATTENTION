@@ -5,10 +5,12 @@ use std::{
     process::Command,
 };
 
-use ash::{extensions::khr::PipelineExecutableProperties, vk, Entry};
+use ash::{khr::pipeline_executable_properties, vk, Entry};
 use flat_ada_a1_candidate::{ada_a1_branchless_wgsl, ADA_A1_FWD_WGSL};
 use flat_attention::FLAT_FWD_WGSL;
 use naga::valid::{Capabilities, ValidationFlags, Validator};
+
+type PipelineExecutableProperties = pipeline_executable_properties::Device;
 
 struct Variant {
     name: &'static str,
@@ -79,7 +81,7 @@ fn write_spv(path: &Path, words: &[u32]) {
         .unwrap_or_else(|error| panic!("failed to write {}: {error}", path.display()));
 }
 
-fn statistic_value(statistic: &vk::PipelineExecutableStatisticKHR) -> String {
+fn statistic_value(statistic: &vk::PipelineExecutableStatisticKHR<'_>) -> String {
     unsafe {
         match statistic.format.as_raw() {
             0 => format!("{}", statistic.value.b32 != vk::FALSE),
@@ -101,23 +103,21 @@ fn make_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
     let mut bindings = Vec::with_capacity(5);
     for binding in 0..4 {
         bindings.push(
-            vk::DescriptorSetLayoutBinding::builder()
+            vk::DescriptorSetLayoutBinding::default()
                 .binding(binding)
                 .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
                 .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::COMPUTE)
-                .build(),
+                .stage_flags(vk::ShaderStageFlags::COMPUTE),
         );
     }
     bindings.push(
-        vk::DescriptorSetLayoutBinding::builder()
+        vk::DescriptorSetLayoutBinding::default()
             .binding(4)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
             .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::COMPUTE)
-            .build(),
+            .stage_flags(vk::ShaderStageFlags::COMPUTE),
     );
-    let create_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+    let create_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings);
     unsafe { device.create_descriptor_set_layout(&create_info, None) }
         .expect("descriptor set layout creation failed")
 }
@@ -128,24 +128,22 @@ fn create_capture_pipeline(
     words: &[u32],
     entry_point: &str,
 ) -> vk::Pipeline {
-    let module_info = vk::ShaderModuleCreateInfo::builder().code(words);
+    let module_info = vk::ShaderModuleCreateInfo::default().code(words);
     let shader_module =
         unsafe { device.create_shader_module(&module_info, None) }.unwrap_or_else(|error| {
             panic!("shader module creation failed for {entry_point}: {error:?}")
         });
     let entry_name = CString::new(entry_point).expect("entry point contains no NUL");
-    let stage = vk::PipelineShaderStageCreateInfo::builder()
+    let stage = vk::PipelineShaderStageCreateInfo::default()
         .stage(vk::ShaderStageFlags::COMPUTE)
         .module(shader_module)
-        .name(&entry_name)
-        .build();
+        .name(&entry_name);
     let flags = vk::PipelineCreateFlags::CAPTURE_STATISTICS_KHR
         | vk::PipelineCreateFlags::CAPTURE_INTERNAL_REPRESENTATIONS_KHR;
-    let create_info = vk::ComputePipelineCreateInfo::builder()
+    let create_info = vk::ComputePipelineCreateInfo::default()
         .flags(flags)
         .stage(stage)
-        .layout(pipeline_layout)
-        .build();
+        .layout(pipeline_layout);
     let pipeline = match unsafe {
         device.create_compute_pipelines(vk::PipelineCache::null(), &[create_info], None)
     } {
@@ -158,7 +156,7 @@ fn create_capture_pipeline(
 
 fn write_internal_representations(
     extension: &PipelineExecutableProperties,
-    executable_info: &vk::PipelineExecutableInfoKHR,
+    executable_info: &vk::PipelineExecutableInfoKHR<'_>,
     variant_dir: &Path,
     executable_index: usize,
 ) -> usize {
@@ -245,7 +243,7 @@ fn inspect_pipeline(
     variant: &str,
     variant_dir: &Path,
 ) {
-    let pipeline_info = vk::PipelineInfoKHR::builder().pipeline(pipeline).build();
+    let pipeline_info = vk::PipelineInfoKHR::default().pipeline(pipeline);
     let executables = unsafe { extension.get_pipeline_executable_properties(&pipeline_info) }
         .unwrap_or_else(|error| {
             panic!("executable property query failed for {variant}: {error:?}")
@@ -262,10 +260,9 @@ fn inspect_pipeline(
             executable.subgroup_size,
             executable.stages.as_raw(),
         );
-        let executable_info = vk::PipelineExecutableInfoKHR::builder()
+        let executable_info = vk::PipelineExecutableInfoKHR::default()
             .pipeline(pipeline)
-            .executable_index(u32::try_from(index).expect("executable index fits u32"))
-            .build();
+            .executable_index(u32::try_from(index).expect("executable index fits u32"));
         let statistics = unsafe { extension.get_pipeline_executable_statistics(&executable_info) }
             .unwrap_or_else(|error| panic!("statistics query failed for {variant}: {error:?}"));
         println!(
@@ -329,13 +326,13 @@ fn run() {
 
     let entry = unsafe { Entry::load() }.expect("failed to load Vulkan loader");
     let app_name = CString::new("flat-ada-a1-vulkan-pipeline-probe").unwrap();
-    let app_info = vk::ApplicationInfo::builder()
+    let app_info = vk::ApplicationInfo::default()
         .application_name(&app_name)
         .application_version(1)
         .engine_name(&app_name)
         .engine_version(1)
         .api_version(vk::API_VERSION_1_1);
-    let instance_info = vk::InstanceCreateInfo::builder().application_info(&app_info);
+    let instance_info = vk::InstanceCreateInfo::default().application_info(&app_info);
     let instance = unsafe { entry.create_instance(&instance_info, None) }
         .expect("Vulkan instance creation failed");
 
@@ -355,15 +352,14 @@ fn run() {
     let extensions = unsafe { instance.enumerate_device_extension_properties(physical_device) }
         .expect("device extension enumeration failed");
     assert!(
-        has_extension(&extensions, PipelineExecutableProperties::name()),
+        has_extension(&extensions, pipeline_executable_properties::NAME),
         "VK_KHR_pipeline_executable_properties is not available"
     );
 
     let mut queried_executable_features =
         vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::default();
-    let mut queried_features2 = vk::PhysicalDeviceFeatures2::builder()
-        .push_next(&mut queried_executable_features)
-        .build();
+    let mut queried_features2 =
+        vk::PhysicalDeviceFeatures2::default().push_next(&mut queried_executable_features);
     unsafe { instance.get_physical_device_features2(physical_device, &mut queried_features2) };
     assert_eq!(
         queried_executable_features.pipeline_executable_info,
@@ -379,15 +375,14 @@ fn run() {
         .and_then(|index| u32::try_from(index).ok())
         .expect("compute-capable queue family not found");
     let priorities = [1.0_f32];
-    let queue_info = [vk::DeviceQueueCreateInfo::builder()
+    let queue_info = [vk::DeviceQueueCreateInfo::default()
         .queue_family_index(queue_family_index)
-        .queue_priorities(&priorities)
-        .build()];
-    let extension_names = [PipelineExecutableProperties::name().as_ptr()];
+        .queue_priorities(&priorities)];
+    let extension_names = [pipeline_executable_properties::NAME.as_ptr()];
     let mut enabled_executable_features =
-        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::builder()
+        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::default()
             .pipeline_executable_info(true);
-    let device_info = vk::DeviceCreateInfo::builder()
+    let device_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_info)
         .enabled_extension_names(&extension_names)
         .push_next(&mut enabled_executable_features);
@@ -397,7 +392,7 @@ fn run() {
 
     let descriptor_set_layout = make_descriptor_set_layout(&device);
     let set_layouts = [descriptor_set_layout];
-    let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&set_layouts);
+    let pipeline_layout_info = vk::PipelineLayoutCreateInfo::default().set_layouts(&set_layouts);
     let pipeline_layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None) }
         .expect("pipeline layout creation failed");
 
@@ -417,7 +412,7 @@ fn run() {
     println!("output_dir={}", output_root.display());
 
     let mut pipelines = Vec::with_capacity(variants.len());
-    for ((variant, words), _) in variants.iter().zip(compiled.iter()).zip(0..) {
+    for (variant, words) in variants.iter().zip(compiled.iter()) {
         let variant_dir = output_root.join(variant.name);
         fs::create_dir_all(&variant_dir)
             .unwrap_or_else(|error| panic!("failed to create {}: {error}", variant_dir.display()));
