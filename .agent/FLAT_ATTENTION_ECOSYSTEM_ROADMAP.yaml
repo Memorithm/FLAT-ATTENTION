@@ -1,0 +1,180 @@
+schema_version: 1
+kind: flat_attention_ecosystem_agent_roadmap
+status: active
+last_updated: "2026-08-31"
+repository: Memorithm/FLAT-ATTENTION
+intended_consumer: autonomous_coding_agent
+merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
+
+mission:
+  primary: >-
+    Evolve FLAT-ATTENTION as the Rust-native fused attention engine of the SciRust
+    ecosystem, preserving deterministic oracle-first validation and portable open
+    shader/IR execution while adding inference, training, KV-cache, codegen,
+    autotuning, and specialized acceleration only through measured gates.
+  published_engineering_roadmap: ROADMAP.md
+  ecosystem_goal: >-
+    Expose a versioned attention capability that SciRust, NNIS, SLHAv2 and
+    ElasticXxx can consume without moving FLAT-ATTENTION kernel ownership or
+    numerical policy into those repositories.
+
+invariants:
+  - correctness_hierarchy_is_math_then_scalar_oracle_then_portable_GPU_then_optimized_paths
+  - no_hidden_CPU_fallback_for_claimed_GPU_execution
+  - no_performance_claim_without_reproducible_real_device_evidence
+  - no_required_vendor_CUDA_C_CPP_SDK_dependency_in_core_architecture
+  - no_materialized_N_by_N_score_or_probability_matrix_for_fused_paths
+  - optimized_paths_must_preserve_explicit_numerical_policy
+  - required_CI_must_be_green_on_exact_PR_head_before_merge
+  - public_ROADMAP_md_remains_authoritative_for_published_engineering_milestones
+
+ownership:
+  role: specialized_attention_engine
+  owns:
+    - attention_public_contract_and_numerical_policy
+    - scalar_attention_oracles
+    - portable_WGPU_and_open_codegen_attention_kernels
+    - FLAT_kernel_IR_and_attention_specific_codegen
+    - attention_specific_device_capability_and_autotuning_logic
+    - resident_KV_attention_execution_contracts_when_implemented
+  does_not_own:
+    - SciRust_general_tensor_and_scientific_platform
+    - ElasticXxx_generic_resource_control_loop
+    - SLHAv2_compressed_KV_tile_and_cache_policy
+    - NNIS_general_model_runtime_and_CUDA_JIT_internals
+    - Forge_general_evolutionary_search_strategy
+    - Hub_global_orchestration
+    - Verify_evidence_dossier_semantics
+
+roadmap_coordination:
+  rule: >-
+    Agents must read the default-branch ROADMAP.md for milestone definitions and
+    this off-main roadmap for current ecosystem boundaries, cross-repository
+    contracts, and persistent promotion state. Neither silently overrides the
+    other's scope.
+  major_tracks:
+    - portable_forward_and_device_parity
+    - performance_architecture_and_numerical_policy
+    - GQA_MQA_variable_lengths_and_masks
+    - resident_KV_prefill_and_decode
+    - backward_and_training
+    - FLAT_IR_and_open_codegen
+    - deterministic_autotuning
+    - benchmark_and_observability
+    - ecosystem_integration
+
+ecosystem_interfaces:
+  Memorithm/scirust:
+    relationship: shared_tensor_reference_and_primary_integration_target
+    status: active
+    contract_direction:
+      - validate_optimized_attention_against_independent_reference_semantics
+      - expose_attention_capability_without_copying_FLAT_kernel_ownership_into_SciRust
+      - match_SciRust_MSRV_and_public_tensor_contract_when_integration_requires_it
+  Memorithm/ElasticXxx:
+    relationship: generic_runtime_selection_and_adaptation_partner
+    status: planned_versioned_bridge
+    desired_contract:
+      - export_qualified_kernel_candidates_capabilities_problem_fingerprint_and_evidence
+      - accept_only_versioned_validated_selection_plans
+      - keep_attention_correctness_policy_authoritative_in_FLAT_ATTENTION
+  Memorithm/SLHAv2:
+    relationship: compressed_KV_partner
+    status: planned_not_assumed
+    desired_contract:
+      - explicit_KV_view_layout_and_quality_contract
+      - no_direct_dependency_on_SLHA_internal_tile_details_without_versioned_adapter
+  Memorithm/NVIDIA-Native-Inference-Stack:
+    relationship: model_runtime_and_possible_native_NVIDIA_execution_partner
+    status: planned_not_assumed
+    desired_contract:
+      - NNIS_may_host_or_call_qualified_attention_execution_through_explicit_adapter
+      - do_not_merge_general_NNIS_runtime_ownership_into_FLAT_ATTENTION
+  Memorithm/forge:
+    relationship: optional_candidate_search_engine
+    status: planned_not_assumed
+    constraint: >-
+      Forge may propose or search kernel/codegen candidates only behind FLAT's
+      independent correctness gate; performance evidence alone cannot promote a
+      candidate.
+  Memorithm/SciRust-Verify:
+    relationship: evidence_normalization_layer
+    status: planned
+    desired_contract:
+      - ingest_benchmark_correctness_and_provenance_records_without_converting_microbenchmarks_into_end_to_end_claims
+  Memorithm/scirust-hub:
+    relationship: ecosystem_orchestration_control_plane
+    status: planned
+    desired_contract:
+      - register_attention_benchmark_or_execution_capabilities_through_versioned_component_contracts
+
+roadmap:
+  - id: FA0
+    name: Keep published engineering roadmap synchronized with real main state
+    status: active
+    goals:
+      - audit_milestone_status_against_current_main_and_CI
+      - remove_stale_status_text_when_evidence_no_longer_matches
+      - preserve_exact_head_merge_gate
+  - id: FA1
+    name: Stable attention capability contract
+    status: active
+    goals:
+      - stabilize_shapes_modes_numerical_policy_and_errors
+      - preserve_scalar_reference_path
+      - keep_tensor_layout_and_backend_requirements_explicit
+  - id: FA2
+    name: Inference prefill decode and resident KV
+    status: active_per_published_roadmap
+    goals:
+      - complete_GQA_MQA_and_asymmetric_shape_support_as_required
+      - provide_resident_KV_append_and_q_len_1_decode_paths
+      - benchmark_against_generic_prefill_and_reference_paths
+  - id: FA3
+    name: Open kernel IR and code generation
+    status: planned_per_published_roadmap
+    goals:
+      - represent_attention_kernel_structure_in_versioned_deterministic_FLAT_IR
+      - generate_portable_WGSL_deterministically
+      - add_open_matrix_capabilities_only_after_real_device_proof
+  - id: FA4
+    name: Evidence-backed autotuning
+    status: planned
+    goals:
+      - generate_candidates_deterministically_from_capabilities
+      - gate_every_candidate_by_correctness_before_timing
+      - persist_tuning_evidence_keyed_by_device_driver_kernel_hash_and_problem_class
+      - bridge_qualified_selection_to_ElasticXxx_without_transferring_attention_semantics
+  - id: FA5
+    name: Ecosystem adapters
+    status: planned_after_stable_contracts
+    sequence:
+      - SciRust_tensor_integration
+      - ElasticXxx_candidate_and_plan_bridge
+      - SLHAv2_KV_view_adapter
+      - NNIS_runtime_adapter
+      - SciRust_Verify_evidence_envelope
+      - Hub_component_contract
+  - id: FA6
+    name: Stable productization
+    status: long_term
+    goals:
+      - semver_and_MSRV_policy
+      - documented_supported_backends_and_capabilities
+      - reproducible_device_benchmark_matrix
+      - stable_failure_and_fallback_semantics
+
+agent_operating_protocol:
+  must_read:
+    - this_off_main_roadmap_at_every_session_start
+    - default_branch_ROADMAP_md_before_selecting_a_major_engineering_milestone
+    - relevant_other_repository_roadmaps_before_cross_repository_work
+  must_update:
+    - candidate_promotion_or_rejection
+    - cross_repository_contract_change
+    - benchmark_evidence_that_changes_default_selection
+    - ecosystem_phase_status_change
+  fail_closed: >-
+    If this roadmap or the published engineering roadmap cannot be read, do not
+    make major architecture, performance-promotion, cross-repository contract, or
+    merge decisions. Read-only diagnosis is allowed.
