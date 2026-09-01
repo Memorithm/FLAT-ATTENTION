@@ -78,9 +78,9 @@ fn codebook(contract: DalucKvViewContract) -> Vec<f32> {
         .collect()
 }
 
-fn dense(len: usize, salt: usize) -> Vec<f32> {
+fn dense(len: usize, stride: usize) -> Vec<f32> {
     (0..len)
-        .map(|index| (((index * salt + 3) % 53) as f32 - 26.0) / 11.0)
+        .map(|index| (((index * stride + 3) % 53) as f32 - 26.0) / 11.0)
         .collect()
 }
 
