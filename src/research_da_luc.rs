@@ -166,18 +166,33 @@ pub struct DalucKvViewContract {
 
 /// Backend ability to consume a validated view directly.
 ///
-/// An adapter may advertise a stricter subset. Missing capability always means
-/// rejection; it never authorizes an implicit dense conversion.
+/// Every representation/layout choice that changes byte interpretation is an
+/// explicit capability. Missing capability always means rejection; it never
+/// authorizes an implicit dense conversion or layout rewrite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DalucBackendCapabilities {
     pub supports_f16: bool,
     pub supports_bf16: bool,
     pub supports_f32: bool,
+    pub supports_lsb0: bool,
+    pub supports_msb0: bool,
+    pub supports_batch_token_head: bool,
+    pub supports_batch_head_token: bool,
+    pub supports_shared_codebook: bool,
+    pub supports_per_kv_head_codebook: bool,
+    pub supports_contiguous: bool,
     pub supports_paged: bool,
     pub supports_groupwise_affine_values: bool,
+    pub supports_signed_symmetric_values: bool,
+    pub supports_u8_zero_points: bool,
+    pub supports_u16_zero_points: bool,
     pub supports_sparse_coordinates: bool,
     pub supports_sparse_bitmap: bool,
-    pub supports_u16_zero_points: bool,
+    pub supports_no_padding: bool,
+    pub supports_zero_filled_padding: bool,
+    /// Minimum physical plane alignment accepted for direct consumption.
+    /// Must itself be a non-zero power of two.
+    pub minimum_plane_alignment_bytes: usize,
     pub max_packed_index_bits: u8,
     pub max_groupwise_value_bits: u8,
 }
@@ -256,13 +271,32 @@ impl DalucKvViewContract {
     }
 
     /// Validate the descriptor against one backend's declared direct-consume
-    /// capabilities. No fallback or materialization is implied on failure.
+    /// capabilities. No fallback, repacking or materialization is implied on
+    /// failure.
     pub fn validate_for_backend(
         self,
         backend: DalucBackendCapabilities,
     ) -> Result<(), DalucKvViewError> {
         self.validate()?;
+        validate_backend_capabilities(backend)?;
+
+        require_row_order(backend, self.layout.row_order)?;
+        require_topology(backend, self.layout.topology)?;
+        require_padding(backend, self.layout.padding)?;
+        if self.layout.plane_alignment_bytes < backend.minimum_plane_alignment_bytes
+            || !self
+                .layout
+                .plane_alignment_bytes
+                .is_multiple_of(backend.minimum_plane_alignment_bytes)
+        {
+            return Err(DalucKvViewError::UnsupportedBackendCapability(
+                "plane alignment",
+            ));
+        }
+
         require_dtype(backend, self.keys.codebook_dtype, "K codebook dtype")?;
+        require_codebook_scope(backend, self.keys.codebook_scope)?;
+        require_bit_order(backend, self.keys.index_bit_order, "K index bit order")?;
         if self.keys.index_bits > backend.max_packed_index_bits {
             return Err(DalucKvViewError::UnsupportedBackendCapability(
                 "K packed index width",
@@ -278,6 +312,7 @@ impl DalucKvViewContract {
                 storage_bits,
                 scale_dtype,
                 zero_point,
+                bit_order,
                 residual,
                 ..
             } => {
@@ -291,22 +326,11 @@ impl DalucKvViewContract {
                         "V packed value width",
                     ));
                 }
-                if zero_point == DalucZeroPointStorage::U16 && !backend.supports_u16_zero_points {
-                    return Err(DalucKvViewError::UnsupportedBackendCapability(
-                        "u16 V zero points",
-                    ));
-                }
+                require_v_zero_point(backend, zero_point)?;
+                require_bit_order(backend, bit_order, "V packed value bit order")?;
                 require_dtype(backend, scale_dtype, "V scale dtype")?;
                 require_residual(backend, residual, "V residual")?;
             }
-        }
-
-        if matches!(self.layout.topology, DalucStorageTopology::Paged { .. })
-            && !backend.supports_paged
-        {
-            return Err(DalucKvViewError::UnsupportedBackendCapability(
-                "paged KV topology",
-            ));
         }
         Ok(())
     }
@@ -518,6 +542,19 @@ fn validate_payload_residual(
     Ok(())
 }
 
+fn validate_backend_capabilities(
+    backend: DalucBackendCapabilities,
+) -> Result<(), DalucKvViewError> {
+    if backend.minimum_plane_alignment_bytes == 0
+        || !backend.minimum_plane_alignment_bytes.is_power_of_two()
+    {
+        return Err(DalucKvViewError::UnsupportedBackendCapability(
+            "valid plane alignment requirement",
+        ));
+    }
+    Ok(())
+}
+
 fn require_dtype(
     backend: DalucBackendCapabilities,
     dtype: DalucFloatDType,
@@ -528,10 +565,78 @@ fn require_dtype(
         DalucFloatDType::Bf16 => backend.supports_bf16,
         DalucFloatDType::F32 => backend.supports_f32,
     };
-    if !supported {
-        return Err(DalucKvViewError::UnsupportedBackendCapability(label));
-    }
-    Ok(())
+    require_supported(supported, label)
+}
+
+fn require_bit_order(
+    backend: DalucBackendCapabilities,
+    bit_order: DalucBitOrder,
+    label: &'static str,
+) -> Result<(), DalucKvViewError> {
+    let supported = match bit_order {
+        DalucBitOrder::Lsb0 => backend.supports_lsb0,
+        DalucBitOrder::Msb0 => backend.supports_msb0,
+    };
+    require_supported(supported, label)
+}
+
+fn require_row_order(
+    backend: DalucBackendCapabilities,
+    row_order: DalucRowOrder,
+) -> Result<(), DalucKvViewError> {
+    let supported = match row_order {
+        DalucRowOrder::BatchTokenHead => backend.supports_batch_token_head,
+        DalucRowOrder::BatchHeadToken => backend.supports_batch_head_token,
+    };
+    require_supported(supported, "row order")
+}
+
+fn require_codebook_scope(
+    backend: DalucBackendCapabilities,
+    scope: DalucCodebookScope,
+) -> Result<(), DalucKvViewError> {
+    let supported = match scope {
+        DalucCodebookScope::SharedAcrossKvHeads => backend.supports_shared_codebook,
+        DalucCodebookScope::PerKvHead => backend.supports_per_kv_head_codebook,
+    };
+    require_supported(supported, "K codebook scope")
+}
+
+fn require_topology(
+    backend: DalucBackendCapabilities,
+    topology: DalucStorageTopology,
+) -> Result<(), DalucKvViewError> {
+    let supported = match topology {
+        DalucStorageTopology::Contiguous { .. } => backend.supports_contiguous,
+        DalucStorageTopology::Paged { .. } => backend.supports_paged,
+    };
+    require_supported(supported, "KV storage topology")
+}
+
+fn require_padding(
+    backend: DalucBackendCapabilities,
+    padding: DalucPaddingRule,
+) -> Result<(), DalucKvViewError> {
+    let supported = match padding {
+        DalucPaddingRule::None => backend.supports_no_padding,
+        DalucPaddingRule::ZeroFilledToAlignment => backend.supports_zero_filled_padding,
+    };
+    require_supported(supported, "padding rule")
+}
+
+fn require_v_zero_point(
+    backend: DalucBackendCapabilities,
+    zero_point: DalucZeroPointStorage,
+) -> Result<(), DalucKvViewError> {
+    let (supported, label) = match zero_point {
+        DalucZeroPointStorage::None => (
+            backend.supports_signed_symmetric_values,
+            "signed symmetric V values",
+        ),
+        DalucZeroPointStorage::U8 => (backend.supports_u8_zero_points, "u8 V zero points"),
+        DalucZeroPointStorage::U16 => (backend.supports_u16_zero_points, "u16 V zero points"),
+    };
+    require_supported(supported, label)
 }
 
 fn require_residual(
@@ -543,12 +648,26 @@ fn require_residual(
         return Ok(());
     };
     require_dtype(backend, residual.value_dtype, label)?;
-    let supported = match residual.indexing {
-        DalucResidualIndexing::Coordinates { index_bits, .. } => {
-            backend.supports_sparse_coordinates && index_bits <= backend.max_packed_index_bits
+    match residual.indexing {
+        DalucResidualIndexing::Coordinates {
+            index_bits,
+            bit_order,
+        } => {
+            if !backend.supports_sparse_coordinates || index_bits > backend.max_packed_index_bits {
+                return Err(DalucKvViewError::UnsupportedBackendCapability(label));
+            }
+            require_bit_order(backend, bit_order, label)
         }
-        DalucResidualIndexing::Bitmap { .. } => backend.supports_sparse_bitmap,
-    };
+        DalucResidualIndexing::Bitmap { bit_order } => {
+            if !backend.supports_sparse_bitmap {
+                return Err(DalucKvViewError::UnsupportedBackendCapability(label));
+            }
+            require_bit_order(backend, bit_order, label)
+        }
+    }
+}
+
+fn require_supported(supported: bool, label: &'static str) -> Result<(), DalucKvViewError> {
     if !supported {
         return Err(DalucKvViewError::UnsupportedBackendCapability(label));
     }
@@ -624,11 +743,23 @@ mod tests {
             supports_f16: true,
             supports_bf16: false,
             supports_f32: true,
+            supports_lsb0: true,
+            supports_msb0: false,
+            supports_batch_token_head: true,
+            supports_batch_head_token: false,
+            supports_shared_codebook: false,
+            supports_per_kv_head_codebook: true,
+            supports_contiguous: true,
             supports_paged: true,
             supports_groupwise_affine_values: true,
+            supports_signed_symmetric_values: true,
+            supports_u8_zero_points: true,
+            supports_u16_zero_points: false,
             supports_sparse_coordinates: true,
             supports_sparse_bitmap: false,
-            supports_u16_zero_points: false,
+            supports_no_padding: true,
+            supports_zero_filled_padding: true,
+            minimum_plane_alignment_bytes: 16,
             max_packed_index_bits: 8,
             max_groupwise_value_bits: 4,
         }
@@ -719,13 +850,37 @@ mod tests {
     }
 
     #[test]
+    fn payload_validators_cannot_bypass_contract_validation() {
+        let mut invalid = view();
+        invalid.schema_version += 1;
+        assert!(matches!(
+            invalid.validate_key_residual_index(0),
+            Err(DalucKvViewError::UnsupportedSchemaVersion { .. })
+        ));
+
+        let mut invalid = view();
+        invalid.keys.residual = DalucResidualSemantics::Sparse(DalucSparseResidual {
+            value_dtype: DalucFloatDType::F16,
+            indexing: DalucResidualIndexing::Coordinates {
+                index_bits: 6,
+                bit_order: DalucBitOrder::Lsb0,
+            },
+            max_entries_per_vector: 0,
+        });
+        assert!(matches!(
+            invalid.validate_key_residual_index(0),
+            Err(DalucKvViewError::InvalidMetadata(_))
+        ));
+    }
+
+    #[test]
     fn unsupported_backend_capability_never_implies_fallback() {
         let mut caps = backend();
         caps.supports_paged = false;
         assert_eq!(
             view().validate_for_backend(caps),
             Err(DalucKvViewError::UnsupportedBackendCapability(
-                "paged KV topology"
+                "KV storage topology"
             ))
         );
 
@@ -735,6 +890,61 @@ mod tests {
             view().validate_for_backend(caps),
             Err(DalucKvViewError::UnsupportedBackendCapability(
                 "K packed index width"
+            ))
+        );
+    }
+
+    #[test]
+    fn backend_encoding_and_layout_variants_fail_closed() {
+        let mut caps = backend();
+        caps.supports_batch_token_head = false;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability("row order"))
+        );
+
+        let mut caps = backend();
+        caps.supports_per_kv_head_codebook = false;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability(
+                "K codebook scope"
+            ))
+        );
+
+        let mut caps = backend();
+        caps.supports_lsb0 = false;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability(
+                "K index bit order"
+            ))
+        );
+
+        let mut caps = backend();
+        caps.supports_u8_zero_points = false;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability(
+                "u8 V zero points"
+            ))
+        );
+
+        let mut caps = backend();
+        caps.supports_zero_filled_padding = false;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability(
+                "padding rule"
+            ))
+        );
+
+        let mut caps = backend();
+        caps.minimum_plane_alignment_bytes = 32;
+        assert_eq!(
+            view().validate_for_backend(caps),
+            Err(DalucKvViewError::UnsupportedBackendCapability(
+                "plane alignment"
             ))
         );
     }
