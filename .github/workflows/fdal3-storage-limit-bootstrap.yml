@@ -1,0 +1,62 @@
+name: FDAL3 storage binding capability bootstrap
+
+on:
+  push:
+    branches:
+      - research/fdal3-wgpu-direct-compressed
+    paths:
+      - ".github/workflows/fdal3-storage-limit-bootstrap.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-format-and-self-remove:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: research/fdal3-wgpu-direct-compressed
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt
+      - name: Add explicit storage binding capability gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("src/research_da_luc_wgpu.rs")
+          text = path.read_text()
+          text = text.replace(
+              'const MAX_LUT_ENTRIES: usize = 2048;\n',
+              'const MAX_LUT_ENTRIES: usize = 2048;\nconst REQUIRED_STORAGE_BUFFERS_PER_STAGE: u32 = 7;\n',
+              1,
+          )
+          text = text.replace(
+              '    DeviceBufferLimit {\n        label: &\'static str,\n        required_bytes: u64,\n        maximum_bytes: u64,\n    },\n    Unavailable,\n',
+              '    DeviceBufferLimit {\n        label: &\'static str,\n        required_bytes: u64,\n        maximum_bytes: u64,\n    },\n    StorageBufferBindingsLimit {\n        required: u32,\n        available: u32,\n    },\n    Unavailable,\n',
+              1,
+          )
+          text = text.replace(
+              '            Self::Unavailable => formatter.write_str("WGPU adapter unavailable for DA-LUC candidate"),\n',
+              '            Self::StorageBufferBindingsLimit { required, available } => write!(\n                formatter,\n                "DA-LUC WGPU requires {required} compute-stage storage buffers, adapter exposes {available}"\n            ),\n            Self::Unavailable => formatter.write_str("WGPU adapter unavailable for DA-LUC candidate"),\n',
+              1,
+          )
+          old = '''        let adapter_name = adapter.get_info().name;\n        let (device, queue) = pollster::block_on(adapter.request_device(&::wgpu::DeviceDescriptor {\n            label: Some("flat-fdal3-da-luc"),\n            required_features: ::wgpu::Features::empty(),\n            required_limits: ::wgpu::Limits::downlevel_defaults(),\n            ..Default::default()\n        }))\n'''
+          new = '''        let adapter_name = adapter.get_info().name;\n        let adapter_limits = adapter.limits();\n        if adapter_limits.max_storage_buffers_per_shader_stage\n            < REQUIRED_STORAGE_BUFFERS_PER_STAGE\n        {\n            return Err(DalucWgpuCandidateError::StorageBufferBindingsLimit {\n                required: REQUIRED_STORAGE_BUFFERS_PER_STAGE,\n                available: adapter_limits.max_storage_buffers_per_shader_stage,\n            });\n        }\n        let required_limits = ::wgpu::Limits {\n            max_storage_buffers_per_shader_stage: REQUIRED_STORAGE_BUFFERS_PER_STAGE,\n            ..::wgpu::Limits::downlevel_defaults()\n        };\n        let (device, queue) = pollster::block_on(adapter.request_device(&::wgpu::DeviceDescriptor {\n            label: Some("flat-fdal3-da-luc"),\n            required_features: ::wgpu::Features::empty(),\n            required_limits,\n            ..Default::default()\n        }))\n'''
+          if old not in text:
+              raise SystemExit("FDAL3 request_device anchor not found")
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+          cargo fmt --all
+          rm .github/workflows/fdal3-storage-limit-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/research_da_luc_wgpu.rs tests/fdal3_da_luc_wgpu.rs .github/workflows/fdal3-storage-limit-bootstrap.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(fdal3): gate required WGPU storage bindings"
+          git push origin HEAD:research/fdal3-wgpu-direct-compressed
