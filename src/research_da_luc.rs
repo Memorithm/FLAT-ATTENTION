@@ -46,9 +46,7 @@ pub enum DalucResidualIndexing {
     },
     /// One bitmap bit per logical scalar. Residual values correspond to set
     /// bits in increasing logical-coordinate order.
-    Bitmap {
-        bit_order: DalucBitOrder,
-    },
+    Bitmap { bit_order: DalucBitOrder },
 }
 
 /// Additive sparse correction applied after the primary K/V reconstruction.
