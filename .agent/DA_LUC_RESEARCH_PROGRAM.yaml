@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_da_luc_research_program
 status: research_only
-last_updated: "2026-09-01T00:08+0200"
+last_updated: "2026-09-02T00:08+0200"
 repository: Memorithm/FLAT-ATTENTION
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
 
