@@ -115,14 +115,20 @@ impl fmt::Display for DalucTierRoutingError {
                 formatter,
                 "DA-LUC tier routing version {actual} is unsupported; expected {supported}"
             ),
-            Self::InvalidSegmentSize => write!(formatter, "DA-LUC tier segment size must be non-zero"),
+            Self::InvalidSegmentSize => {
+                write!(formatter, "DA-LUC tier segment size must be non-zero")
+            }
             Self::EmptyTierCatalog => write!(formatter, "DA-LUC tier catalog must not be empty"),
             Self::DuplicateTierId(id) => write!(formatter, "duplicate DA-LUC tier id {}", id.0),
             Self::DuplicateQuotaTier(id) => {
                 write!(formatter, "duplicate DA-LUC tier quota for id {}", id.0)
             }
             Self::UnknownQuotaTier(id) => {
-                write!(formatter, "DA-LUC tier quota references unknown id {}", id.0)
+                write!(
+                    formatter,
+                    "DA-LUC tier quota references unknown id {}",
+                    id.0
+                )
             }
             Self::MissingQuotaTier(id) => {
                 write!(formatter, "DA-LUC tier id {} has no explicit quota", id.0)
@@ -142,12 +148,17 @@ impl fmt::Display for DalucTierRoutingError {
                 formatter,
                 "DA-LUC attention mass at segment {segment_index} must be finite and non-negative"
             ),
-            Self::MalformedPlan(reason) => write!(formatter, "malformed DA-LUC tier plan: {reason}"),
+            Self::MalformedPlan(reason) => {
+                write!(formatter, "malformed DA-LUC tier plan: {reason}")
+            }
             Self::IncompatiblePlans(reason) => {
                 write!(formatter, "incompatible DA-LUC tier plans: {reason}")
             }
             Self::ArithmeticOverflow(label) => {
-                write!(formatter, "DA-LUC tier routing arithmetic overflow: {label}")
+                write!(
+                    formatter,
+                    "DA-LUC tier routing arithmetic overflow: {label}"
+                )
             }
         }
     }
@@ -430,9 +441,12 @@ fn build_plan(
             .iter()
             .find(|quota| quota.tier_id == tier.id)
             .ok_or(DalucTierRoutingError::MissingQuotaTier(tier.id))?;
-        let end = cursor
-            .checked_add(quota.segments)
-            .ok_or(DalucTierRoutingError::ArithmeticOverflow("tier ranking cursor"))?;
+        let end =
+            cursor
+                .checked_add(quota.segments)
+                .ok_or(DalucTierRoutingError::ArithmeticOverflow(
+                    "tier ranking cursor",
+                ))?;
         if end > ranking.len() {
             return Err(DalucTierRoutingError::MalformedPlan(
                 "tier quota exceeds ranking length",

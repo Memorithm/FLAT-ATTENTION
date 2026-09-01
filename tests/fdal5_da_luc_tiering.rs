@@ -76,7 +76,13 @@ fn routing_fails_closed_on_malformed_catalog_quota_and_evidence() {
     let contract = base_contract();
     let tiers = tiers(contract);
 
-    let duplicate_tiers = [tiers[0], DalucPrecisionTier { id: tiers[0].id, ..tiers[1] }];
+    let duplicate_tiers = [
+        tiers[0],
+        DalucPrecisionTier {
+            id: tiers[0].id,
+            ..tiers[1]
+        },
+    ];
     assert!(matches!(
         route_by_recency(contract, 4, &duplicate_tiers, &quotas()),
         Err(DalucTierRoutingError::DuplicateTierId(DalucTierId(10)))
