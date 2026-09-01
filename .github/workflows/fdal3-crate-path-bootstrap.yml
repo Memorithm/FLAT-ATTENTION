@@ -1,0 +1,38 @@
+name: FDAL3 external wgpu crate bootstrap
+
+on:
+  push:
+    branches:
+      - research/fdal3-wgpu-direct-compressed
+    paths:
+      - ".github/workflows/fdal3-crate-path-bootstrap.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  qualify-crate-path-and-self-remove:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: research/fdal3-wgpu-direct-compressed
+          fetch-depth: 0
+      - name: Qualify external wgpu crate and remove bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("src/research_da_luc_wgpu.rs")
+          text = path.read_text()
+          text = text.replace("wgpu::", "::wgpu::")
+          path.write_text(text)
+          PY
+          rm .github/workflows/fdal3-crate-path-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/research_da_luc_wgpu.rs .github/workflows/fdal3-crate-path-bootstrap.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(fdal3): qualify external wgpu crate paths"
+          git push origin HEAD:research/fdal3-wgpu-direct-compressed
