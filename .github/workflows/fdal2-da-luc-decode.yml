@@ -30,6 +30,8 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
+      - name: Exact-head format gate
+        run: cargo fmt --all -- --check
       - name: Public FDAL2 integration contract
         run: cargo test --test fdal2_da_luc_decode_oracle -- --nocapture
       - name: Deterministic direct-compressed decode sweep
