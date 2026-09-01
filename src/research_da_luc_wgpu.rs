@@ -367,9 +367,9 @@ impl From<FlatAttentionError> for DalucWgpuCandidateError {
 
 /// Standalone correctness-first portable WGPU execution context.
 pub struct WgpuDalucQlen1Candidate {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    pipeline: wgpu::ComputePipeline,
+    device: ::wgpu::Device,
+    queue: ::wgpu::Queue,
+    pipeline: ::wgpu::ComputePipeline,
     adapter_name: String,
     max_workgroups_per_dimension: u32,
     max_storage_buffer_binding_size: u64,
@@ -388,19 +388,19 @@ impl WgpuDalucQlen1Candidate {
     /// Create the portable pipeline. No fallback is attempted when WGPU is
     /// unavailable or shader validation fails.
     pub fn new() -> Result<Self, DalucWgpuCandidateError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
+        let instance = ::wgpu::Instance::new(::wgpu::InstanceDescriptor::new_without_display_handle());
+        let adapter = pollster::block_on(instance.request_adapter(&::wgpu::RequestAdapterOptions {
+            power_preference: ::wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
             apply_limit_buckets: false,
         }))
         .map_err(|_| DalucWgpuCandidateError::Unavailable)?;
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        let (device, queue) = pollster::block_on(adapter.request_device(&::wgpu::DeviceDescriptor {
             label: Some("flat-fdal3-da-luc"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            required_features: ::wgpu::Features::empty(),
+            required_limits: ::wgpu::Limits::downlevel_defaults(),
             ..Default::default()
         }))
         .map_err(|error| DalucWgpuCandidateError::Device(format!("request_device: {error}")))?;
@@ -488,10 +488,10 @@ impl WgpuDalucQlen1Candidate {
         let output_bytes = wgpu_internal::f32_bytes(combined_elements)
             .ok_or(DalucWgpuCandidateError::IndexSpaceExceeded("output bytes"))?;
         self.ensure_buffer_limit("O|LSE", output_bytes)?;
-        let output = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let output = self.device.create_buffer(&::wgpu::BufferDescriptor {
             label: Some("flat-fdal3-da-luc-o-lse"),
             size: output_bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            usage: ::wgpu::BufferUsages::STORAGE | ::wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
@@ -527,39 +527,39 @@ impl WgpuDalucQlen1Candidate {
             &params_bytes,
         );
 
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = self.device.create_bind_group(&::wgpu::BindGroupDescriptor {
             label: Some("flat-fdal3-da-luc-bind-group"),
             layout: &self.pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 0,
                     resource: q_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 1,
                     resource: codebook_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 2,
                     resource: key_index_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 3,
                     resource: value_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 4,
                     resource: scale_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 5,
                     resource: zero_point_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 6,
                     resource: output.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
+                ::wgpu::BindGroupEntry {
                     binding: 7,
                     resource: params_buffer.as_entire_binding(),
                 },
@@ -568,11 +568,11 @@ impl WgpuDalucQlen1Candidate {
 
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            .create_command_encoder(&::wgpu::CommandEncoderDescriptor {
                 label: Some("flat-fdal3-da-luc-decode"),
             });
         {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            let mut pass = encoder.begin_compute_pass(&::wgpu::ComputePassDescriptor {
                 label: Some("flat-fdal3-da-luc-decode"),
                 timestamp_writes: None,
             });
@@ -594,14 +594,14 @@ impl WgpuDalucQlen1Candidate {
         &self,
         label: &'static str,
         bytes: &[u8],
-    ) -> Result<wgpu::Buffer, DalucWgpuCandidateError> {
+    ) -> Result<::wgpu::Buffer, DalucWgpuCandidateError> {
         let size = u64::try_from(bytes.len().max(4))
             .map_err(|_| DalucWgpuCandidateError::IndexSpaceExceeded(label))?;
         self.ensure_buffer_limit(label, size)?;
-        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let buffer = self.device.create_buffer(&::wgpu::BufferDescriptor {
             label: Some(label),
             size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: ::wgpu::BufferUsages::STORAGE | ::wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         if !bytes.is_empty() {
@@ -627,21 +627,21 @@ impl WgpuDalucQlen1Candidate {
 
     fn download(
         &self,
-        source: &wgpu::Buffer,
+        source: &::wgpu::Buffer,
         elements: usize,
     ) -> Result<Vec<f32>, DalucWgpuCandidateError> {
         let bytes = wgpu_internal::f32_bytes(elements).ok_or(
             DalucWgpuCandidateError::IndexSpaceExceeded("readback bytes"),
         )?;
-        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let staging = self.device.create_buffer(&::wgpu::BufferDescriptor {
             label: Some("flat-fdal3-da-luc-readback"),
             size: bytes,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            usage: ::wgpu::BufferUsages::COPY_DST | ::wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            .create_command_encoder(&::wgpu::CommandEncoderDescriptor {
                 label: Some("flat-fdal3-da-luc-readback"),
             });
         encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
@@ -649,10 +649,10 @@ impl WgpuDalucQlen1Candidate {
 
         let slice = staging.slice(..bytes);
         let (sender, receiver) = mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result| {
+        slice.map_async(::wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        let _ = self.device.poll(::wgpu::PollType::wait_indefinitely());
         receiver
             .recv()
             .map_err(|error| DalucWgpuCandidateError::Readback(format!("map callback: {error}")))?
