@@ -23,6 +23,10 @@ pub mod decode;
 #[path = "research_da_luc_wgpu.rs"]
 pub mod wgpu;
 
+/// Research-only deterministic dynamic precision tier routing (FDAL5).
+#[path = "research_da_luc_tiering.rs"]
+pub mod tiering;
+
 /// One byte-backed oracle plane.
 ///
 /// `logical_bits` excludes byte-tail and alignment padding. `bytes` includes both.
