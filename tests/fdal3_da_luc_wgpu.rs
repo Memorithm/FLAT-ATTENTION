@@ -74,6 +74,33 @@ fn direct_compressed_wgpu_matches_fdal2_scalar_oracle() {
     }
 }
 
+#[test]
+fn negative_max_score_is_not_treated_as_softmax_initialization_sentinel() {
+    let contract = negative_max_score_contract();
+    let codebook = [-f32::MAX];
+    let keys = [-f32::MAX, -f32::MAX];
+    let values = [1.0f32, 0.0, 3.0, 0.0];
+    let payload = DalucOraclePayload::encode(contract, &codebook, &keys, &values).unwrap();
+    let query = [1.0f32];
+    let config = DalucQlen1DecodeConfig {
+        attention: FlatAttentionConfig {
+            causal: false,
+            softmax_scale: Some(1.0),
+        },
+        query_position: 0,
+    };
+    let expected = payload.q_len1_attention_direct(&query, config).unwrap();
+    assert!(expected.output.iter().all(|value| value.is_finite()));
+    assert!(expected.lse.iter().all(|value| value.is_finite()));
+
+    let Some(candidate) = candidate_or_skip() else {
+        return;
+    };
+    let actual = candidate.forward(&payload, &query, config).unwrap();
+    assert_close("negative-max output", &actual.output, &expected.output);
+    assert_close("negative-max lse", &actual.lse, &expected.lse);
+}
+
 fn candidate_or_skip() -> Option<WgpuDalucQlen1Candidate> {
     match WgpuDalucQlen1Candidate::new() {
         Ok(candidate) => Some(candidate),
@@ -118,6 +145,43 @@ fn supported_contract() -> DalucKvViewContract {
         layout: DalucPhysicalLayout {
             row_order: DalucRowOrder::BatchHeadToken,
             topology: DalucStorageTopology::Contiguous { capacity_tokens: 8 },
+            plane_alignment_bytes: 16,
+            padding: DalucPaddingRule::ZeroFilledToAlignment,
+        },
+    }
+}
+
+fn negative_max_score_contract() -> DalucKvViewContract {
+    DalucKvViewContract {
+        schema_version: DA_LUC_KV_VIEW_SCHEMA_VERSION,
+        shape: DalucLogicalKvShape {
+            batch: 1,
+            q_heads: 1,
+            kv_heads: 1,
+            kv_len: 2,
+            key_head_dim: 1,
+            value_head_dim: 2,
+        },
+        keys: DalucKeyRepresentation {
+            subspace_dim: 1,
+            codebook_entries: 1,
+            codebook_dtype: DalucFloatDType::F32,
+            codebook_scope: DalucCodebookScope::SharedAcrossKvHeads,
+            index_bits: 8,
+            index_bit_order: DalucBitOrder::Lsb0,
+            residual: DalucResidualSemantics::None,
+        },
+        values: DalucValueRepresentation::GroupwiseAffine {
+            storage_bits: 8,
+            group_size: 2,
+            scale_dtype: DalucFloatDType::F32,
+            zero_point: DalucZeroPointStorage::U8,
+            bit_order: DalucBitOrder::Lsb0,
+            residual: DalucResidualSemantics::None,
+        },
+        layout: DalucPhysicalLayout {
+            row_order: DalucRowOrder::BatchHeadToken,
+            topology: DalucStorageTopology::Contiguous { capacity_tokens: 2 },
             plane_alignment_bytes: 16,
             padding: DalucPaddingRule::ZeroFilledToAlignment,
         },
