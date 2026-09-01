@@ -14,6 +14,10 @@ use core::fmt;
 /// Version of the host-only deterministic oracle payload semantics.
 pub const DA_LUC_ORACLE_PAYLOAD_VERSION: u16 = 1;
 
+/// Research-only direct q_len=1 compressed-attention oracle (FDAL2).
+#[path = "research_da_luc_decode_oracle.rs"]
+pub mod decode;
+
 /// One byte-backed oracle plane.
 ///
 /// `logical_bits` excludes byte-tail and alignment padding. `bytes` includes both.
