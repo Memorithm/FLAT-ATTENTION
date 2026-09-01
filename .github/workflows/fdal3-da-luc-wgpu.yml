@@ -61,8 +61,7 @@ jobs:
           sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
       - name: Report Vulkan adapter
         run: vulkaninfo --summary || true
-      - name: Direct compressed WGPU versus FDAL2 scalar oracle
+      - name: Direct compressed parity and score-edge regression
         run: >-
           cargo test --features wgpu --test fdal3_da_luc_wgpu
-          direct_compressed_wgpu_matches_fdal2_scalar_oracle
           -- --nocapture
