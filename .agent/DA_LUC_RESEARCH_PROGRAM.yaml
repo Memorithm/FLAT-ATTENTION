@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_da_luc_research_program
 status: research_only
-last_updated: "2026-09-01"
+last_updated: "2026-09-01T00:08+0200"
 repository: Memorithm/FLAT-ATTENTION
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
 
@@ -134,7 +134,11 @@ roadmap_alignment:
 research_phases:
   - id: FDAL0
     name: Audit and semantic envelope
-    status: pending
+    status: complete
+    completion_evidence:
+      - PR_174_merged_versioned_DA_LUC_KV_view_contract
+      - dense_M14_M15_M16_paths_retained_as_reference
+      - FLAT_SLHAv2_NNIS_ownership_boundaries_and_prior_art_matrix_recorded
     deliverables:
       - audit_current_M14_M15_M16_progress_on_main
       - audit_existing_compressed_KV_interfaces_in_FLAT_SLHAv2_and_NNIS
@@ -142,7 +146,11 @@ research_phases:
       - smallest_versioned_DA_LUC_view_contract
   - id: FDAL1
     name: Deterministic representation oracle
-    status: blocked_on_FDAL0
+    status: complete
+    completion_evidence:
+      - PR_175_merged_deterministic_DA_LUC_representation_oracle
+      - exact_storage_accounting_includes_codebooks_residuals_metadata_alignment_and_padding
+      - deterministic_K_and_V_reconstruction_error_evidence
     deliverables:
       - encode_decode_reference
       - exact_storage_accounting
@@ -150,7 +158,11 @@ research_phases:
       - sparse_outlier_residual_semantics
   - id: FDAL2
     name: Compressed decode oracle
-    status: blocked_on_FDAL1
+    status: complete
+    completion_evidence:
+      - PR_176_merged_direct_compressed_q_len_1_scalar_oracle
+      - no_full_dense_KV_materialization_in_direct_oracle
+      - direct_vs_reconstructed_dense_attention_equivalence_report
     deliverables:
       - direct_q_len_1_LUT_key_scoring_reference
       - sparse_residual_correction
@@ -158,7 +170,12 @@ research_phases:
       - equivalence_tests_against_dense_mathematical_semantics
   - id: FDAL3
     name: Portable or open-codegen candidate
-    status: blocked_on_FDAL2
+    status: active_pending_real_device_correctness
+    evidence:
+      - PR_177_merged_narrow_direct_compressed_WGPU_candidate
+      - lavapipe_correctness_gate_passed_for_supported_subset
+      - no_dense_KV_materialization_property_implemented_for_candidate
+      - physical_Thor_correctness_and_performance_promotion_not_yet_recorded
     deliverables:
       - capability_gate_for_direct_compressed_consumption
       - no_dense_K_materialization_when_candidate_selected
@@ -166,14 +183,21 @@ research_phases:
       - real_device_correctness_before_performance_promotion
   - id: FDAL4
     name: NNIS specialized adapter
-    status: blocked_on_versioned_contract_and_NNIS_readiness
+    status: pending_NNIS_DAL0_contract_audit
+    coordination:
+      - Memorithm_NNIS_issue_78_tracks_DAL0_versioned_contract_binding
     deliverables:
       - explicit_representation_version_handshake
       - backend_specific_layout_mapping_without_semantic_drift
       - shared_quality_and_storage_evidence_fields
   - id: FDAL5
     name: Dynamic precision tiers
-    status: blocked_on_FDAL3
+    status: active_nonsemantic_baseline_qualification_pending
+    evidence:
+      - PR_178_merged_versioned_research_only_tier_routing_plan
+      - deterministic_recency_and_attention_mass_assignments_implemented
+      - explicit_transition_descriptions_without_implicit_mutation
+      - Memorithm_FLAT_ATTENTION_issue_179_tracks_realization_and_equal_budget_baseline_qualification
     deliverables:
       - explicit_hot_cold_page_or_segment_tiers
       - deterministic_recency_and_attention_mass_routing_baselines
@@ -207,7 +231,8 @@ fail_closed_conditions:
   - eight_to_sixteen_x_claim_without_measured_effective_bits_per_value
 
 next_action: >-
-  Start FDAL0 only after rereading the ecosystem roadmap, ML maturity overlay,
-  default-branch ROADMAP.md, and the relevant NNIS/SLHAv2 contracts. The first
-  implementation must be the smallest oracle-backed/versioned contract, not an
-  optimized kernel or a speculative semantic router.
+  Qualify the non-semantic FDAL5 tier baselines through issue 179 while retaining
+  FDAL6 as blocked. In parallel, complete the documented FDAL3 real-device
+  correctness gate before any performance promotion and coordinate NNIS DAL0
+  through Memorithm/NNIS issue 78. Do not change production routing or make a
+  compressed-KV performance claim from lavapipe or host-only evidence.
