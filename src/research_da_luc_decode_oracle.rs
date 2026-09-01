@@ -156,12 +156,7 @@ impl DalucOraclePayload {
                     }
                     bump(&mut trace.attended_kv_rows, 1, "attended KV rows")?;
                     let row = geometry.physical_row(self.contract, batch, kv_head, key_pos)?;
-                    let mut dot = direct_key_primary_score(
-                        self,
-                        row,
-                        &lut,
-                        &mut trace,
-                    )?;
+                    let mut dot = direct_key_primary_score(self, row, &lut, &mut trace)?;
                     let key_residuals = sparse_residual_entries(self, row, true)?;
                     for &(coordinate, correction) in &key_residuals {
                         dot += query[q_base + coordinate] * correction;
@@ -196,8 +191,7 @@ impl DalucOraclePayload {
                             )?;
                         }
                         let target = out_base + feature;
-                        output[target] =
-                            output[target] * alpha + probability_numerator * value;
+                        output[target] = output[target] * alpha + probability_numerator * value;
                     }
                     running_sum = running_sum * alpha + probability_numerator;
                     running_max = new_max;
@@ -207,8 +201,7 @@ impl DalucOraclePayload {
                 for feature in 0..self.contract.shape.value_head_dim {
                     output[out_base + feature] *= inv_sum;
                 }
-                lse[batch * self.contract.shape.q_heads + q_head] =
-                    running_max + running_sum.ln();
+                lse[batch * self.contract.shape.q_heads + q_head] = running_max + running_sum.ln();
             }
         }
 
@@ -259,20 +252,10 @@ impl DalucOraclePayload {
                     if config.attention.causal && key_pos > config.query_position {
                         break;
                     }
-                    let key_base = canonical_vector_offset(
-                        self.contract,
-                        batch,
-                        kv_head,
-                        key_pos,
-                        true,
-                    )?;
-                    let value_base = canonical_vector_offset(
-                        self.contract,
-                        batch,
-                        kv_head,
-                        key_pos,
-                        false,
-                    )?;
+                    let key_base =
+                        canonical_vector_offset(self.contract, batch, kv_head, key_pos, true)?;
+                    let value_base =
+                        canonical_vector_offset(self.contract, batch, kv_head, key_pos, false)?;
                     let mut dot = 0.0f32;
                     for feature in 0..self.contract.shape.key_head_dim {
                         dot += query[q_base + feature] * keys[key_base + feature];
@@ -298,8 +281,7 @@ impl DalucOraclePayload {
                 for feature in 0..self.contract.shape.value_head_dim {
                     output[out_base + feature] *= inv_sum;
                 }
-                lse[batch * self.contract.shape.q_heads + q_head] =
-                    running_max + running_sum.ln();
+                lse[batch * self.contract.shape.q_heads + q_head] = running_max + running_sum.ln();
             }
         }
 
@@ -327,10 +309,7 @@ impl DalucOraclePayload {
     }
 }
 
-fn validate_query(
-    contract: DalucKvViewContract,
-    query: &[f32],
-) -> Result<(), DalucOracleError> {
+fn validate_query(contract: DalucKvViewContract, query: &[f32]) -> Result<(), DalucOracleError> {
     let expected = checked_product(
         &[
             contract.shape.batch,
@@ -412,9 +391,7 @@ fn direct_key_primary_score(
         let packed_index = row
             .checked_mul(subspaces)
             .and_then(|value| value.checked_add(subspace))
-            .ok_or(DalucOracleError::ArithmeticOverflow(
-                "FDAL2 K packed index",
-            ))?;
+            .ok_or(DalucOracleError::ArithmeticOverflow("FDAL2 K packed index"))?;
         let entry = usize::try_from(unpack_integer(
             &payload.key_indices,
             packed_index,
@@ -449,9 +426,7 @@ fn direct_primary_value(
             let index = row
                 .checked_mul(payload.contract.shape.value_head_dim)
                 .and_then(|value| value.checked_add(feature))
-                .ok_or(DalucOracleError::ArithmeticOverflow(
-                    "FDAL2 dense V index",
-                ))?;
+                .ok_or(DalucOracleError::ArithmeticOverflow("FDAL2 dense V index"))?;
             read_float(&payload.values, index, dtype)
         }
         DalucValueRepresentation::GroupwiseAffine {
@@ -467,9 +442,7 @@ fn direct_primary_value(
             let group_index = row
                 .checked_mul(groups)
                 .and_then(|value| value.checked_add(group))
-                .ok_or(DalucOracleError::ArithmeticOverflow(
-                    "FDAL2 V group index",
-                ))?;
+                .ok_or(DalucOracleError::ArithmeticOverflow("FDAL2 V group index"))?;
             let scale = read_float(&payload.value_scales, group_index, scale_dtype)?;
             if !scale.is_finite() || scale <= 0.0 {
                 return Err(DalucOracleError::ScaleUnderflow { row, group });
@@ -478,9 +451,7 @@ fn direct_primary_value(
             let packed_index = row
                 .checked_mul(payload.contract.shape.value_head_dim)
                 .and_then(|value| value.checked_add(feature))
-                .ok_or(DalucOracleError::ArithmeticOverflow(
-                    "FDAL2 packed V index",
-                ))?;
+                .ok_or(DalucOracleError::ArithmeticOverflow("FDAL2 packed V index"))?;
             let raw = unpack_integer(&payload.values, packed_index, storage_bits, bit_order)?;
             bump(
                 &mut trace.value_quantized_scalar_conversions,
@@ -542,11 +513,11 @@ fn sparse_residual_entries(
             }
         }
         DalucResidualIndexing::Bitmap { bit_order } => {
-            let bit_base = row
-                .checked_mul(dimension)
-                .ok_or(DalucOracleError::ArithmeticOverflow(
-                    "FDAL2 residual bitmap base",
-                ))?;
+            let bit_base =
+                row.checked_mul(dimension)
+                    .ok_or(DalucOracleError::ArithmeticOverflow(
+                        "FDAL2 residual bitmap base",
+                    ))?;
             let value_base = row
                 .checked_mul(k)
                 .ok_or(DalucOracleError::ArithmeticOverflow(
@@ -560,8 +531,7 @@ fn sparse_residual_entries(
                             "FDAL2 residual bitmap exceeds budget",
                         ));
                     }
-                    let correction =
-                        read_float(values, value_base + slot, residual.value_dtype)?;
+                    let correction = read_float(values, value_base + slot, residual.value_dtype)?;
                     entries.push((coordinate, correction));
                     slot += 1;
                 }
@@ -576,11 +546,7 @@ fn sparse_residual_entries(
     Ok(entries)
 }
 
-fn bump(
-    counter: &mut usize,
-    amount: usize,
-    label: &'static str,
-) -> Result<(), DalucOracleError> {
+fn bump(counter: &mut usize, amount: usize, label: &'static str) -> Result<(), DalucOracleError> {
     *counter = counter
         .checked_add(amount)
         .ok_or(DalucOracleError::ArithmeticOverflow(label))?;

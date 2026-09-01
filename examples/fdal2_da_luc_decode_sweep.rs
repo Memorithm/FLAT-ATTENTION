@@ -49,7 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "case_{case_index},{},{},{},{:.9e},{:.9e},{},{},{},{},{},{},{},none",
                     order_name(order),
                     if paged { "paged" } else { "contiguous" },
-                    if quantized_values { "groupwise_u8" } else { "dense_f16" },
+                    if quantized_values {
+                        "groupwise_u8"
+                    } else {
+                        "dense_f16"
+                    },
                     report.output.max_abs,
                     report.lse.max_abs,
                     direct.trace.lut_entry_dot_products,

@@ -188,7 +188,10 @@ fn direct_decode_handles_dense_values_and_bitmap_key_residuals() {
         .unwrap();
     assert_close(&direct.output, &dense.output, 1.0e-4);
     assert_close(&direct.lse, &dense.lse, 1.0e-4);
-    assert_eq!(direct.output.len(), contract.shape.q_heads * contract.shape.value_head_dim);
+    assert_eq!(
+        direct.output.len(),
+        contract.shape.q_heads * contract.shape.value_head_dim
+    );
     assert_eq!(direct.trace.value_quantized_scalar_conversions, 0);
     assert!(direct.trace.value_primary_scalar_reads > 0);
     assert!(direct.trace.key_residual_corrections > 0);
@@ -227,8 +230,8 @@ fn malformed_query_and_invalid_scale_fail_closed() {
     let payload = payload(contract);
     let expected = contract.shape.batch * contract.shape.q_heads * contract.shape.key_head_dim;
     let short = vec![0.0; expected - 1];
-    let config = DalucQlen1DecodeConfig::for_last_token(contract, FlatAttentionConfig::default())
-        .unwrap();
+    let config =
+        DalucQlen1DecodeConfig::for_last_token(contract, FlatAttentionConfig::default()).unwrap();
     assert!(payload.q_len1_attention_direct(&short, config).is_err());
 
     let mut query = vec![0.0; expected];
