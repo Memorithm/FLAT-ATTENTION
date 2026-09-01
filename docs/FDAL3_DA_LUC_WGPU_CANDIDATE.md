@@ -35,12 +35,14 @@ FDAL3 candidate version 1 accepts only:
 - F32 V scales;
 - U8 V zero points;
 - no V sparse residual;
-- a query-local `subspaces * codebook_entries` LUT of at most 2048 entries.
+- a query-local `subspaces * codebook_entries` LUT of at most 2048 entries;
+- at least 7 compute-stage storage-buffer bindings on the selected WGPU adapter.
 
 Everything else fails closed before dispatch. In particular, v1 rejects paged
 storage, MSB0 streams, sub-byte K/V, dense V, F16/BF16 representation planes,
-and sparse residuals. Those are future candidate extensions, not implicit
-fallbacks.
+and sparse residuals. An adapter exposing fewer than 7 compute-stage storage
+buffers is rejected explicitly rather than relying on pipeline-creation failure.
+Those are future candidate extensions, not implicit fallbacks.
 
 ## Device staging
 
