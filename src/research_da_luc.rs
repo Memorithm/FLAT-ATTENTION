@@ -39,15 +39,23 @@ pub enum DalucCodebookScope {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DalucResidualIndexing {
+    /// Residual values pair one-for-one with unique coordinates in stored order.
     Coordinates {
         index_bits: u8,
         bit_order: DalucBitOrder,
     },
+    /// One bitmap bit per logical scalar. Residual values correspond to set
+    /// bits in increasing logical-coordinate order.
     Bitmap {
         bit_order: DalucBitOrder,
     },
 }
 
+/// Additive sparse correction applied after the primary K/V reconstruction.
+///
+/// Each residual entry is added to exactly one logical scalar in the full K or
+/// V vector. Duplicate coordinate entries are not part of the v1 semantics and
+/// must be rejected by payload-producing/consuming adapters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DalucSparseResidual {
     pub value_dtype: DalucFloatDType,
@@ -64,7 +72,9 @@ pub enum DalucResidualSemantics {
 /// Uniform-subspace codebook representation for K.
 ///
 /// The index stream follows [`DalucPhysicalLayout::row_order`] and uses subspace
-/// as the innermost logical dimension.
+/// as the innermost logical dimension. Each primary K subspace is reconstructed
+/// by selecting exactly one complete codebook vector, then applying any sparse
+/// residual entries additively in full-vector coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DalucKeyRepresentation {
     pub subspace_dim: usize,
@@ -76,8 +86,12 @@ pub struct DalucKeyRepresentation {
     pub residual: DalucResidualSemantics,
 }
 
-/// `None` means symmetric quantization; otherwise one affine zero point is
-/// stored per V group in the declared integer container.
+/// V low-bit zero-point semantics.
+///
+/// `None` means the packed `storage_bits` field is interpreted as a signed
+/// two's-complement integer and the primary reconstruction is `scale * q`.
+/// `U8`/`U16` mean the packed field is unsigned and one zero-point payload is
+/// stored per group in that container; reconstruction is `scale * (q - zp)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DalucZeroPointStorage {
     None,
@@ -91,6 +105,9 @@ pub enum DalucValueRepresentation {
     Dense {
         dtype: DalucFloatDType,
     },
+    /// Contiguous feature groups. Every group owns one floating scale and,
+    /// when affine, one zero point. Sparse residuals are added after the primary
+    /// group reconstruction.
     GroupwiseAffine {
         storage_bits: u8,
         group_size: usize,
@@ -309,6 +326,7 @@ impl DalucKvViewContract {
     }
 
     pub fn validate_key_residual_index(self, index: usize) -> Result<(), DalucKvViewError> {
+        self.validate()?;
         validate_payload_residual(
             self.keys.residual,
             DalucKvSide::Key,
@@ -318,6 +336,7 @@ impl DalucKvViewContract {
     }
 
     pub fn validate_value_residual_index(self, index: usize) -> Result<(), DalucKvViewError> {
+        self.validate()?;
         let residual = match self.values {
             DalucValueRepresentation::Dense { .. } => DalucResidualSemantics::None,
             DalucValueRepresentation::GroupwiseAffine { residual, .. } => residual,
@@ -380,7 +399,11 @@ fn validate_keys(
             "K codebook must contain at least two entries",
         ));
     }
-    validate_address_width(keys.index_bits, keys.codebook_entries, "K index")?;
+    validate_address_width(
+        keys.index_bits,
+        keys.codebook_entries,
+        "K index width cannot address the codebook",
+    )?;
     validate_residual(keys.residual, shape.key_head_dim)
 }
 
@@ -408,9 +431,7 @@ fn validate_values(
             "V group_size must exactly partition value_head_dim",
         ));
     }
-    if (zero_point == DalucZeroPointStorage::U8 && storage_bits > 8)
-        || (zero_point == DalucZeroPointStorage::U16 && storage_bits > 16)
-    {
+    if zero_point == DalucZeroPointStorage::U8 && storage_bits > 8 {
         return Err(DalucKvViewError::InvalidMetadata(
             "V zero-point container is too small for storage_bits",
         ));
@@ -431,7 +452,11 @@ fn validate_residual(
         ));
     }
     if let DalucResidualIndexing::Coordinates { index_bits, .. } = residual.indexing {
-        validate_address_width(index_bits, dimension, "residual coordinate")?;
+        validate_address_width(
+            index_bits,
+            dimension,
+            "residual coordinate width cannot address the vector",
+        )?;
     }
     Ok(())
 }
@@ -465,7 +490,7 @@ fn validate_layout(
 fn validate_address_width(
     bits: u8,
     required: usize,
-    label: &'static str,
+    capacity_error: &'static str,
 ) -> Result<(), DalucKvViewError> {
     if bits == 0 || bits > 32 {
         return Err(DalucKvViewError::InvalidMetadata(
@@ -474,10 +499,7 @@ fn validate_address_width(
     }
     let capacity = 1u64 << bits;
     if capacity < to_u64(required)? {
-        return Err(DalucKvViewError::InvalidMetadata(match label {
-            "K index" => "K index width cannot address the codebook",
-            _ => "residual coordinate width cannot address the vector",
-        }));
+        return Err(DalucKvViewError::InvalidMetadata(capacity_error));
     }
     Ok(())
 }
@@ -616,11 +638,11 @@ mod tests {
 
     #[test]
     fn representative_asymmetric_view_validates() {
-        let view = view();
-        view.validate().unwrap();
-        view.validate_for_backend(backend()).unwrap();
-        view.validate_codebook_index(255).unwrap();
-        view.validate_key_residual_index(63).unwrap();
+        let contract = view();
+        contract.validate().unwrap();
+        contract.validate_for_backend(backend()).unwrap();
+        contract.validate_codebook_index(255).unwrap();
+        contract.validate_key_residual_index(63).unwrap();
     }
 
     #[test]
@@ -673,17 +695,17 @@ mod tests {
 
     #[test]
     fn payload_indices_and_capacity_fail_closed() {
-        let view = view();
+        let valid = view();
         assert!(matches!(
-            view.validate_codebook_index(256),
+            valid.validate_codebook_index(256),
             Err(DalucKvViewError::CodebookIndexOutOfRange { .. })
         ));
         assert!(matches!(
-            view.validate_key_residual_index(64),
+            valid.validate_key_residual_index(64),
             Err(DalucKvViewError::ResidualIndexOutOfRange { .. })
         ));
         assert!(matches!(
-            view.validate_value_residual_index(0),
+            valid.validate_value_residual_index(0),
             Err(DalucKvViewError::ResidualIndexOutOfRange { .. })
         ));
 
