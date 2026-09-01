@@ -59,7 +59,7 @@ No statement above establishes novelty for a combination of these ingredients. A
 
 ## FDAL0 v1 contract
 
-`flat_attention::research_da_luc` is intentionally outside the stable `api::v1` namespace. It describes one per-layer attention-facing KV view and nothing more.
+`flat_attention::api::research_da_luc` is intentionally outside the stable `api::v1` namespace, following the same research-only placement pattern already used by `api::research_nonlocal`. It describes one per-layer attention-facing KV view and nothing more.
 
 The v1 descriptor makes these facts explicit:
 
