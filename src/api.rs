@@ -12,6 +12,13 @@
 #[path = "research_nonlocal.rs"]
 pub mod research_nonlocal;
 
+/// Research-only DA-LUC compressed-KV view contract.
+///
+/// Kept outside `v1`; this is representation metadata and validation only, not
+/// a promoted reusable runtime path or performance claim.
+#[path = "research_da_luc.rs"]
+pub mod research_da_luc;
+
 /// Explicit WGPU-facing reusable state that is intentionally outside the
 /// backend-neutral `v1` namespace.
 #[cfg(feature = "wgpu")]
