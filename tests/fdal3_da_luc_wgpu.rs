@@ -77,7 +77,7 @@ fn direct_compressed_wgpu_matches_fdal2_scalar_oracle() {
 #[test]
 fn negative_max_score_is_not_treated_as_softmax_initialization_sentinel() {
     let contract = negative_max_score_contract();
-    let codebook = [-f32::MAX];
+    let codebook = [-f32::MAX, -f32::MAX];
     let keys = [-f32::MAX, -f32::MAX];
     let values = [1.0f32, 0.0, 3.0, 0.0];
     let payload = DalucOraclePayload::encode(contract, &codebook, &keys, &values).unwrap();
@@ -164,7 +164,7 @@ fn negative_max_score_contract() -> DalucKvViewContract {
         },
         keys: DalucKeyRepresentation {
             subspace_dim: 1,
-            codebook_entries: 1,
+            codebook_entries: 2,
             codebook_dtype: DalucFloatDType::F32,
             codebook_scope: DalucCodebookScope::SharedAcrossKvHeads,
             index_bits: 8,
