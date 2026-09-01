@@ -1,4 +1,3 @@
-use flat_attention::api::research_da_luc_oracle::DalucOraclePayload;
 use flat_attention::api::research_da_luc::{
     DalucBitOrder, DalucCodebookScope, DalucFloatDType, DalucKeyRepresentation,
     DalucKvViewContract, DalucLogicalKvShape, DalucPaddingRule, DalucPhysicalLayout,
@@ -6,6 +5,7 @@ use flat_attention::api::research_da_luc::{
     DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
     DA_LUC_KV_VIEW_SCHEMA_VERSION,
 };
+use flat_attention::api::research_da_luc_oracle::DalucOraclePayload;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("case,bit_order,residual_indexing,value_bits,total_bytes,effective_bits_per_value,dense_baseline_bytes,compression_ratio,key_max_abs,key_rmse,value_max_abs,value_rmse,performance_claim");
@@ -69,7 +69,9 @@ fn run_case(
         },
         layout: DalucPhysicalLayout {
             row_order: DalucRowOrder::BatchTokenHead,
-            topology: DalucStorageTopology::Contiguous { capacity_tokens: 32 },
+            topology: DalucStorageTopology::Contiguous {
+                capacity_tokens: 32,
+            },
             plane_alignment_bytes: 16,
             padding: DalucPaddingRule::ZeroFilledToAlignment,
         },

@@ -4,9 +4,9 @@
 //! backend layout, train codebooks, dispatch GPU work, or promote compressed KV.
 
 use super::research_da_luc::{
-    DalucBitOrder, DalucCodebookScope, DalucFloatDType, DalucKvViewContract,
-    DalucKvViewError, DalucPaddingRule, DalucResidualIndexing, DalucResidualSemantics,
-    DalucRowOrder, DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
+    DalucBitOrder, DalucCodebookScope, DalucFloatDType, DalucKvViewContract, DalucKvViewError,
+    DalucPaddingRule, DalucResidualIndexing, DalucResidualSemantics, DalucRowOrder,
+    DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
 };
 use crate::F16;
 use core::fmt;
@@ -165,13 +165,8 @@ impl DalucOraclePayload {
         )?;
         let encoded_values = encode_values(contract, &geometry, dense_values)?;
         let primary_values = decode_primary_values(contract, &geometry, &encoded_values)?;
-        let (value_residual_values, value_residual_indexing) = encode_residuals(
-            contract,
-            &geometry,
-            dense_values,
-            &primary_values,
-            false,
-        )?;
+        let (value_residual_values, value_residual_indexing) =
+            encode_residuals(contract, &geometry, dense_values, &primary_values, false)?;
 
         let payload = Self {
             payload_version: DA_LUC_ORACLE_PAYLOAD_VERSION,
@@ -256,7 +251,8 @@ impl DalucOraclePayload {
         self.validate()?;
         let geometry = OracleGeometry::from_payload(self.contract, &self.page_table)?;
         let codebook = StoredCodebook::from_plane(self.contract, self.key_codebook.clone())?;
-        let mut decoded = decode_primary_keys(self.contract, &geometry, &codebook, &self.key_indices)?;
+        let mut decoded =
+            decode_primary_keys(self.contract, &geometry, &codebook, &self.key_indices)?;
         apply_residuals(
             self.contract,
             &geometry,
@@ -325,7 +321,9 @@ impl DalucOraclePayload {
             .try_fold(0usize, |acc, plane| {
                 acc.checked_add(plane.alignment_padding_bytes())
             })
-            .ok_or(DalucOracleError::ArithmeticOverflow("alignment padding sum"))?;
+            .ok_or(DalucOracleError::ArithmeticOverflow(
+                "alignment padding sum",
+            ))?;
         let packing_tail_padding_bits = planes
             .iter()
             .try_fold(0usize, |acc, plane| {
@@ -394,17 +392,26 @@ impl DalucOraclePayload {
 #[non_exhaustive]
 pub enum DalucOracleError {
     Contract(DalucKvViewError),
-    UnsupportedPayloadVersion { actual: u16, supported: u16 },
+    UnsupportedPayloadVersion {
+        actual: u16,
+        supported: u16,
+    },
     LengthMismatch {
         what: &'static str,
         expected: usize,
         actual: usize,
     },
-    NonFinite { what: &'static str, index: usize },
+    NonFinite {
+        what: &'static str,
+        index: usize,
+    },
     ArithmeticOverflow(&'static str),
     MalformedPayload(&'static str),
     InvalidPageTable(&'static str),
-    ScaleUnderflow { row: usize, group: usize },
+    ScaleUnderflow {
+        row: usize,
+        group: usize,
+    },
 }
 
 impl fmt::Display for DalucOracleError {
@@ -465,61 +472,57 @@ impl OracleGeometry {
         contract: DalucKvViewContract,
         supplied_page_table: Option<&[u32]>,
     ) -> Result<Self, DalucOracleError> {
-        let (capacity_tokens, logical_pages_per_batch, page_table) =
-            match contract.layout.topology {
-                DalucStorageTopology::Contiguous { capacity_tokens } => {
-                    if supplied_page_table.is_some_and(|table| !table.is_empty()) {
-                        return Err(DalucOracleError::InvalidPageTable(
-                            "contiguous topology does not carry a page table",
-                        ));
+        let (capacity_tokens, logical_pages_per_batch, page_table) = match contract.layout.topology
+        {
+            DalucStorageTopology::Contiguous { capacity_tokens } => {
+                if supplied_page_table.is_some_and(|table| !table.is_empty()) {
+                    return Err(DalucOracleError::InvalidPageTable(
+                        "contiguous topology does not carry a page table",
+                    ));
+                }
+                (capacity_tokens, 0, Vec::new())
+            }
+            DalucStorageTopology::Paged {
+                page_size,
+                physical_pages_per_batch,
+            } => {
+                let logical_pages = div_ceil(contract.shape.kv_len, page_size)?;
+                let entries =
+                    checked_product(&[contract.shape.batch, logical_pages], "page entries")?;
+                let table = match supplied_page_table {
+                    Some(table) => {
+                        require_len("page table", table.len(), entries)?;
+                        table.to_vec()
                     }
-                    (capacity_tokens, 0, Vec::new())
-                }
-                DalucStorageTopology::Paged {
-                    page_size,
+                    None => {
+                        if logical_pages > physical_pages_per_batch {
+                            return Err(DalucOracleError::InvalidPageTable(
+                                "identity map exceeds physical page capacity",
+                            ));
+                        }
+                        let mut table = Vec::with_capacity(entries);
+                        for _batch in 0..contract.shape.batch {
+                            for page in 0..logical_pages {
+                                table.push(u32::try_from(page).map_err(|_| {
+                                    DalucOracleError::InvalidPageTable("page index exceeds u32")
+                                })?);
+                            }
+                        }
+                        table
+                    }
+                };
+                validate_page_table(
+                    &table,
+                    contract.shape.batch,
+                    logical_pages,
                     physical_pages_per_batch,
-                } => {
-                    let logical_pages = div_ceil(contract.shape.kv_len, page_size)?;
-                    let entries = checked_product(
-                        &[contract.shape.batch, logical_pages],
-                        "page entries",
-                    )?;
-                    let table = match supplied_page_table {
-                        Some(table) => {
-                            require_len("page table", table.len(), entries)?;
-                            table.to_vec()
-                        }
-                        None => {
-                            if logical_pages > physical_pages_per_batch {
-                                return Err(DalucOracleError::InvalidPageTable(
-                                    "identity map exceeds physical page capacity",
-                                ));
-                            }
-                            let mut table = Vec::with_capacity(entries);
-                            for _batch in 0..contract.shape.batch {
-                                for page in 0..logical_pages {
-                                    table.push(u32::try_from(page).map_err(|_| {
-                                        DalucOracleError::InvalidPageTable(
-                                            "page index exceeds u32",
-                                        )
-                                    })?);
-                                }
-                            }
-                            table
-                        }
-                    };
-                    validate_page_table(
-                        &table,
-                        contract.shape.batch,
-                        logical_pages,
-                        physical_pages_per_batch,
-                    )?;
-                    let capacity_tokens = page_size
-                        .checked_mul(physical_pages_per_batch)
-                        .ok_or(DalucOracleError::ArithmeticOverflow("paged capacity"))?;
-                    (capacity_tokens, logical_pages, table)
-                }
-            };
+                )?;
+                let capacity_tokens = page_size
+                    .checked_mul(physical_pages_per_batch)
+                    .ok_or(DalucOracleError::ArithmeticOverflow("paged capacity"))?;
+                (capacity_tokens, logical_pages, table)
+            }
+        };
         let physical_rows = checked_product(
             &[
                 contract.shape.batch,
@@ -558,10 +561,8 @@ impl OracleGeometry {
                     ));
                 }
                 let logical_pages = div_ceil(contract.shape.kv_len, page_size)?;
-                let expected_entries = checked_product(
-                    &[contract.shape.batch, logical_pages],
-                    "page table entries",
-                )?;
+                let expected_entries =
+                    checked_product(&[contract.shape.batch, logical_pages], "page table entries")?;
                 let mut table = Vec::with_capacity(expected_entries);
                 let logical_bytes = page_table_plane.logical_bytes();
                 let expected_bytes = expected_entries
@@ -727,11 +728,10 @@ fn encode_keys(
                             codebook.vector_offset(contract, head, subspace, entry)?;
                         let candidate = &codebook.decoded
                             [codebook_start..codebook_start + contract.keys.subspace_dim];
-                        let distance =
-                            input.iter().zip(candidate).fold(0.0f64, |acc, (&a, &b)| {
-                                let delta = f64::from(a) - f64::from(b);
-                                acc + delta * delta
-                            });
+                        let distance = input.iter().zip(candidate).fold(0.0f64, |acc, (&a, &b)| {
+                            let delta = f64::from(a) - f64::from(b);
+                            acc + delta * delta
+                        });
                         if distance < best_distance {
                             best_distance = distance;
                             best_entry = entry;
@@ -783,8 +783,7 @@ fn decode_primary_keys(
                             "K codebook index out of range",
                         ));
                     }
-                    let codebook_start =
-                        codebook.vector_offset(contract, head, subspace, entry)?;
+                    let codebook_start = codebook.vector_offset(contract, head, subspace, entry)?;
                     let target_start = output_base + subspace * contract.keys.subspace_dim;
                     output[target_start..target_start + contract.keys.subspace_dim]
                         .copy_from_slice(
@@ -849,8 +848,7 @@ fn encode_values(
                 "quantized V scalar count",
             )?;
             let groups = contract.shape.value_head_dim / group_size;
-            let group_count =
-                checked_product(&[geometry.physical_rows, groups], "V group count")?;
+            let group_count = checked_product(&[geometry.physical_rows, groups], "V group count")?;
             let mut packed_values = vec![0u32; scalar_count];
             let scale_bytes = group_count
                 .checked_mul(dtype_bytes(scale_dtype))
@@ -874,19 +872,10 @@ fn encode_values(
                         for group in 0..groups {
                             let start = input_base + group * group_size;
                             let values = &dense_values[start..start + group_size];
-                            let params = quantization_params(
-                                values,
-                                storage_bits,
-                                scale_dtype,
-                                zero_point,
-                            )?;
+                            let params =
+                                quantization_params(values, storage_bits, scale_dtype, zero_point)?;
                             let group_index = row * groups + group;
-                            write_float(
-                                &mut scales_raw,
-                                group_index,
-                                params.scale,
-                                scale_dtype,
-                            )?;
+                            write_float(&mut scales_raw, group_index, params.scale, scale_dtype)?;
                             write_zero_point(
                                 &mut zero_points_raw,
                                 group_index,
@@ -894,12 +883,7 @@ fn encode_values(
                                 zero_point,
                             )?;
                             for (inner, &value) in values.iter().enumerate() {
-                                let q = quantize_value(
-                                    value,
-                                    params,
-                                    storage_bits,
-                                    zero_point,
-                                );
+                                let q = quantize_value(value, params, storage_bits, zero_point);
                                 packed_values[row * contract.shape.value_head_dim
                                     + group * group_size
                                     + inner] = q;
@@ -909,12 +893,7 @@ fn encode_values(
                 }
             }
             Ok(EncodedValues {
-                values: pack_integer_plane(
-                    contract,
-                    &packed_values,
-                    storage_bits,
-                    bit_order,
-                )?,
+                values: pack_integer_plane(contract, &packed_values, storage_bits, bit_order)?,
                 scales: finalize_byte_plane(contract, scales_raw)?,
                 zero_points: finalize_byte_plane(contract, zero_points_raw)?,
             })
@@ -965,36 +944,23 @@ fn decode_primary_values(
                             canonical_vector_offset(contract, batch, head, token, false)?;
                         for group in 0..groups {
                             let group_index = row * groups + group;
-                            let scale =
-                                read_float(&encoded.scales, group_index, scale_dtype)?;
+                            let scale = read_float(&encoded.scales, group_index, scale_dtype)?;
                             if !scale.is_finite() || scale <= 0.0 {
-                                return Err(DalucOracleError::ScaleUnderflow {
-                                    row,
-                                    group,
-                                });
+                                return Err(DalucOracleError::ScaleUnderflow { row, group });
                             }
-                            let zp = read_zero_point(
-                                &encoded.zero_points,
-                                group_index,
-                                zero_point,
-                            )?;
+                            let zp =
+                                read_zero_point(&encoded.zero_points, group_index, zero_point)?;
                             for inner in 0..group_size {
                                 let feature = group * group_size + inner;
-                                let packed_index =
-                                    row * contract.shape.value_head_dim + feature;
+                                let packed_index = row * contract.shape.value_head_dim + feature;
                                 let raw = unpack_integer(
                                     &encoded.values,
                                     packed_index,
                                     storage_bits,
                                     bit_order,
                                 )?;
-                                output[output_base + feature] = dequantize_value(
-                                    raw,
-                                    scale,
-                                    zp,
-                                    storage_bits,
-                                    zero_point,
-                                );
+                                output[output_base + feature] =
+                                    dequantize_value(raw, scale, zp, storage_bits, zero_point);
                             }
                         }
                     }
@@ -1017,13 +983,10 @@ fn encode_residuals(
         return Ok((DalucOraclePlane::empty(), DalucOraclePlane::empty()));
     };
     let k = residual.max_entries_per_vector;
-    let value_count =
-        checked_product(&[geometry.physical_rows, k], "residual values")?;
+    let value_count = checked_product(&[geometry.physical_rows, k], "residual values")?;
     let residual_value_bytes = value_count
         .checked_mul(dtype_bytes(residual.value_dtype))
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "residual value bytes",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("residual value bytes"))?;
     let mut value_raw = vec![0u8; residual_value_bytes];
     let mut coordinate_values = match residual.indexing {
         DalucResidualIndexing::Coordinates { .. } => vec![0u32; value_count],
@@ -1039,10 +1002,9 @@ fn encode_residuals(
         }
     }
     let bitmap_bits = match residual.indexing {
-        DalucResidualIndexing::Bitmap { .. } => checked_product(
-            &[geometry.physical_rows, dimension],
-            "residual bitmap bits",
-        )?,
+        DalucResidualIndexing::Bitmap { .. } => {
+            checked_product(&[geometry.physical_rows, dimension], "residual bitmap bits")?
+        }
         DalucResidualIndexing::Coordinates { .. } => 0,
     };
     let mut bitmap_raw = vec![0u8; bytes_for_bits(bitmap_bits)?];
@@ -1051,8 +1013,7 @@ fn encode_residuals(
         for head in 0..contract.shape.kv_heads {
             for token in 0..contract.shape.kv_len {
                 let row = geometry.physical_row(contract, batch, head, token)?;
-                let base =
-                    canonical_vector_offset(contract, batch, head, token, key_side)?;
+                let base = canonical_vector_offset(contract, batch, head, token, key_side)?;
                 let errors: Vec<f32> = (0..dimension)
                     .map(|feature| dense[base + feature] - primary[base + feature])
                     .collect();
@@ -1070,9 +1031,7 @@ fn encode_residuals(
                         DalucResidualIndexing::Coordinates { .. } => {
                             coordinate_values[row * k + slot] =
                                 u32::try_from(coordinate).map_err(|_| {
-                                    DalucOracleError::ArithmeticOverflow(
-                                        "residual coordinate u32",
-                                    )
+                                    DalucOracleError::ArithmeticOverflow("residual coordinate u32")
                                 })?;
                         }
                         DalucResidualIndexing::Bitmap { bit_order } => {
@@ -1094,12 +1053,7 @@ fn encode_residuals(
         DalucResidualIndexing::Coordinates {
             index_bits,
             bit_order,
-        } => pack_integer_plane(
-            contract,
-            &coordinate_values,
-            index_bits,
-            bit_order,
-        )?,
+        } => pack_integer_plane(contract, &coordinate_values, index_bits, bit_order)?,
         DalucResidualIndexing::Bitmap { .. } => {
             finalize_bit_plane(contract, bitmap_raw, bitmap_bits)?
         }
@@ -1124,8 +1078,7 @@ fn apply_residuals(
         for head in 0..contract.shape.kv_heads {
             for token in 0..contract.shape.kv_len {
                 let row = geometry.physical_row(contract, batch, head, token)?;
-                let base =
-                    canonical_vector_offset(contract, batch, head, token, key_side)?;
+                let base = canonical_vector_offset(contract, batch, head, token, key_side)?;
                 match residual.indexing {
                     DalucResidualIndexing::Coordinates {
                         index_bits,
@@ -1139,41 +1092,29 @@ fn apply_residuals(
                                 bit_order,
                             )?)
                             .map_err(|_| {
-                                DalucOracleError::MalformedPayload(
-                                    "residual coordinate usize",
-                                )
+                                DalucOracleError::MalformedPayload("residual coordinate usize")
                             })?;
                             if coordinate >= dimension {
                                 return Err(DalucOracleError::MalformedPayload(
                                     "residual coordinate out of range",
                                 ));
                             }
-                            let correction = read_float(
-                                values,
-                                row * k + slot,
-                                residual.value_dtype,
-                            )?;
+                            let correction =
+                                read_float(values, row * k + slot, residual.value_dtype)?;
                             dense[base + coordinate] += correction;
                         }
                     }
                     DalucResidualIndexing::Bitmap { bit_order } => {
                         let mut slot = 0usize;
                         for coordinate in 0..dimension {
-                            if get_stream_bit(
-                                indexing,
-                                row * dimension + coordinate,
-                                bit_order,
-                            )? {
+                            if get_stream_bit(indexing, row * dimension + coordinate, bit_order)? {
                                 if slot >= k {
                                     return Err(DalucOracleError::MalformedPayload(
                                         "residual bitmap exceeds budget",
                                     ));
                                 }
-                                let correction = read_float(
-                                    values,
-                                    row * k + slot,
-                                    residual.value_dtype,
-                                )?;
+                                let correction =
+                                    read_float(values, row * k + slot, residual.value_dtype)?;
                                 dense[base + coordinate] += correction;
                                 slot += 1;
                             }
@@ -1222,10 +1163,7 @@ fn quantization_params(
         }
         DalucZeroPointStorage::U8 | DalucZeroPointStorage::U16 => {
             let min = values.iter().copied().fold(f32::INFINITY, f32::min);
-            let max = values
-                .iter()
-                .copied()
-                .fold(f32::NEG_INFINITY, f32::max);
+            let max = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
             if min == max {
                 if min == 0.0 {
                     QuantParams {
@@ -1389,11 +1327,7 @@ fn validate_expected_plane_lengths(
             )?;
             let groups = contract.shape.value_head_dim / group_size;
             let scale_bits = checked_product(
-                &[
-                    geometry.physical_rows,
-                    groups,
-                    dtype_bytes(scale_dtype) * 8,
-                ],
+                &[geometry.physical_rows, groups, dtype_bytes(scale_dtype) * 8],
                 "V scale bits",
             )?;
             let zp_bits_per_group = match zero_point {
@@ -1422,9 +1356,7 @@ fn validate_expected_plane_lengths(
         .page_table
         .len()
         .checked_mul(32)
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "page metadata bits",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("page metadata bits"))?;
     require_bits(
         "page table",
         payload.page_table.logical_bits,
@@ -1461,10 +1393,9 @@ fn validate_residual_plane_lengths(
             ],
             "residual coordinate bits",
         )?,
-        DalucResidualIndexing::Bitmap { .. } => checked_product(
-            &[geometry.physical_rows, dimension],
-            "residual bitmap bits",
-        )?,
+        DalucResidualIndexing::Bitmap { .. } => {
+            checked_product(&[geometry.physical_rows, dimension], "residual bitmap bits")?
+        }
     };
     require_bits("residual values", values.logical_bits, value_bits)?;
     require_bits("residual indexing", indexing.logical_bits, index_bits)
@@ -1535,16 +1466,10 @@ fn validate_value_planes(
                         let row = geometry.physical_row(contract, batch, head, token)?;
                         for group in 0..groups {
                             let group_index = row * groups + group;
-                            let scale = read_float(
-                                &payload.value_scales,
-                                group_index,
-                                scale_dtype,
-                            )?;
+                            let scale =
+                                read_float(&payload.value_scales, group_index, scale_dtype)?;
                             if !scale.is_finite() || scale <= 0.0 {
-                                return Err(DalucOracleError::ScaleUnderflow {
-                                    row,
-                                    group,
-                                });
+                                return Err(DalucOracleError::ScaleUnderflow { row, group });
                             }
                             let _ = read_zero_point(
                                 &payload.value_zero_points,
@@ -1591,9 +1516,7 @@ fn validate_live_residuals(
                                 bit_order,
                             )?)
                             .map_err(|_| {
-                                DalucOracleError::MalformedPayload(
-                                    "residual coordinate usize",
-                                )
+                                DalucOracleError::MalformedPayload("residual coordinate usize")
                             })?;
                             if coordinate >= dimension || seen[coordinate] {
                                 return Err(DalucOracleError::MalformedPayload(
@@ -1608,11 +1531,7 @@ fn validate_live_residuals(
                     DalucResidualIndexing::Bitmap { bit_order } => {
                         let mut coordinates = Vec::with_capacity(k);
                         for coordinate in 0..dimension {
-                            if get_stream_bit(
-                                indexing,
-                                row * dimension + coordinate,
-                                bit_order,
-                            )? {
+                            if get_stream_bit(indexing, row * dimension + coordinate, bit_order)? {
                                 coordinates.push(coordinate);
                             }
                         }
@@ -1625,8 +1544,7 @@ fn validate_live_residuals(
                     }
                 };
                 for slot in 0..coordinates.len() {
-                    let value =
-                        read_float(values, row * k + slot, residual.value_dtype)?;
+                    let value = read_float(values, row * k + slot, residual.value_dtype)?;
                     if !value.is_finite() {
                         return Err(DalucOracleError::MalformedPayload(
                             "non-finite residual value",
@@ -1676,8 +1594,7 @@ fn validate_plane_padding(
             if logical_bytes == 0 {
                 0
             } else {
-                align_up(logical_bytes, contract.layout.plane_alignment_bytes)?
-                    - logical_bytes
+                align_up(logical_bytes, contract.layout.plane_alignment_bytes)? - logical_bytes
             }
         }
     };
@@ -1725,9 +1642,7 @@ fn pack_integer_plane(
     let logical_bits = values
         .len()
         .checked_mul(usize::from(width))
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "packed integer bits",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("packed integer bits"))?;
     let mut raw = vec![0u8; bytes_for_bits(logical_bits)?];
     let mask = bit_mask(width)?;
     for (index, &value) in values.iter().enumerate() {
@@ -1759,16 +1674,15 @@ fn unpack_integer(
     width: u8,
     order: DalucBitOrder,
 ) -> Result<u32, DalucOracleError> {
-    let start = index
-        .checked_mul(usize::from(width))
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "packed integer offset",
-        ))?;
+    let start =
+        index
+            .checked_mul(usize::from(width))
+            .ok_or(DalucOracleError::ArithmeticOverflow(
+                "packed integer offset",
+            ))?;
     let end = start
         .checked_add(usize::from(width))
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "packed integer end",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("packed integer end"))?;
     if end > plane.logical_bits {
         return Err(DalucOracleError::MalformedPayload(
             "packed integer read out of range",
@@ -1796,9 +1710,7 @@ fn set_stream_bit(
     let byte_index = stream_bit / 8;
     let within = stream_bit % 8;
     let Some(byte) = bytes.get_mut(byte_index) else {
-        return Err(DalucOracleError::MalformedPayload(
-            "bit write out of range",
-        ));
+        return Err(DalucOracleError::MalformedPayload("bit write out of range"));
     };
     let bit = match order {
         DalucBitOrder::Lsb0 => within,
@@ -1818,9 +1730,7 @@ fn get_stream_bit(
     order: DalucBitOrder,
 ) -> Result<bool, DalucOracleError> {
     if stream_bit >= plane.logical_bits {
-        return Err(DalucOracleError::MalformedPayload(
-            "bit read out of range",
-        ));
+        return Err(DalucOracleError::MalformedPayload("bit read out of range"));
     }
     let byte = plane.bytes[stream_bit / 8];
     let within = stream_bit % 8;
@@ -1838,9 +1748,7 @@ fn finalize_byte_plane(
     let logical_bits = raw
         .len()
         .checked_mul(8)
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "byte plane bits",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("byte plane bits"))?;
     finalize_bit_plane(contract, raw, logical_bits)
 }
 
@@ -1857,8 +1765,7 @@ fn finalize_bit_plane(
             if logical_bytes == 0 {
                 0
             } else {
-                align_up(logical_bytes, contract.layout.plane_alignment_bytes)?
-                    - logical_bytes
+                align_up(logical_bytes, contract.layout.plane_alignment_bytes)? - logical_bytes
             }
         }
     };
@@ -1889,9 +1796,7 @@ fn write_float(
     let size = dtype_bytes(dtype);
     let offset = index
         .checked_mul(size)
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "float write offset",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("float write offset"))?;
     let end = offset
         .checked_add(size)
         .ok_or(DalucOracleError::ArithmeticOverflow("float write end"))?;
@@ -1918,9 +1823,7 @@ fn read_float(
     let size = dtype_bytes(dtype);
     let offset = index
         .checked_mul(size)
-        .ok_or(DalucOracleError::ArithmeticOverflow(
-            "float read offset",
-        ))?;
+        .ok_or(DalucOracleError::ArithmeticOverflow("float read offset"))?;
     let end = offset
         .checked_add(size)
         .ok_or(DalucOracleError::ArithmeticOverflow("float read end"))?;
@@ -1931,9 +1834,7 @@ fn read_float(
     }
     let source = &plane.bytes[offset..end];
     Ok(match dtype {
-        DalucFloatDType::F16 => {
-            F16::from_bits(u16::from_le_bytes([source[0], source[1]])).to_f32()
-        }
+        DalucFloatDType::F16 => F16::from_bits(u16::from_le_bytes([source[0], source[1]])).to_f32(),
         DalucFloatDType::Bf16 => bf16_to_f32(u16::from_le_bytes([source[0], source[1]])),
         DalucFloatDType::F32 => f32::from_bits(u32::from_le_bytes([
             source[0], source[1], source[2], source[3],
@@ -1968,9 +1869,8 @@ fn write_zero_point(
     match mode {
         DalucZeroPointStorage::None => Ok(()),
         DalucZeroPointStorage::U8 => {
-            let byte = u8::try_from(zero_point).map_err(|_| {
-                DalucOracleError::MalformedPayload("u8 zero point overflow")
-            })?;
+            let byte = u8::try_from(zero_point)
+                .map_err(|_| DalucOracleError::MalformedPayload("u8 zero point overflow"))?;
             let Some(target) = raw.get_mut(index) else {
                 return Err(DalucOracleError::MalformedPayload(
                     "u8 zero point write out of range",
@@ -1980,12 +1880,13 @@ fn write_zero_point(
             Ok(())
         }
         DalucZeroPointStorage::U16 => {
-            let value = u16::try_from(zero_point).map_err(|_| {
-                DalucOracleError::MalformedPayload("u16 zero point overflow")
-            })?;
-            let offset = index.checked_mul(2).ok_or(
-                DalucOracleError::ArithmeticOverflow("u16 zero point offset"),
-            )?;
+            let value = u16::try_from(zero_point)
+                .map_err(|_| DalucOracleError::MalformedPayload("u16 zero point overflow"))?;
+            let offset = index
+                .checked_mul(2)
+                .ok_or(DalucOracleError::ArithmeticOverflow(
+                    "u16 zero point offset",
+                ))?;
             let Some(target) = raw.get_mut(offset..offset + 2) else {
                 return Err(DalucOracleError::MalformedPayload(
                     "u16 zero point write out of range",
@@ -2004,18 +1905,15 @@ fn read_zero_point(
 ) -> Result<u32, DalucOracleError> {
     match mode {
         DalucZeroPointStorage::None => Ok(0),
-        DalucZeroPointStorage::U8 => plane
-            .bytes
-            .get(index)
-            .copied()
-            .map(u32::from)
-            .ok_or(DalucOracleError::MalformedPayload(
-                "u8 zero point read out of range",
-            )),
+        DalucZeroPointStorage::U8 => plane.bytes.get(index).copied().map(u32::from).ok_or(
+            DalucOracleError::MalformedPayload("u8 zero point read out of range"),
+        ),
         DalucZeroPointStorage::U16 => {
-            let offset = index.checked_mul(2).ok_or(
-                DalucOracleError::ArithmeticOverflow("u16 zero point read offset"),
-            )?;
+            let offset = index
+                .checked_mul(2)
+                .ok_or(DalucOracleError::ArithmeticOverflow(
+                    "u16 zero point read offset",
+                ))?;
             if offset + 2 > plane.logical_bytes() {
                 return Err(DalucOracleError::MalformedPayload(
                     "u16 zero point read out of range",
@@ -2029,18 +1927,14 @@ fn read_zero_point(
     }
 }
 
-fn side_residual(
-    contract: DalucKvViewContract,
-    key_side: bool,
-) -> (usize, DalucResidualSemantics) {
+fn side_residual(contract: DalucKvViewContract, key_side: bool) -> (usize, DalucResidualSemantics) {
     if key_side {
         (contract.shape.key_head_dim, contract.keys.residual)
     } else {
         match contract.values {
-            DalucValueRepresentation::Dense { .. } => (
-                contract.shape.value_head_dim,
-                DalucResidualSemantics::None,
-            ),
+            DalucValueRepresentation::Dense { .. } => {
+                (contract.shape.value_head_dim, DalucResidualSemantics::None)
+            }
             DalucValueRepresentation::GroupwiseAffine { residual, .. } => {
                 (contract.shape.value_head_dim, residual)
             }
@@ -2090,9 +1984,7 @@ fn logical_side_len(
     )
 }
 
-fn logical_kv_scalar_count(
-    contract: DalucKvViewContract,
-) -> Result<usize, DalucOracleError> {
+fn logical_kv_scalar_count(contract: DalucKvViewContract) -> Result<usize, DalucOracleError> {
     let per_vector = contract
         .shape
         .key_head_dim
@@ -2201,19 +2093,15 @@ fn validate_page_table(
     logical_pages: usize,
     physical_pages: usize,
 ) -> Result<(), DalucOracleError> {
-    let expected = checked_product(
-        &[batch, logical_pages],
-        "page table validation entries",
-    )?;
+    let expected = checked_product(&[batch, logical_pages], "page table validation entries")?;
     require_len("page table", table.len(), expected)?;
     for batch_index in 0..batch {
         let start = batch_index * logical_pages;
         let slice = &table[start..start + logical_pages];
         let mut seen = vec![false; physical_pages];
         for &page in slice {
-            let page = usize::try_from(page).map_err(|_| {
-                DalucOracleError::InvalidPageTable("page does not fit usize")
-            })?;
+            let page = usize::try_from(page)
+                .map_err(|_| DalucOracleError::InvalidPageTable("page does not fit usize"))?;
             if page >= physical_pages {
                 return Err(DalucOracleError::InvalidPageTable(
                     "physical page out of range",
@@ -2230,10 +2118,7 @@ fn validate_page_table(
     Ok(())
 }
 
-fn validate_finite_slice(
-    what: &'static str,
-    values: &[f32],
-) -> Result<(), DalucOracleError> {
+fn validate_finite_slice(what: &'static str, values: &[f32]) -> Result<(), DalucOracleError> {
     if let Some((index, _)) = values
         .iter()
         .enumerate()
@@ -2244,11 +2129,7 @@ fn validate_finite_slice(
     Ok(())
 }
 
-fn require_len(
-    what: &'static str,
-    actual: usize,
-    expected: usize,
-) -> Result<(), DalucOracleError> {
+fn require_len(what: &'static str, actual: usize, expected: usize) -> Result<(), DalucOracleError> {
     if actual != expected {
         return Err(DalucOracleError::LengthMismatch {
             what,
@@ -2274,10 +2155,7 @@ fn require_bits(
     Ok(())
 }
 
-fn checked_product(
-    values: &[usize],
-    label: &'static str,
-) -> Result<usize, DalucOracleError> {
+fn checked_product(values: &[usize], label: &'static str) -> Result<usize, DalucOracleError> {
     values
         .iter()
         .try_fold(1usize, |acc, value| acc.checked_mul(*value))

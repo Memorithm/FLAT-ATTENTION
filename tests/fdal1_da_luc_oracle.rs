@@ -1,4 +1,3 @@
-use flat_attention::api::research_da_luc_oracle::DalucOraclePayload;
 use flat_attention::api::research_da_luc::{
     DalucBitOrder, DalucCodebookScope, DalucFloatDType, DalucKeyRepresentation,
     DalucKvViewContract, DalucLogicalKvShape, DalucPaddingRule, DalucPhysicalLayout,
@@ -6,6 +5,7 @@ use flat_attention::api::research_da_luc::{
     DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
     DA_LUC_KV_VIEW_SCHEMA_VERSION,
 };
+use flat_attention::api::research_da_luc_oracle::DalucOraclePayload;
 
 fn contract(order: DalucBitOrder, paged: bool) -> DalucKvViewContract {
     DalucKvViewContract {
