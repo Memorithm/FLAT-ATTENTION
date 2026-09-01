@@ -8,8 +8,7 @@ use flat_attention::api::research_da_luc::{
 };
 use flat_attention::api::research_da_luc_oracle::decode::DalucQlen1DecodeConfig;
 use flat_attention::api::research_da_luc_oracle::wgpu::{
-    DalucWgpuCandidateError, DalucWgpuPlan, WgpuDalucQlen1Candidate,
-    DA_LUC_WGPU_CANDIDATE_VERSION,
+    DalucWgpuCandidateError, DalucWgpuPlan, WgpuDalucQlen1Candidate, DA_LUC_WGPU_CANDIDATE_VERSION,
 };
 use flat_attention::api::research_da_luc_oracle::DalucOraclePayload;
 use flat_attention::FlatAttentionConfig;

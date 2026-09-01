@@ -14,8 +14,8 @@
 use super::*;
 use crate::api::research_da_luc::{
     DalucBackendCapabilities, DalucBitOrder, DalucCodebookScope, DalucFloatDType,
-    DalucKvViewContract, DalucKvViewError, DalucPaddingRule, DalucResidualSemantics,
-    DalucRowOrder, DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
+    DalucKvViewContract, DalucKvViewError, DalucPaddingRule, DalucResidualSemantics, DalucRowOrder,
+    DalucStorageTopology, DalucValueRepresentation, DalucZeroPointStorage,
 };
 use crate::{wgpu_internal, FlatAttentionError};
 use core::fmt;
@@ -471,11 +471,8 @@ impl WgpuDalucQlen1Candidate {
             ],
             "FDAL3 V scale count",
         )?;
-        let scale_bytes = f32_plane_bytes(
-            &payload.value_scales,
-            scale_count,
-            DalucFloatDType::F32,
-        )?;
+        let scale_bytes =
+            f32_plane_bytes(&payload.value_scales, scale_count, DalucFloatDType::F32)?;
         let zero_point_bytes = u8_plane_words(&payload.value_zero_points)?;
 
         let q_buffer = self.upload("Q", &query_bytes)?;
@@ -485,10 +482,9 @@ impl WgpuDalucQlen1Candidate {
         let scale_buffer = self.upload("V scales", &scale_bytes)?;
         let zero_point_buffer = self.upload("V zero points", &zero_point_bytes)?;
 
-        let combined_elements = plan
-            .output_elements
-            .checked_add(plan.lse_elements)
-            .ok_or(DalucWgpuCandidateError::IndexSpaceExceeded("output elements"))?;
+        let combined_elements = plan.output_elements.checked_add(plan.lse_elements).ok_or(
+            DalucWgpuCandidateError::IndexSpaceExceeded("output elements"),
+        )?;
         let output_bytes = wgpu_internal::f32_bytes(combined_elements)
             .ok_or(DalucWgpuCandidateError::IndexSpaceExceeded("output bytes"))?;
         self.ensure_buffer_limit("O|LSE", output_bytes)?;
@@ -634,8 +630,9 @@ impl WgpuDalucQlen1Candidate {
         source: &wgpu::Buffer,
         elements: usize,
     ) -> Result<Vec<f32>, DalucWgpuCandidateError> {
-        let bytes = wgpu_internal::f32_bytes(elements)
-            .ok_or(DalucWgpuCandidateError::IndexSpaceExceeded("readback bytes"))?;
+        let bytes = wgpu_internal::f32_bytes(elements).ok_or(
+            DalucWgpuCandidateError::IndexSpaceExceeded("readback bytes"),
+        )?;
         let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-fdal3-da-luc-readback"),
             size: bytes,
@@ -663,17 +660,18 @@ impl WgpuDalucQlen1Candidate {
         let mapped = slice
             .get_mapped_range()
             .map_err(|error| DalucWgpuCandidateError::Readback(format!("map range: {error}")))?;
-        let decoded = wgpu_internal::decode_f32(&mapped, elements).map_err(|error| match error {
-            wgpu_internal::DecodeF32Failure::Overflow => {
-                DalucWgpuCandidateError::Readback("decoded f32 length overflow".into())
-            }
-            wgpu_internal::DecodeF32Failure::LengthMismatch {
-                actual_bytes,
-                expected_bytes,
-            } => DalucWgpuCandidateError::Readback(format!(
-                "decoded f32 bytes {actual_bytes} do not match expected {expected_bytes}"
-            )),
-        })?;
+        let decoded =
+            wgpu_internal::decode_f32(&mapped, elements).map_err(|error| match error {
+                wgpu_internal::DecodeF32Failure::Overflow => {
+                    DalucWgpuCandidateError::Readback("decoded f32 length overflow".into())
+                }
+                wgpu_internal::DecodeF32Failure::LengthMismatch {
+                    actual_bytes,
+                    expected_bytes,
+                } => DalucWgpuCandidateError::Readback(format!(
+                    "decoded f32 bytes {actual_bytes} do not match expected {expected_bytes}"
+                )),
+            })?;
         drop(mapped);
         staging.unmap();
         Ok(decoded)
@@ -687,7 +685,11 @@ fn validate_query(query: &[f32], expected: usize) -> Result<(), DalucWgpuCandida
             actual: query.len(),
         });
     }
-    if let Some((index, _)) = query.iter().enumerate().find(|(_, value)| !value.is_finite()) {
+    if let Some((index, _)) = query
+        .iter()
+        .enumerate()
+        .find(|(_, value)| !value.is_finite())
+    {
         return Err(DalucWgpuCandidateError::NonFiniteQuery { index });
     }
     Ok(())
@@ -702,8 +704,9 @@ fn f32_plane_bytes(
     for index in 0..elements {
         values.push(read_float(plane, index, dtype)?);
     }
-    wgpu_internal::encode_f32(&values)
-        .ok_or(DalucWgpuCandidateError::IndexSpaceExceeded("F32 plane bytes"))
+    wgpu_internal::encode_f32(&values).ok_or(DalucWgpuCandidateError::IndexSpaceExceeded(
+        "F32 plane bytes",
+    ))
 }
 
 /// Convert a compressed byte plane into native u32 words while preserving each
