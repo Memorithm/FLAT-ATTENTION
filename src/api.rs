@@ -19,6 +19,13 @@ pub mod research_nonlocal;
 #[path = "research_da_luc.rs"]
 pub mod research_da_luc;
 
+/// Research-only deterministic DA-LUC host representation oracle.
+///
+/// FDAL1 encodes/decodes the FDAL0 contract and accounts exact owned storage.
+/// It remains outside `v1` and does not promote a runtime or GPU path.
+#[path = "research_da_luc_oracle.rs"]
+pub mod research_da_luc_oracle;
+
 /// Explicit WGPU-facing reusable state that is intentionally outside the
 /// backend-neutral `v1` namespace.
 #[cfg(feature = "wgpu")]
