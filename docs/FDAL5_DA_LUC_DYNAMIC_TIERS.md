@@ -13,7 +13,8 @@ cache-policy internals and does not define an NNIS physical layout.
 
 No tier name or ordering is inferred from nominal bit width. The caller supplies
 tiers in explicit selection-priority order and supplies an exact segment quota
-for every tier.
+for every tier. Quota entries are matched by tier id; reordering the quota slice
+does not change tier priority.
 
 ## Versioned semantics
 
