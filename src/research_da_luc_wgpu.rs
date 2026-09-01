@@ -28,6 +28,7 @@ pub const DA_LUC_WGPU_CANDIDATE_VERSION: u16 = 1;
 
 const MAX_HEAD_DIM: usize = 128;
 const MAX_LUT_ENTRIES: usize = 2048;
+const REQUIRED_STORAGE_BUFFERS_PER_STAGE: u32 = 7;
 const SHADER: &str = include_str!("../shaders/flat_da_luc_decode.wgsl");
 
 /// Exact host-validated geometry accepted by the first WGPU candidate.
@@ -289,6 +290,10 @@ pub enum DalucWgpuCandidateError {
         required_bytes: u64,
         maximum_bytes: u64,
     },
+    StorageBufferBindingsLimit {
+        required: u32,
+        available: u32,
+    },
     Unavailable,
     Device(String),
     PipelineValidation(String),
@@ -325,6 +330,10 @@ impl fmt::Display for DalucWgpuCandidateError {
             } => write!(
                 formatter,
                 "DA-LUC WGPU buffer {label} requires {required_bytes} bytes, device maximum is {maximum_bytes}"
+            ),
+            Self::StorageBufferBindingsLimit { required, available } => write!(
+                formatter,
+                "DA-LUC WGPU requires {required} compute-stage storage buffers, adapter exposes {available}"
             ),
             Self::Unavailable => formatter.write_str("WGPU adapter unavailable for DA-LUC candidate"),
             Self::Device(error) => write!(formatter, "DA-LUC WGPU device failure: {error}"),
@@ -388,22 +397,37 @@ impl WgpuDalucQlen1Candidate {
     /// Create the portable pipeline. No fallback is attempted when WGPU is
     /// unavailable or shader validation fails.
     pub fn new() -> Result<Self, DalucWgpuCandidateError> {
-        let instance = ::wgpu::Instance::new(::wgpu::InstanceDescriptor::new_without_display_handle());
-        let adapter = pollster::block_on(instance.request_adapter(&::wgpu::RequestAdapterOptions {
-            power_preference: ::wgpu::PowerPreference::default(),
-            force_fallback_adapter: false,
-            compatible_surface: None,
-            apply_limit_buckets: false,
-        }))
-        .map_err(|_| DalucWgpuCandidateError::Unavailable)?;
+        let instance =
+            ::wgpu::Instance::new(::wgpu::InstanceDescriptor::new_without_display_handle());
+        let adapter =
+            pollster::block_on(instance.request_adapter(&::wgpu::RequestAdapterOptions {
+                power_preference: ::wgpu::PowerPreference::default(),
+                force_fallback_adapter: false,
+                compatible_surface: None,
+                apply_limit_buckets: false,
+            }))
+            .map_err(|_| DalucWgpuCandidateError::Unavailable)?;
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(&::wgpu::DeviceDescriptor {
-            label: Some("flat-fdal3-da-luc"),
-            required_features: ::wgpu::Features::empty(),
-            required_limits: ::wgpu::Limits::downlevel_defaults(),
-            ..Default::default()
-        }))
-        .map_err(|error| DalucWgpuCandidateError::Device(format!("request_device: {error}")))?;
+        let adapter_limits = adapter.limits();
+        if adapter_limits.max_storage_buffers_per_shader_stage < REQUIRED_STORAGE_BUFFERS_PER_STAGE
+        {
+            return Err(DalucWgpuCandidateError::StorageBufferBindingsLimit {
+                required: REQUIRED_STORAGE_BUFFERS_PER_STAGE,
+                available: adapter_limits.max_storage_buffers_per_shader_stage,
+            });
+        }
+        let required_limits = ::wgpu::Limits {
+            max_storage_buffers_per_shader_stage: REQUIRED_STORAGE_BUFFERS_PER_STAGE,
+            ..::wgpu::Limits::downlevel_defaults()
+        };
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&::wgpu::DeviceDescriptor {
+                label: Some("flat-fdal3-da-luc"),
+                required_features: ::wgpu::Features::empty(),
+                required_limits,
+                ..Default::default()
+            }))
+            .map_err(|error| DalucWgpuCandidateError::Device(format!("request_device: {error}")))?;
         let pipeline = wgpu_internal::create_pipeline(
             &device,
             SHADER,
