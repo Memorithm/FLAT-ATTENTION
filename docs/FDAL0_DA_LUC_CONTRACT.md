@@ -70,11 +70,14 @@ The v1 descriptor makes these facts explicit:
 - packed K index width and bit order;
 - independent V representation kind: dense or groupwise affine low-bit;
 - V group size, scale dtype and zero-point storage when groupwise quantized;
+- exact V integer decode semantics: signed two's-complement `scale * q` for symmetric storage and unsigned `scale * (q - zp)` for affine storage;
 - optional sparse K/V residual semantics with coordinate or bitmap indexing;
 - contiguous or paged physical capacity metadata;
 - row order, per-plane alignment and padding rule.
 
 The descriptor has no free-form codec name and no private repository flag. Adapters must map their own representation to these semantics explicitly.
+
+A backend may authorize direct consumption only through `DalucBackendCapabilities`. That capability record independently declares supported floating dtypes, bit orders, row orders, codebook scopes, storage topologies, low-bit V/zero-point modes, residual index forms, padding rules, minimum plane alignment and supported packed widths. Failure of any capability check is rejection, not permission to repack or materialize dense K/V implicitly.
 
 ## Fail-closed rules in v1
 
@@ -91,7 +94,10 @@ Validation rejects:
 - malformed sparse residual budgets or coordinate widths;
 - residual coordinates outside the logical vector;
 - physical capacity below the live KV length;
-- non-power-of-two or zero plane alignment.
+- non-power-of-two or zero plane alignment;
+- malformed backend alignment requirements;
+- any unsupported backend bit order, row order, codebook scope, topology, zero-point mode, residual encoding, padding rule, dtype or packed width;
+- descriptor plane alignment below the backend's declared minimum.
 
 ## Explicit non-goals
 
