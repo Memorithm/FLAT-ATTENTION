@@ -276,9 +276,7 @@ impl DalucKvViewContract {
                         "V packed value width",
                     ));
                 }
-                if zero_point == DalucZeroPointStorage::U16
-                    && !backend.supports_u16_zero_points
-                {
+                if zero_point == DalucZeroPointStorage::U16 && !backend.supports_u16_zero_points {
                     return Err(DalucKvViewError::UnsupportedBackendCapability(
                         "u16 V zero points",
                     ));
@@ -452,11 +450,9 @@ fn validate_layout(
         DalucStorageTopology::Paged {
             page_size,
             physical_pages_per_batch,
-        } => page_size
-            .checked_mul(physical_pages_per_batch)
-            .ok_or(DalucKvViewError::InvalidMetadata(
-                "paged capacity arithmetic overflow",
-            ))?,
+        } => page_size.checked_mul(physical_pages_per_batch).ok_or(
+            DalucKvViewError::InvalidMetadata("paged capacity arithmetic overflow"),
+        )?,
     };
     if capacity == 0 || capacity < shape.kv_len {
         return Err(DalucKvViewError::InvalidMetadata(
