@@ -202,7 +202,9 @@ fn flat_da_luc_decode(
             let score = reduce_shared[0] * scale;
             let old_max = running_max_shared;
             let new_max = max(old_max, score);
-            let alpha = select(exp(old_max - new_max), 0.0, old_max == NEG_MAX_F32);
+            // `NEG_MAX_F32` is itself a valid finite score. Initialization is
+            // therefore tracked by loop position, not by reserving a score value.
+            let alpha = select(exp(old_max - new_max), 0.0, key_pos == 0u);
             let p = exp(score - new_max);
             running_max_shared = new_max;
             running_sum_shared = running_sum_shared * alpha + p;
