@@ -18,6 +18,11 @@ pub const DA_LUC_ORACLE_PAYLOAD_VERSION: u16 = 1;
 #[path = "research_da_luc_decode_oracle.rs"]
 pub mod decode;
 
+/// Research-only portable direct-compressed WGPU candidate (FDAL3).
+#[cfg(feature = "wgpu")]
+#[path = "research_da_luc_wgpu.rs"]
+pub mod wgpu;
+
 /// One byte-backed oracle plane.
 ///
 /// `logical_bits` excludes byte-tail and alignment padding. `bytes` includes both.
