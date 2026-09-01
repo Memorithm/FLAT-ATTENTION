@@ -61,7 +61,9 @@ fn direct_compressed_wgpu_matches_fdal2_scalar_oracle() {
         contract.shape.batch * contract.shape.q_heads * contract.shape.key_head_dim,
         29,
     );
-    let candidate = candidate_or_skip();
+    let Some(candidate) = candidate_or_skip() else {
+        return;
+    };
     eprintln!("FDAL3 WGPU adapter: {}", candidate.adapter_name());
 
     for (causal, query_position) in [(true, 4usize), (false, 0usize)] {
@@ -73,14 +75,14 @@ fn direct_compressed_wgpu_matches_fdal2_scalar_oracle() {
     }
 }
 
-fn candidate_or_skip() -> WgpuDalucQlen1Candidate {
+fn candidate_or_skip() -> Option<WgpuDalucQlen1Candidate> {
     match WgpuDalucQlen1Candidate::new() {
-        Ok(candidate) => candidate,
+        Ok(candidate) => Some(candidate),
         Err(DalucWgpuCandidateError::Unavailable)
             if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() =>
         {
             eprintln!("WGPU adapter unavailable; optional FDAL3 device test skipped");
-            std::process::exit(0);
+            None
         }
         Err(error) => panic!("FDAL3 WGPU candidate creation failed: {error}"),
     }
