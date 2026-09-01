@@ -1,0 +1,42 @@
+name: FDAL1 DA-LUC oracle qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/api.rs"
+      - "src/research_da_luc_oracle.rs"
+      - "tests/fdal1_da_luc_oracle.rs"
+      - "examples/fdal1_da_luc_oracle_sweep.rs"
+      - "docs/FDAL1_DA_LUC_ORACLE.md"
+      - ".github/workflows/fdal1-da-luc-oracle.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fdal1-da-luc-oracle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Public FDAL1 integration contract
+        run: cargo test --test fdal1_da_luc_oracle -- --nocapture
+      - name: Deterministic oracle sweep
+        run: |
+          set -euo pipefail
+          first="$(mktemp)"
+          second="$(mktemp)"
+          cargo run --release --example fdal1_da_luc_oracle_sweep | tee "$first"
+          cargo run --release --example fdal1_da_luc_oracle_sweep > "$second"
+          cmp "$first" "$second"
+          test "$(awk -F, '$1 ~ /^v[248]_/ {count++} END {print count+0}' "$first")" -eq 12
+          grep -F ',none' "$first" >/dev/null
