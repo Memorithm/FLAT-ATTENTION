@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_da_luc_research_program
 status: research_only
-last_updated: "2026-09-02T00:08+0200"
+last_updated: "2026-09-03T01:30+0200"
 repository: Memorithm/FLAT-ATTENTION
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
 
@@ -183,13 +183,26 @@ research_phases:
       - real_device_correctness_before_performance_promotion
   - id: FDAL4
     name: NNIS specialized adapter
-    status: pending_NNIS_DAL0_contract_audit
+    status: active_NNIS_DAL1_evidence_adapter
     coordination:
-      - Memorithm_NNIS_issue_78_tracks_DAL0_versioned_contract_binding
+      NNIS_DAL0:
+        issue: 78
+        pull_request: 86
+        final_exact_head: 262606ec3236e323d2c408129306fa14e00125e6
+        merge_commit: b599a632900bed9628cc44f6359a212c441ed737
+        result: versioned_NNIS_plan_bound_to_FLAT_view_schema_v1_without_runtime_default_change
+      NNIS_DAL1:
+        issue: 95
+        objective: >-
+          Bind NNIS plan identity to deterministic FLAT-owned representation,
+          exact-storage, and reconstruction-error evidence without duplicating
+          FLAT FDAL1 encode/decode semantics.
     deliverables:
-      - explicit_representation_version_handshake
+      - explicit_representation_and_oracle_version_handshake
+      - deterministic_cross_repository_plan_to_contract_identity_binding
       - backend_specific_layout_mapping_without_semantic_drift
-      - shared_quality_and_storage_evidence_fields
+      - shared_quality_and_exact_storage_evidence_fields
+      - fail_closed_rejection_of_one_field_semantic_or_accounting_drift
   - id: FDAL5
     name: Dynamic precision tiers
     status: active_nonsemantic_baseline_qualification_pending
@@ -231,8 +244,8 @@ fail_closed_conditions:
   - eight_to_sixteen_x_claim_without_measured_effective_bits_per_value
 
 next_action: >-
-  Qualify the non-semantic FDAL5 tier baselines through issue 179 while retaining
-  FDAL6 as blocked. In parallel, complete the documented FDAL3 real-device
-  correctness gate before any performance promotion and coordinate NNIS DAL0
-  through Memorithm/NNIS issue 78. Do not change production routing or make a
-  compressed-KV performance claim from lavapipe or host-only evidence.
+  Continue FDAL3 real-device correctness and FDAL5 non-semantic baseline
+  qualification independently. For FDAL4, coordinate NNIS issue 95 as a narrow
+  evidence/identity adapter over the already-complete FLAT FDAL1 oracle rather
+  than creating a second codec. Keep FDAL6 blocked and make no compressed-KV
+  performance or quality claim before the required real-model and hardware gates.
