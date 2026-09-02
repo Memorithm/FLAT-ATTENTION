@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_da_luc_research_program
 status: research_only
-last_updated: "2026-09-03T01:30+0200"
+last_updated: "2026-09-03T01:42+0200"
 repository: Memorithm/FLAT-ATTENTION
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
 
@@ -183,7 +183,7 @@ research_phases:
       - real_device_correctness_before_performance_promotion
   - id: FDAL4
     name: NNIS specialized adapter
-    status: active_NNIS_DAL1_evidence_adapter
+    status: active_NNIS_DAL2_physical_scoring_audit
     coordination:
       NNIS_DAL0:
         issue: 78
@@ -193,16 +193,29 @@ research_phases:
         result: versioned_NNIS_plan_bound_to_FLAT_view_schema_v1_without_runtime_default_change
       NNIS_DAL1:
         issue: 95
-        objective: >-
-          Bind NNIS plan identity to deterministic FLAT-owned representation,
-          exact-storage, and reconstruction-error evidence without duplicating
-          FLAT FDAL1 encode/decode semantics.
+        pull_request: 96
+        final_exact_head: d9348c59985dddcb8c982afa00ed1adcd64121e0
+        merge_commit: e563261c4c1cd9239b6dd3249172e248088b2ad3
+        audited_FLAT_head: c35b044c5324963a300ff50da0f7ec10dcc6db71
+        result: >-
+          NNIS now has a versioned evidence/identity adapter for FLAT-owned
+          representation, exact-storage, and K/V reconstruction evidence without
+          duplicating the FLAT FDAL1 codec.
+        required_CI:
+          - CI_success_on_final_exact_head
+          - SmolLM2_benchmark_harness_success_on_final_exact_head
+      NNIS_DAL2:
+        status: ready_for_current_main_and_FDAL2_audit
+        rule: >-
+          Reuse FLAT FDAL2 direct q_len=1 scalar semantics and add only the
+          NVIDIA-owned physical/JIT scoring layer after exact contract review.
     deliverables:
       - explicit_representation_and_oracle_version_handshake
       - deterministic_cross_repository_plan_to_contract_identity_binding
       - backend_specific_layout_mapping_without_semantic_drift
       - shared_quality_and_exact_storage_evidence_fields
-      - fail_closed_rejection_of_one_field_semantic_or_accounting_drift
+      - fail_closed_rejection_of_semantic_or_accounting_drift
+      - narrow_NVIDIA_direct_scoring_candidate_only_after_FDAL2_semantic_audit
   - id: FDAL5
     name: Dynamic precision tiers
     status: active_nonsemantic_baseline_qualification_pending
@@ -245,7 +258,8 @@ fail_closed_conditions:
 
 next_action: >-
   Continue FDAL3 real-device correctness and FDAL5 non-semantic baseline
-  qualification independently. For FDAL4, coordinate NNIS issue 95 as a narrow
-  evidence/identity adapter over the already-complete FLAT FDAL1 oracle rather
-  than creating a second codec. Keep FDAL6 blocked and make no compressed-KV
-  performance or quality claim before the required real-model and hardware gates.
+  qualification independently. For FDAL4, audit NNIS DAL2 against the complete
+  FLAT FDAL2 direct q_len=1 scalar oracle and permit only an NVIDIA-owned physical
+  scoring/JIT candidate that remains evidence-bound to the same semantics. Keep
+  FDAL6 blocked and make no compressed-KV performance or quality claim before the
+  required real-model and hardware gates.
