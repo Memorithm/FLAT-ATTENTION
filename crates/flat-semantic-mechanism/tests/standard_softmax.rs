@@ -1,5 +1,5 @@
 use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig};
-use flat_semantic::v1::{SemanticForwardOutput, SemanticSavedState, StandardSoftmaxSemantic};
+use flat_semantic::v1::{SemanticSavedState, StandardSoftmaxSemantic};
 use flat_semantic_mechanism::{MechanismComponentKind, StandardSoftmaxMechanism};
 
 #[test]
@@ -7,7 +7,7 @@ fn public_mechanism_metadata_preserves_legacy_standard_softmax_bits() {
     let shape = AttentionShape {
         batch: 1,
         heads: 1,
-        sequence: 3,
+        seq_len: 3,
         head_dim: 2,
     };
     let q = vec![0.5, -1.0, 1.25, 0.75, -0.25, 0.5];
@@ -21,10 +21,6 @@ fn public_mechanism_metadata_preserves_legacy_standard_softmax_bits() {
     let legacy = forward_reference(&q, &k, &v, shape, config).unwrap();
     let semantic = StandardSoftmaxSemantic::from_flat_config(config, shape.head_dim).unwrap();
     let mechanism = StandardSoftmaxMechanism::new(semantic);
-    let SemanticForwardOutput { .. } = mechanism
-        .semantic()
-        .forward_reference(&q, &k, &v, shape)
-        .unwrap();
     let generic = mechanism
         .semantic()
         .forward_reference(&q, &k, &v, shape)
