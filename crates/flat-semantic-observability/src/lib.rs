@@ -387,9 +387,14 @@ pub enum ResearchInterventionError {
 impl fmt::Display for ResearchInterventionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NonFiniteValue => formatter.write_str("research intervention value is non-finite"),
+            Self::NonFiniteValue => {
+                formatter.write_str("research intervention value is non-finite")
+            }
             Self::UnsupportedSite { kind } => {
-                write!(formatter, "research intervention site {kind:?} is unsupported")
+                write!(
+                    formatter,
+                    "research intervention site {kind:?} is unsupported"
+                )
             }
             Self::IndexOutOfBounds { index, len } => write!(
                 formatter,
@@ -521,10 +526,7 @@ mod tests {
     fn unsupported_recurrent_site_fails_closed_for_stateless_softmax() {
         let (q, k, v) = fixture();
         let intervention = ScalarResearchIntervention::new(
-            ResearchInterventionSite::new(
-                ResearchInterventionSiteKind::RecurrentMemoryElement,
-                0,
-            ),
+            ResearchInterventionSite::new(ResearchInterventionSiteKind::RecurrentMemoryElement, 0),
             ScalarInterventionMode::Replace(1.0),
         )
         .unwrap();
@@ -605,9 +607,7 @@ mod tests {
         .unwrap_err();
         assert!(matches!(
             error,
-            ResearchObservabilityError::Intervention(
-                ResearchInterventionError::NonFiniteResult
-            )
+            ResearchObservabilityError::Intervention(ResearchInterventionError::NonFiniteResult)
         ));
     }
 }
