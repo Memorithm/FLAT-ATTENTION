@@ -34,7 +34,10 @@ fn public_mechanism_metadata_preserves_legacy_standard_softmax_bits() {
     }
 
     let descriptor = mechanism.descriptor();
-    assert_eq!(descriptor.projection().kind(), MechanismComponentKind::Projection);
+    assert_eq!(
+        descriptor.projection().kind(),
+        MechanismComponentKind::Projection
+    );
     assert_eq!(descriptor.score().kind(), MechanismComponentKind::Score);
     assert_eq!(
         descriptor.normalization().kind(),

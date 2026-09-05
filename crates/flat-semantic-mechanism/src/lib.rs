@@ -78,9 +78,7 @@ impl MechanismComponentId {
             return Err(MechanismComponentIdentityError::EmptyName);
         }
         if !name.bytes().all(|byte| {
-            byte.is_ascii_lowercase()
-                || byte.is_ascii_digit()
-                || matches!(byte, b'-' | b'_' | b'.')
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.')
         }) {
             return Err(MechanismComponentIdentityError::InvalidName);
         }
@@ -185,10 +183,7 @@ impl MechanismDescriptor {
         require_kind(&score, MechanismComponentKind::Score)?;
         require_kind(&normalization, MechanismComponentKind::Normalization)?;
         require_kind(&mixing, MechanismComponentKind::Mixing)?;
-        require_kind(
-            &numerical_policy,
-            MechanismComponentKind::NumericalPolicy,
-        )?;
+        require_kind(&numerical_policy, MechanismComponentKind::NumericalPolicy)?;
         Ok(Self {
             semantic,
             projection,
@@ -328,11 +323,7 @@ impl StandardSoftmaxMechanism {
         MechanismDescriptor::new(
             self.semantic.descriptor(),
             component(MechanismComponentKind::Projection, "direct-qkv", 1),
-            component(
-                MechanismComponentKind::Score,
-                "scaled-dot-product",
-                1,
-            ),
+            component(MechanismComponentKind::Score, "scaled-dot-product", 1),
             component(MechanismComponentKind::Normalization, "row-softmax", 1),
             component(MechanismComponentKind::Mixing, "weighted-value-sum", 1),
             component(
@@ -397,12 +388,9 @@ mod tests {
 
     #[test]
     fn component_identity_is_strict_and_typed() {
-        let score = MechanismComponentId::new(
-            MechanismComponentKind::Score,
-            "scaled-dot-product",
-            1,
-        )
-        .unwrap();
+        let score =
+            MechanismComponentId::new(MechanismComponentKind::Score, "scaled-dot-product", 1)
+                .unwrap();
         assert_eq!(score.kind(), MechanismComponentKind::Score);
         assert_eq!(score.name(), "scaled-dot-product");
         assert_eq!(score.revision(), 1);
@@ -411,13 +399,11 @@ mod tests {
             MechanismComponentIdentityError::EmptyName
         );
         assert_eq!(
-            MechanismComponentId::new(MechanismComponentKind::Score, "Dot Product", 1)
-                .unwrap_err(),
+            MechanismComponentId::new(MechanismComponentKind::Score, "Dot Product", 1).unwrap_err(),
             MechanismComponentIdentityError::InvalidName
         );
         assert_eq!(
-            MechanismComponentId::new(MechanismComponentKind::Score, "dot-product", 0)
-                .unwrap_err(),
+            MechanismComponentId::new(MechanismComponentKind::Score, "dot-product", 0).unwrap_err(),
             MechanismComponentIdentityError::ZeroRevision
         );
     }
@@ -445,9 +431,8 @@ mod tests {
 
     #[test]
     fn standard_softmax_decomposition_preserves_existing_semantic_contract() {
-        let mechanism = StandardSoftmaxMechanism::new(
-            StandardSoftmaxSemantic::new(true, 0.625).unwrap(),
-        );
+        let mechanism =
+            StandardSoftmaxMechanism::new(StandardSoftmaxSemantic::new(true, 0.625).unwrap());
         let descriptor = mechanism.descriptor();
         assert_eq!(
             descriptor.semantic().id().family(),
@@ -476,18 +461,21 @@ mod tests {
 
     #[test]
     fn fingerprint_binds_semantic_parameters_but_not_execution_identity() {
-        let causal = StandardSoftmaxMechanism::new(
-            StandardSoftmaxSemantic::new(true, 0.625).unwrap(),
-        );
-        let bidirectional = StandardSoftmaxMechanism::new(
-            StandardSoftmaxSemantic::new(false, 0.625).unwrap(),
-        );
-        let other_scale = StandardSoftmaxMechanism::new(
-            StandardSoftmaxSemantic::new(true, 0.5).unwrap(),
-        );
+        let causal =
+            StandardSoftmaxMechanism::new(StandardSoftmaxSemantic::new(true, 0.625).unwrap());
+        let bidirectional =
+            StandardSoftmaxMechanism::new(StandardSoftmaxSemantic::new(false, 0.625).unwrap());
+        let other_scale =
+            StandardSoftmaxMechanism::new(StandardSoftmaxSemantic::new(true, 0.5).unwrap());
         assert_eq!(causal.stable_fingerprint(), causal.stable_fingerprint());
-        assert_ne!(causal.stable_fingerprint(), bidirectional.stable_fingerprint());
-        assert_ne!(causal.stable_fingerprint(), other_scale.stable_fingerprint());
+        assert_ne!(
+            causal.stable_fingerprint(),
+            bidirectional.stable_fingerprint()
+        );
+        assert_ne!(
+            causal.stable_fingerprint(),
+            other_scale.stable_fingerprint()
+        );
         let record = causal.canonical_record();
         assert!(!record.contains("wgpu"));
         assert!(!record.contains("device"));
