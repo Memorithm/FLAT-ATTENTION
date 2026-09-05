@@ -1,0 +1,13 @@
+[package]
+name = "flat-semantic-observability"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Opt-in reference research observability for FLAT semantics"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../.." }
+flat-semantic = { path = "../flat-semantic" }
+flat-semantic-mechanism = { path = "../flat-semantic-mechanism" }
