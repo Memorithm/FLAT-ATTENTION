@@ -10,8 +10,8 @@ use flat_attention::api::research_da_luc_oracle::tiering::{
 };
 use flat_attention::FlatAttentionConfig;
 use flat_da_luc_tier_qualification::{
-    attention_mass_baseline, deterministic_random_baseline, qualify_baseline,
-    qualify_equal_budget, recency_baseline, DalucTierBaselinePlan, DalucTierMaterializationSpec,
+    attention_mass_baseline, deterministic_random_baseline, qualify_baseline, qualify_equal_budget,
+    recency_baseline, DalucTierBaselinePlan, DalucTierMaterializationSpec,
     DalucTierQualificationError, DalucTierQualificationFixture, DalucTierStorageOverhead,
     DA_LUC_FIXED_CONTROL_VERSION, DA_LUC_RANDOM_CONTROL_VERSION,
 };
@@ -137,11 +137,8 @@ fn partial_segment_assignment_can_break_exact_equal_budget_and_is_rejected() {
     assert_ne!(recency.assignments(), attention.assignments());
 
     let specs = fixture_data.specs();
-    let error = qualify_equal_budget(
-        fixture_data.fixture(&specs, &quotas),
-        &[recency, attention],
-    )
-    .unwrap_err();
+    let error = qualify_equal_budget(fixture_data.fixture(&specs, &quotas), &[recency, attention])
+        .unwrap_err();
     assert!(matches!(
         error,
         DalucTierQualificationError::UnequalStorageBudget {
@@ -389,11 +386,7 @@ impl FixtureData {
     }
 }
 
-fn codebook(
-    contract: DalucKvViewContract,
-    tier: DalucPrecisionTier,
-    stride: usize,
-) -> Vec<f32> {
+fn codebook(contract: DalucKvViewContract, tier: DalucPrecisionTier, stride: usize) -> Vec<f32> {
     let scopes = match tier.keys.codebook_scope {
         DalucCodebookScope::SharedAcrossKvHeads => 1,
         DalucCodebookScope::PerKvHead => contract.shape.kv_heads,

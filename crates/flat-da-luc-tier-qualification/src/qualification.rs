@@ -118,9 +118,7 @@ impl DalucTierBaselinePlan {
                 ));
             }
             if !tiers.iter().any(|tier| tier.id == assignment.tier_id) {
-                return Err(DalucTierQualificationError::UnknownTier(
-                    assignment.tier_id,
-                ));
+                return Err(DalucTierQualificationError::UnknownTier(assignment.tier_id));
             }
         }
         validate_quota_counts(&self.assignments, tiers, quotas)?;
@@ -191,13 +189,8 @@ pub fn attention_mass_baseline(
     quotas: &[DalucTierQuota],
     attention_mass: &[f64],
 ) -> Result<DalucTierBaselinePlan, DalucTierQualificationError> {
-    let routed = route_by_attention_mass(
-        base_contract,
-        segment_size,
-        tiers,
-        quotas,
-        attention_mass,
-    )?;
+    let routed =
+        route_by_attention_mass(base_contract, segment_size, tiers, quotas, attention_mass)?;
     Ok(DalucTierBaselinePlan {
         control: DalucTierBaselineControl::AttentionMass,
         kv_view_schema_version: routed.kv_view_schema_version,
@@ -549,7 +542,8 @@ fn q_len1_dense_reference(
                 let numerator = (score - new_max).exp();
                 for feature in 0..contract.shape.value_head_dim {
                     let target = out_base + feature;
-                    output[target] = output[target] * alpha + numerator * values[value_base + feature];
+                    output[target] =
+                        output[target] * alpha + numerator * values[value_base + feature];
                 }
                 running_sum = running_sum * alpha + numerator;
                 running_max = new_max;
@@ -623,17 +617,57 @@ impl CompositeStorageAccumulator {
     ) -> Result<(), DalucTierQualificationError> {
         let codebook = payload.key_codebook_plane();
         if charge_codebook {
-            add(&mut self.key_codebook_payload_bytes, report.key_codebook_payload_bytes, "K codebook payload bytes")?;
+            add(
+                &mut self.key_codebook_payload_bytes,
+                report.key_codebook_payload_bytes,
+                "K codebook payload bytes",
+            )?;
         }
-        add(&mut self.key_index_payload_bytes, report.key_index_payload_bytes, "K index payload bytes")?;
-        add(&mut self.key_residual_value_payload_bytes, report.key_residual_value_payload_bytes, "K residual value bytes")?;
-        add(&mut self.key_residual_index_payload_bytes, report.key_residual_index_payload_bytes, "K residual index bytes")?;
-        add(&mut self.value_payload_bytes, report.value_payload_bytes, "V payload bytes")?;
-        add(&mut self.value_scale_payload_bytes, report.value_scale_payload_bytes, "V scale bytes")?;
-        add(&mut self.value_zero_point_payload_bytes, report.value_zero_point_payload_bytes, "V zero-point bytes")?;
-        add(&mut self.value_residual_value_payload_bytes, report.value_residual_value_payload_bytes, "V residual value bytes")?;
-        add(&mut self.value_residual_index_payload_bytes, report.value_residual_index_payload_bytes, "V residual index bytes")?;
-        add(&mut self.page_metadata_payload_bytes, report.page_metadata_payload_bytes, "page metadata bytes")?;
+        add(
+            &mut self.key_index_payload_bytes,
+            report.key_index_payload_bytes,
+            "K index payload bytes",
+        )?;
+        add(
+            &mut self.key_residual_value_payload_bytes,
+            report.key_residual_value_payload_bytes,
+            "K residual value bytes",
+        )?;
+        add(
+            &mut self.key_residual_index_payload_bytes,
+            report.key_residual_index_payload_bytes,
+            "K residual index bytes",
+        )?;
+        add(
+            &mut self.value_payload_bytes,
+            report.value_payload_bytes,
+            "V payload bytes",
+        )?;
+        add(
+            &mut self.value_scale_payload_bytes,
+            report.value_scale_payload_bytes,
+            "V scale bytes",
+        )?;
+        add(
+            &mut self.value_zero_point_payload_bytes,
+            report.value_zero_point_payload_bytes,
+            "V zero-point bytes",
+        )?;
+        add(
+            &mut self.value_residual_value_payload_bytes,
+            report.value_residual_value_payload_bytes,
+            "V residual value bytes",
+        )?;
+        add(
+            &mut self.value_residual_index_payload_bytes,
+            report.value_residual_index_payload_bytes,
+            "V residual index bytes",
+        )?;
+        add(
+            &mut self.page_metadata_payload_bytes,
+            report.page_metadata_payload_bytes,
+            "page metadata bytes",
+        )?;
 
         let owned_bytes = if charge_codebook {
             report.total_representation_bytes
@@ -645,7 +679,11 @@ impl CompositeStorageAccumulator {
                     "shared codebook subtraction",
                 ))?
         };
-        add(&mut self.owned_payload_bytes, owned_bytes, "owned payload bytes")?;
+        add(
+            &mut self.owned_payload_bytes,
+            owned_bytes,
+            "owned payload bytes",
+        )?;
 
         let owned_alignment = if charge_codebook {
             report.alignment_padding_bytes
@@ -657,7 +695,11 @@ impl CompositeStorageAccumulator {
                     "shared codebook alignment subtraction",
                 ))?
         };
-        add(&mut self.alignment_padding_bytes, owned_alignment, "alignment padding bytes")?;
+        add(
+            &mut self.alignment_padding_bytes,
+            owned_alignment,
+            "alignment padding bytes",
+        )?;
 
         let owned_tail = if charge_codebook {
             report.packing_tail_padding_bits
@@ -669,7 +711,11 @@ impl CompositeStorageAccumulator {
                     "shared codebook tail subtraction",
                 ))?
         };
-        add(&mut self.packing_tail_padding_bits, owned_tail, "packing tail padding bits")
+        add(
+            &mut self.packing_tail_padding_bits,
+            owned_tail,
+            "packing tail padding bits",
+        )
     }
 
     fn finish(self) -> Result<DalucTierCompositeStorageReport, DalucTierQualificationError> {
@@ -724,8 +770,17 @@ fn validate_fixture(
             "tier materialization catalog must not be empty",
         ));
     }
-    let descriptors = fixture.tiers.iter().map(|spec| spec.tier).collect::<Vec<_>>();
-    validate_tier_catalog(fixture.base_contract, segment_size, &descriptors, fixture.quotas)?;
+    let descriptors = fixture
+        .tiers
+        .iter()
+        .map(|spec| spec.tier)
+        .collect::<Vec<_>>();
+    validate_tier_catalog(
+        fixture.base_contract,
+        segment_size,
+        &descriptors,
+        fixture.quotas,
+    )?;
     for (index, spec) in fixture.tiers.iter().enumerate() {
         if fixture.tiers[..index]
             .iter()
@@ -737,8 +792,16 @@ fn validate_fixture(
         }
         validate_codebook(fixture.base_contract, spec)?;
     }
-    require_len("dense K", fixture.dense_keys.len(), logical_side_len(fixture.base_contract, true)?)?;
-    require_len("dense V", fixture.dense_values.len(), logical_side_len(fixture.base_contract, false)?)?;
+    require_len(
+        "dense K",
+        fixture.dense_keys.len(),
+        logical_side_len(fixture.base_contract, true)?,
+    )?;
+    require_len(
+        "dense V",
+        fixture.dense_values.len(),
+        logical_side_len(fixture.base_contract, false)?,
+    )?;
     require_len(
         "query",
         fixture.query.len(),
@@ -862,11 +925,11 @@ fn extract_segment(
     key: bool,
 ) -> Result<Vec<f32>, DalucTierQualificationError> {
     let dim = side_dim(contract, key);
-    let segment_len = end
-        .checked_sub(start)
-        .ok_or(DalucTierQualificationError::ArithmeticOverflow(
-            "segment extraction length",
-        ))?;
+    let segment_len =
+        end.checked_sub(start)
+            .ok_or(DalucTierQualificationError::ArithmeticOverflow(
+                "segment extraction length",
+            ))?;
     let mut output = Vec::with_capacity(checked_product(&[
         contract.shape.batch,
         contract.shape.kv_heads,
@@ -893,11 +956,11 @@ fn insert_segment(
     key: bool,
 ) -> Result<(), DalucTierQualificationError> {
     let dim = side_dim(contract, key);
-    let segment_len = end
-        .checked_sub(start)
-        .ok_or(DalucTierQualificationError::ArithmeticOverflow(
-            "segment insertion length",
-        ))?;
+    let segment_len =
+        end.checked_sub(start)
+            .ok_or(DalucTierQualificationError::ArithmeticOverflow(
+                "segment insertion length",
+            ))?;
     require_len(
         "decoded segment",
         segment.len(),
@@ -954,16 +1017,18 @@ fn assignments_from_ranking(
             .find(|quota| quota.tier_id == tier.id)
             .ok_or(DalucTierQualificationError::UnknownTier(tier.id))?
             .segments;
-        let end = cursor
-            .checked_add(count)
-            .ok_or(DalucTierQualificationError::ArithmeticOverflow(
-                "random quota cursor",
-            ))?;
-        for &segment_index in ranking
-            .get(cursor..end)
-            .ok_or(DalucTierQualificationError::MalformedPlan(
-                "random quota range exceeds segment count",
-            ))?
+        let end =
+            cursor
+                .checked_add(count)
+                .ok_or(DalucTierQualificationError::ArithmeticOverflow(
+                    "random quota cursor",
+                ))?;
+        for &segment_index in
+            ranking
+                .get(cursor..end)
+                .ok_or(DalucTierQualificationError::MalformedPlan(
+                    "random quota range exceeds segment count",
+                ))?
         {
             assignments[segment_index].tier_id = tier.id;
         }
@@ -1034,10 +1099,7 @@ fn quota_signature(
     signature
 }
 
-fn segment_count(
-    kv_len: usize,
-    segment_size: usize,
-) -> Result<usize, DalucTierQualificationError> {
+fn segment_count(kv_len: usize, segment_size: usize) -> Result<usize, DalucTierQualificationError> {
     if segment_size == 0 {
         return Err(DalucTierQualificationError::MalformedPlan(
             "segment size must be non-zero",
@@ -1056,11 +1118,12 @@ fn segment_bounds(
     segment_size: usize,
     index: usize,
 ) -> Result<(usize, usize), DalucTierQualificationError> {
-    let start = index
-        .checked_mul(segment_size)
-        .ok_or(DalucTierQualificationError::ArithmeticOverflow(
-            "segment start",
-        ))?;
+    let start =
+        index
+            .checked_mul(segment_size)
+            .ok_or(DalucTierQualificationError::ArithmeticOverflow(
+                "segment start",
+            ))?;
     let end = start
         .checked_add(segment_size)
         .ok_or(DalucTierQualificationError::ArithmeticOverflow(
@@ -1168,10 +1231,7 @@ fn require_len(
     Ok(())
 }
 
-fn validate_finite(
-    what: &'static str,
-    values: &[f32],
-) -> Result<(), DalucTierQualificationError> {
+fn validate_finite(what: &'static str, values: &[f32]) -> Result<(), DalucTierQualificationError> {
     if let Some((index, _)) = values
         .iter()
         .enumerate()
