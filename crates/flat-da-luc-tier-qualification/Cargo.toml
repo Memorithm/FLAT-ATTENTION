@@ -1,0 +1,11 @@
+[package]
+name = "flat-da-luc-tier-qualification"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Research-only equal-budget DA-LUC tier baseline qualification for FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-attention = { path = "../.." }
