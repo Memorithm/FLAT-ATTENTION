@@ -425,6 +425,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "flat-semantic-observability"
+version = "0.1.0"
+dependencies = [
+ "flat-attention",
+ "flat-semantic",
+ "flat-semantic-mechanism",
+]
+
+[[package]]
 name = "flat-semantic-plan"
 version = "0.1.0"
 dependencies = [
