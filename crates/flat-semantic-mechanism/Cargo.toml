@@ -1,0 +1,14 @@
+[package]
+name = "flat-semantic-mechanism"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Backend-neutral mechanism decomposition contracts for FLAT semantics"
+license-file = "../../LICENSE.md"
+
+[dependencies]
+flat-semantic = { path = "../flat-semantic" }
+
+[dev-dependencies]
+flat-attention = { path = "../.." }
