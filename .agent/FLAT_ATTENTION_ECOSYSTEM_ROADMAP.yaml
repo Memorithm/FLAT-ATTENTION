@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-08-31"
+last_updated: "2026-09-05"
 repository: Memorithm/FLAT-ATTENTION
 intended_consumer: autonomous_coding_agent
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
@@ -62,6 +62,7 @@ roadmap_coordination:
     - deterministic_autotuning
     - benchmark_and_observability
     - ecosystem_integration
+    - multi_semantic_reference_architecture
 
 ecosystem_interfaces:
   Memorithm/scirust:
@@ -163,6 +164,41 @@ roadmap:
       - documented_supported_backends_and_capabilities
       - reproducible_device_benchmark_matrix
       - stable_failure_and_fallback_semantics
+  - id: FA7
+    name: Multi-semantic reference architecture and research observability
+    status: phase_a_qualified_phase_b_evidence_blocked
+    issue: 132
+    evidence:
+      - PR_181_merged_mechanism_decomposition
+      - PR_181_merge_9ad76deab7de62be6de8dc82445796d1298edc95
+      - PR_182_merged_opt_in_paired_reference_observability
+      - PR_182_merge_bccfb0e001d9fedeb2ddf9b6e18156180d38ca89
+      - StandardSoftmax_bit_exact_reference_regression_preserved
+      - semantic_mechanism_identity_separate_from_kernel_device_identity
+      - research_observability_disabled_path_has_no_dependency_on_fast_path
+      - paired_reference_observability_preserves_no_materialized_N_by_N_rule
+    completed_phase_a:
+      - semantic_descriptor_state_mask_weight_saved_state_contract
+      - semantic_registry_control_selection_plan_and_execution_separation
+      - explicit_projection_score_normalization_mixing_numerical_policy_identity
+      - StandardSoftmax_mechanism_mapping
+      - caller_declared_depth_observability
+      - one_shot_Q_K_V_reference_interventions_for_StandardSoftmax
+      - separate_ITD_static_and_TDI_dynamic_evidence_ownership
+    phase_b_gate: >-
+      Do not select or implement a first non-softmax semantic by implementation
+      convenience. ITD/TDI must first provide a concrete frozen mathematical
+      candidate plus the required mechanistic evidence and matched controls.
+    current_research_audit:
+      - Memorithm_itd_simulator_issue_26_has_not_promoted_a_specific_semantic
+      - TDI_semantic_discrimination_has_not_authorized_a_specific_FLAT_candidate
+    forbidden_until_gate:
+      - promote_differential_signed_by_convenience
+      - promote_Toeplitz_by_convenience
+      - promote_prolate_by_convenience
+      - promote_Green_kernel_by_convenience
+      - promote_recurrent_memory_by_convenience
+      - optimize_a_nonsoftmax_GPU_path_before_reference_semantic_admission
 
 agent_operating_protocol:
   must_read:
