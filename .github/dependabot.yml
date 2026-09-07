@@ -9,6 +9,14 @@ updates:
         update-types:
           - patch
           - minor
+    ignore:
+      # ordered-float 5.5.0 raised its MSRV to Rust 1.90, while FLAT-ATTENTION
+      # intentionally validates against Rust 1.89. Keep patch updates eligible,
+      # but require an explicit MSRV decision before accepting later minor/major lines.
+      - dependency-name: "ordered-float"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
   - package-ecosystem: github-actions
     directory: /
     schedule:
