@@ -226,9 +226,9 @@ impl WgpuPagedChunkedPrefillPipeline {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
-        let out_scratch = self
-            .decode
-            .create_output_buffer(device, pass.q_heads, pass.cache.head_dim())?;
+        let out_scratch =
+            self.decode
+                .create_output_buffer(device, pass.q_heads, pass.cache.head_dim())?;
 
         let q_row_bytes = q1_layout.q_bytes;
         let lse_scalar_bytes = core::mem::size_of::<f32>() as u64;
@@ -241,13 +241,7 @@ impl WgpuPagedChunkedPrefillPipeline {
 
             for query_index in chunk_start..chunk_end {
                 let q_source_offset = checked_u64_mul(query_index, q_row_bytes)?;
-                encoder.copy_buffer_to_buffer(
-                    pass.q,
-                    q_source_offset,
-                    &q_scratch,
-                    0,
-                    q_row_bytes,
-                );
+                encoder.copy_buffer_to_buffer(pass.q, q_source_offset, &q_scratch, 0, q_row_bytes);
 
                 let prefix_page_table;
                 let page_table = if pass.config.causal {
@@ -299,14 +293,10 @@ impl WgpuPagedChunkedPrefillPipeline {
                 for q_head in 0..pass.q_heads {
                     let scratch_lse_index = checked_add(q1_layout.output_elements, q_head)?;
                     let scratch_lse_offset = bytes_for_f32(scratch_lse_index)?;
-                    let full_lse_index = checked_add(
-                        checked_mul(q_head, full_layout.query_len)?,
-                        query_index,
-                    )?;
-                    let full_lse_offset = checked_add_u64(
-                        full_layout.output_bytes,
-                        bytes_for_f32(full_lse_index)?,
-                    )?;
+                    let full_lse_index =
+                        checked_add(checked_mul(q_head, full_layout.query_len)?, query_index)?;
+                    let full_lse_offset =
+                        checked_add_u64(full_layout.output_bytes, bytes_for_f32(full_lse_index)?)?;
                     encoder.copy_buffer_to_buffer(
                         &out_scratch,
                         scratch_lse_offset,
