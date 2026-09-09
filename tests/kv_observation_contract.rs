@@ -19,7 +19,10 @@ fn public_observation_surface_preserves_geometry_topology_and_events() {
     table.append(6).unwrap();
 
     let observation = PagedKvObservation::capture(&table).unwrap();
-    assert_eq!(observation.schema_version(), PAGED_KV_OBSERVATION_SCHEMA_VERSION);
+    assert_eq!(
+        observation.schema_version(),
+        PAGED_KV_OBSERVATION_SCHEMA_VERSION
+    );
     assert_eq!(observation.config(), config);
     assert_eq!(observation.telemetry().live_tokens, 6);
     assert_eq!(observation.pages().len(), 2);
