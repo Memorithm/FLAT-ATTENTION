@@ -154,7 +154,7 @@ fn checkpoint_fails_closed_after_truncate_reappend_reset_and_foreign_cache() {
 }
 
 #[test]
-fn destructive_transitions_wait_for_external_append_submission_boundary() {
+fn destructive_transitions_stay_fail_closed_after_external_recording() {
     let Some(harness) = harness() else {
         return;
     };
@@ -171,7 +171,7 @@ fn destructive_transitions_wait_for_external_append_submission_boundary() {
     let mut encoder = harness
         .device
         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-checkpoint-unsubmitted"),
+            label: Some("flat-m16-paged-kv-checkpoint-external"),
         });
     cache
         .record_append(&mut encoder, &source, &source, 1)
@@ -195,19 +195,22 @@ fn destructive_transitions_wait_for_external_append_submission_boundary() {
     assert_eq!(cache.generation(), generation);
     assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch());
 
-    // A no-op truncate does not release or reuse storage and therefore remains
-    // legal while the append encoder is outstanding.
+    // A no-op truncate releases/reuses no storage and remains legal.
     cache.truncate(3).unwrap();
 
-    let submission = harness.queue.submit(Some(encoder.finish()));
-    // SAFETY: `encoder` is the only externally managed command buffer that has
-    // recorded writes for this cache, and it was consumed by the submit above.
-    unsafe {
-        cache.acknowledge_submission_unchecked(submission);
-    }
-    assert!(!cache.has_unsubmitted_recorded_writes());
+    // Even after the caller submits the external encoder, the cache cannot
+    // safely prove that this was the only encoder carrying its writes. It stays
+    // conservatively tainted rather than accepting a forgeable acknowledgement.
+    let _submission = harness.queue.submit(Some(encoder.finish()));
+    assert!(cache.has_unsubmitted_recorded_writes());
+    assert_eq!(
+        cache.restore(&checkpoint),
+        Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
+    );
 
-    cache.restore(&checkpoint).unwrap();
-    assert_eq!(cache.len(), 2);
-    assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch() + 1);
+    let extra = source_buffer(&harness.device, &harness.queue, 1, 4, 11.0);
+    assert_eq!(
+        cache.append_and_submit(&harness.device, &harness.queue, &extra, &extra, 1),
+        Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
+    );
 }
