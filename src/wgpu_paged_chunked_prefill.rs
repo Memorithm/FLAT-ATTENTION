@@ -18,8 +18,8 @@ use core::fmt;
 
 use super::WgpuPagedKvCache;
 use crate::{
-    FlatAttentionConfig, PagedDecodeError, PagedDecodePass, WgpuPagedDecodePipeline,
-    WgpuPagedKvTable, WGSL_MAX_HEAD_DIM,
+    FlatAttentionConfig, FlatAttentionError, PagedDecodeError, PagedDecodePass,
+    WgpuPagedDecodePipeline, WgpuPagedKvTable, WGSL_MAX_HEAD_DIM,
 };
 
 /// Full-sequence packed O|LSE geometry for paged chunked prefill.
@@ -325,9 +325,16 @@ fn preflight(
     pass.config
         .resolved_scale(pass.cache.head_dim())
         .map_err(PagedDecodeError::Core)?;
-    pass.query_position_offset
+    let final_query_position = pass
+        .query_position_offset
         .checked_add(pass.cache.len() - 1)
         .ok_or(PagedChunkedPrefillError::PositionOverflow)?;
+    if final_query_position > u32::MAX as usize {
+        return Err(PagedDecodeError::IndexSpaceExceeded {
+            elements: final_query_position,
+        }
+        .into());
+    }
     if pass.q_heads > device.limits().max_compute_workgroups_per_dimension as usize {
         return Err(PagedDecodeError::DispatchLimit {
             actual: pass.q_heads,
@@ -349,6 +356,12 @@ fn validate_geometry(
         return Err(PagedDecodeError::InvalidHeadGrouping {
             q_heads,
             kv_heads: cache.kv_heads(),
+        }
+        .into());
+    }
+    if cache.head_dim() == 0 || cache.head_dim() % 2 != 0 {
+        return Err(FlatAttentionError::InvalidRotaryHeadDim {
+            head_dim: cache.head_dim(),
         }
         .into());
     }
