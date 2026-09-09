@@ -1,6 +1,6 @@
 use flat_attention::paged_kv::{
-    KvResidencyEvent, KvResidencyEventKind, PagedKvConfig, PagedKvObservation, PagedKvTable,
-    observation::KvResidencyTraceError,
+    observation::KvResidencyTraceError, KvResidencyEvent, KvResidencyEventKind, PagedKvConfig,
+    PagedKvObservation, PagedKvTable,
 };
 
 #[test]
