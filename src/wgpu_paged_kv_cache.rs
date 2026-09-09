@@ -9,8 +9,51 @@
 //! submits, synchronizes, or performs a host round-trip.
 
 use core::fmt;
+use std::sync::Arc;
 
 use crate::paged_kv::{PagedKvConfig, PagedKvError, PagedKvTable};
+
+/// Opaque logical checkpoint for one [`WgpuPagedKvCache`] lineage.
+///
+/// A checkpoint records metadata only; it does not copy or snapshot K/V bytes.
+/// Appends preserve checkpoint validity because they leave the captured prefix
+/// untouched. Any truncate or reset changes the cache lineage and invalidates
+/// checkpoints from the previous branch before released rows/pages may be
+/// reused.
+#[derive(Clone)]
+pub struct WgpuPagedKvCheckpoint {
+    origin: Arc<()>,
+    len: usize,
+    generation: u64,
+    branch_epoch: u64,
+}
+
+impl fmt::Debug for WgpuPagedKvCheckpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WgpuPagedKvCheckpoint")
+            .field("len", &self.len)
+            .field("generation", &self.generation)
+            .field("branch_epoch", &self.branch_epoch)
+            .finish_non_exhaustive()
+    }
+}
+
+impl WgpuPagedKvCheckpoint {
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    #[must_use]
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    #[must_use]
+    pub fn branch_epoch(&self) -> u64 {
+        self.branch_epoch
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -30,6 +73,20 @@ pub enum WgpuPagedKvCacheError {
     DeviceBufferLimit {
         required_bytes: u64,
         maximum_bytes: u64,
+    },
+    BranchEpochOverflow,
+    ForeignCheckpoint,
+    CheckpointGenerationMismatch {
+        checkpoint_generation: u64,
+        current_generation: u64,
+    },
+    CheckpointBranchMismatch {
+        checkpoint_branch_epoch: u64,
+        current_branch_epoch: u64,
+    },
+    CheckpointAhead {
+        checkpoint_len: usize,
+        current_len: usize,
     },
 }
 
@@ -57,6 +114,34 @@ impl fmt::Display for WgpuPagedKvCacheError {
                 f,
                 "paged resident KV requires {required_bytes} bytes per tensor, device maximum is {maximum_bytes}"
             ),
+            Self::BranchEpochOverflow => {
+                write!(f, "paged resident KV branch epoch counter overflowed")
+            }
+            Self::ForeignCheckpoint => write!(
+                f,
+                "paged resident KV checkpoint belongs to a different cache instance"
+            ),
+            Self::CheckpointGenerationMismatch {
+                checkpoint_generation,
+                current_generation,
+            } => write!(
+                f,
+                "paged resident KV checkpoint generation {checkpoint_generation} does not match current generation {current_generation}"
+            ),
+            Self::CheckpointBranchMismatch {
+                checkpoint_branch_epoch,
+                current_branch_epoch,
+            } => write!(
+                f,
+                "paged resident KV checkpoint branch epoch {checkpoint_branch_epoch} does not match current branch epoch {current_branch_epoch}"
+            ),
+            Self::CheckpointAhead {
+                checkpoint_len,
+                current_len,
+            } => write!(
+                f,
+                "paged resident KV checkpoint length {checkpoint_len} exceeds current live length {current_len}"
+            ),
         }
     }
 }
@@ -82,6 +167,8 @@ pub struct WgpuPagedKvCache {
     head_dim: usize,
     row_bytes: u64,
     tensor_bytes: u64,
+    checkpoint_origin: Arc<()>,
+    branch_epoch: u64,
 }
 
 impl fmt::Debug for WgpuPagedKvCache {
@@ -92,6 +179,7 @@ impl fmt::Debug for WgpuPagedKvCache {
             .field("head_dim", &self.head_dim)
             .field("len", &self.table.len())
             .field("generation", &self.table.generation())
+            .field("branch_epoch", &self.branch_epoch)
             .finish_non_exhaustive()
     }
 }
@@ -143,6 +231,8 @@ impl WgpuPagedKvCache {
             head_dim,
             row_bytes,
             tensor_bytes,
+            checkpoint_origin: Arc::new(()),
+            branch_epoch: 0,
         })
     }
 
@@ -176,6 +266,12 @@ impl WgpuPagedKvCache {
         self.table.generation()
     }
 
+    /// Current append-only branch epoch within this table generation.
+    #[must_use]
+    pub fn branch_epoch(&self) -> u64 {
+        self.branch_epoch
+    }
+
     #[must_use]
     pub fn k_buffer(&self) -> &wgpu::Buffer {
         &self.k
@@ -191,10 +287,72 @@ impl WgpuPagedKvCache {
         &self.table
     }
 
+    /// Capture a metadata-only checkpoint of the current append-only lineage.
+    ///
+    /// The returned checkpoint does not preserve bytes independently. It stays
+    /// valid across appends because existing live rows are not rewritten. A
+    /// truncate/restore that actually shrinks the cache advances the branch
+    /// epoch; reset advances the table generation. Either transition makes old
+    /// checkpoints fail closed.
+    #[must_use]
+    pub fn checkpoint(&self) -> WgpuPagedKvCheckpoint {
+        WgpuPagedKvCheckpoint {
+            origin: Arc::clone(&self.checkpoint_origin),
+            len: self.len(),
+            generation: self.generation(),
+            branch_epoch: self.branch_epoch,
+        }
+    }
+
+    /// Restore an append-only checkpoint by logically rewinding to its length.
+    ///
+    /// This is not a physical snapshot restore. It succeeds only when the
+    /// checkpoint belongs to this cache, its generation and branch epoch are
+    /// unchanged, and its captured prefix is still live. A successful shrink
+    /// advances the branch epoch, intentionally making the consumed checkpoint
+    /// and all peers from the old branch stale.
+    pub fn restore(
+        &mut self,
+        checkpoint: &WgpuPagedKvCheckpoint,
+    ) -> Result<(), WgpuPagedKvCacheError> {
+        if !Arc::ptr_eq(&self.checkpoint_origin, &checkpoint.origin) {
+            return Err(WgpuPagedKvCacheError::ForeignCheckpoint);
+        }
+
+        let current_generation = self.generation();
+        if checkpoint.generation != current_generation {
+            return Err(WgpuPagedKvCacheError::CheckpointGenerationMismatch {
+                checkpoint_generation: checkpoint.generation,
+                current_generation,
+            });
+        }
+        if checkpoint.branch_epoch != self.branch_epoch {
+            return Err(WgpuPagedKvCacheError::CheckpointBranchMismatch {
+                checkpoint_branch_epoch: checkpoint.branch_epoch,
+                current_branch_epoch: self.branch_epoch,
+            });
+        }
+
+        let current_len = self.len();
+        if checkpoint.len > current_len {
+            return Err(WgpuPagedKvCacheError::CheckpointAhead {
+                checkpoint_len: checkpoint.len,
+                current_len,
+            });
+        }
+        if checkpoint.len == current_len {
+            return Ok(());
+        }
+
+        self.truncate(checkpoint.len)
+    }
+
     /// Logical reset only. Physical bytes remain resident but the generation is
-    /// invalidated before pages are deterministically reused.
+    /// invalidated before pages are deterministically reused. Reset starts a new
+    /// checkpoint branch at epoch zero.
     pub fn reset(&mut self) -> Result<(), WgpuPagedKvCacheError> {
         self.table.reset()?;
+        self.branch_epoch = 0;
         Ok(())
     }
 
@@ -204,8 +362,20 @@ impl WgpuPagedKvCache {
     /// pages released by the table become available for deterministic reuse by
     /// subsequent appends. Physical K/V bytes are neither cleared nor copied;
     /// bytes outside the new logical length are non-live until overwritten.
+    /// A successful shrink advances the branch epoch so checkpoints from the
+    /// pre-truncate lineage cannot be restored after page reuse.
     pub fn truncate(&mut self, new_len: usize) -> Result<(), WgpuPagedKvCacheError> {
+        let current_len = self.len();
+        if new_len >= current_len {
+            self.table.truncate(new_len)?;
+            return Ok(());
+        }
+        let next_branch_epoch = self
+            .branch_epoch
+            .checked_add(1)
+            .ok_or(WgpuPagedKvCacheError::BranchEpochOverflow)?;
         self.table.truncate(new_len)?;
+        self.branch_epoch = next_branch_epoch;
         Ok(())
     }
 
@@ -214,7 +384,8 @@ impl WgpuPagedKvCache {
     /// Source layout is `[append_len, kv_heads * head_dim]`. K must already be
     /// RoPE-rotated. Only newly appended rows are copied; the live prefix is not
     /// moved or rewritten. Metadata is committed only after all copy commands
-    /// have been recorded successfully.
+    /// have been recorded successfully. Appends preserve the current branch
+    /// epoch, so checkpoints remain valid while their captured prefix is intact.
     pub fn record_append(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
