@@ -51,6 +51,10 @@ pub enum PagedKvError {
     ZeroDimension,
     CapacityOverflow,
     CapacityExceeded { requested: usize, capacity: usize },
+    TruncateOutOfBounds {
+        requested_len: usize,
+        current_len: usize,
+    },
     GenerationOverflow,
 }
 
@@ -65,6 +69,13 @@ impl fmt::Display for PagedKvError {
             } => write!(
                 f,
                 "paged KV append requires {requested} tokens, capacity is {capacity}"
+            ),
+            Self::TruncateOutOfBounds {
+                requested_len,
+                current_len,
+            } => write!(
+                f,
+                "paged KV truncate target {requested_len} exceeds current length {current_len}"
             ),
             Self::GenerationOverflow => write!(f, "paged KV generation counter overflowed"),
         }
@@ -87,7 +98,8 @@ struct PageEntry {
 /// host-side allocation before tokens are actually appended.
 ///
 /// Physical pages are assigned deterministically from the lowest available
-/// page index and remain stable until [`Self::reset`].
+/// page index and remain stable until [`Self::reset`] or a tail page is released
+/// by [`Self::truncate`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PagedKvTable {
     config: PagedKvConfig,
@@ -156,6 +168,42 @@ impl PagedKvTable {
                 generation: self.generation,
             });
         }
+        self.live_tokens = new_len;
+        Ok(())
+    }
+
+    /// Rewind the logical cache length without copying or clearing physical KV.
+    ///
+    /// The surviving prefix keeps its generation and physical mappings. Any
+    /// complete tail pages that are no longer needed are released immediately
+    /// and are deterministically reused by later appends. Bytes beyond
+    /// `new_len`, including bytes in the partially retained last page, remain
+    /// physically present but are outside the live logical range and must not be
+    /// observed by a conforming decode path.
+    ///
+    /// This operation never grows the cache. An out-of-bounds request fails
+    /// without mutating the table.
+    pub fn truncate(&mut self, new_len: usize) -> Result<(), PagedKvError> {
+        if new_len > self.live_tokens {
+            return Err(PagedKvError::TruncateOutOfBounds {
+                requested_len: new_len,
+                current_len: self.live_tokens,
+            });
+        }
+        if new_len == self.live_tokens {
+            return Ok(());
+        }
+
+        let required_pages = if new_len == 0 {
+            0
+        } else {
+            new_len.div_ceil(self.config.page_size)
+        };
+        self.logical_pages.truncate(required_pages);
+        self.next_free_page = self
+            .logical_pages
+            .last()
+            .map_or(0, |entry| entry.physical_page + 1);
         self.live_tokens = new_len;
         Ok(())
     }
@@ -249,6 +297,80 @@ mod tests {
                 generation: 0,
             }
         );
+    }
+
+    #[test]
+    fn truncate_releases_tail_pages_for_deterministic_reuse() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(9).unwrap();
+        let generation = table.generation();
+
+        table.truncate(5).unwrap();
+        assert_eq!(table.len(), 5);
+        assert_eq!(table.generation(), generation);
+        assert_eq!(table.address(5), None);
+        assert_eq!(
+            table.telemetry().unwrap(),
+            PagedKvTelemetry {
+                live_tokens: 5,
+                capacity_tokens: 16,
+                mapped_pages: 2,
+                free_pages: 2,
+                internal_fragmentation_tokens: 3,
+                generation,
+            }
+        );
+
+        table.append(4).unwrap();
+        assert_eq!(table.len(), 9);
+        assert_eq!(table.address(8).unwrap().physical_page, 2);
+        assert_eq!(table.address(8).unwrap().generation, generation);
+    }
+
+    #[test]
+    fn truncate_to_zero_reuses_first_page_without_new_generation() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 3,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+        let generation = table.generation();
+
+        table.truncate(0).unwrap();
+        assert!(table.is_empty());
+        let telemetry = table.telemetry().unwrap();
+        assert_eq!(telemetry.mapped_pages, 0);
+        assert_eq!(telemetry.free_pages, 3);
+        assert_eq!(telemetry.generation, generation);
+
+        table.append(1).unwrap();
+        let address = table.address(0).unwrap();
+        assert_eq!(address.physical_page, 0);
+        assert_eq!(address.generation, generation);
+    }
+
+    #[test]
+    fn truncate_rejects_growth_without_mutation() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 2,
+        })
+        .unwrap();
+        table.append(3).unwrap();
+        let before = table.clone();
+        assert_eq!(
+            table.truncate(4),
+            Err(PagedKvError::TruncateOutOfBounds {
+                requested_len: 4,
+                current_len: 3,
+            })
+        );
+        assert_eq!(table, before);
     }
 
     #[test]
