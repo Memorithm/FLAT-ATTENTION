@@ -19,6 +19,19 @@ struct DeviceHarness {
     queue: wgpu::Queue,
 }
 
+#[derive(Clone, Copy)]
+struct Case {
+    q_heads: usize,
+    kv_heads: usize,
+    seq_len: usize,
+    head_dim: usize,
+    page_size: usize,
+    physical_pages: usize,
+    causal: bool,
+    chunk_size: usize,
+    position_offset: usize,
+}
+
 fn harness() -> Option<DeviceHarness> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
@@ -160,41 +173,36 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
     }
 }
 
-fn run_case(
-    harness: &DeviceHarness,
-    q_heads: usize,
-    kv_heads: usize,
-    seq_len: usize,
-    head_dim: usize,
-    page_size: usize,
-    physical_pages: usize,
-    causal: bool,
-    chunk_size: usize,
-    position_offset: usize,
-) {
+fn run_case(harness: &DeviceHarness, case: Case) {
     let theta = 10_000.0;
     let shape = GroupedAttentionShape {
         batch: 1,
-        q_heads,
-        kv_heads,
-        seq_len,
-        head_dim,
+        q_heads: case.q_heads,
+        kv_heads: case.kv_heads,
+        seq_len: case.seq_len,
+        head_dim: case.head_dim,
     };
     let q = fixture(shape.q_tensor_len().unwrap(), 0.2);
     let raw_k = fixture(shape.kv_tensor_len().unwrap(), 0.8);
     let v = fixture(shape.kv_tensor_len().unwrap(), 1.4);
     let config = FlatAttentionConfig {
-        causal,
+        causal: case.causal,
         softmax_scale: None,
     };
     let rotary = RotaryEmbeddingConfig {
         theta,
-        position_offset,
+        position_offset: case.position_offset,
     };
     let expected =
         forward_reference_projection_grouped_rope(&q, &raw_k, &v, shape, config, rotary).unwrap();
-    let rotated_k =
-        rotate_k_projection(&raw_k, seq_len, kv_heads, head_dim, theta, position_offset);
+    let rotated_k = rotate_k_projection(
+        &raw_k,
+        case.seq_len,
+        case.kv_heads,
+        case.head_dim,
+        theta,
+        case.position_offset,
+    );
 
     let q_gpu = input_buffer(
         &harness.device,
@@ -218,22 +226,28 @@ fn run_case(
     let mut cache = WgpuPagedKvCache::new(
         &harness.device,
         PagedKvConfig {
-            page_size,
-            physical_pages,
+            page_size: case.page_size,
+            physical_pages: case.physical_pages,
         },
-        kv_heads,
-        head_dim,
+        case.kv_heads,
+        case.head_dim,
     )
     .unwrap();
     let (new_len, _) = cache
-        .append_and_submit(&harness.device, &harness.queue, &k_gpu, &v_gpu, seq_len)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &k_gpu,
+            &v_gpu,
+            case.seq_len,
+        )
         .unwrap();
-    assert_eq!(new_len, seq_len);
+    assert_eq!(new_len, case.seq_len);
     assert!(cache.table().telemetry().unwrap().mapped_pages > 1);
 
     let pipeline = WgpuPagedChunkedPrefillPipeline::new(&harness.device).unwrap();
     let output = pipeline
-        .create_output_buffer(&harness.device, &cache, q_heads)
+        .create_output_buffer(&harness.device, &cache, case.q_heads)
         .unwrap();
     let mut encoder = harness
         .device
@@ -248,11 +262,11 @@ fn run_case(
                 q: &q_gpu,
                 cache: &cache,
                 out_and_lse: &output,
-                q_heads,
+                q_heads: case.q_heads,
                 config,
                 theta,
-                query_position_offset: position_offset,
-                query_chunk_size: chunk_size,
+                query_position_offset: case.position_offset,
+                query_chunk_size: case.chunk_size,
             },
         )
         .unwrap();
@@ -282,9 +296,43 @@ fn paged_chunked_prefill_matches_contiguous_oracle_across_page_boundaries() {
         return;
     };
 
-    run_case(&harness, 4, 2, 7, 32, 3, 4, true, 2, 5);
-    run_case(&harness, 4, 1, 5, 32, 2, 4, true, 3, 7);
-    run_case(&harness, 4, 2, 7, 32, 3, 4, false, 4, 3);
+    for case in [
+        Case {
+            q_heads: 4,
+            kv_heads: 2,
+            seq_len: 7,
+            head_dim: 32,
+            page_size: 3,
+            physical_pages: 4,
+            causal: true,
+            chunk_size: 2,
+            position_offset: 5,
+        },
+        Case {
+            q_heads: 4,
+            kv_heads: 1,
+            seq_len: 5,
+            head_dim: 32,
+            page_size: 2,
+            physical_pages: 4,
+            causal: true,
+            chunk_size: 3,
+            position_offset: 7,
+        },
+        Case {
+            q_heads: 4,
+            kv_heads: 2,
+            seq_len: 7,
+            head_dim: 32,
+            page_size: 3,
+            physical_pages: 4,
+            causal: false,
+            chunk_size: 4,
+            position_offset: 3,
+        },
+    ] {
+        run_case(&harness, case);
+    }
 }
 
 #[test]
