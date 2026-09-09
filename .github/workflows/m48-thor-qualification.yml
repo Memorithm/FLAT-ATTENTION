@@ -51,7 +51,27 @@ jobs:
           actual="$(git rev-parse HEAD)"
           echo "source_revision=$actual"
           test "$actual" = "$SCIRUST_SOURCE_REVISION"
-          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+          for tool in cargo rustc; do
+            command -v "$tool" >/dev/null || {
+              echo "::error::M48 physical-Thor runner is missing active Rust tool: $tool"
+              exit 1
+            }
+          done
+          rustc_version="$(rustc --version)"
+          cargo_version="$(cargo --version)"
+          echo "rustc_version=$rustc_version"
+          echo "cargo_version=$cargo_version"
+          case "$rustc_version" in
+            "rustc 1.89.0"*) ;;
+            *)
+              if command -v rustup >/dev/null && rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null; then
+                :
+              else
+                echo "::error::M48 requires active Rust 1.89.0 or an installed qualified 1.89.0/nightly-2026-07-02 toolchain"
+                exit 1
+              fi
+              ;;
+          esac
 
       - name: Prepare isolated build directories
         shell: bash
