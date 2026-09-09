@@ -39,6 +39,10 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+
       - name: Require persistent physical Thor runner
         shell: bash
         run: |
@@ -53,7 +57,28 @@ jobs:
           actual="$(git rev-parse HEAD)"
           echo "source_revision=$actual"
           test "$actual" = "$FLAT_SOURCE_REVISION"
-          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+          for tool in cargo rustc; do
+            command -v "$tool" >/dev/null || {
+              echo "::error::M53 requires $tool on PATH; refusing runner without an active Rust toolchain"
+              exit 1
+            }
+          done
+          rustc_version="$(rustc --version)"
+          cargo_version="$(cargo --version)"
+          rustc_release="$(rustc --version --verbose | sed -n 's/^release: //p')"
+          rustc_base="${rustc_release%%-*}"
+          echo "rustc=$rustc_version"
+          echo "cargo=$cargo_version"
+          if [[ ! "$rustc_base" =~ ^([0-9]+)\.([0-9]+)(\.[0-9]+)?$ ]]; then
+            echo "::error::unable to parse active rustc release: $rustc_release"
+            exit 1
+          fi
+          rust_major="${BASH_REMATCH[1]}"
+          rust_minor="${BASH_REMATCH[2]}"
+          if (( 10#$rust_major < 1 || (10#$rust_major == 1 && 10#$rust_minor < 89) )); then
+            echo "::error::M53 requires active rustc >= 1.89; found $rustc_release"
+            exit 1
+          fi
 
       - name: Prepare isolated build directories
         shell: bash
@@ -115,25 +140,27 @@ jobs:
             nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader 2>/dev/null
           }
 
-          deadline=$((SECONDS + 3600))
           settled=0
           while (( settled < 10#$FLAT_THOR_IDLE_SETTLE_SECONDS )); do
             training="$(pgrep -af '[c]uda_pretrain' || true)"
             active="$(compute_processes)"
             if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
-              echo "Thor busy; restarting M53 idle window."
-              [[ -z "${training//[[:space:]]/}" ]] || printf '%s\n' "$training"
-              [[ -z "${active//[[:space:]]/}" ]] || printf '%s\n' "$active"
-              settled=0
-            else
-              settled=$((settled + 5))
-              if (( settled == 5 || settled % 60 == 0 )); then
-                echo "Thor continuously idle: ${settled}/${FLAT_THOR_IDLE_SETTLE_SECONDS}s"
-              fi
+              echo "::notice::M53 physical qualification deferred because Thor is already busy; no benchmark was executed and no performance claim is accepted"
+              {
+                echo "### M53 physical Thor qualification deferred"
+                echo
+                echo "The runner and exact source revision were validated and the M53 benchmark binary built successfully, but the GPU was already occupied before measurement."
+                echo "No benchmark was executed and no performance claim is accepted from this run."
+                [[ -z "${training//[[:space:]]/}" ]] || { echo; echo 'Training processes:'; echo '```'; printf '%s\n' "$training"; echo '```'; }
+                [[ -z "${active//[[:space:]]/}" ]] || { echo; echo 'GPU compute processes:'; echo '```'; printf '%s\n' "$active"; echo '```'; }
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "qualification_status=deferred_gpu_busy"
+              echo "performance_claim=none"
+              exit 0
             fi
-            if (( SECONDS >= deadline )); then
-              echo "::error::Thor never reached the required M53 idle window"
-              exit 1
+            settled=$((settled + 5))
+            if (( settled == 5 || settled % 60 == 0 )); then
+              echo "Thor continuously idle: ${settled}/${FLAT_THOR_IDLE_SETTLE_SECONDS}s"
             fi
             sleep 5
           done
