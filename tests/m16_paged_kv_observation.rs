@@ -1,6 +1,8 @@
 #![cfg(feature = "wgpu")]
 
-use flat_attention::paged_kv::{PagedKvConfig, WgpuPagedKvCache};
+use flat_attention::paged_kv::{
+    PagedKvConfig, WgpuPagedKvCache, WGPU_PAGED_KV_STATE_OBSERVATION_SCHEMA_VERSION,
+};
 
 struct DeviceHarness {
     device: wgpu::Device,
@@ -57,20 +59,15 @@ fn source_buffer(
 }
 
 #[test]
-fn checkpoint_and_page_telemetry_bind_the_same_logical_state() {
+fn checkpoint_and_state_observation_bind_the_same_logical_state() {
     let Some(harness) = harness() else {
         return;
     };
-    let mut cache = WgpuPagedKvCache::new(
-        &harness.device,
-        PagedKvConfig {
-            page_size: 4,
-            physical_pages: 4,
-        },
-        2,
-        8,
-    )
-    .unwrap();
+    let config = PagedKvConfig {
+        page_size: 4,
+        physical_pages: 4,
+    };
+    let mut cache = WgpuPagedKvCache::new(&harness.device, config, 2, 8).unwrap();
 
     let width = cache.kv_heads() * cache.head_dim();
     let source = source_buffer(&harness.device, &harness.queue, 5, width);
@@ -80,11 +77,92 @@ fn checkpoint_and_page_telemetry_bind_the_same_logical_state() {
     assert_eq!(new_len, 5);
 
     let checkpoint = cache.checkpoint();
-    let telemetry = cache.table().telemetry().unwrap();
+    let observation = cache.observation().unwrap();
+    let telemetry = observation.topology().telemetry();
 
+    assert_eq!(
+        observation.schema_version(),
+        WGPU_PAGED_KV_STATE_OBSERVATION_SCHEMA_VERSION
+    );
+    assert_eq!(observation.topology().config(), config);
+    assert_eq!(observation.kv_heads(), 2);
+    assert_eq!(observation.head_dim(), 8);
     assert_eq!(checkpoint.len(), telemetry.live_tokens);
     assert_eq!(checkpoint.generation(), telemetry.generation);
-    assert_eq!(checkpoint.branch_epoch(), cache.branch_epoch());
+    assert_eq!(checkpoint.branch_epoch(), observation.branch_epoch());
+    assert!(!observation.has_unsubmitted_recorded_writes());
     assert_eq!(telemetry.mapped_pages, 2);
     assert_eq!(telemetry.internal_fragmentation_tokens, 3);
+}
+
+#[test]
+fn same_topology_after_rewrite_has_a_different_branch_epoch() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let config = PagedKvConfig {
+        page_size: 4,
+        physical_pages: 4,
+    };
+    let mut cache = WgpuPagedKvCache::new(&harness.device, config, 1, 4).unwrap();
+    let width = cache.kv_heads() * cache.head_dim();
+
+    let initial = source_buffer(&harness.device, &harness.queue, 6, width);
+    cache
+        .append_and_submit(&harness.device, &harness.queue, &initial, &initial, 6)
+        .unwrap();
+    let before = cache.observation().unwrap();
+
+    cache.truncate(4).unwrap();
+    let replacement = source_buffer(&harness.device, &harness.queue, 2, width);
+    cache
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &replacement,
+            &replacement,
+            2,
+        )
+        .unwrap();
+    let after = cache.observation().unwrap();
+
+    assert_eq!(before.topology(), after.topology());
+    assert_eq!(before.kv_heads(), after.kv_heads());
+    assert_eq!(before.head_dim(), after.head_dim());
+    assert_eq!(
+        before.topology().telemetry().generation,
+        after.topology().telemetry().generation
+    );
+    assert_ne!(before.branch_epoch(), after.branch_epoch());
+}
+
+#[test]
+fn observation_reports_external_recording_taint_without_device_readback() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let mut cache = WgpuPagedKvCache::new(
+        &harness.device,
+        PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        },
+        1,
+        4,
+    )
+    .unwrap();
+    let source = source_buffer(&harness.device, &harness.queue, 1, 4);
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-paged-kv-observation-external"),
+        });
+
+    cache
+        .record_append(&mut encoder, &source, &source, 1)
+        .unwrap();
+    let observation = cache.observation().unwrap();
+
+    assert_eq!(observation.topology().telemetry().live_tokens, 1);
+    assert!(observation.has_unsubmitted_recorded_writes());
 }
