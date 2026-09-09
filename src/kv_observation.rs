@@ -58,6 +58,18 @@ impl PagedKvPageObservation {
     }
 }
 
+/// A residency trace is inconsistent with the observation that scopes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum KvResidencyTraceError {
+    /// Event sequence numbers must be strictly increasing.
+    NonMonotoneSequence,
+    /// An event references a page outside the observed physical capacity.
+    PhysicalPageOutOfRange,
+    /// An event belongs to a different page-table generation.
+    GenerationMismatch,
+}
+
 /// Versioned, read-only view of one paged KV table topology.
 ///
 /// The page geometry is captured explicitly so consumers never need to infer it
@@ -136,6 +148,36 @@ impl PagedKvObservation {
     #[must_use]
     pub fn pages(&self) -> &[PagedKvPageObservation] {
         &self.pages
+    }
+
+    /// Validate a policy-neutral residency trace against this observation.
+    ///
+    /// Sequence numbers must be strictly increasing, every physical page must
+    /// be inside the declared cache capacity, and every event must belong to
+    /// this observation's page-table generation. This validates metadata
+    /// consistency only; it does not establish K/V content identity or lineage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KvResidencyTraceError`] on the first inconsistent event.
+    pub fn validate_residency_trace(
+        &self,
+        events: &[KvResidencyEvent],
+    ) -> Result<(), KvResidencyTraceError> {
+        let mut previous_sequence = None;
+        for event in events {
+            if previous_sequence.is_some_and(|previous| event.sequence() <= previous) {
+                return Err(KvResidencyTraceError::NonMonotoneSequence);
+            }
+            if event.physical_page() >= self.config.physical_pages {
+                return Err(KvResidencyTraceError::PhysicalPageOutOfRange);
+            }
+            if event.generation() != self.telemetry.generation {
+                return Err(KvResidencyTraceError::GenerationMismatch);
+            }
+            previous_sequence = Some(event.sequence());
+        }
+        Ok(())
     }
 }
 
