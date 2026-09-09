@@ -209,8 +209,8 @@ fn destructive_transitions_stay_fail_closed_after_external_recording() {
     );
 
     let extra = source_buffer(&harness.device, &harness.queue, 1, 4, 11.0);
-    assert_eq!(
+    assert!(matches!(
         cache.append_and_submit(&harness.device, &harness.queue, &extra, &extra, 1),
         Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
-    );
+    ));
 }
