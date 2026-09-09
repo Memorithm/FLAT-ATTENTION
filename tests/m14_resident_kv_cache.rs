@@ -243,6 +243,64 @@ fn reset_reuses_prefix_without_copying_old_cache() {
 }
 
 #[test]
+fn truncate_rewinds_and_reuses_rows_without_touching_prefix() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let (batch, kv_heads, capacity, head_dim) = (1usize, 1usize, 4usize, 4usize);
+    let width = kv_heads * head_dim;
+    let mut cache =
+        WgpuResidentKvCache::new(&harness.device, batch, kv_heads, capacity, head_dim).unwrap();
+
+    let initial: Vec<f32> = (0..3 * width).map(|i| 10.0 + i as f32).collect();
+    let initial_gpu = source_buffer(&harness.device, &harness.queue, &initial);
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m14-truncate-seed"),
+        });
+    cache
+        .record_append(&mut encoder, &initial_gpu, &initial_gpu, 3)
+        .unwrap();
+    harness.queue.submit(Some(encoder.finish()));
+
+    cache.truncate(1).unwrap();
+    assert_eq!(cache.len(), 1);
+    assert_eq!(cache.remaining_capacity(), 3);
+    assert_eq!(
+        cache.truncate(2),
+        Err(WgpuResidentKvCacheError::TruncateOutOfBounds {
+            requested_len: 2,
+            current_len: 1,
+        })
+    );
+    assert_eq!(cache.len(), 1);
+
+    let replacement: Vec<f32> = (0..2 * width).map(|i| 100.0 + i as f32).collect();
+    let replacement_gpu = source_buffer(&harness.device, &harness.queue, &replacement);
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m14-truncate-reappend"),
+        });
+    cache
+        .record_append(&mut encoder, &replacement_gpu, &replacement_gpu, 2)
+        .unwrap();
+    harness.queue.submit(Some(encoder.finish()));
+    assert_eq!(cache.len(), 3);
+
+    let actual = read_f32(
+        &harness.device,
+        &harness.queue,
+        cache.k_buffer(),
+        batch * capacity * width,
+    );
+    assert_eq!(row(&actual, 0, width), row(&initial, 0, width));
+    assert_eq!(row(&actual, 1, width), row(&replacement, 0, width));
+    assert_eq!(row(&actual, 2, width), row(&replacement, 1, width));
+}
+
+#[test]
 fn append_rejects_capacity_overflow_and_short_sources() {
     let Some(harness) = harness() else {
         return;
