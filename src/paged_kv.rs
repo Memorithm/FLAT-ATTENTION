@@ -277,6 +277,15 @@ pub use wgpu_paged_kv_observation::{
     WgpuPagedKvStateObservation, WGPU_PAGED_KV_STATE_OBSERVATION_SCHEMA_VERSION,
 };
 
+#[cfg(feature = "wgpu")]
+#[path = "wgpu_paged_chunked_prefill.rs"]
+mod wgpu_paged_chunked_prefill;
+#[cfg(feature = "wgpu")]
+pub use wgpu_paged_chunked_prefill::{
+    PagedChunkedPrefillError, PagedChunkedPrefillLayout, PagedChunkedPrefillPass,
+    WgpuPagedChunkedPrefillPipeline,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
