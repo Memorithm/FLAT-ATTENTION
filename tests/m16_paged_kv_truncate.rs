@@ -372,12 +372,7 @@ fn paged_decode_after_truncate_uses_only_rewritten_live_tail() {
             label: Some("flat-m16-paged-kv-truncate-decode-seed"),
         });
     cache
-        .record_append(
-            &mut encoder,
-            &initial_k_gpu,
-            &initial_v_gpu,
-            initial_len,
-        )
+        .record_append(&mut encoder, &initial_k_gpu, &initial_v_gpu, initial_len)
         .unwrap();
     harness.queue.submit(Some(encoder.finish()));
 
