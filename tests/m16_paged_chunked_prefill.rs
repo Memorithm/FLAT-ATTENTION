@@ -8,7 +8,7 @@ use flat_attention::paged_kv::{
 };
 use flat_attention::{
     forward_reference_projection_grouped_rope, FlatAttentionConfig, GroupedAttentionShape,
-    RotaryEmbeddingConfig,
+    PagedDecodeError, RotaryEmbeddingConfig,
 };
 
 const ATOL: f32 = 2.0e-4;
@@ -423,4 +423,130 @@ fn paged_chunked_prefill_rejects_cache_with_unsubmitted_recorded_writes() {
     ));
 
     drop(append_encoder);
+}
+
+#[test]
+fn paged_chunked_prefill_layout_rejects_odd_rotary_head_dim() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let head_dim = 31usize;
+    let k_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &fixture(head_dim, 0.8),
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let v_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &fixture(head_dim, 1.4),
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let mut cache = WgpuPagedKvCache::new(
+        &harness.device,
+        PagedKvConfig {
+            page_size: 1,
+            physical_pages: 1,
+        },
+        1,
+        head_dim,
+    )
+    .unwrap();
+    cache
+        .append_and_submit(&harness.device, &harness.queue, &k_gpu, &v_gpu, 1)
+        .unwrap();
+
+    let error = WgpuPagedChunkedPrefillPipeline::layout(&cache, 2)
+        .expect_err("odd rotary head dimensions must be rejected by layout");
+    assert!(matches!(
+        error,
+        PagedChunkedPrefillError::Decode(PagedDecodeError::Core(
+            flat_attention::FlatAttentionError::InvalidRotaryHeadDim { head_dim: 31 }
+        ))
+    ));
+}
+
+#[test]
+fn paged_chunked_prefill_preflights_rope_u32_range_before_recording() {
+    if usize::BITS <= 32 {
+        return;
+    }
+    let Some(harness) = harness() else {
+        return;
+    };
+    let q_heads = 2usize;
+    let kv_heads = 1usize;
+    let seq_len = 2usize;
+    let head_dim = 32usize;
+    let q = fixture(seq_len * q_heads * head_dim, 0.2);
+    let k = fixture(seq_len * kv_heads * head_dim, 0.8);
+    let v = fixture(seq_len * kv_heads * head_dim, 1.4);
+    let q_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &q,
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let k_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &k,
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let v_gpu = input_buffer(
+        &harness.device,
+        &harness.queue,
+        &v,
+        wgpu::BufferUsages::COPY_SRC,
+    );
+    let mut cache = WgpuPagedKvCache::new(
+        &harness.device,
+        PagedKvConfig {
+            page_size: 1,
+            physical_pages: 2,
+        },
+        kv_heads,
+        head_dim,
+    )
+    .unwrap();
+    cache
+        .append_and_submit(&harness.device, &harness.queue, &k_gpu, &v_gpu, seq_len)
+        .unwrap();
+
+    let pipeline = WgpuPagedChunkedPrefillPipeline::new(&harness.device).unwrap();
+    let output = pipeline
+        .create_output_buffer(&harness.device, &cache, q_heads)
+        .unwrap();
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-paged-chunked-prefill-u32-preflight"),
+        });
+    let error = pipeline
+        .encode(
+            &harness.device,
+            &mut encoder,
+            PagedChunkedPrefillPass {
+                q: &q_gpu,
+                cache: &cache,
+                out_and_lse: &output,
+                q_heads,
+                config: FlatAttentionConfig {
+                    causal: true,
+                    softmax_scale: None,
+                },
+                theta: 10_000.0,
+                query_position_offset: u32::MAX as usize,
+                query_chunk_size: 2,
+            },
+        )
+        .expect_err("RoPE positions outside the shader u32 domain must fail in preflight");
+    assert!(matches!(
+        error,
+        PagedChunkedPrefillError::Decode(PagedDecodeError::IndexSpaceExceeded { elements })
+            if elements == u32::MAX as usize + 1
+    ));
+
+    harness.queue.submit(Some(encoder.finish()));
 }
