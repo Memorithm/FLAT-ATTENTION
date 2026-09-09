@@ -57,6 +57,12 @@ jobs:
           toolchain: 1.89.0
       - name: Install software Vulkan device
         run: |
+          # GitHub-hosted images carry third-party apt sources unrelated to this
+          # job. Chrome has appeared as both legacy .list and deb822 .sources
+          # files across runner image revisions; neither is needed for Mesa.
+          sudo rm -f \
+            /etc/apt/sources.list.d/google-chrome.list \
+            /etc/apt/sources.list.d/google-chrome.sources
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
       # The full workspace matrix on a real (software) Vulkan device; GPU tests
