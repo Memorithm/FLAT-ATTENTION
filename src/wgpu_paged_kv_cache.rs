@@ -45,6 +45,11 @@ impl WgpuPagedKvCheckpoint {
     }
 
     #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[must_use]
     pub fn generation(&self) -> u64 {
         self.generation
     }
@@ -491,7 +496,8 @@ where
     let a = a
         .try_into()
         .map_err(|_| WgpuPagedKvCacheError::ShapeOverflow)?;
-    a.checked_mul(b).ok_or(WgpuPagedKvCacheError::ShapeOverflow)
+    a.checked_mul(b)
+        .ok_or(WgpuPagedKvCacheError::ShapeOverflow)
 }
 
 fn bytes_for_f32(elements: usize) -> Result<u64, WgpuPagedKvCacheError> {
