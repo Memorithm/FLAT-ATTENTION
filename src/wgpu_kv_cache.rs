@@ -11,8 +11,9 @@
 //! K/V: [batch, capacity, kv_heads * head_dim]
 //! ```
 //!
-//! Only rows `[0, len)` are logically live. Resetting the cache changes metadata
-//! only; subsequent appends overwrite reused rows before they become live again.
+//! Only rows `[0, len)` are logically live. Resetting or truncating the cache
+//! changes metadata only; subsequent appends overwrite reused rows before they
+//! become live again.
 
 use core::fmt;
 
@@ -26,6 +27,10 @@ pub enum WgpuResidentKvCacheError {
         current_len: usize,
         append_len: usize,
         capacity: usize,
+    },
+    TruncateOutOfBounds {
+        requested_len: usize,
+        current_len: usize,
     },
     BufferTooSmall {
         tensor: &'static str,
@@ -54,6 +59,13 @@ impl fmt::Display for WgpuResidentKvCacheError {
             } => write!(
                 f,
                 "resident KV cache append {append_len} at length {current_len} exceeds capacity {capacity}"
+            ),
+            Self::TruncateOutOfBounds {
+                requested_len,
+                current_len,
+            } => write!(
+                f,
+                "resident KV cache truncate target {requested_len} exceeds current length {current_len}"
             ),
             Self::BufferTooSmall {
                 tensor,
@@ -208,6 +220,23 @@ impl WgpuResidentKvCache {
     /// `[0, len)` and therefore must not be read by a conforming decode path.
     pub fn reset(&mut self) {
         self.len = 0;
+    }
+
+    /// Rewind the logical cache length without recording GPU work.
+    ///
+    /// The prefix `[0, new_len)` remains resident in place. Rows in
+    /// `[new_len, old_len)` become non-live and are overwritten by future
+    /// appends before becoming live again. This operation never grows the cache;
+    /// an out-of-bounds target fails without mutating the logical length.
+    pub fn truncate(&mut self, new_len: usize) -> Result<(), WgpuResidentKvCacheError> {
+        if new_len > self.len {
+            return Err(WgpuResidentKvCacheError::TruncateOutOfBounds {
+                requested_len: new_len,
+                current_len: self.len,
+            });
+        }
+        self.len = new_len;
+        Ok(())
     }
 
     /// Record an append from resident sequence-major projected K/V buffers.
