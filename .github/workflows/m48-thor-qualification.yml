@@ -138,25 +138,27 @@ jobs:
             nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader 2>/dev/null
           }
 
-          deadline=$((SECONDS + 3600))
           settled=0
           while (( settled < 10#$SCIRUST_THOR_IDLE_SETTLE_SECONDS )); do
             training="$(pgrep -af '[c]uda_pretrain' || true)"
             active="$(compute_processes)"
             if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
-              echo "Thor busy; restarting M48 idle window."
-              [[ -z "${training//[[:space:]]/}" ]] || printf '%s\n' "$training"
-              [[ -z "${active//[[:space:]]/}" ]] || printf '%s\n' "$active"
-              settled=0
-            else
-              settled=$((settled + 5))
-              if (( settled == 5 || settled % 60 == 0 )); then
-                echo "Thor continuously idle: ${settled}/${SCIRUST_THOR_IDLE_SETTLE_SECONDS}s"
-              fi
+              echo "::notice::M48 physical qualification deferred because Thor is already busy; no benchmark was executed and no performance claim is accepted"
+              {
+                echo "### M48 physical Thor qualification deferred"
+                echo
+                echo "The runner and exact source revision were validated and the M48 benchmark binary built successfully, but the GPU was already occupied before measurement."
+                echo "No benchmark was executed and no performance claim is accepted from this run."
+                [[ -z "${training//[[:space:]]/}" ]] || { echo; echo 'Training processes:'; echo '```'; printf '%s\n' "$training"; echo '```'; }
+                [[ -z "${active//[[:space:]]/}" ]] || { echo; echo 'GPU compute processes:'; echo '```'; printf '%s\n' "$active"; echo '```'; }
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "qualification_status=deferred_gpu_busy"
+              echo "performance_claim=none"
+              exit 0
             fi
-            if (( SECONDS >= deadline )); then
-              echo "::error::Thor never reached the required M48 idle window"
-              exit 1
+            settled=$((settled + 5))
+            if (( settled == 5 || settled % 60 == 0 )); then
+              echo "Thor continuously idle: ${settled}/${SCIRUST_THOR_IDLE_SETTLE_SECONDS}s"
             fi
             sleep 5
           done
