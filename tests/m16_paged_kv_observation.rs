@@ -35,7 +35,12 @@ fn harness() -> Option<DeviceHarness> {
     Some(DeviceHarness { device, queue })
 }
 
-fn source_buffer(device: &wgpu::Device, queue: &wgpu::Queue, rows: usize, width: usize) -> wgpu::Buffer {
+fn source_buffer(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    rows: usize,
+    width: usize,
+) -> wgpu::Buffer {
     let values = vec![0.0_f32; rows * width];
     let mut bytes = Vec::with_capacity(values.len() * core::mem::size_of::<f32>());
     for value in values {
@@ -70,13 +75,7 @@ fn checkpoint_and_page_telemetry_bind_the_same_logical_state() {
     let width = cache.kv_heads() * cache.head_dim();
     let source = source_buffer(&harness.device, &harness.queue, 5, width);
     let (new_len, _) = cache
-        .append_and_submit(
-            &harness.device,
-            &harness.queue,
-            &source,
-            &source,
-            5,
-        )
+        .append_and_submit(&harness.device, &harness.queue, &source, &source, 5)
         .unwrap();
     assert_eq!(new_len, 5);
 
