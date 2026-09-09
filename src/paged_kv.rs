@@ -269,6 +269,14 @@ mod wgpu_paged_kv_cache;
 #[cfg(feature = "wgpu")]
 pub use wgpu_paged_kv_cache::{WgpuPagedKvCache, WgpuPagedKvCacheError, WgpuPagedKvCheckpoint};
 
+#[cfg(feature = "wgpu")]
+#[path = "wgpu_paged_kv_observation.rs"]
+mod wgpu_paged_kv_observation;
+#[cfg(feature = "wgpu")]
+pub use wgpu_paged_kv_observation::{
+    WgpuPagedKvStateObservation, WGPU_PAGED_KV_STATE_OBSERVATION_SCHEMA_VERSION,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
