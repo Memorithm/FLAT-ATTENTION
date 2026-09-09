@@ -50,7 +50,10 @@ pub struct PagedKvTelemetry {
 pub enum PagedKvError {
     ZeroDimension,
     CapacityOverflow,
-    CapacityExceeded { requested: usize, capacity: usize },
+    CapacityExceeded {
+        requested: usize,
+        capacity: usize,
+    },
     TruncateOutOfBounds {
         requested_len: usize,
         current_len: usize,
