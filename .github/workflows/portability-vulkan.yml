@@ -33,10 +33,11 @@ jobs:
           toolchain: 1.89.0
       - name: Install Mesa Vulkan
         run: |
-          # This qualification needs Ubuntu's Mesa packages only. Ignore an
-          # unrelated preinstalled Chrome apt source so its transient index
-          # publication cannot suppress the mandatory Vulkan parity gate.
-          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+          # This qualification needs Ubuntu's Mesa packages only. Chrome has
+          # appeared in both apt source formats across hosted runner revisions.
+          sudo rm -f \
+            /etc/apt/sources.list.d/google-chrome.list \
+            /etc/apt/sources.list.d/google-chrome.sources
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
       - name: Report Vulkan adapter
