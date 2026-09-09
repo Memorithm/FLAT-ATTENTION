@@ -102,12 +102,7 @@ fn trace_rejects_events_from_a_stale_generation() {
     table.reset().unwrap();
     table.append(1).unwrap();
     let observation = PagedKvObservation::capture(&table).unwrap();
-    let event = KvResidencyEvent::new(
-        1,
-        0,
-        stale_generation,
-        KvResidencyEventKind::Promote,
-    );
+    let event = KvResidencyEvent::new(1, 0, stale_generation, KvResidencyEventKind::Promote);
 
     assert_eq!(
         validate_trace(&observation, &[event]),
