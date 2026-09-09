@@ -1,5 +1,12 @@
 use core::fmt;
 
+#[path = "kv_observation.rs"]
+pub mod observation;
+pub use observation::{
+    KvResidencyEvent, KvResidencyEventKind, PagedKvObservation, PagedKvPageObservation,
+    PAGED_KV_OBSERVATION_SCHEMA_VERSION,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedKvConfig {
     /// Tokens per physical page (>= 1).
