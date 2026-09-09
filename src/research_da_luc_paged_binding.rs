@@ -95,6 +95,7 @@ pub enum DalucPagedTierBindingError {
     AssignmentPageMismatch {
         logical_page: usize,
     },
+    AllocationFailure,
 }
 
 impl fmt::Display for DalucPagedTierBindingError {
@@ -165,6 +166,10 @@ impl fmt::Display for DalucPagedTierBindingError {
             Self::AssignmentPageMismatch { logical_page } => write!(
                 formatter,
                 "FDAL6 plan bounds do not match observed logical page {logical_page}"
+            ),
+            Self::AllocationFailure => write!(
+                formatter,
+                "FDAL6 could not allocate the paged tier binding assignment vector"
             ),
         }
     }
@@ -258,9 +263,7 @@ pub fn bind_paged_tier_plan(
     else {
         return Err(DalucPagedTierBindingError::ExpectedPagedTopology);
     };
-    if contract_page_size != config.page_size
-        || contract_physical_pages != config.physical_pages
-    {
+    if contract_page_size != config.page_size || contract_physical_pages != config.physical_pages {
         return Err(DalucPagedTierBindingError::PageGeometryMismatch {
             contract_page_size,
             observation_page_size: config.page_size,
@@ -286,10 +289,7 @@ pub fn bind_paged_tier_plan(
     let mut assignments = Vec::new();
     assignments
         .try_reserve_exact(pages.len())
-        .map_err(|_| DalucPagedTierBindingError::AssignmentCountMismatch {
-            plan: plan.assignments.len(),
-            observation: pages.len(),
-        })?;
+        .map_err(|_| DalucPagedTierBindingError::AllocationFailure)?;
 
     for (page, assignment) in pages.iter().copied().zip(&plan.assignments) {
         if assignment.segment_index != page.logical_page()
