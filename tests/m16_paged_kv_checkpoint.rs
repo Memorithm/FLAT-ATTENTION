@@ -59,12 +59,7 @@ fn source_buffer(
     buffer
 }
 
-fn append(
-    harness: &DeviceHarness,
-    cache: &mut WgpuPagedKvCache,
-    rows: usize,
-    phase: f32,
-) {
+fn append(harness: &DeviceHarness, cache: &mut WgpuPagedKvCache, rows: usize, phase: f32) {
     let width = cache.kv_heads() * cache.head_dim();
     let source = source_buffer(&harness.device, &harness.queue, rows, width, phase);
     let mut encoder = harness
