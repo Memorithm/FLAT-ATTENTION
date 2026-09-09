@@ -360,9 +360,9 @@ fn validate_geometry(
         .into());
     }
     if cache.head_dim() == 0 || cache.head_dim() % 2 != 0 {
-        return Err(FlatAttentionError::InvalidRotaryHeadDim {
+        return Err(PagedDecodeError::Core(FlatAttentionError::InvalidRotaryHeadDim {
             head_dim: cache.head_dim(),
-        }
+        })
         .into());
     }
     if cache.head_dim() > WGSL_MAX_HEAD_DIM {
