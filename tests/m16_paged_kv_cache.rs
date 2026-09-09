@@ -181,15 +181,15 @@ fn append_crosses_pages_without_rewriting_prefix_and_reset_reuses_generation() {
         &first_v,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-first-append"),
-        });
     cache
-        .record_append(&mut encoder, &first_k_gpu, &first_v_gpu, 2)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &first_k_gpu,
+            &first_v_gpu,
+            2,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
 
     let second_k = fixture(4 * width, 1.2);
     let second_v = fixture(4 * width, 1.7);
@@ -205,18 +205,19 @@ fn append_crosses_pages_without_rewriting_prefix_and_reset_reuses_generation() {
         &second_v,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-second-append"),
-        });
     cache
-        .record_append(&mut encoder, &second_k_gpu, &second_v_gpu, 4)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &second_k_gpu,
+            &second_v_gpu,
+            4,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
     let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
 
     assert_eq!(cache.len(), 6);
+    assert!(!cache.has_unsubmitted_recorded_writes());
     assert_eq!(cache.table().telemetry().unwrap().mapped_pages, 2);
     let physical = read_f32(
         &harness.device,
@@ -251,15 +252,15 @@ fn append_crosses_pages_without_rewriting_prefix_and_reset_reuses_generation() {
         &replacement,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-reuse"),
-        });
     cache
-        .record_append(&mut encoder, &replacement_gpu, &replacement_gpu, 1)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &replacement_gpu,
+            &replacement_gpu,
+            1,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
     let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
     let address = cache.table().address(0).unwrap();
     assert_eq!(address.physical_page, 0);

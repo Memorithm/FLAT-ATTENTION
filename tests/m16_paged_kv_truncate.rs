@@ -174,16 +174,17 @@ fn paged_truncate_releases_tail_pages_and_reappend_overwrites_tail() {
         &initial,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-truncate-seed"),
-        });
     cache
-        .record_append(&mut encoder, &initial_gpu, &initial_gpu, 5)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &initial_gpu,
+            &initial_gpu,
+            5,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
     assert_eq!(cache.len(), 5);
+    assert!(!cache.has_unsubmitted_recorded_writes());
     assert_eq!(cache.table().telemetry().unwrap().mapped_pages, 3);
 
     let generation = cache.generation();
@@ -212,15 +213,15 @@ fn paged_truncate_releases_tail_pages_and_reappend_overwrites_tail() {
         &replacement,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-truncate-reappend"),
-        });
     cache
-        .record_append(&mut encoder, &replacement_gpu, &replacement_gpu, 2)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &replacement_gpu,
+            &replacement_gpu,
+            2,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
     let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
 
     assert_eq!(cache.len(), 5);
@@ -366,15 +367,15 @@ fn paged_decode_after_truncate_uses_only_rewritten_live_tail() {
         &initial_v,
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-truncate-decode-seed"),
-        });
     cache
-        .record_append(&mut encoder, &initial_k_gpu, &initial_v_gpu, initial_len)
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &initial_k_gpu,
+            &initial_v_gpu,
+            initial_len,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
 
     cache.truncate(truncate_len).unwrap();
     let replacement_k_gpu = input_buffer(
@@ -389,20 +390,15 @@ fn paged_decode_after_truncate_uses_only_rewritten_live_tail() {
         &final_v[truncate_len * width..],
         wgpu::BufferUsages::COPY_SRC,
     );
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-truncate-decode-reappend"),
-        });
     cache
-        .record_append(
-            &mut encoder,
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
             &replacement_k_gpu,
             &replacement_v_gpu,
             replacement_len,
         )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
     assert_eq!(cache.len(), final_len);
 
     let page_table = WgpuPagedKvTable::from_table(cache.table()).unwrap();
