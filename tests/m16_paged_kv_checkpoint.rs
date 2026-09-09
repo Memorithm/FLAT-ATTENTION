@@ -63,13 +63,7 @@ fn append(harness: &DeviceHarness, cache: &mut WgpuPagedKvCache, rows: usize, ph
     let width = cache.kv_heads() * cache.head_dim();
     let source = source_buffer(&harness.device, &harness.queue, rows, width, phase);
     let (new_len, _submission) = cache
-        .append_and_submit(
-            &harness.device,
-            &harness.queue,
-            &source,
-            &source,
-            rows,
-        )
+        .append_and_submit(&harness.device, &harness.queue, &source, &source, rows)
         .unwrap();
     assert_eq!(new_len, cache.len());
     assert!(!cache.has_unsubmitted_recorded_writes());
