@@ -47,7 +47,12 @@ fn harness() -> Option<DeviceHarness> {
     Some(DeviceHarness { device, queue })
 }
 
-fn source_buffer(device: &wgpu::Device, rows: usize, kv_heads: usize, head_dim: usize) -> wgpu::Buffer {
+fn source_buffer(
+    device: &wgpu::Device,
+    rows: usize,
+    kv_heads: usize,
+    head_dim: usize,
+) -> wgpu::Buffer {
     let bytes = rows
         .checked_mul(kv_heads)
         .and_then(|value| value.checked_mul(head_dim))
@@ -80,7 +85,12 @@ fn seeded_cache(harness: &DeviceHarness, kv_len: usize) -> WgpuPagedKvCache {
     cache
 }
 
-fn contract(kv_len: usize, kv_heads: usize, page_size: usize, physical_pages: usize) -> DalucKvViewContract {
+fn contract(
+    kv_len: usize,
+    kv_heads: usize,
+    page_size: usize,
+    physical_pages: usize,
+) -> DalucKvViewContract {
     DalucKvViewContract {
         schema_version: DA_LUC_KV_VIEW_SCHEMA_VERSION,
         shape: DalucLogicalKvShape {
@@ -156,7 +166,10 @@ fn binds_logical_tiers_to_observed_physical_pages_without_payload_io() {
 
     let binding = bind_paged_tier_plan(&observation, contract, &tiers, &plan).unwrap();
     assert_eq!(binding.binding_version, DA_LUC_PAGED_TIER_BINDING_VERSION);
-    assert_eq!(binding.observation_schema_version, observation.schema_version());
+    assert_eq!(
+        binding.observation_schema_version,
+        observation.schema_version()
+    );
     assert_eq!(binding.kv_len, 10);
     assert_eq!(binding.page_size, 4);
     assert_eq!(binding.physical_pages, 4);
