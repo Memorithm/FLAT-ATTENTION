@@ -325,10 +325,7 @@ impl WgpuPagedKvCache {
     /// at or before `submission`, and no such older command buffer may remain
     /// submit-able afterward. Violating this contract can let a late submission
     /// overwrite rows/pages that a later truncate, reset, or restore has reused.
-    pub unsafe fn acknowledge_submission_unchecked(
-        &mut self,
-        _submission: wgpu::SubmissionIndex,
-    ) {
+    pub unsafe fn acknowledge_submission_unchecked(&mut self, _submission: wgpu::SubmissionIndex) {
         self.unsubmitted_recorded_writes = false;
     }
 
