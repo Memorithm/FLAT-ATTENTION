@@ -198,6 +198,17 @@ impl WgpuPagedKvCache {
         Ok(())
     }
 
+    /// Rewind the live paged cache without recording GPU work.
+    ///
+    /// The surviving prefix keeps its physical mappings and generation. Tail
+    /// pages released by the table become available for deterministic reuse by
+    /// subsequent appends. Physical K/V bytes are neither cleared nor copied;
+    /// bytes outside the new logical length are non-live until overwritten.
+    pub fn truncate(&mut self, new_len: usize) -> Result<(), WgpuPagedKvCacheError> {
+        self.table.truncate(new_len)?;
+        Ok(())
+    }
+
     /// Record an append from contiguous sequence-major projected K/V rows.
     ///
     /// Source layout is `[append_len, kv_heads * head_dim]`. K must already be
@@ -309,7 +320,8 @@ where
     let a = a
         .try_into()
         .map_err(|_| WgpuPagedKvCacheError::ShapeOverflow)?;
-    a.checked_mul(b).ok_or(WgpuPagedKvCacheError::ShapeOverflow)
+    a.checked_mul(b)
+        .ok_or(WgpuPagedKvCacheError::ShapeOverflow)
 }
 
 fn bytes_for_f32(elements: usize) -> Result<u64, WgpuPagedKvCacheError> {
