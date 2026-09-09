@@ -6,7 +6,8 @@
 //! page locations. Existing live K/V rows are never compacted or recopied.
 //!
 //! This type records device-to-device copies only. It never maps, polls,
-//! submits, synchronizes, or performs a host round-trip.
+//! submits, synchronizes, or performs a host round-trip unless the caller uses
+//! [`WgpuPagedKvCache::append_and_submit`], the managed convenience path.
 
 use core::fmt;
 use std::sync::Arc;
@@ -129,7 +130,7 @@ impl fmt::Display for WgpuPagedKvCacheError {
             ),
             Self::UnsubmittedRecordedWrites => write!(
                 f,
-                "paged resident KV restore is blocked by recorded GPU writes that have not been acknowledged as submitted"
+                "destructive paged resident KV transition is blocked by recorded GPU writes that have not crossed an acknowledged queue-submission boundary"
             ),
             Self::CheckpointGenerationMismatch {
                 checkpoint_generation,
@@ -289,7 +290,7 @@ impl WgpuPagedKvCache {
     }
 
     /// Whether at least one append copy has been recorded since the caller last
-    /// acknowledged submission of every command buffer containing those writes.
+    /// established a queue-submission boundary for every outstanding write.
     #[must_use]
     pub fn has_unsubmitted_recorded_writes(&self) -> bool {
         self.unsubmitted_recorded_writes
@@ -310,17 +311,24 @@ impl WgpuPagedKvCache {
         &self.table
     }
 
-    /// Acknowledge that all command buffers containing previously recorded
-    /// append writes have been submitted to the cache's queue.
+    /// Acknowledge an externally managed queue-submission boundary.
     ///
-    /// `submission` must be the [`wgpu::SubmissionIndex`] returned by the
-    /// `wgpu::Queue::submit` call that consumed every outstanding command buffer
-    /// containing writes recorded by this cache. The index is intentionally
-    /// required so a restore cannot be enabled accidentally without crossing a
-    /// real queue-submission boundary. WGPU does not expose enough provenance to
-    /// verify the command-buffer contents here, so callers must preserve that
-    /// ordering contract.
-    pub fn acknowledge_submission(&mut self, _submission: wgpu::SubmissionIndex) {
+    /// Prefer [`Self::append_and_submit`] when batching into a caller-owned
+    /// encoder is not required. This unchecked escape hatch exists for advanced
+    /// batching because WGPU does not expose command-buffer provenance that
+    /// would let this cache verify which recorded writes a submission contains.
+    ///
+    /// # Safety
+    ///
+    /// Every command buffer that can still write K/V commands previously
+    /// recorded by this cache must already have been submitted to the same queue
+    /// at or before `submission`, and no such older command buffer may remain
+    /// submit-able afterward. Violating this contract can let a late submission
+    /// overwrite rows/pages that a later truncate, reset, or restore has reused.
+    pub unsafe fn acknowledge_submission_unchecked(
+        &mut self,
+        _submission: wgpu::SubmissionIndex,
+    ) {
         self.unsubmitted_recorded_writes = false;
     }
 
@@ -345,17 +353,15 @@ impl WgpuPagedKvCache {
     ///
     /// This is not a physical snapshot restore. It succeeds only when the
     /// checkpoint belongs to this cache, its generation and branch epoch are
-    /// unchanged, its captured prefix is still live, and every previously
-    /// recorded append command has crossed an acknowledged queue-submission
-    /// boundary. A successful shrink advances the branch epoch, intentionally
-    /// making the consumed checkpoint and all peers from the old branch stale.
+    /// unchanged, and its captured prefix is still live. Any restore that would
+    /// shrink the cache also requires all previously recorded append writes to
+    /// have crossed a queue-submission boundary. A successful shrink advances
+    /// the branch epoch, intentionally making the consumed checkpoint and all
+    /// peers from the old branch stale.
     pub fn restore(
         &mut self,
         checkpoint: &WgpuPagedKvCheckpoint,
     ) -> Result<(), WgpuPagedKvCacheError> {
-        if self.unsubmitted_recorded_writes {
-            return Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites);
-        }
         if !Arc::ptr_eq(&self.checkpoint_origin, &checkpoint.origin) {
             return Err(WgpuPagedKvCacheError::ForeignCheckpoint);
         }
@@ -391,7 +397,14 @@ impl WgpuPagedKvCache {
     /// Logical reset only. Physical bytes remain resident but the generation is
     /// invalidated before pages are deterministically reused. Reset starts a new
     /// checkpoint branch at epoch zero.
+    ///
+    /// Reset fails closed while externally recorded append writes remain
+    /// unsubmitted, because those commands could otherwise be submitted after
+    /// page reuse and overwrite the new generation.
     pub fn reset(&mut self) -> Result<(), WgpuPagedKvCacheError> {
+        if self.unsubmitted_recorded_writes {
+            return Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites);
+        }
         self.table.reset()?;
         self.branch_epoch = 0;
         Ok(())
@@ -405,11 +418,17 @@ impl WgpuPagedKvCache {
     /// bytes outside the new logical length are non-live until overwritten.
     /// A successful shrink advances the branch epoch so checkpoints from the
     /// pre-truncate lineage cannot be restored after page reuse.
+    ///
+    /// Shrinks fail closed while externally recorded append writes remain
+    /// unsubmitted. A no-op truncate to the current length is still permitted.
     pub fn truncate(&mut self, new_len: usize) -> Result<(), WgpuPagedKvCacheError> {
         let current_len = self.len();
         if new_len >= current_len {
             self.table.truncate(new_len)?;
             return Ok(());
+        }
+        if self.unsubmitted_recorded_writes {
+            return Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites);
         }
         let next_branch_epoch = self
             .branch_epoch
@@ -420,6 +439,46 @@ impl WgpuPagedKvCache {
         Ok(())
     }
 
+    /// Record and submit one append using an encoder owned by the cache call.
+    ///
+    /// This is the safe convenience path when caller-side command batching is
+    /// unnecessary. The method owns the encoder from creation through
+    /// [`wgpu::Queue::submit`], so no abandoned append command buffer can remain
+    /// submit-able after the method returns. Queue submission establishes the
+    /// ordering boundary; this method does not wait for GPU completion.
+    ///
+    /// If an externally managed append is already pending, this method fails
+    /// closed instead of accidentally acknowledging that older encoder.
+    pub fn append_and_submit(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        k_source: &wgpu::Buffer,
+        v_source: &wgpu::Buffer,
+        append_len: usize,
+    ) -> Result<(usize, wgpu::SubmissionIndex), WgpuPagedKvCacheError> {
+        if self.unsubmitted_recorded_writes {
+            return Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites);
+        }
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-paged-kv-managed-append"),
+        });
+        let new_len = match self.record_append(&mut encoder, k_source, v_source, append_len) {
+            Ok(new_len) => new_len,
+            Err(error) => {
+                // The encoder is owned by this method and is dropped without
+                // submission on error, so no stale write can escape.
+                self.unsubmitted_recorded_writes = false;
+                return Err(error);
+            }
+        };
+
+        let submission = queue.submit(Some(encoder.finish()));
+        self.unsubmitted_recorded_writes = false;
+        Ok((new_len, submission))
+    }
+
     /// Record an append from contiguous sequence-major projected K/V rows.
     ///
     /// Source layout is `[append_len, kv_heads * head_dim]`. K must already be
@@ -428,11 +487,11 @@ impl WgpuPagedKvCache {
     /// have been recorded successfully. Appends preserve the current branch
     /// epoch, so checkpoints remain valid while their captured prefix is intact.
     ///
-    /// Recording marks the cache as having unsubmitted GPU writes. Before
-    /// calling [`Self::restore`], the caller must submit every command buffer
-    /// containing those writes and pass the returned submission index to
-    /// [`Self::acknowledge_submission`]. This prevents a late-submitted abandoned
-    /// encoder from overwriting a replacement suffix after rollback.
+    /// This is the advanced batching path. Recording marks the cache as having
+    /// unsubmitted GPU writes. Before any destructive truncate, reset, or
+    /// restore, the caller must submit every command buffer containing those
+    /// writes and call [`Self::acknowledge_submission_unchecked`] under its
+    /// documented safety contract. Prefer [`Self::append_and_submit`] otherwise.
     pub fn record_append(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -454,7 +513,7 @@ impl WgpuPagedKvCache {
 
         // From this point onward an error may leave copy commands recorded in
         // the caller-owned encoder. Stay fail-closed until the caller proves a
-        // queue-submission boundary via `acknowledge_submission`.
+        // queue-submission boundary via `acknowledge_submission_unchecked`.
         self.unsubmitted_recorded_writes = true;
 
         let mut logical = old_len;
