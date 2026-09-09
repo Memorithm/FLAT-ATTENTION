@@ -53,7 +53,28 @@ jobs:
           actual="$(git rev-parse HEAD)"
           echo "source_revision=$actual"
           test "$actual" = "$FLAT_SOURCE_REVISION"
-          rustup toolchain list | grep -E '1\.89\.0|nightly-2026-07-02' >/dev/null
+          for tool in cargo rustc; do
+            command -v "$tool" >/dev/null || {
+              echo "::error::M53 requires $tool on PATH; refusing runner without an active Rust toolchain"
+              exit 1
+            }
+          done
+          rustc_version="$(rustc --version)"
+          cargo_version="$(cargo --version)"
+          rustc_release="$(rustc --version --verbose | sed -n 's/^release: //p')"
+          rustc_base="${rustc_release%%-*}"
+          echo "rustc=$rustc_version"
+          echo "cargo=$cargo_version"
+          if [[ ! "$rustc_base" =~ ^([0-9]+)\.([0-9]+)(\.[0-9]+)?$ ]]; then
+            echo "::error::unable to parse active rustc release: $rustc_release"
+            exit 1
+          fi
+          rust_major="${BASH_REMATCH[1]}"
+          rust_minor="${BASH_REMATCH[2]}"
+          if (( 10#$rust_major < 1 || (10#$rust_major == 1 && 10#$rust_minor < 89) )); then
+            echo "::error::M53 requires active rustc >= 1.89; found $rustc_release"
+            exit 1
+          fi
 
       - name: Prepare isolated build directories
         shell: bash
