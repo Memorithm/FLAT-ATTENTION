@@ -3,8 +3,8 @@
 use std::sync::mpsc;
 
 use flat_attention::paged_kv::{
-    PagedChunkedPrefillError, PagedChunkedPrefillPass, PagedKvConfig, WgpuPagedChunkedPrefillPipeline,
-    WgpuPagedKvCache,
+    PagedChunkedPrefillError, PagedChunkedPrefillPass, PagedKvConfig,
+    WgpuPagedChunkedPrefillPipeline, WgpuPagedKvCache,
 };
 use flat_attention::{
     forward_reference_projection_grouped_rope, FlatAttentionConfig, GroupedAttentionShape,
@@ -32,7 +32,9 @@ fn harness() -> Option<DeviceHarness> {
     }));
     let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
-            panic!("M16 paged chunked prefill requires a WGPU adapter in the mandatory device gate");
+            panic!(
+                "M16 paged chunked prefill requires a WGPU adapter in the mandatory device gate"
+            );
         }
         eprintln!("WGPU adapter unavailable; optional M16 paged chunked-prefill test skipped");
         return None;
@@ -191,14 +193,8 @@ fn run_case(
     };
     let expected =
         forward_reference_projection_grouped_rope(&q, &raw_k, &v, shape, config, rotary).unwrap();
-    let rotated_k = rotate_k_projection(
-        &raw_k,
-        seq_len,
-        kv_heads,
-        head_dim,
-        theta,
-        position_offset,
-    );
+    let rotated_k =
+        rotate_k_projection(&raw_k, seq_len, kv_heads, head_dim, theta, position_offset);
 
     let q_gpu = input_buffer(
         &harness.device,
