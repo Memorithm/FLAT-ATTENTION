@@ -62,15 +62,17 @@ fn source_buffer(
 fn append(harness: &DeviceHarness, cache: &mut WgpuPagedKvCache, rows: usize, phase: f32) {
     let width = cache.kv_heads() * cache.head_dim();
     let source = source_buffer(&harness.device, &harness.queue, rows, width, phase);
-    let mut encoder = harness
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-m16-paged-kv-checkpoint-append"),
-        });
-    cache
-        .record_append(&mut encoder, &source, &source, rows)
+    let (new_len, _submission) = cache
+        .append_and_submit(
+            &harness.device,
+            &harness.queue,
+            &source,
+            &source,
+            rows,
+        )
         .unwrap();
-    harness.queue.submit(Some(encoder.finish()));
+    assert_eq!(new_len, cache.len());
+    assert!(!cache.has_unsubmitted_recorded_writes());
 }
 
 #[test]
@@ -155,4 +157,63 @@ fn checkpoint_fails_closed_after_truncate_reappend_reset_and_foreign_cache() {
         other.restore(&foreign),
         Err(WgpuPagedKvCacheError::ForeignCheckpoint)
     );
+}
+
+#[test]
+fn destructive_transitions_wait_for_external_append_submission_boundary() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let config = PagedKvConfig {
+        page_size: 2,
+        physical_pages: 4,
+    };
+    let mut cache = WgpuPagedKvCache::new(&harness.device, config, 1, 4).unwrap();
+    append(&harness, &mut cache, 2, 1.0);
+    let checkpoint = cache.checkpoint();
+    let generation = cache.generation();
+
+    let source = source_buffer(&harness.device, &harness.queue, 1, 4, 9.0);
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-paged-kv-checkpoint-unsubmitted"),
+        });
+    cache
+        .record_append(&mut encoder, &source, &source, 1)
+        .unwrap();
+    assert_eq!(cache.len(), 3);
+    assert!(cache.has_unsubmitted_recorded_writes());
+
+    assert_eq!(
+        cache.restore(&checkpoint),
+        Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
+    );
+    assert_eq!(
+        cache.truncate(2),
+        Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
+    );
+    assert_eq!(
+        cache.reset(),
+        Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
+    );
+    assert_eq!(cache.len(), 3);
+    assert_eq!(cache.generation(), generation);
+    assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch());
+
+    // A no-op truncate does not release or reuse storage and therefore remains
+    // legal while the append encoder is outstanding.
+    cache.truncate(3).unwrap();
+
+    let submission = harness.queue.submit(Some(encoder.finish()));
+    // SAFETY: `encoder` is the only externally managed command buffer that has
+    // recorded writes for this cache, and it was consumed by the submit above.
+    unsafe {
+        cache.acknowledge_submission_unchecked(submission);
+    }
+    assert!(!cache.has_unsubmitted_recorded_writes());
+
+    cache.restore(&checkpoint).unwrap();
+    assert_eq!(cache.len(), 2);
+    assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch() + 1);
 }
