@@ -34,6 +34,15 @@ pub mod research_da_luc_oracle;
 #[path = "research_da_luc_paged_binding.rs"]
 pub mod research_da_luc_paged_binding;
 
+/// Research-only cache-instance-scoped companion for FDAL6 paged bindings.
+///
+/// Adds exact [`crate::paged_kv::WgpuPagedKvCache`] instance/lineage provenance
+/// without turning the portable metadata observation into a global cache ID or
+/// making any K/V payload-identity claim.
+#[cfg(feature = "wgpu")]
+#[path = "research_da_luc_paged_cache_binding.rs"]
+pub mod research_da_luc_paged_cache_binding;
+
 /// Explicit WGPU-facing reusable state that is intentionally outside the
 /// backend-neutral `v1` namespace.
 #[cfg(feature = "wgpu")]
