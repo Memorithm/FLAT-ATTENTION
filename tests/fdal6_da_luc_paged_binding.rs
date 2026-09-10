@@ -7,8 +7,7 @@ use flat_attention::api::research_da_luc::{
     DA_LUC_KV_VIEW_SCHEMA_VERSION,
 };
 use flat_attention::api::research_da_luc_oracle::tiering::{
-    route_by_recency, DalucPrecisionTier, DalucTierId, DalucTierQuota,
-    DA_LUC_TIER_ROUTING_VERSION,
+    route_by_recency, DalucPrecisionTier, DalucTierId, DalucTierQuota, DA_LUC_TIER_ROUTING_VERSION,
 };
 use flat_attention::api::research_da_luc_paged_binding::{
     bind_paged_tier_plan, DalucPagedTierBinding, DalucPagedTierBindingError,
@@ -442,9 +441,7 @@ fn freshness_rejects_mutated_binding_metadata() {
     wrong_page.assignments[0].physical_page = 3;
     assert_eq!(
         wrong_page.validate_observation(&current),
-        Err(DalucPagedTierBindingError::BindingAssignmentPageMismatch {
-            logical_page: 0,
-        })
+        Err(DalucPagedTierBindingError::BindingAssignmentPageMismatch { logical_page: 0 })
     );
 }
 
