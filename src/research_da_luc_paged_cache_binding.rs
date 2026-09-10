@@ -7,9 +7,11 @@
 //! append-only lineage from which it was created.
 //!
 //! The scope is implemented with FLAT's existing opaque
-//! [`crate::paged_kv::WgpuPagedKvCheckpoint`] provenance token. It does not
-//! invent a serializable cache ID, hash or inspect K/V payload bytes, attest
-//! device memory, or authorize any payload movement or representation transition.
+//! [`crate::paged_kv::WgpuPagedKvCheckpoint`] provenance token. It also retains
+//! the validated tier catalog so a `tier_id` can be interpreted without relying
+//! on mutable or out-of-band caller state. It does not invent a serializable
+//! cache ID, hash or inspect K/V payload bytes, attest device memory, or authorize
+//! any payload movement or representation transition.
 
 use core::fmt;
 
@@ -22,12 +24,14 @@ use crate::paged_kv::{WgpuPagedKvCache, WgpuPagedKvCacheError, WgpuPagedKvCheckp
 
 /// Opaque FDAL6 binding scoped to one resident paged-cache instance and lineage.
 ///
-/// The embedded checkpoint is deliberately private. This type is not a global
-/// cache identity and does not expose or serialize the checkpoint's private
-/// provenance token. Cloning the value preserves the same cache scope.
+/// The embedded checkpoint and validated tier catalog are deliberately private.
+/// This type is not a global cache identity and does not expose or serialize the
+/// checkpoint's private provenance token. Cloning the value preserves the same
+/// cache scope and the same immutable tier definitions.
 #[derive(Debug, Clone)]
 pub struct DalucCacheScopedPagedTierBinding {
     binding: DalucPagedTierBinding,
+    tiers: Vec<DalucPrecisionTier>,
     checkpoint: WgpuPagedKvCheckpoint,
 }
 
@@ -39,6 +43,8 @@ pub enum DalucCacheScopedPagedTierBindingError {
     Binding(DalucPagedTierBindingError),
     /// The resident cache observation or checkpoint provenance contract failed.
     Cache(WgpuPagedKvCacheError),
+    /// The validated tier catalog could not be retained.
+    AllocationFailure,
 }
 
 impl fmt::Display for DalucCacheScopedPagedTierBindingError {
@@ -46,6 +52,9 @@ impl fmt::Display for DalucCacheScopedPagedTierBindingError {
         match self {
             Self::Binding(error) => write!(formatter, "{error}"),
             Self::Cache(error) => write!(formatter, "{error}"),
+            Self::AllocationFailure => {
+                write!(formatter, "FDAL6 cache-scoped tier catalog allocation failed")
+            }
         }
     }
 }
@@ -55,6 +64,7 @@ impl std::error::Error for DalucCacheScopedPagedTierBindingError {
         match self {
             Self::Binding(error) => Some(error),
             Self::Cache(error) => Some(error),
+            Self::AllocationFailure => None,
         }
     }
 }
@@ -76,6 +86,16 @@ impl DalucCacheScopedPagedTierBinding {
     #[must_use]
     pub fn binding(&self) -> &DalucPagedTierBinding {
         &self.binding
+    }
+
+    /// Borrow the exact tier catalog validated when this binding was created.
+    ///
+    /// Catalog order is preserved because FDAL5 uses caller order as selection
+    /// priority. Each stable `tier_id` therefore remains attached to the K/V
+    /// representation semantics that were validated for this binding.
+    #[must_use]
+    pub fn tiers(&self) -> &[DalucPrecisionTier] {
+        &self.tiers
     }
 
     /// Validate exact cache-instance/lineage scope and current FDAL6 metadata.
@@ -103,9 +123,10 @@ impl DalucCacheScopedPagedTierBinding {
 /// Bind a DA-LUC paged tier plan to one exact resident WGPU cache instance.
 ///
 /// This first creates the existing metadata-only FDAL6 binding, preserving all
-/// of its contract/geometry/taint checks, then captures FLAT's opaque checkpoint
-/// for the same immutably borrowed cache state. The returned scope can later be
-/// checked with [`DalucCacheScopedPagedTierBinding::validate_cache`].
+/// of its contract/geometry/taint checks. It then retains the already-validated
+/// tier catalog and captures FLAT's opaque checkpoint under the same immutable
+/// cache borrow. The returned scope can later be checked with
+/// [`DalucCacheScopedPagedTierBinding::validate_cache`].
 ///
 /// No K/V payload is read, copied, moved, transcoded or synchronized.
 pub fn bind_paged_tier_plan_to_cache(
@@ -116,10 +137,16 @@ pub fn bind_paged_tier_plan_to_cache(
 ) -> Result<DalucCacheScopedPagedTierBinding, DalucCacheScopedPagedTierBindingError> {
     let observation = cache.observation()?;
     let binding = bind_paged_tier_plan(&observation, contract, tiers, plan)?;
+    let mut retained_tiers = Vec::new();
+    retained_tiers
+        .try_reserve_exact(tiers.len())
+        .map_err(|_| DalucCacheScopedPagedTierBindingError::AllocationFailure)?;
+    retained_tiers.extend_from_slice(tiers);
     let checkpoint = cache.checkpoint();
 
     Ok(DalucCacheScopedPagedTierBinding {
         binding,
+        tiers: retained_tiers,
         checkpoint,
     })
 }
