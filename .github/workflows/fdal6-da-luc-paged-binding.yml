@@ -1,0 +1,55 @@
+name: FDAL6 DA-LUC paged binding qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/paged_kv.rs"
+      - "src/kv_observation.rs"
+      - "src/wgpu_paged_kv_cache.rs"
+      - "src/wgpu_paged_kv_observation.rs"
+      - "src/research_da_luc.rs"
+      - "src/research_da_luc_oracle.rs"
+      - "src/research_da_luc_tiering.rs"
+      - "src/research_da_luc_paged_binding.rs"
+      - "tests/fdal6_da_luc_paged_binding.rs"
+      - ".github/workflows/fdal6-da-luc-paged-binding.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fdal6-da-luc-paged-binding-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paged-binding:
+    name: FDAL6 paged binding freshness on Vulkan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      WGPU_BACKEND: vulkan
+      FLAT_REQUIRE_WGPU: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Install Mesa Vulkan
+        run: |
+          sudo rm -f \
+            /etc/apt/sources.list.d/google-chrome.list \
+            /etc/apt/sources.list.d/google-chrome.sources
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+      - name: Report Vulkan adapter
+        run: vulkaninfo --summary || true
+      - name: Exact-head format gate
+        run: cargo fmt --all -- --check
+      - name: Exact-head strict lint
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: FDAL6 paged binding and freshness qualification
+        run: cargo test --features wgpu --test fdal6_da_luc_paged_binding -- --nocapture
