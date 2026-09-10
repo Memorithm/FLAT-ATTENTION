@@ -14,9 +14,12 @@
 
 use core::fmt;
 
-use super::research_da_luc::{DalucKvViewContract, DalucKvViewError, DalucStorageTopology};
+use super::research_da_luc::{
+    DalucKvViewContract, DalucKvViewError, DalucStorageTopology, DA_LUC_KV_VIEW_SCHEMA_VERSION,
+};
 use super::research_da_luc_oracle::tiering::{
     DalucPrecisionTier, DalucTierId, DalucTierRoutingError, DalucTierRoutingPlan,
+    DA_LUC_TIER_ROUTING_VERSION,
 };
 use crate::paged_kv::WgpuPagedKvStateObservation;
 
@@ -59,6 +62,14 @@ pub enum DalucPagedTierBindingError {
     Contract(DalucKvViewError),
     Routing(DalucTierRoutingError),
     UnsupportedBindingVersion {
+        actual: u16,
+        supported: u16,
+    },
+    UnsupportedKvViewSchemaVersion {
+        actual: u16,
+        supported: u16,
+    },
+    UnsupportedRoutingVersion {
         actual: u16,
         supported: u16,
     },
@@ -140,6 +151,14 @@ impl fmt::Display for DalucPagedTierBindingError {
             Self::UnsupportedBindingVersion { actual, supported } => write!(
                 formatter,
                 "FDAL6 paged tier binding version {actual} is unsupported; expected {supported}"
+            ),
+            Self::UnsupportedKvViewSchemaVersion { actual, supported } => write!(
+                formatter,
+                "FDAL6 KV view schema version {actual} is unsupported; expected {supported}"
+            ),
+            Self::UnsupportedRoutingVersion { actual, supported } => write!(
+                formatter,
+                "FDAL6 routing version {actual} is unsupported; expected {supported}"
             ),
             Self::ObservationSchemaMismatch {
                 binding,
@@ -292,9 +311,9 @@ impl DalucPagedTierBinding {
     /// can satisfy this check. Callers that must prove exact cache ownership or K/V
     /// byte identity need independent evidence in addition to this binding.
     ///
-    /// The check fails closed for unsupported binding versions, tainted current
-    /// observations, schema/generation/branch changes, live-length or page-geometry
-    /// changes, and any logical-to-physical page mapping drift.
+    /// The check fails closed for unsupported binding/schema/routing versions,
+    /// tainted current observations, generation/branch changes, live-length or
+    /// page-geometry changes, and any logical-to-physical page mapping drift.
     pub fn validate_observation(
         &self,
         observation: &WgpuPagedKvStateObservation,
@@ -303,6 +322,18 @@ impl DalucPagedTierBinding {
             return Err(DalucPagedTierBindingError::UnsupportedBindingVersion {
                 actual: self.binding_version,
                 supported: DA_LUC_PAGED_TIER_BINDING_VERSION,
+            });
+        }
+        if self.kv_view_schema_version != DA_LUC_KV_VIEW_SCHEMA_VERSION {
+            return Err(DalucPagedTierBindingError::UnsupportedKvViewSchemaVersion {
+                actual: self.kv_view_schema_version,
+                supported: DA_LUC_KV_VIEW_SCHEMA_VERSION,
+            });
+        }
+        if self.routing_version != DA_LUC_TIER_ROUTING_VERSION {
+            return Err(DalucPagedTierBindingError::UnsupportedRoutingVersion {
+                actual: self.routing_version,
+                supported: DA_LUC_TIER_ROUTING_VERSION,
             });
         }
         if observation.has_unsubmitted_recorded_writes() {
