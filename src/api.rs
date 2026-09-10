@@ -26,8 +26,10 @@ pub mod research_da_luc;
 #[path = "research_da_luc_oracle.rs"]
 pub mod research_da_luc_oracle;
 
-/// Research-only FDAL6 binding from deterministic DA-LUC tier plans to an
-/// observed WGPU paged-KV topology. Metadata/evidence only; no payload movement.
+/// Research-only FDAL6 binding from deterministic
+/// [`crate::api::research_da_luc_oracle::tiering::DalucTierRoutingPlan`] values
+/// to an observed [`crate::paged_kv::WgpuPagedKvStateObservation`] topology.
+/// Metadata/evidence only; no payload movement.
 #[cfg(feature = "wgpu")]
 #[path = "research_da_luc_paged_binding.rs"]
 pub mod research_da_luc_paged_binding;
