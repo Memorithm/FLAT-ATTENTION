@@ -8,6 +8,7 @@ use flat_attention::api::research_da_luc::{
 };
 use flat_attention::api::research_da_luc_oracle::tiering::{
     route_by_recency, DalucPrecisionTier, DalucTierId, DalucTierQuota,
+    DA_LUC_TIER_ROUTING_VERSION,
 };
 use flat_attention::api::research_da_luc_paged_binding::{
     bind_paged_tier_plan, DalucPagedTierBinding, DalucPagedTierBindingError,
@@ -414,6 +415,26 @@ fn freshness_rejects_mutated_binding_metadata() {
         Err(DalucPagedTierBindingError::UnsupportedBindingVersion {
             actual: DA_LUC_PAGED_TIER_BINDING_VERSION + 1,
             supported: DA_LUC_PAGED_TIER_BINDING_VERSION,
+        })
+    );
+
+    let mut wrong_kv_schema = binding_for(&cache, 10);
+    wrong_kv_schema.kv_view_schema_version += 1;
+    assert_eq!(
+        wrong_kv_schema.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsupportedKvViewSchemaVersion {
+            actual: DA_LUC_KV_VIEW_SCHEMA_VERSION + 1,
+            supported: DA_LUC_KV_VIEW_SCHEMA_VERSION,
+        })
+    );
+
+    let mut wrong_routing = binding_for(&cache, 10);
+    wrong_routing.routing_version += 1;
+    assert_eq!(
+        wrong_routing.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsupportedRoutingVersion {
+            actual: DA_LUC_TIER_ROUTING_VERSION + 1,
+            supported: DA_LUC_TIER_ROUTING_VERSION,
         })
     );
 
