@@ -34,7 +34,9 @@ fn harness() -> Option<DeviceHarness> {
     }));
     let Ok(adapter) = adapter else {
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
-            panic!("FDAL6 cache-scoped binding requires a WGPU adapter in the mandatory device gate");
+            panic!(
+                "FDAL6 cache-scoped binding requires a WGPU adapter in the mandatory device gate"
+            );
         }
         eprintln!("WGPU adapter unavailable; optional FDAL6 cache-scoped binding test skipped");
         return None;
