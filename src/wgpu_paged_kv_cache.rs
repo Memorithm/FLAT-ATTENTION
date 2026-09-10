@@ -334,17 +334,21 @@ impl WgpuPagedKvCache {
         }
     }
 
-    /// Restore an append-only checkpoint by logically rewinding to its length.
+    /// Validate that a checkpoint still names a live prefix of this exact cache.
     ///
-    /// This is not a physical snapshot restore. It succeeds only when the
-    /// checkpoint belongs to this cache, its generation and branch epoch are
-    /// unchanged, and its captured prefix is still live. Any restore that would
-    /// shrink the cache also requires that no caller-owned append encoder can
-    /// remain submit-able. A successful shrink advances the branch epoch,
-    /// intentionally making the consumed checkpoint and all peers from the old
-    /// branch stale.
-    pub fn restore(
-        &mut self,
+    /// This is a metadata-only provenance check. It performs no device I/O and
+    /// does not mutate the cache. Append-only growth preserves validity because
+    /// the captured prefix remains live. A foreign cache, reset generation,
+    /// destructive branch change, or checkpoint length ahead of the current
+    /// cache fails closed.
+    ///
+    /// This method deliberately does not reject
+    /// [`Self::has_unsubmitted_recorded_writes`]. That flag governs whether a
+    /// destructive transition is safe; it does not by itself invalidate the
+    /// already-captured prefix lineage. [`Self::restore`] still fails through
+    /// [`Self::truncate`] when a shrinking restore is blocked by such writes.
+    pub fn validate_checkpoint(
+        &self,
         checkpoint: &WgpuPagedKvCheckpoint,
     ) -> Result<(), WgpuPagedKvCacheError> {
         if !Arc::ptr_eq(&self.checkpoint_origin, &checkpoint.origin) {
@@ -372,6 +376,25 @@ impl WgpuPagedKvCache {
                 current_len,
             });
         }
+        Ok(())
+    }
+
+    /// Restore an append-only checkpoint by logically rewinding to its length.
+    ///
+    /// This is not a physical snapshot restore. It succeeds only when the
+    /// checkpoint belongs to this cache, its generation and branch epoch are
+    /// unchanged, and its captured prefix is still live. Any restore that would
+    /// shrink the cache also requires that no caller-owned append encoder can
+    /// remain submit-able. A successful shrink advances the branch epoch,
+    /// intentionally making the consumed checkpoint and all peers from the old
+    /// branch stale.
+    pub fn restore(
+        &mut self,
+        checkpoint: &WgpuPagedKvCheckpoint,
+    ) -> Result<(), WgpuPagedKvCacheError> {
+        self.validate_checkpoint(checkpoint)?;
+
+        let current_len = self.len();
         if checkpoint.len == current_len {
             return Ok(());
         }
