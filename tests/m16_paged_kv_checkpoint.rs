@@ -90,14 +90,24 @@ fn checkpoint_restores_append_only_suffix_and_is_consumed_by_branch_change() {
     assert_eq!(checkpoint.len(), 3);
     assert_eq!(checkpoint.generation(), cache.generation());
     assert_eq!(checkpoint.branch_epoch(), cache.branch_epoch());
+    cache.validate_checkpoint(&checkpoint).unwrap();
 
     append(&harness, &mut cache, 2, 2.0);
     assert_eq!(cache.len(), 5);
     assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch());
+    cache.validate_checkpoint(&checkpoint).unwrap();
+    assert_eq!(cache.len(), 5);
 
     cache.restore(&checkpoint).unwrap();
     assert_eq!(cache.len(), 3);
     assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch() + 1);
+    assert_eq!(
+        cache.validate_checkpoint(&checkpoint),
+        Err(WgpuPagedKvCacheError::CheckpointBranchMismatch {
+            checkpoint_branch_epoch: checkpoint.branch_epoch(),
+            current_branch_epoch: cache.branch_epoch(),
+        })
+    );
 
     append(&harness, &mut cache, 1, 3.0);
     assert_eq!(
@@ -127,6 +137,13 @@ fn checkpoint_fails_closed_after_truncate_reappend_reset_and_foreign_cache() {
     append(&harness, &mut cache, 3, 4.0);
     assert_eq!(cache.len(), 5);
     assert_eq!(
+        cache.validate_checkpoint(&checkpoint),
+        Err(WgpuPagedKvCacheError::CheckpointBranchMismatch {
+            checkpoint_branch_epoch: checkpoint.branch_epoch(),
+            current_branch_epoch: cache.branch_epoch(),
+        })
+    );
+    assert_eq!(
         cache.restore(&checkpoint),
         Err(WgpuPagedKvCacheError::CheckpointBranchMismatch {
             checkpoint_branch_epoch: checkpoint.branch_epoch(),
@@ -138,6 +155,13 @@ fn checkpoint_fails_closed_after_truncate_reappend_reset_and_foreign_cache() {
     let generation = cache.generation();
     cache.reset().unwrap();
     assert_eq!(
+        cache.validate_checkpoint(&post_branch),
+        Err(WgpuPagedKvCacheError::CheckpointGenerationMismatch {
+            checkpoint_generation: generation,
+            current_generation: cache.generation(),
+        })
+    );
+    assert_eq!(
         cache.restore(&post_branch),
         Err(WgpuPagedKvCacheError::CheckpointGenerationMismatch {
             checkpoint_generation: generation,
@@ -148,13 +172,17 @@ fn checkpoint_fails_closed_after_truncate_reappend_reset_and_foreign_cache() {
     let foreign = cache.checkpoint();
     let mut other = WgpuPagedKvCache::new(&harness.device, config, 1, 4).unwrap();
     assert_eq!(
+        other.validate_checkpoint(&foreign),
+        Err(WgpuPagedKvCacheError::ForeignCheckpoint)
+    );
+    assert_eq!(
         other.restore(&foreign),
         Err(WgpuPagedKvCacheError::ForeignCheckpoint)
     );
 }
 
 #[test]
-fn destructive_transitions_stay_fail_closed_after_external_recording() {
+fn lineage_validation_remains_non_mutating_after_external_recording() {
     let Some(harness) = harness() else {
         return;
     };
@@ -178,6 +206,11 @@ fn destructive_transitions_stay_fail_closed_after_external_recording() {
         .unwrap();
     assert_eq!(cache.len(), 3);
     assert!(cache.has_unsubmitted_recorded_writes());
+
+    cache.validate_checkpoint(&checkpoint).unwrap();
+    assert_eq!(cache.len(), 3);
+    assert_eq!(cache.generation(), generation);
+    assert_eq!(cache.branch_epoch(), checkpoint.branch_epoch());
 
     assert_eq!(
         cache.restore(&checkpoint),
@@ -203,6 +236,7 @@ fn destructive_transitions_stay_fail_closed_after_external_recording() {
     // conservatively tainted rather than accepting a forgeable acknowledgement.
     let _submission = harness.queue.submit(Some(encoder.finish()));
     assert!(cache.has_unsubmitted_recorded_writes());
+    cache.validate_checkpoint(&checkpoint).unwrap();
     assert_eq!(
         cache.restore(&checkpoint),
         Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites)
