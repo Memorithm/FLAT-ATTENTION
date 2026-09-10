@@ -7,10 +7,11 @@ use flat_attention::api::research_da_luc::{
     DA_LUC_KV_VIEW_SCHEMA_VERSION,
 };
 use flat_attention::api::research_da_luc_oracle::tiering::{
-    route_by_recency, DalucPrecisionTier, DalucTierId, DalucTierQuota,
+    route_by_recency, DalucPrecisionTier, DalucTierId, DalucTierQuota, DA_LUC_TIER_ROUTING_VERSION,
 };
 use flat_attention::api::research_da_luc_paged_binding::{
-    bind_paged_tier_plan, DalucPagedTierBindingError, DA_LUC_PAGED_TIER_BINDING_VERSION,
+    bind_paged_tier_plan, DalucPagedTierBinding, DalucPagedTierBindingError,
+    DA_LUC_PAGED_TIER_BINDING_VERSION,
 };
 use flat_attention::paged_kv::{PagedKvConfig, WgpuPagedKvCache};
 
@@ -66,6 +67,14 @@ fn source_buffer(
     })
 }
 
+fn append_rows(harness: &DeviceHarness, cache: &mut WgpuPagedKvCache, rows: usize) {
+    let k = source_buffer(&harness.device, rows, 2, 32);
+    let v = source_buffer(&harness.device, rows, 2, 32);
+    cache
+        .append_and_submit(&harness.device, &harness.queue, &k, &v, rows)
+        .unwrap();
+}
+
 fn seeded_cache(harness: &DeviceHarness, kv_len: usize) -> WgpuPagedKvCache {
     let mut cache = WgpuPagedKvCache::new(
         &harness.device,
@@ -77,11 +86,7 @@ fn seeded_cache(harness: &DeviceHarness, kv_len: usize) -> WgpuPagedKvCache {
         32,
     )
     .unwrap();
-    let k = source_buffer(&harness.device, kv_len, 2, 32);
-    let v = source_buffer(&harness.device, kv_len, 2, 32);
-    cache
-        .append_and_submit(&harness.device, &harness.queue, &k, &v, kv_len)
-        .unwrap();
+    append_rows(harness, &mut cache, kv_len);
     cache
 }
 
@@ -153,6 +158,21 @@ fn quotas(first: usize, second: usize) -> [DalucTierQuota; 2] {
     ]
 }
 
+fn binding_for(cache: &WgpuPagedKvCache, kv_len: usize) -> DalucPagedTierBinding {
+    let observation = cache.observation().unwrap();
+    let contract = contract(kv_len, 2, 4, 4);
+    let tiers = tiers(contract);
+    let segment_count = kv_len.div_ceil(4);
+    let plan = route_by_recency(
+        contract,
+        4,
+        &tiers,
+        &quotas(1, segment_count.saturating_sub(1)),
+    )
+    .unwrap();
+    bind_paged_tier_plan(&observation, contract, &tiers, &plan).unwrap()
+}
+
 #[test]
 fn binds_logical_tiers_to_observed_physical_pages_without_payload_io() {
     let Some(harness) = harness() else {
@@ -192,6 +212,7 @@ fn binds_logical_tiers_to_observed_physical_pages_without_payload_io() {
         .assignments
         .iter()
         .all(|assignment| assignment.generation == cache.generation()));
+    binding.validate_observation(&observation).unwrap();
 }
 
 #[test]
@@ -289,4 +310,150 @@ fn rejects_contract_shape_and_page_geometry_mismatches() {
         ),
         Err(DalucPagedTierBindingError::PageGeometryMismatch { .. })
     ));
+}
+
+#[test]
+fn freshness_rejects_append_after_binding() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let mut cache = seeded_cache(&harness, 8);
+    let binding = binding_for(&cache, 8);
+
+    append_rows(&harness, &mut cache, 2);
+    let current = cache.observation().unwrap();
+    assert_eq!(
+        binding.validate_observation(&current),
+        Err(DalucPagedTierBindingError::BindingKvLenMismatch {
+            binding: 8,
+            observation: 10,
+        })
+    );
+}
+
+#[test]
+fn freshness_rejects_truncate_reappend_even_when_length_returns_to_same_value() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let mut cache = seeded_cache(&harness, 10);
+    let binding = binding_for(&cache, 10);
+    assert_eq!(binding.branch_epoch, 0);
+
+    cache.truncate(8).unwrap();
+    append_rows(&harness, &mut cache, 2);
+    let current = cache.observation().unwrap();
+    assert_eq!(current.topology().telemetry().live_tokens, 10);
+    assert_eq!(
+        binding.validate_observation(&current),
+        Err(DalucPagedTierBindingError::BindingBranchEpochMismatch {
+            binding: 0,
+            observation: 1,
+        })
+    );
+}
+
+#[test]
+fn freshness_rejects_reset_reappend_even_when_length_returns_to_same_value() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let mut cache = seeded_cache(&harness, 10);
+    let binding = binding_for(&cache, 10);
+    assert_eq!(binding.generation, 0);
+
+    cache.reset().unwrap();
+    append_rows(&harness, &mut cache, 10);
+    let current = cache.observation().unwrap();
+    assert_eq!(current.topology().telemetry().live_tokens, 10);
+    assert_eq!(
+        binding.validate_observation(&current),
+        Err(DalucPagedTierBindingError::BindingGenerationMismatch {
+            binding: 0,
+            observation: 1,
+        })
+    );
+}
+
+#[test]
+fn freshness_rejects_current_observation_tainted_by_external_recording() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let mut cache = seeded_cache(&harness, 8);
+    let binding = binding_for(&cache, 8);
+    let k = source_buffer(&harness.device, 2, 2, 32);
+    let v = source_buffer(&harness.device, 2, 2, 32);
+    let mut encoder = harness
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-fdal6-stale-binding-unsubmitted-append"),
+        });
+    cache.record_append(&mut encoder, &k, &v, 2).unwrap();
+
+    let current = cache.observation().unwrap();
+    assert_eq!(
+        binding.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsubmittedRecordedWrites)
+    );
+    drop(encoder);
+}
+
+#[test]
+fn freshness_rejects_mutated_binding_metadata() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let cache = seeded_cache(&harness, 10);
+    let current = cache.observation().unwrap();
+
+    let mut wrong_version = binding_for(&cache, 10);
+    wrong_version.binding_version += 1;
+    assert_eq!(
+        wrong_version.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsupportedBindingVersion {
+            actual: DA_LUC_PAGED_TIER_BINDING_VERSION + 1,
+            supported: DA_LUC_PAGED_TIER_BINDING_VERSION,
+        })
+    );
+
+    let mut wrong_kv_schema = binding_for(&cache, 10);
+    wrong_kv_schema.kv_view_schema_version += 1;
+    assert_eq!(
+        wrong_kv_schema.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsupportedKvViewSchemaVersion {
+            actual: DA_LUC_KV_VIEW_SCHEMA_VERSION + 1,
+            supported: DA_LUC_KV_VIEW_SCHEMA_VERSION,
+        })
+    );
+
+    let mut wrong_routing = binding_for(&cache, 10);
+    wrong_routing.routing_version += 1;
+    assert_eq!(
+        wrong_routing.validate_observation(&current),
+        Err(DalucPagedTierBindingError::UnsupportedRoutingVersion {
+            actual: DA_LUC_TIER_ROUTING_VERSION + 1,
+            supported: DA_LUC_TIER_ROUTING_VERSION,
+        })
+    );
+
+    let mut wrong_page = binding_for(&cache, 10);
+    wrong_page.assignments[0].physical_page = 3;
+    assert_eq!(
+        wrong_page.validate_observation(&current),
+        Err(DalucPagedTierBindingError::BindingAssignmentPageMismatch { logical_page: 0 })
+    );
+}
+
+#[test]
+fn freshness_check_does_not_claim_cache_instance_identity() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let first = seeded_cache(&harness, 10);
+    let second = seeded_cache(&harness, 10);
+    let binding = binding_for(&first, 10);
+    let second_observation = second.observation().unwrap();
+
+    binding.validate_observation(&second_observation).unwrap();
 }

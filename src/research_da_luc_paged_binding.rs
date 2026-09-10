@@ -14,9 +14,12 @@
 
 use core::fmt;
 
-use super::research_da_luc::{DalucKvViewContract, DalucKvViewError, DalucStorageTopology};
+use super::research_da_luc::{
+    DalucKvViewContract, DalucKvViewError, DalucStorageTopology, DA_LUC_KV_VIEW_SCHEMA_VERSION,
+};
 use super::research_da_luc_oracle::tiering::{
     DalucPrecisionTier, DalucTierId, DalucTierRoutingError, DalucTierRoutingPlan,
+    DA_LUC_TIER_ROUTING_VERSION,
 };
 use crate::paged_kv::WgpuPagedKvStateObservation;
 
@@ -58,6 +61,47 @@ pub struct DalucPagedTierBinding {
 pub enum DalucPagedTierBindingError {
     Contract(DalucKvViewError),
     Routing(DalucTierRoutingError),
+    UnsupportedBindingVersion {
+        actual: u16,
+        supported: u16,
+    },
+    UnsupportedKvViewSchemaVersion {
+        actual: u16,
+        supported: u16,
+    },
+    UnsupportedRoutingVersion {
+        actual: u16,
+        supported: u16,
+    },
+    ObservationSchemaMismatch {
+        binding: u32,
+        observation: u32,
+    },
+    BindingGenerationMismatch {
+        binding: u64,
+        observation: u64,
+    },
+    BindingBranchEpochMismatch {
+        binding: u64,
+        observation: u64,
+    },
+    BindingKvLenMismatch {
+        binding: usize,
+        observation: usize,
+    },
+    BindingPageGeometryMismatch {
+        binding_page_size: usize,
+        observation_page_size: usize,
+        binding_physical_pages: usize,
+        observation_physical_pages: usize,
+    },
+    BindingAssignmentCountMismatch {
+        binding: usize,
+        observation: usize,
+    },
+    BindingAssignmentPageMismatch {
+        logical_page: usize,
+    },
     UnsubmittedRecordedWrites,
     UnsupportedBatch {
         actual: usize,
@@ -104,6 +148,66 @@ impl fmt::Display for DalucPagedTierBindingError {
         match self {
             Self::Contract(error) => write!(formatter, "{error}"),
             Self::Routing(error) => write!(formatter, "{error}"),
+            Self::UnsupportedBindingVersion { actual, supported } => write!(
+                formatter,
+                "FDAL6 paged tier binding version {actual} is unsupported; expected {supported}"
+            ),
+            Self::UnsupportedKvViewSchemaVersion { actual, supported } => write!(
+                formatter,
+                "FDAL6 KV view schema version {actual} is unsupported; expected {supported}"
+            ),
+            Self::UnsupportedRoutingVersion { actual, supported } => write!(
+                formatter,
+                "FDAL6 routing version {actual} is unsupported; expected {supported}"
+            ),
+            Self::ObservationSchemaMismatch {
+                binding,
+                observation,
+            } => write!(
+                formatter,
+                "FDAL6 observation schema mismatch: binding={binding}, observation={observation}"
+            ),
+            Self::BindingGenerationMismatch {
+                binding,
+                observation,
+            } => write!(
+                formatter,
+                "FDAL6 binding generation is stale: binding={binding}, observation={observation}"
+            ),
+            Self::BindingBranchEpochMismatch {
+                binding,
+                observation,
+            } => write!(
+                formatter,
+                "FDAL6 binding branch epoch is stale: binding={binding}, observation={observation}"
+            ),
+            Self::BindingKvLenMismatch {
+                binding,
+                observation,
+            } => write!(
+                formatter,
+                "FDAL6 binding KV length is stale: binding={binding}, observation={observation}"
+            ),
+            Self::BindingPageGeometryMismatch {
+                binding_page_size,
+                observation_page_size,
+                binding_physical_pages,
+                observation_physical_pages,
+            } => write!(
+                formatter,
+                "FDAL6 binding page geometry mismatch: binding page_size={binding_page_size}, physical_pages={binding_physical_pages}; observation page_size={observation_page_size}, physical_pages={observation_physical_pages}"
+            ),
+            Self::BindingAssignmentCountMismatch {
+                binding,
+                observation,
+            } => write!(
+                formatter,
+                "FDAL6 binding assignment count is stale: binding={binding}, observed mapped pages={observation}"
+            ),
+            Self::BindingAssignmentPageMismatch { logical_page } => write!(
+                formatter,
+                "FDAL6 binding no longer matches observed logical page {logical_page}"
+            ),
             Self::UnsubmittedRecordedWrites => write!(
                 formatter,
                 "FDAL6 refuses a paged KV observation whose externally recorded GPU writes may still be submit-able"
@@ -195,6 +299,103 @@ impl From<DalucKvViewError> for DalucPagedTierBindingError {
 impl From<DalucTierRoutingError> for DalucPagedTierBindingError {
     fn from(value: DalucTierRoutingError) -> Self {
         Self::Routing(value)
+    }
+}
+
+impl DalucPagedTierBinding {
+    /// Validate that this saved binding still matches a current paged-KV observation.
+    ///
+    /// This is a metadata freshness check, not a cache/content identity proof.
+    /// [`WgpuPagedKvStateObservation`] deliberately has no globally unique cache
+    /// identity, so a different cache instance with identical exposed metadata
+    /// can satisfy this check. Callers that must prove exact cache ownership or K/V
+    /// byte identity need independent evidence in addition to this binding.
+    ///
+    /// The check fails closed for unsupported binding/schema/routing versions,
+    /// tainted current observations, generation/branch changes, live-length or
+    /// page-geometry changes, and any logical-to-physical page mapping drift.
+    pub fn validate_observation(
+        &self,
+        observation: &WgpuPagedKvStateObservation,
+    ) -> Result<(), DalucPagedTierBindingError> {
+        if self.binding_version != DA_LUC_PAGED_TIER_BINDING_VERSION {
+            return Err(DalucPagedTierBindingError::UnsupportedBindingVersion {
+                actual: self.binding_version,
+                supported: DA_LUC_PAGED_TIER_BINDING_VERSION,
+            });
+        }
+        if self.kv_view_schema_version != DA_LUC_KV_VIEW_SCHEMA_VERSION {
+            return Err(DalucPagedTierBindingError::UnsupportedKvViewSchemaVersion {
+                actual: self.kv_view_schema_version,
+                supported: DA_LUC_KV_VIEW_SCHEMA_VERSION,
+            });
+        }
+        if self.routing_version != DA_LUC_TIER_ROUTING_VERSION {
+            return Err(DalucPagedTierBindingError::UnsupportedRoutingVersion {
+                actual: self.routing_version,
+                supported: DA_LUC_TIER_ROUTING_VERSION,
+            });
+        }
+        if observation.has_unsubmitted_recorded_writes() {
+            return Err(DalucPagedTierBindingError::UnsubmittedRecordedWrites);
+        }
+        if self.observation_schema_version != observation.schema_version() {
+            return Err(DalucPagedTierBindingError::ObservationSchemaMismatch {
+                binding: self.observation_schema_version,
+                observation: observation.schema_version(),
+            });
+        }
+
+        let topology = observation.topology();
+        let telemetry = topology.telemetry();
+        let config = topology.config();
+        if self.generation != telemetry.generation {
+            return Err(DalucPagedTierBindingError::BindingGenerationMismatch {
+                binding: self.generation,
+                observation: telemetry.generation,
+            });
+        }
+        if self.branch_epoch != observation.branch_epoch() {
+            return Err(DalucPagedTierBindingError::BindingBranchEpochMismatch {
+                binding: self.branch_epoch,
+                observation: observation.branch_epoch(),
+            });
+        }
+        if self.kv_len != telemetry.live_tokens {
+            return Err(DalucPagedTierBindingError::BindingKvLenMismatch {
+                binding: self.kv_len,
+                observation: telemetry.live_tokens,
+            });
+        }
+        if self.page_size != config.page_size || self.physical_pages != config.physical_pages {
+            return Err(DalucPagedTierBindingError::BindingPageGeometryMismatch {
+                binding_page_size: self.page_size,
+                observation_page_size: config.page_size,
+                binding_physical_pages: self.physical_pages,
+                observation_physical_pages: config.physical_pages,
+            });
+        }
+
+        let pages = topology.pages();
+        if self.assignments.len() != pages.len() {
+            return Err(DalucPagedTierBindingError::BindingAssignmentCountMismatch {
+                binding: self.assignments.len(),
+                observation: pages.len(),
+            });
+        }
+        for (page, assignment) in pages.iter().copied().zip(&self.assignments) {
+            if assignment.logical_page != page.logical_page()
+                || assignment.physical_page != page.physical_page()
+                || assignment.start_token != page.logical_token_start()
+                || assignment.end_token_exclusive != page.logical_token_end()
+                || assignment.generation != page.generation()
+            {
+                return Err(DalucPagedTierBindingError::BindingAssignmentPageMismatch {
+                    logical_page: page.logical_page(),
+                });
+            }
+        }
+        Ok(())
     }
 }
 
