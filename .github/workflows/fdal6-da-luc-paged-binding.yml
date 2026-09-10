@@ -12,7 +12,9 @@ on:
       - "src/research_da_luc_oracle.rs"
       - "src/research_da_luc_tiering.rs"
       - "src/research_da_luc_paged_binding.rs"
+      - "src/research_da_luc_paged_cache_binding.rs"
       - "tests/fdal6_da_luc_paged_binding.rs"
+      - "tests/fdal6_da_luc_cache_scoped_binding.rs"
       - ".github/workflows/fdal6-da-luc-paged-binding.yml"
 
 permissions:
@@ -52,4 +54,6 @@ jobs:
       - name: Exact-head strict lint
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: FDAL6 paged binding and freshness qualification
-        run: cargo test --features wgpu --test fdal6_da_luc_paged_binding -- --nocapture
+        run: |
+          cargo test --features wgpu --test fdal6_da_luc_paged_binding -- --nocapture
+          cargo test --features wgpu --test fdal6_da_luc_cache_scoped_binding -- --nocapture
