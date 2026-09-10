@@ -1,7 +1,7 @@
 //! Research-only binding between DA-LUC tier plans and observed paged KV topology.
 //!
 //! FDAL6 turns a validated logical [`DalucTierRoutingPlan`] into explicit
-//! logical-page/physical-page metadata for one observed [`WgpuPagedKvCache`]
+//! logical-page/physical-page metadata for one observed [`WgpuPagedKvStateObservation`]
 //! state. It does not inspect, transcode, copy, move, evict, promote, or mutate
 //! K/V payload bytes. The result is evidence and execution-planning metadata
 //! only; a backend remains responsible for every physical representation or
