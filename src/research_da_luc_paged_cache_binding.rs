@@ -1,14 +1,15 @@
 //! Research-only cache-instance-scoped companion for FDAL6 paged tier bindings.
 //!
-//! [`DalucPagedTierBinding`] intentionally proves metadata freshness only. This
-//! module adds an opt-in stronger scope for callers that also need to prove that
-//! the binding is being checked against the same [`WgpuPagedKvCache`] instance
-//! and append-only lineage from which it was created.
+//! [`crate::api::research_da_luc_paged_binding::DalucPagedTierBinding`]
+//! intentionally proves metadata freshness only. This module adds an opt-in
+//! stronger scope for callers that also need to prove that the binding is being
+//! checked against the same [`crate::paged_kv::WgpuPagedKvCache`] instance and
+//! append-only lineage from which it was created.
 //!
 //! The scope is implemented with FLAT's existing opaque
-//! [`WgpuPagedKvCheckpoint`] provenance token. It does not invent a serializable
-//! cache ID, hash or inspect K/V payload bytes, attest device memory, or authorize
-//! any payload movement or representation transition.
+//! [`crate::paged_kv::WgpuPagedKvCheckpoint`] provenance token. It does not
+//! invent a serializable cache ID, hash or inspect K/V payload bytes, attest
+//! device memory, or authorize any payload movement or representation transition.
 
 use core::fmt;
 
