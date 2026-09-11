@@ -36,10 +36,11 @@ while keeping the implementation under SciRust architectural control.
 | Path | Role |
 |------|------|
 | `src/` | Main `flat-attention` package: public API, oracles, WGSL kernels, WGPU execution, autotune, numerical policy, etc. |
+| `shaders/` | Handwritten WGSL sources. Inventory and routing status: [`shaders/README.md`](shaders/README.md). |
 | `examples/` | Host-only smokes (`hello_attention`, `io_model`) and GPU benches. See [`examples/README.md`](examples/README.md). |
 | `tests/` | Integration and qualification suites, including host-only `host_oracle_smoke`. |
 | `crates/` | Supporting crates (EPG geometry, research candidates, graduation helpers). See [`crates/README.md`](crates/README.md). |
-| `docs/` | Milestone notes, release gates, numerical policy, portability qualification, guides. Start with [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md) and [`docs/README.md`](docs/README.md). |
+| `docs/` | Milestone notes, release gates, numerical policy, portability qualification, guides. Start with [`docs/ONBOARDING.md`](docs/ONBOARDING.md). |
 | `ROADMAP.md` | Authoritative phase-by-phase plan and acceptance criteria. |
 | `.github/workflows/` | CI (fmt, Clippy, tests, lavapipe/WGPU, portability, fuzz, supply-chain, qualification). |
 
@@ -111,10 +112,10 @@ The selected path and adapter-reported subgroup range are observable with `kerne
 
 ## Quickstart (host-only)
 
-Host-only builds and tests require no GPU:
+Host-only builds and tests require no GPU. The shortest path is [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
 
 ```bash
-cargo test
+cargo test --test host_oracle_smoke
 cargo run --example hello_attention
 cargo run --example io_model
 ```
