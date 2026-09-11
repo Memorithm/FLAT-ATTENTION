@@ -6,9 +6,12 @@ For a high-level orientation of the repository itself (status, layout, licensing
 
 `ROADMAP.md` at repository root is the authoritative milestone/acceptance plan. Progress against those gates is summarized in [ROADMAP_STATUS.md](ROADMAP_STATUS.md). Evidence documents in this directory are narrower records tied to the milestone named in their filename; they complement rather than override the consolidated guide.
 
+Workspace crate roles (reusable vs candidate vs research) are listed in [CRATES.md](CRATES.md) and [`crates/README.md`](../crates/README.md).
+
 Core contracts:
 
 - [API_SEMVER.md](API_SEMVER.md) — reusable API/versioning policy.
+- [m9-numerical-policy.md](m9-numerical-policy.md) — ExactReference / FastPortable / DeterministicPortable guarantees.
 - [M27_BENCHMARK_HARNESS.md](M27_BENCHMARK_HARNESS.md) — benchmark scopes and metrics.
 - [M28_BASELINE_COMPARISON.md](M28_BASELINE_COMPARISON.md) and [M28_KERNEL_GENERATIONS.md](M28_KERNEL_GENERATIONS.md) — baseline and optimized-generation comparison policy.
 - [M29_RUNTIME_TELEMETRY.md](M29_RUNTIME_TELEMETRY.md) — passive runtime observability.
@@ -17,4 +20,4 @@ Core contracts:
 - [M38_PROPERTY_STRESS.md](M38_PROPERTY_STRESS.md) and [M39_HOST_API_FUZZING.md](M39_HOST_API_FUZZING.md) — robustness and hostile-input gates.
 - [M40_BENCHMARK_MANIFESTS.md](M40_BENCHMARK_MANIFESTS.md) — reproducible benchmark records.
 
-Ownership and distribution are defined at repository root by `LICENSE`, `LICENSE.md`, `LICENSING.md` and `THIRD_PARTY_LICENSES.md` (PolyForm Noncommercial 1.0.0 source-available terms; commercial use requires a separate agreement).
+Ownership and distribution are defined at repository root by `LICENSE`, `LICENSE.md`, `LICENSING.md` and `THIRD_PARTY_LICENSES.md` (PolyForm Noncommercial 1.0.0 source-available terms, same as SciRust; commercial use requires a separate agreement).
