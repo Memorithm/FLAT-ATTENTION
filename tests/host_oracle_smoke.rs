@@ -44,7 +44,11 @@ fn exact_reference_matches_forward_reference_bit_exactly() {
     let via_policy = executor.forward(&q, &k, &v, shape, config).unwrap();
 
     assert_eq!(
-        oracle.output.iter().map(|x| x.to_bits()).collect::<Vec<_>>(),
+        oracle
+            .output
+            .iter()
+            .map(|x| x.to_bits())
+            .collect::<Vec<_>>(),
         via_policy
             .output
             .iter()
@@ -53,7 +57,11 @@ fn exact_reference_matches_forward_reference_bit_exactly() {
     );
     assert_eq!(
         oracle.lse.iter().map(|x| x.to_bits()).collect::<Vec<_>>(),
-        via_policy.lse.iter().map(|x| x.to_bits()).collect::<Vec<_>>()
+        via_policy
+            .lse
+            .iter()
+            .map(|x| x.to_bits())
+            .collect::<Vec<_>>()
     );
 }
 
@@ -78,8 +86,14 @@ fn oracle_emits_finite_o_and_lse_for_causal_and_non_causal() {
         .unwrap();
         assert_eq!(out.output.len(), shape.tensor_len().unwrap());
         assert_eq!(out.lse.len(), shape.lse_len().unwrap());
-        assert!(out.output.iter().all(|x| x.is_finite()), "O causal={causal}");
-        assert!(out.lse.iter().all(|x| x.is_finite()), "LSE causal={causal}");
+        assert!(
+            out.output.iter().all(|x| x.is_finite()),
+            "O causal={causal}"
+        );
+        assert!(
+            out.lse.iter().all(|x| x.is_finite()),
+            "LSE causal={causal}"
+        );
     }
 }
 
