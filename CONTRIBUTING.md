@@ -30,12 +30,17 @@ that keep the project trustworthy.
    cargo clippy --all-targets --all-features -- -D warnings
    cargo test --all-features          # full matrix; uses a WGPU adapter if present
    cargo test                          # host-only subset (works on any machine)
+   cargo run --example hello_attention # scalar-oracle smoke, no GPU
    cargo deny --all-features check advisories licenses sources
    ```
 
 4. Open a pull request with a description of the contract change, if any.
    API additions require documentation and a CHANGELOG entry under
    *Unreleased*.
+
+Host-only vs GPU examples are listed in [`examples/README.md`](examples/README.md).
+Workspace crate roles (reusable vs candidate vs research) are listed in
+[`crates/README.md`](crates/README.md).
 
 ## Validation discipline
 
@@ -51,8 +56,8 @@ that keep the project trustworthy.
 
 By contributing you agree that your contributions are provided under the
 repository's PolyForm Noncommercial 1.0.0 licensing policy (see
-`LICENSE.md`, `LICENSING.md`). Do not add dependencies whose licenses are not
-in the `deny.toml` allow-list.
+`LICENSE.md`, `LICENSING.md`), the same policy as SciRust. Do not add
+dependencies whose licenses are not in the `deny.toml` allow-list.
 
 ## Security
 
