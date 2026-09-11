@@ -90,10 +90,7 @@ fn oracle_emits_finite_o_and_lse_for_causal_and_non_causal() {
             out.output.iter().all(|x| x.is_finite()),
             "O causal={causal}"
         );
-        assert!(
-            out.lse.iter().all(|x| x.is_finite()),
-            "LSE causal={causal}"
-        );
+        assert!(out.lse.iter().all(|x| x.is_finite()), "LSE causal={causal}");
     }
 }
 
