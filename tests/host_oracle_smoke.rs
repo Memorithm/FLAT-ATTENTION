@@ -2,7 +2,9 @@
 //!
 //! These tests require no GPU and no `wgpu` feature.
 
-use flat_attention::api::v1::{AttentionConfig, AttentionShape as ApiShape, BorrowedAttentionRequest};
+use flat_attention::api::v1::{
+    AttentionConfig, AttentionShape as ApiShape, BorrowedAttentionRequest,
+};
 use flat_attention::{
     forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError, NumericalExecutor,
     NumericalMode,
