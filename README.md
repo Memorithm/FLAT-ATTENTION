@@ -6,6 +6,14 @@ The project targets the same systems problem class as IO-aware attention kernels
 `softmax(QKᵀ / sqrt(d))V` without materializing the full `N × N` score/probability matrix,
 while keeping the implementation under SciRust architectural control.
 
+## Project status
+
+- **Version**: `0.1.0` (workspace root). No `1.0.0` release has been authorized yet.
+- **MSRV**: Rust 1.89 (aligned with SciRust).
+- **Maturity**: Correctness-first. Qualified portable paths (oracle + M4 Q4 WGSL + optional M5 subgroup) exist; many later milestones (GQA/MQA, resident/paged KV, backward, autotune, SciRust integration) are implemented or in active qualification under strict evidence gates.
+- **Release policy**: A release is created only after the checklist and exact-head qualification gates in `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_POLICY.md` and related documents are satisfied. See also [`CHANGELOG.md`](CHANGELOG.md) and [`ROADMAP.md`](ROADMAP.md).
+- **Performance**: No speedup, throughput, latency or efficiency claim is accepted without a reproducible benchmark tied to an exact commit SHA and identified device.
+
 ## Non-negotiable design rules
 
 - Rust is the host language.
@@ -18,6 +26,18 @@ while keeping the implementation under SciRust architectural control.
 
 > GPU execution inevitably crosses the operating system / device-driver ABI. "No FFI" here
 > means FLAT-ATTENTION does not introduce its own C/C++ bridge or vendor SDK dependency.
+
+## Repository layout
+
+| Path | Role |
+|------|------|
+| `src/` | Main `flat-attention` package: public API, oracles, WGSL kernels, WGPU execution, autotune, numerical policy, etc. |
+| `crates/` | Supporting crates (EPG geometry, research candidates, graduation helpers). Research/experimental material lives here or under `docs/research/`. |
+| `docs/` | Milestone notes, release gates, numerical policy, portability qualification, guides. Start with [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md) and [`docs/README.md`](docs/README.md). |
+| `ROADMAP.md` | Authoritative phase-by-phase plan and acceptance criteria. |
+| `.github/workflows/` | CI (fmt, Clippy, tests, lavapipe/WGPU, portability, fuzz, supply-chain, qualification). |
+
+Internal codenames (e.g. milestone or research labels) appear in some paths and docs; they do not change the public contract described in `api` / `docs`.
 
 ## Current architecture
 
@@ -82,6 +102,24 @@ Runtime selection is explicit:
 `Auto` never falls back to CPU. If subgroup shader validation fails despite an advertised capability, it uses the qualified M4 **GPU** path; `Require` reports the failure.
 
 The selected path and adapter-reported subgroup range are observable with `kernel_variant()` and `subgroup_size_range()`.
+
+## Quickstart (host-only)
+
+Host-only builds and tests require no GPU:
+
+```bash
+cargo test
+cargo test --all-features   # includes optional paths when available
+```
+
+For a deeper walkthrough of the public contract, tensor layout, and usage patterns, see [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md).
+
+GPU examples and device tests need the `wgpu` feature and a working WGPU adapter (or lavapipe in CI):
+
+```bash
+cargo test --features wgpu
+FLAT_REQUIRE_WGPU=1 cargo test --features wgpu --tests -- --nocapture
+```
 
 ## IO model: what is and is not claimed
 
@@ -163,6 +201,15 @@ CI installs Mesa Vulkan and requires the normal WGPU device suite to pass before
 
 The authoritative phase-by-phase plan, acceptance criteria, benchmark policy, backward/KV-cache work, open matrix-codegen path, autotuning and SciRust/SciAgent integration plan are maintained in [`ROADMAP.md`](ROADMAP.md).
 
+Status tracking for individual milestones is also summarized in [`docs/ROADMAP_STATUS.md`](docs/ROADMAP_STATUS.md).
+
 ## Licensing
 
-No license grant is declared in this repository. Memorithm can set the project's final proprietary licensing policy independently of the technical architecture.
+FLAT-ATTENTION is **source-available** under the **PolyForm Noncommercial License 1.0.0**.
+
+- Full terms and Required Notice: [`LICENSE.md`](LICENSE.md)
+- Short SPDX pointer: [`LICENSE`](LICENSE)
+- Commercial licensing path and contact: [`LICENSING.md`](LICENSING.md)
+- Third-party dependency inventory: [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)
+
+Commercial use is **not** granted by the PolyForm Noncommercial terms. A separate commercial agreement may be obtained from the copyright holder (see `LICENSING.md`). Contributions are accepted under the same repository licensing policy (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
