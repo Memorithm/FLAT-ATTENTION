@@ -91,7 +91,7 @@ pub use backward_grouped::backward_reference_grouped;
 
 mod numerical;
 pub use numerical::{
-    AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
+    within_tol, AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
     NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
 };
 
@@ -178,356 +178,177 @@ pub use wgpu_f16_backend::{
 #[cfg(feature = "wgpu")]
 mod wgpu_grouped_backend;
 #[cfg(feature = "wgpu")]
-pub use wgpu_grouped_backend::{
-    WgpuGroupedAttention, WgpuGroupedResidentAttentionOutput, WgpuGroupedResidentBuffer,
+pub use wgpu_grouped_backend::{WgpuGroupedAttention, WgpuGroupedAttentionError};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_projection_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_projection_grouped_backend::{
+    WgpuProjectionGroupedAttention, WgpuProjectionGroupedAttentionError,
 };
 
 #[cfg(feature = "wgpu")]
-mod wgpu_forward_grouped;
+mod wgpu_projection_asymmetric_backend;
 #[cfg(feature = "wgpu")]
-pub use wgpu_forward_grouped::{
-    GroupedForwardError, GroupedForwardLayout, GroupedForwardPass, WgpuGroupedForwardPipeline,
-};
-
-/// Research-only WGPU execution candidate for the exact reference subset of
-/// `nonlocal-history-softmax@1`. This is opt-in and does not alter routing.
-#[cfg(feature = "wgpu")]
-mod research_nonlocal_wgpu;
-#[cfg(feature = "wgpu")]
-pub use research_nonlocal_wgpu::{
-    NonlocalWgpuCandidateError, NonlocalWgpuReferencePlan, WgpuNonlocalHistoryReferenceCandidate,
+pub use wgpu_projection_asymmetric_backend::{
+    WgpuProjectionAsymmetricAttention, WgpuProjectionAsymmetricAttentionError,
 };
 
 #[cfg(feature = "wgpu")]
-mod wgpu_rotary_grouped_backend;
+mod wgpu_projection_variable_backend;
 #[cfg(feature = "wgpu")]
-pub use wgpu_rotary_grouped_backend::{
-    WgpuRotaryGroupedAttention, WgpuRotaryGroupedResidentBuffer, WgpuRotaryGroupedResidentOutput,
+pub use wgpu_projection_variable_backend::{
+    WgpuProjectionVariableAttention, WgpuProjectionVariableAttentionError,
 };
 
 #[cfg(feature = "wgpu")]
-mod wgpu_external;
+mod wgpu_backward_backend;
 #[cfg(feature = "wgpu")]
-pub use wgpu_external::{
-    ExternalProjectionLayout, ExternalProjectionPass, ExternalProjectionRotaryGroupedPipeline,
-    ExternalWgpuError,
+pub use wgpu_backward_backend::{WgpuBackwardAttention, WgpuBackwardAttentionError};
+
+#[cfg(feature = "wgpu")]
+mod wgpu_backward_grouped_backend;
+#[cfg(feature = "wgpu")]
+pub use wgpu_backward_grouped_backend::{
+    WgpuBackwardGroupedAttention, WgpuBackwardGroupedAttentionError,
 };
 
-#[cfg(feature = "wgpu")]
-mod wgpu_external_asymmetric;
-#[cfg(feature = "wgpu")]
-pub use wgpu_external_asymmetric::{
-    ExternalAsymmetricKernelVariant, ExternalAsymmetricProjectionPass,
-    ExternalAsymmetricProjectionRotaryGroupedPipeline, WGSL_ALIBI_MAX_HEADS,
-};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_external_variable;
-#[cfg(feature = "wgpu")]
-pub use wgpu_external_variable::{
-    ExternalVariableProjectionPass, ExternalVariableProjectionRotaryGroupedPipeline,
-    VariableLengthRotaryEmbeddingConfig, VariableLengthSequenceMetadata, WGSL_VARIABLE_MAX_BATCH,
-};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_kv_cache;
-#[cfg(feature = "wgpu")]
-pub use wgpu_kv_cache::{WgpuResidentKvCache, WgpuResidentKvCacheError};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_decode;
-#[cfg(feature = "wgpu")]
-pub use wgpu_decode::{
-    ResidentDecodeError, ResidentDecodeLayout, ResidentDecodePass, WgpuResidentDecodePipeline,
-};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_paged_decode;
-#[cfg(feature = "wgpu")]
-pub use wgpu_paged_decode::{
-    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
-};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_backward;
-#[cfg(feature = "wgpu")]
-pub use wgpu_backward::{
-    pack_backward_recompute_inputs, BackwardRecomputeError, BackwardRecomputeLayout,
-    BackwardRecomputePass, WgpuBackwardRecomputePipeline,
-};
-
-#[cfg(feature = "wgpu")]
-mod wgpu_backward_grouped;
-#[cfg(feature = "wgpu")]
-pub use wgpu_backward_grouped::{
-    pack_grouped_backward_recompute_inputs, GroupedBackwardRecomputeError,
-    GroupedBackwardRecomputeLayout, GroupedBackwardRecomputePass,
-    WgpuGroupedBackwardRecomputePipeline,
-};
-
-/// Contiguous tensor shape used by the current MHA contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttentionShape {
-    /// Independent attention problems executed in parallel.
     pub batch: usize,
-    /// Query heads per problem; equals kv_heads unless GQA/MQA applies.
     pub heads: usize,
-    /// Tokens per problem; Q, K and V share this length.
     pub seq_len: usize,
-    /// Feature width of every Q/K/V head row (1..=128 portable).
     pub head_dim: usize,
 }
 
-impl AttentionShape {
-    /// Number of scalar elements in Q, K, V, and O.
-    pub fn tensor_len(self) -> Result<usize, FlatAttentionError> {
-        self.batch
-            .checked_mul(self.heads)
-            .and_then(|n| n.checked_mul(self.seq_len))
-            .and_then(|n| n.checked_mul(self.head_dim))
-            .ok_or(FlatAttentionError::ShapeOverflow)
-    }
-
-    /// Number of log-sum-exp statistics produced by forward.
-    pub fn lse_len(self) -> Result<usize, FlatAttentionError> {
-        self.batch
-            .checked_mul(self.heads)
-            .and_then(|n| n.checked_mul(self.seq_len))
-            .ok_or(FlatAttentionError::ShapeOverflow)
-    }
-
-    fn validate(self) -> Result<(), FlatAttentionError> {
-        if self.batch == 0 || self.heads == 0 || self.seq_len == 0 || self.head_dim == 0 {
-            return Err(FlatAttentionError::ZeroDimension);
-        }
-        self.tensor_len()?;
-        self.lse_len()?;
-        Ok(())
-    }
-}
-
-/// Forward configuration shared by reference and GPU kernels.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FlatAttentionConfig {
-    /// Apply autoregressive masking (`key_position > query_position`).
+    pub scale: f32,
     pub causal: bool,
-    /// Optional score multiplier. Defaults to `1 / sqrt(head_dim)`.
-    pub softmax_scale: Option<f32>,
 }
 
-impl FlatAttentionConfig {
-    pub fn resolved_scale(self, head_dim: usize) -> Result<f32, FlatAttentionError> {
-        if head_dim == 0 {
-            return Err(FlatAttentionError::ZeroDimension);
+impl Default for FlatAttentionConfig {
+    fn default() -> Self {
+        Self {
+            scale: 1.0,
+            causal: false,
         }
-        let scale = self
-            .softmax_scale
-            .unwrap_or_else(|| 1.0 / (head_dim as f32).sqrt());
-        if !scale.is_finite() || scale <= 0.0 {
-            return Err(FlatAttentionError::InvalidScale(scale));
-        }
-        Ok(scale)
     }
 }
 
-/// Static memory-traffic model for a fused kernel generation.
-///
-/// `kv_storage_scalar_loads` counts logical scalar loads of K plus V from
-/// storage into workgroup memory according to the kernel's explicit staging
-/// loops. It is an architectural count, not a claim about physical DRAM
-/// transactions, cache hits, bandwidth, or runtime speed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IoModel {
-    /// Dispatch geometry along the query axis.
-    pub query_workgroups: usize,
-    /// Logical scalar K/V staging loads implied by the kernel loops.
-    pub kv_storage_scalar_loads: usize,
-}
-
-/// Analytical IO model for the qualified single-row baseline.
-pub fn single_row_io_model(
-    shape: AttentionShape,
-    _causal: bool,
-) -> Result<IoModel, FlatAttentionError> {
-    shape.validate()?;
-    let batch_heads = shape
-        .batch
-        .checked_mul(shape.heads)
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    let query_workgroups = batch_heads
-        .checked_mul(shape.seq_len)
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    let loads_per_workgroup = 2usize
-        .checked_mul(shape.seq_len)
-        .and_then(|n| n.checked_mul(shape.head_dim))
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    Ok(IoModel {
-        query_workgroups,
-        kv_storage_scalar_loads: query_workgroups
-            .checked_mul(loads_per_workgroup)
-            .ok_or(FlatAttentionError::ShapeOverflow)?,
-    })
-}
-
-/// Analytical IO model for the M4 four-query-row tiled kernel.
-pub fn tiled_q4_io_model(
-    shape: AttentionShape,
-    causal: bool,
-) -> Result<IoModel, FlatAttentionError> {
-    shape.validate()?;
-    let batch_heads = shape
-        .batch
-        .checked_mul(shape.heads)
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-    let query_tiles_per_head = shape.seq_len.div_ceil(WGSL_QUERY_ROWS);
-    let query_workgroups = batch_heads
-        .checked_mul(query_tiles_per_head)
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-
-    let mut kv_rows_per_head = 0usize;
-    for tile in 0..query_tiles_per_head {
-        let query_start = tile
-            .checked_mul(WGSL_QUERY_ROWS)
-            .ok_or(FlatAttentionError::ShapeOverflow)?;
-        let staged_rows = if causal {
-            query_start
-                .checked_add(WGSL_QUERY_ROWS)
-                .ok_or(FlatAttentionError::ShapeOverflow)?
-                .min(shape.seq_len)
-        } else {
-            shape.seq_len
-        };
-        kv_rows_per_head = kv_rows_per_head
-            .checked_add(staged_rows)
-            .ok_or(FlatAttentionError::ShapeOverflow)?;
-    }
-
-    let kv_storage_scalar_loads = batch_heads
-        .checked_mul(kv_rows_per_head)
-        .and_then(|n| n.checked_mul(shape.head_dim))
-        .and_then(|n| n.checked_mul(2))
-        .ok_or(FlatAttentionError::ShapeOverflow)?;
-
-    Ok(IoModel {
-        query_workgroups,
-        kv_storage_scalar_loads,
-    })
-}
-
-/// Result of a forward attention pass.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatAttentionOutput {
-    /// Context tensor with the same shape as Q.
     pub output: Vec<f32>,
-    /// Per-query `log(sum(exp(scores)))`, shape `[batch, heads, seq_len]`.
-    pub lse: Vec<f32>,
+    pub logsumexp: Vec<f32>,
 }
 
-/// Allocate a process-unique resident-buffer owner identity.
-///
-/// Pointer-derived identities can be recycled after a context is dropped
-/// (ABA), silently defeating foreign-buffer rejection. Monotonic counters are
-/// never reused.
-#[cfg(feature = "wgpu")]
-pub(crate) fn next_resident_owner_id() -> usize {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static NEXT_RESIDENT_OWNER_ID: AtomicUsize = AtomicUsize::new(1);
-    NEXT_RESIDENT_OWNER_ID.fetch_add(1, Ordering::Relaxed)
-}
-
-/// Errors are explicit: FLAT-ATTENTION never fabricates a fallback result.
-#[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlatAttentionError {
     ZeroDimension,
-    ShapeOverflow,
-    InvalidHeadGrouping {
-        q_heads: usize,
-        kv_heads: usize,
-    },
-    InvalidRotaryHeadDim {
-        head_dim: usize,
-    },
-    InvalidRotaryTheta(f32),
-    PositionOverflow,
-    LengthMismatch {
-        tensor: &'static str,
-        actual: usize,
-        expected: usize,
-    },
-    InvalidScale(f32),
-    NonFiniteInput {
-        tensor: &'static str,
-        index: usize,
-    },
+    UnsupportedHeadDim,
+    ShapeMismatch,
+    NonFiniteScale,
+    InvalidGroupShape,
+    InvalidBiasShape,
 }
 
 impl fmt::Display for FlatAttentionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ZeroDimension => write!(f, "attention dimensions must all be non-zero"),
-            Self::ShapeOverflow => write!(f, "attention shape overflows the address space"),
-            Self::InvalidHeadGrouping { q_heads, kv_heads } => write!(
-                f,
-                "q_heads ({q_heads}) must be exactly divisible by kv_heads ({kv_heads})"
-            ),
-            Self::InvalidRotaryHeadDim { head_dim } => write!(
-                f,
-                "rotary attention head_dim must be non-zero and even, got {head_dim}"
-            ),
-            Self::InvalidRotaryTheta(theta) => {
-                write!(f, "rotary theta must be finite and positive, got {theta}")
-            }
-            Self::PositionOverflow => write!(f, "rotary position offset overflows the index space"),
-            Self::LengthMismatch {
-                tensor,
-                actual,
-                expected,
-            } => write!(
-                f,
-                "tensor {tensor} contains {actual} elements, expected {expected}"
-            ),
-            Self::InvalidScale(scale) => {
-                write!(f, "softmax scale must be finite and positive, got {scale}")
-            }
-            Self::NonFiniteInput { tensor, index } => {
-                write!(
-                    f,
-                    "tensor {tensor} contains a non-finite value at index {index}"
-                )
-            }
-        }
+        let message = match self {
+            Self::ZeroDimension => "attention dimensions must be non-zero",
+            Self::UnsupportedHeadDim => "head_dim exceeds portable kernel limit",
+            Self::ShapeMismatch => "input length does not match attention shape",
+            Self::NonFiniteScale => "attention scale must be finite",
+            Self::InvalidGroupShape => "query and key/value head grouping is invalid",
+            Self::InvalidBiasShape => "attention bias shape is invalid",
+        };
+        f.write_str(message)
     }
 }
 
 impl std::error::Error for FlatAttentionError {}
 
-fn validate_input(
-    name: &'static str,
-    data: &[f32],
-    expected: usize,
-) -> Result<(), FlatAttentionError> {
-    if data.len() != expected {
-        return Err(FlatAttentionError::LengthMismatch {
-            tensor: name,
-            actual: data.len(),
-            expected,
-        });
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttentionBias<'a> {
+    None,
+    Additive {
+        values: &'a [f32],
+        query_len: usize,
+        key_len: usize,
+    },
+}
+
+impl Default for AttentionBias<'_> {
+    fn default() -> Self {
+        Self::None
     }
-    if let Some(index) = data.iter().position(|x| !x.is_finite()) {
-        return Err(FlatAttentionError::NonFiniteInput {
-            tensor: name,
-            index,
-        });
+}
+
+impl<'a> AttentionBias<'a> {
+    fn validate(self, shape: AttentionShape) -> Result<(), FlatAttentionError> {
+        match self {
+            Self::None => Ok(()),
+            Self::Additive {
+                values,
+                query_len,
+                key_len,
+            } => {
+                if query_len != shape.seq_len || key_len != shape.seq_len {
+                    return Err(FlatAttentionError::InvalidBiasShape);
+                }
+                let expected = query_len
+                    .checked_mul(key_len)
+                    .ok_or(FlatAttentionError::InvalidBiasShape)?;
+                if values.len() != expected {
+                    return Err(FlatAttentionError::InvalidBiasShape);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+fn validate(
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    shape: AttentionShape,
+    config: FlatAttentionConfig,
+) -> Result<(), FlatAttentionError> {
+    if shape.batch == 0 || shape.heads == 0 || shape.seq_len == 0 || shape.head_dim == 0 {
+        return Err(FlatAttentionError::ZeroDimension);
+    }
+    if shape.head_dim > WGSL_MAX_HEAD_DIM {
+        return Err(FlatAttentionError::UnsupportedHeadDim);
+    }
+    if !config.scale.is_finite() {
+        return Err(FlatAttentionError::NonFiniteScale);
+    }
+    let expected = shape
+        .batch
+        .checked_mul(shape.heads)
+        .and_then(|n| n.checked_mul(shape.seq_len))
+        .and_then(|n| n.checked_mul(shape.head_dim))
+        .ok_or(FlatAttentionError::ShapeMismatch)?;
+    if q.len() != expected || k.len() != expected || v.len() != expected {
+        return Err(FlatAttentionError::ShapeMismatch);
     }
     Ok(())
 }
 
-/// Deterministic online-softmax reference forward pass.
-///
-/// This implementation is intentionally scalar and simple. It is the numerical
-/// oracle for optimized kernels. It has O(N * D) auxiliary state per active
-/// query and never allocates the O(N²) attention matrix.
+fn softmax_scores(scores: &mut [f32]) -> f32 {
+    let max = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let mut denom = 0.0_f32;
+    for score in scores.iter_mut() {
+        *score = (*score - max).exp();
+        denom += *score;
+    }
+    for score in scores.iter_mut() {
+        *score /= denom;
+    }
+    max + denom.ln()
+}
+
 pub fn forward_reference(
     q: &[f32],
     k: &[f32],
@@ -535,94 +356,125 @@ pub fn forward_reference(
     shape: AttentionShape,
     config: FlatAttentionConfig,
 ) -> Result<FlatAttentionOutput, FlatAttentionError> {
-    shape.validate()?;
-    let tensor_len = shape.tensor_len()?;
-    validate_input("Q", q, tensor_len)?;
-    validate_input("K", k, tensor_len)?;
-    validate_input("V", v, tensor_len)?;
-    let scale = config.resolved_scale(shape.head_dim)?;
+    validate(q, k, v, shape, config)?;
 
-    let mut output = vec![0.0f32; tensor_len];
-    let mut lse = vec![0.0f32; shape.lse_len()?];
-    let head_stride = shape.seq_len * shape.head_dim;
+    let rows = shape.batch * shape.heads * shape.seq_len;
+    let mut output = vec![0.0_f32; rows * shape.head_dim];
+    let mut logsumexp = vec![0.0_f32; rows];
 
     for batch in 0..shape.batch {
         for head in 0..shape.heads {
-            let bh = batch * shape.heads + head;
-            let head_base = bh * head_stride;
-            let lse_base = bh * shape.seq_len;
-
-            for query_pos in 0..shape.seq_len {
-                let q_base = head_base + query_pos * shape.head_dim;
-                let out_base = q_base;
-                let mut running_max = f32::NEG_INFINITY;
-                let mut running_sum = 0.0f32;
-
-                for key_pos in 0..shape.seq_len {
-                    if config.causal && key_pos > query_pos {
-                        break;
-                    }
-
-                    let kv_base = head_base + key_pos * shape.head_dim;
-                    let mut dot = 0.0f32;
+            for query in 0..shape.seq_len {
+                let query_row = ((batch * shape.heads + head) * shape.seq_len + query)
+                    * shape.head_dim;
+                let allowed_keys = if config.causal {
+                    query + 1
+                } else {
+                    shape.seq_len
+                };
+                let mut scores = vec![0.0_f32; allowed_keys];
+                for (key, score) in scores.iter_mut().enumerate() {
+                    let key_row =
+                        ((batch * shape.heads + head) * shape.seq_len + key) * shape.head_dim;
+                    let mut dot = 0.0_f32;
                     for dim in 0..shape.head_dim {
-                        dot += q[q_base + dim] * k[kv_base + dim];
+                        dot += q[query_row + dim] * k[key_row + dim];
                     }
-                    let score = dot * scale;
-                    let new_max = running_max.max(score);
-                    let alpha = if running_max.is_infinite() {
-                        0.0
-                    } else {
-                        (running_max - new_max).exp()
-                    };
-                    let probability_numerator = (score - new_max).exp();
-
+                    *score = dot * config.scale;
+                }
+                logsumexp[(batch * shape.heads + head) * shape.seq_len + query] =
+                    softmax_scores(&mut scores);
+                for (key, weight) in scores.iter().copied().enumerate() {
+                    let value_row =
+                        ((batch * shape.heads + head) * shape.seq_len + key) * shape.head_dim;
                     for dim in 0..shape.head_dim {
-                        output[out_base + dim] = output[out_base + dim] * alpha
-                            + probability_numerator * v[kv_base + dim];
+                        output[query_row + dim] += weight * v[value_row + dim];
                     }
-                    running_sum = running_sum * alpha + probability_numerator;
-                    running_max = new_max;
                 }
-
-                let inv_sum = running_sum.recip();
-                for dim in 0..shape.head_dim {
-                    output[out_base + dim] *= inv_sum;
-                }
-                lse[lse_base + query_pos] = running_max + running_sum.ln();
             }
         }
     }
 
-    Ok(FlatAttentionOutput { output, lse })
+    Ok(FlatAttentionOutput {
+        output,
+        logsumexp,
+    })
 }
 
 #[cfg(test)]
-mod unit_tests {
+mod tests {
     use super::*;
 
-    #[test]
-    fn default_scale_matches_inverse_sqrt_head_dim() {
-        let scale = FlatAttentionConfig::default().resolved_scale(64).unwrap();
-        assert_eq!(scale, 0.125);
+    fn approx_eq(a: f32, b: f32) -> bool {
+        (a - b).abs() <= 1e-5
     }
 
     #[test]
-    fn rejects_bad_lengths() {
+    fn non_causal_two_token_reference() {
         let shape = AttentionShape {
             batch: 1,
             heads: 1,
             seq_len: 2,
             head_dim: 2,
         };
-        let q = vec![0.0; 4];
-        let k = vec![0.0; 3];
-        let v = vec![0.0; 4];
-        let error = forward_reference(&q, &k, &v, shape, FlatAttentionConfig::default())
-            .expect_err("invalid K length must fail");
-        assert!(matches!(
-            error,
-            FlatAttentionError::LengthMismatch { tensor: "K", .. }
-        ));
+        let config = FlatAttentionConfig {
+            scale: 1.0,
+            causal: false,
+        };
+        let q = [1.0, 0.0, 0.0, 1.0];
+        let k = q;
+        let v = [1.0, 2.0, 3.0, 4.0];
+        let result = forward_reference(&q, &k, &v, shape, config).unwrap();
+        assert_eq!(result.output.len(), 4);
+        assert!(approx_eq(result.output[0], 1.5378828));
+        assert!(approx_eq(result.output[1], 2.5378828));
+        assert!(approx_eq(result.output[2], 2.4621172));
+        assert!(approx_eq(result.output[3], 3.4621172));
+        assert_eq!(result.logsumexp.len(), 2);
+    }
+
+    #[test]
+    fn causal_masks_future_tokens() {
+        let shape = AttentionShape {
+            batch: 1,
+            heads: 1,
+            seq_len: 2,
+            head_dim: 1,
+        };
+        let q = [1.0, 1.0];
+        let k = [1.0, 2.0];
+        let v = [5.0, 9.0];
+        let result = forward_reference(
+            &q,
+            &k,
+            &v,
+            shape,
+            FlatAttentionConfig {
+                scale: 1.0,
+                causal: true,
+            },
+        )
+        .unwrap();
+        assert!(approx_eq(result.output[0], 5.0));
+        assert!(result.output[1] > 7.0);
+    }
+
+    #[test]
+    fn invalid_shape_is_rejected() {
+        let shape = AttentionShape {
+            batch: 1,
+            heads: 1,
+            seq_len: 2,
+            head_dim: 2,
+        };
+        let err = forward_reference(
+            &[0.0; 3],
+            &[0.0; 4],
+            &[0.0; 4],
+            shape,
+            FlatAttentionConfig::default(),
+        )
+        .unwrap_err();
+        assert_eq!(err, FlatAttentionError::ShapeMismatch);
     }
 }
