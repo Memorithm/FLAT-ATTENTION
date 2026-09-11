@@ -108,6 +108,41 @@ impl NumericalMode {
             },
         }
     }
+
+    /// Comparison tolerance for this mode against the scalar oracle.
+    ///
+    /// Exact-reference results use bit equality and therefore return `None`.
+    /// Packed-f16 inputs use the explicitly wider qualification band.
+    #[must_use]
+    pub const fn comparison_tolerance(self, packed_f16: bool) -> Option<(f32, f32)> {
+        match self {
+            Self::ExactReference => None,
+            Self::FastPortable | Self::DeterministicPortable if packed_f16 => {
+                Some((PACKED_F16_ABS_ATOL, PACKED_F16_REL_RTOL))
+            }
+            Self::FastPortable | Self::DeterministicPortable => {
+                Some((FAST_PORTABLE_ABS_ATOL, FAST_PORTABLE_REL_RTOL))
+            }
+        }
+    }
+
+    /// Compare an output slice against the scalar oracle under this mode's
+    /// declared qualification contract.
+    #[must_use]
+    pub fn matches_reference(self, actual: &[f32], expected: &[f32], packed_f16: bool) -> bool {
+        if matches!(self, Self::ExactReference) && EXACT_REFERENCE_BITS {
+            return actual.len() == expected.len()
+                && actual
+                    .iter()
+                    .zip(expected)
+                    .all(|(&a, &e)| a.to_bits() == e.to_bits());
+        }
+
+        match self.comparison_tolerance(packed_f16) {
+            Some((atol, rtol)) => slices_within_tol(actual, expected, atol, rtol),
+            None => false,
+        }
+    }
 }
 
 /// Concrete execution backend selected by [`NumericalExecutor`].
@@ -307,6 +342,26 @@ mod tests {
         assert_eq!(deterministic.reduction, ReductionPolicy::FixedWorkgroupTree);
         assert!(deterministic.repeatable_same_backend_device);
         assert!(!deterministic.allows_subgroup);
+    }
+
+    #[test]
+    fn numerical_modes_expose_their_comparison_contracts() {
+        assert_eq!(NumericalMode::ExactReference.comparison_tolerance(false), None);
+        assert_eq!(
+            NumericalMode::FastPortable.comparison_tolerance(false),
+            Some((FAST_PORTABLE_ABS_ATOL, FAST_PORTABLE_REL_RTOL))
+        );
+        assert_eq!(
+            NumericalMode::FastPortable.comparison_tolerance(true),
+            Some((PACKED_F16_ABS_ATOL, PACKED_F16_REL_RTOL))
+        );
+        assert!(NumericalMode::ExactReference.matches_reference(&[1.0], &[1.0], false));
+        assert!(!NumericalMode::ExactReference.matches_reference(&[0.0], &[-0.0], false));
+        assert!(NumericalMode::FastPortable.matches_reference(
+            &[1.0 + FAST_PORTABLE_ABS_ATOL * 0.5],
+            &[1.0],
+            false
+        ));
     }
 
     #[test]
