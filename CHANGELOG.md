@@ -10,8 +10,10 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 - Added README badges (CI, Rust 1.89, PolyForm Noncommercial) aligned with SciRust wording.
 - Added README sections for **Project status**, **Repository layout**, and a **Quickstart (host-only)** path so newcomers can orient themselves without reading the full technical architecture first.
 - Added `examples/hello_attention.rs`, a default-feature scalar-oracle smoke example that requires no GPU.
+- Added `tests/host_oracle_smoke.rs` covering ExactReference bit-parity with `forward_reference`, finite causal/non-causal outputs, `api::v1` validation, and typed invalid-scale rejection.
+- Added `examples/README.md` and `docs/EXAMPLES.md` so host-only examples are distinguished from GPU benches.
 - Added `crates/README.md` and `docs/CRATES.md` so research/candidate crates are not mistaken for the reusable `api::v1` contract.
-- Pointed the docs index at `ROADMAP_STATUS.md`, the crate map, and the corrected licensing files for first-time readers.
+- Pointed CONTRIBUTING, the README layout table, and the docs index at the host-only smoke path, crate map, and corrected licensing files.
 
 ### Kernel compilation platform
 
