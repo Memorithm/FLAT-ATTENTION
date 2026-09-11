@@ -36,6 +36,11 @@ jobs:
         env:
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --workspace --all-features --no-deps --document-private-items
+      - name: Host-only oracle smoke (no wgpu feature)
+        run: |
+          set -euo pipefail
+          cargo test --test host_oracle_smoke
+          cargo run --example hello_attention
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features
       - name: Validate EPG qualification WGSL without a device

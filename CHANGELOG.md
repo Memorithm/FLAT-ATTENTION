@@ -4,6 +4,18 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Documentation and project clarity
+
+- Corrected the README licensing section: the repository is source-available under PolyForm Noncommercial 1.0.0 (`LICENSE` / `LICENSE.md` / `LICENSING.md`), the same license as SciRust. The previous "No license grant is declared" wording was outdated and incorrect.
+- Added README badges (CI, Rust 1.89, PolyForm Noncommercial) aligned with SciRust wording.
+- Added README sections for **Project status**, **Repository layout**, and a **Quickstart (host-only)** path so newcomers can orient themselves without reading the full technical architecture first.
+- Added `examples/hello_attention.rs`, a default-feature scalar-oracle smoke example that requires no GPU.
+- Added `tests/host_oracle_smoke.rs` covering ExactReference bit-parity with `forward_reference`, finite causal/non-causal outputs, `api::v1` validation, and typed invalid-scale rejection.
+- Added `examples/README.md` and `docs/EXAMPLES.md` so host-only examples are distinguished from GPU benches.
+- Added `crates/README.md` and `docs/CRATES.md` so research/candidate crates are not mistaken for the reusable `api::v1` contract.
+- Added `shaders/README.md` and `docs/SHADERS.md` mapping each handwritten WGSL file to its milestone and routing status (qualified / opt-in / research).
+- Pointed CONTRIBUTING, the README layout table, and the docs index at the host-only smoke path, crate map, shader map, and corrected licensing files.
+
 ### Kernel compilation platform
 
 - Added opt-in runtime routing of tuned results: `with_kernel_candidate` pins
