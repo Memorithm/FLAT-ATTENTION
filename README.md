@@ -36,6 +36,8 @@ while keeping the implementation under SciRust architectural control.
 | Path | Role |
 |------|------|
 | `src/` | Main `flat-attention` package: public API, oracles, WGSL kernels, WGPU execution, autotune, numerical policy, etc. |
+| `examples/` | Host-only smokes (`hello_attention`, `io_model`) and GPU benches. See [`examples/README.md`](examples/README.md). |
+| `tests/` | Integration and qualification suites, including host-only `host_oracle_smoke`. |
 | `crates/` | Supporting crates (EPG geometry, research candidates, graduation helpers). See [`crates/README.md`](crates/README.md). |
 | `docs/` | Milestone notes, release gates, numerical policy, portability qualification, guides. Start with [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md) and [`docs/README.md`](docs/README.md). |
 | `ROADMAP.md` | Authoritative phase-by-phase plan and acceptance criteria. |
@@ -117,7 +119,7 @@ cargo run --example hello_attention
 cargo run --example io_model
 ```
 
-`hello_attention` executes the scalar online-softmax oracle on a tiny causal MHA problem and prints O/LSE. It is a contract smoke test, not a performance claim.
+`hello_attention` executes the scalar online-softmax oracle on a tiny causal MHA problem and prints O/LSE. It is a contract smoke test, not a performance claim. Host-only vs GPU examples are listed in [`examples/README.md`](examples/README.md).
 
 For a deeper walkthrough of the public contract, tensor layout, and usage patterns, see [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md).
 
