@@ -346,7 +346,10 @@ mod tests {
 
     #[test]
     fn numerical_modes_expose_their_comparison_contracts() {
-        assert_eq!(NumericalMode::ExactReference.comparison_tolerance(false), None);
+        assert_eq!(
+            NumericalMode::ExactReference.comparison_tolerance(false),
+            None
+        );
         assert_eq!(
             NumericalMode::FastPortable.comparison_tolerance(false),
             Some((FAST_PORTABLE_ABS_ATOL, FAST_PORTABLE_REL_RTOL))
