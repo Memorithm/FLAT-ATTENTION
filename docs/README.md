@@ -1,6 +1,8 @@
 # FLAT-ATTENTION documentation
 
-Start with [FLAT_ATTENTION_GUIDE.md](FLAT_ATTENTION_GUIDE.md) for architecture, algorithms, API, SciRust/SciAgent integration, GPU backends, autotuning, benchmark methodology, troubleshooting and development policy.
+New clone? Start with [ONBOARDING.md](ONBOARDING.md) (host-only, no GPU).
+
+Then read [FLAT_ATTENTION_GUIDE.md](FLAT_ATTENTION_GUIDE.md) for architecture, algorithms, API, SciRust/SciAgent integration, GPU backends, autotuning, benchmark methodology, troubleshooting and development policy.
 
 For a high-level orientation of the repository itself (status, layout, licensing, host-only quickstart), see the root [README.md](../README.md).
 
