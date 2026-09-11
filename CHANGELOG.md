@@ -13,7 +13,8 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 - Added `tests/host_oracle_smoke.rs` covering ExactReference bit-parity with `forward_reference`, finite causal/non-causal outputs, `api::v1` validation, and typed invalid-scale rejection.
 - Added `examples/README.md` and `docs/EXAMPLES.md` so host-only examples are distinguished from GPU benches.
 - Added `crates/README.md` and `docs/CRATES.md` so research/candidate crates are not mistaken for the reusable `api::v1` contract.
-- Pointed CONTRIBUTING, the README layout table, and the docs index at the host-only smoke path, crate map, and corrected licensing files.
+- Added `shaders/README.md` and `docs/SHADERS.md` mapping each handwritten WGSL file to its milestone and routing status (qualified / opt-in / research).
+- Pointed CONTRIBUTING, the README layout table, and the docs index at the host-only smoke path, crate map, shader map, and corrected licensing files.
 
 ### Kernel compilation platform
 
