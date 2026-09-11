@@ -4,6 +4,8 @@ Thank you for your interest. FLAT-ATTENTION is Memorithm's Rust-native fused
 attention engine for the SciRust ecosystem. This document explains the rules
 that keep the project trustworthy.
 
+New contributors can start with [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
+
 ## Non-negotiable design rules
 
 - Rust is the host language. No CUDA C/C++, `nvcc`, WMMA, CUTLASS, cuDNN, or
@@ -23,6 +25,7 @@ that keep the project trustworthy.
    - a naga parse/validate unit test (no device required),
    - a parity test against the scalar oracle,
    - CI coverage in `.github/workflows/ci.yml`.
+   Update [`shaders/README.md`](shaders/README.md) when adding a handwritten WGSL file.
 3. Run the local gates:
 
    ```bash
@@ -38,9 +41,11 @@ that keep the project trustworthy.
    API additions require documentation and a CHANGELOG entry under
    *Unreleased*.
 
-Host-only vs GPU examples are listed in [`examples/README.md`](examples/README.md).
-Workspace crate roles (reusable vs candidate vs research) are listed in
-[`crates/README.md`](crates/README.md).
+Maps:
+
+- Host-only vs GPU examples: [`examples/README.md`](examples/README.md)
+- Workspace crate roles: [`crates/README.md`](crates/README.md)
+- Handwritten WGSL inventory: [`shaders/README.md`](shaders/README.md)
 
 ## Validation discipline
 
