@@ -4,6 +4,8 @@ New clone? Start with [ONBOARDING.md](ONBOARDING.md) (host-only, no GPU).
 
 Then read [FLAT_ATTENTION_GUIDE.md](FLAT_ATTENTION_GUIDE.md) for architecture, algorithms, API, SciRust/SciAgent integration, GPU backends, autotuning, benchmark methodology, troubleshooting and development policy.
 
+Product position versus CUDA lock-in: [COMPETITIVE.md](COMPETITIVE.md).
+
 For a high-level orientation of the repository itself (status, layout, licensing, host-only quickstart), see the root [README.md](../README.md).
 
 `ROADMAP.md` at repository root is the authoritative milestone/acceptance plan. Progress against those gates is summarized in [ROADMAP_STATUS.md](ROADMAP_STATUS.md). Evidence documents in this directory are narrower records tied to the milestone named in their filename; they complement rather than override the consolidated guide.
