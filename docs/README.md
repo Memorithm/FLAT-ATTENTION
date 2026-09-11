@@ -2,7 +2,9 @@
 
 Start with [FLAT_ATTENTION_GUIDE.md](FLAT_ATTENTION_GUIDE.md) for architecture, algorithms, API, SciRust/SciAgent integration, GPU backends, autotuning, benchmark methodology, troubleshooting and development policy.
 
-`ROADMAP.md` at repository root is the authoritative milestone/acceptance plan. Evidence documents in this directory are narrower records tied to the milestone named in their filename; they complement rather than override the consolidated guide.
+For a high-level orientation of the repository itself (status, layout, licensing, host-only quickstart), see the root [README.md](../README.md).
+
+`ROADMAP.md` at repository root is the authoritative milestone/acceptance plan. Progress against those gates is summarized in [ROADMAP_STATUS.md](ROADMAP_STATUS.md). Evidence documents in this directory are narrower records tied to the milestone named in their filename; they complement rather than override the consolidated guide.
 
 Core contracts:
 
@@ -15,4 +17,4 @@ Core contracts:
 - [M38_PROPERTY_STRESS.md](M38_PROPERTY_STRESS.md) and [M39_HOST_API_FUZZING.md](M39_HOST_API_FUZZING.md) — robustness and hostile-input gates.
 - [M40_BENCHMARK_MANIFESTS.md](M40_BENCHMARK_MANIFESTS.md) — reproducible benchmark records.
 
-Ownership and distribution are defined at repository root by `LICENSE`, `LICENSE.md`, `LICENSING.md` and `THIRD_PARTY_LICENSES.md`.
+Ownership and distribution are defined at repository root by `LICENSE`, `LICENSE.md`, `LICENSING.md` and `THIRD_PARTY_LICENSES.md` (PolyForm Noncommercial 1.0.0 source-available terms; commercial use requires a separate agreement).

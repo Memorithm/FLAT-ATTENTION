@@ -4,6 +4,12 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Documentation and project clarity
+
+- Corrected the README licensing section: the repository is source-available under PolyForm Noncommercial 1.0.0 (`LICENSE` / `LICENSE.md` / `LICENSING.md`). The previous "No license grant is declared" wording was outdated and incorrect.
+- Added README sections for **Project status**, **Repository layout**, and a **Quickstart (host-only)** path so newcomers can orient themselves without reading the full technical architecture first.
+- Pointed the docs index at `ROADMAP_STATUS.md` and the corrected licensing files for first-time readers.
+
 ### Kernel compilation platform
 
 - Added opt-in runtime routing of tuned results: `with_kernel_candidate` pins
