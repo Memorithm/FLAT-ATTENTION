@@ -1,5 +1,9 @@
 # FLAT-ATTENTION
 
+[![CI](https://github.com/Memorithm/FLAT-ATTENTION/actions/workflows/ci.yml/badge.svg)](https://github.com/Memorithm/FLAT-ATTENTION/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-1.89%2B-000000?logo=rust)](https://github.com/Memorithm/FLAT-ATTENTION)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE.md)
+
 **FLAT-ATTENTION** is Memorithm's Rust-native fused attention engine for the SciRust ecosystem.
 
 The project targets the same systems problem class as IO-aware attention kernels: compute
@@ -32,7 +36,7 @@ while keeping the implementation under SciRust architectural control.
 | Path | Role |
 |------|------|
 | `src/` | Main `flat-attention` package: public API, oracles, WGSL kernels, WGPU execution, autotune, numerical policy, etc. |
-| `crates/` | Supporting crates (EPG geometry, research candidates, graduation helpers). Research/experimental material lives here or under `docs/research/`. |
+| `crates/` | Supporting crates (EPG geometry, research candidates, graduation helpers). See [`crates/README.md`](crates/README.md). |
 | `docs/` | Milestone notes, release gates, numerical policy, portability qualification, guides. Start with [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md) and [`docs/README.md`](docs/README.md). |
 | `ROADMAP.md` | Authoritative phase-by-phase plan and acceptance criteria. |
 | `.github/workflows/` | CI (fmt, Clippy, tests, lavapipe/WGPU, portability, fuzz, supply-chain, qualification). |
@@ -109,8 +113,11 @@ Host-only builds and tests require no GPU:
 
 ```bash
 cargo test
-cargo test --all-features   # includes optional paths when available
+cargo run --example hello_attention
+cargo run --example io_model
 ```
+
+`hello_attention` executes the scalar online-softmax oracle on a tiny causal MHA problem and prints O/LSE. It is a contract smoke test, not a performance claim.
 
 For a deeper walkthrough of the public contract, tensor layout, and usage patterns, see [`docs/FLAT_ATTENTION_GUIDE.md`](docs/FLAT_ATTENTION_GUIDE.md).
 
@@ -205,11 +212,13 @@ Status tracking for individual milestones is also summarized in [`docs/ROADMAP_S
 
 ## Licensing
 
-FLAT-ATTENTION is **source-available** under the **PolyForm Noncommercial License 1.0.0**.
+FLAT-ATTENTION is source-available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE.md), the same license as SciRust.
+Commercial use is not granted by that license. See [`LICENSING.md`](LICENSING.md)
+for the separate commercial licensing path.
 
 - Full terms and Required Notice: [`LICENSE.md`](LICENSE.md)
 - Short SPDX pointer: [`LICENSE`](LICENSE)
-- Commercial licensing path and contact: [`LICENSING.md`](LICENSING.md)
 - Third-party dependency inventory: [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)
 
-Commercial use is **not** granted by the PolyForm Noncommercial terms. A separate commercial agreement may be obtained from the copyright holder (see `LICENSING.md`). Contributions are accepted under the same repository licensing policy (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
+Copyright © 2026 Tarek Zekriti.
