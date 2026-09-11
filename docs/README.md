@@ -6,7 +6,11 @@ For a high-level orientation of the repository itself (status, layout, licensing
 
 `ROADMAP.md` at repository root is the authoritative milestone/acceptance plan. Progress against those gates is summarized in [ROADMAP_STATUS.md](ROADMAP_STATUS.md). Evidence documents in this directory are narrower records tied to the milestone named in their filename; they complement rather than override the consolidated guide.
 
-Workspace crate roles (reusable vs candidate vs research) are listed in [CRATES.md](CRATES.md) and [`crates/README.md`](../crates/README.md).
+Workspace maps:
+
+- [CRATES.md](CRATES.md) and [`crates/README.md`](../crates/README.md) — reusable vs candidate vs research crates.
+- [EXAMPLES.md](EXAMPLES.md) and [`examples/README.md`](../examples/README.md) — host-only vs GPU examples.
+- [SHADERS.md](SHADERS.md) and [`shaders/README.md`](../shaders/README.md) — handwritten WGSL inventory and routing status.
 
 Core contracts:
 
