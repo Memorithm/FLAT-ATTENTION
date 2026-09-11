@@ -23,6 +23,16 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
+      - name: Reject vendor CUDA sources
+        run: |
+          set -euo pipefail
+          # FLAT competes with CUDA lock-in. Tracked CUDA/PTX sources are out of policy.
+          hits="$(git ls-files '*.cu' '*.cuh' '*.ptx' || true)"
+          if [ -n "$hits" ]; then
+            echo "Tracked CUDA/PTX sources are forbidden:"
+            printf '%s\n' "$hits"
+            exit 1
+          fi
       - name: Verify Cargo.lock is synchronized
         run: |
           set -euo pipefail
