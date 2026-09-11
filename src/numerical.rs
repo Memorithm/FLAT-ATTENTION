@@ -13,6 +13,15 @@ use super::{
 #[cfg(feature = "wgpu")]
 use super::{WgpuFlatAttention, WgpuFlatAttentionError, WgpuKernelVariant, WgpuSubgroupPolicy};
 
+/// Comparison bands for oracle vs portable/f16 results. See `numerical_tol`.
+#[path = "numerical_tol.rs"]
+pub mod numerical_tol;
+
+pub use numerical_tol::{
+    slices_within_tol, within_tol, EXACT_REFERENCE_BITS, FAST_PORTABLE_ABS_ATOL,
+    FAST_PORTABLE_REL_RTOL, PACKED_F16_ABS_ATOL, PACKED_F16_REL_RTOL,
+};
+
 /// Public numerical execution modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NumericalMode {
@@ -252,8 +261,6 @@ impl NumericalExecutor {
     fn new_deterministic_portable() -> Result<Self, NumericalError> {
         #[cfg(feature = "wgpu")]
         {
-            // Fixed reduction topology: no subgroup, M6 vec4 storage remains
-            // allowed because it does not alter the 64-lane reduction tree.
             let context = WgpuFlatAttention::with_subgroup_vectorization_and_double_buffering(
                 WgpuSubgroupPolicy::Disable,
                 true,
