@@ -31,6 +31,13 @@ while keeping the implementation under SciRust architectural control.
 > GPU execution inevitably crosses the operating system / device-driver ABI. "No FFI" here
 > means FLAT-ATTENTION does not introduce its own C/C++ bridge or vendor SDK dependency.
 
+## Competitive position
+
+FLAT-ATTENTION competes with **CUDA as vendor lock-in** for fused attention. It does
+not implement CUDA, wrap CUDA, or ship `nvcc` kernels. NVIDIA GPUs are a target
+through the Vulkan/wgpu backend. The written policy is
+[`docs/COMPETITIVE.md`](docs/COMPETITIVE.md).
+
 ## Repository layout
 
 | Path | Role |
