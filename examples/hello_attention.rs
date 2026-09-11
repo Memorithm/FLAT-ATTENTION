@@ -38,5 +38,9 @@ fn main() {
         &result.output[..shape.head_dim.min(result.output.len())],
         result.lse
     );
-    println!("finite_O={} finite_LSE={}", result.output.iter().all(|x| x.is_finite()), result.lse.iter().all(|x| x.is_finite()));
+    println!(
+        "finite_O={} finite_LSE={}",
+        result.output.iter().all(|x| x.is_finite()),
+        result.lse.iter().all(|x| x.is_finite())
+    );
 }
