@@ -65,6 +65,38 @@ Every benchmark record must include at least:
 - effective tokens/s or TFLOP/s where meaningful;
 - peak allocated/intermediate memory where measurable.
 
+### 0.5 Priority research track — Boolean Front-End Attention
+
+Boolean control of attention is now a priority research track for FLAT-ATTENTION.
+
+The hypothesis is not that Boolean instructions are automatically faster than well-utilized floating-point tensor hardware. The hypothesis is that compact bit-parallel decisions can be made early enough to prevent a large amount of numerical attention and K/V memory traffic from being issued at all.
+
+The governing systems condition is:
+
+```text
+T_boolean_front_end + T_flat_survivors < T_flat_dense
+```
+
+The initial target is therefore a Boolean control plane in front of exact FLAT attention:
+
+```text
+Q/K state
+  -> compact Boolean signatures / routing metadata
+  -> bit-parallel block/page admission
+     -> reject: do not issue exact Q·K and, where architecture permits, do not stage/read K/V
+     -> accept: execute qualified FLAT numerical attention
+```
+
+Research ownership is explicit:
+
+- **BooleanLab** is the primary scientific bench for Boolean functions, signatures, routing predicates, equivalence screening, search and controlled experiments.
+- **FLAT-ATTENTION** owns mask consumption, GPU routing, kernels and end-to-end systems qualification.
+- **KVLab** owns cache/page selection, retention, tiering and decode-cache experiments.
+- **SciRust** is the promotion target for reusable packed-bit and mathematical primitives.
+- **NNIS** may later qualify hardware-specific acceleration, but no vendor-specific path is required by the portable FLAT core.
+
+Dense qualified attention remains the reference and fallback. Boolean routing must never silently weaken quality guarantees.
+
 ## 1. Target public contract
 
 FLAT-ATTENTION must eventually expose one stable attention contract able to serve training and inference:
@@ -77,10 +109,12 @@ FLAT-ATTENTION must eventually expose one stable attention contract able to serv
 - decode with KV cache;
 - variable sequence lengths;
 - masking/bias extensions;
+- optional bitpacked Boolean block/page admission before expensive numerical attention work;
 - forward and backward;
 - deterministic reference mode;
 - portable GPU mode;
-- optimized device-specialized mode.
+- optimized device-specialized mode;
+- explicit dense fallback when Boolean routing is unsupported or not beneficial.
 
 Canonical logical tensor layout:
 
@@ -325,12 +359,221 @@ The M1 kernel prioritizes correctness. M4 changes work mapping so one workgroup 
 - padding/length mask;
 - optional additive bias contract;
 - ALiBi-compatible bias path if required by SciRust models;
-- clean extension point for model-specific biases without forking the kernel architecture.
+- clean extension point for model-specific biases without forking the kernel architecture;
+- explicit extension point for bitpacked Boolean block admission without a dense `f32` mask.
 
 ### Acceptance
 
 - every supported mask/bias has an oracle;
-- unsupported combinations fail explicitly.
+- unsupported combinations fail explicitly;
+- Boolean admission semantics remain deterministic and separate from the policy that generates the mask.
+
+---
+
+# PHASE E-B — Boolean Front-End Attention — PRIORITY RESEARCH TRACK
+
+This phase is inserted without renumbering existing M14–M43 references.
+
+The first objective is not full 1-bit attention. It is to let a Boolean control plane decide where exact FLAT attention is allowed to spend numerical work and memory bandwidth.
+
+## M13B.1 — Boolean attention admission contract + dense oracle
+
+### Deliverables
+
+- `BooleanAttentionMask` or equivalent bitpacked host contract;
+- documented logical layout and exact storage accounting;
+- block-level admission as the primary execution representation;
+- token-level admission only as an oracle/research mode;
+- deterministic scalar oracle that skips rejected interactions but otherwise uses the same score and online-softmax semantics;
+- explicit composition with causal, padding/length and additive-bias semantics;
+- all-accept, all-reject, structured-sparse and adversarial fixtures;
+- no policy learning embedded in the core mask consumer.
+
+### Acceptance
+
+- all-accept is numerically identical to dense reference attention;
+- rejected interactions cannot affect O or LSE;
+- malformed mask geometry fails explicitly;
+- no `N x N` floating-point mask is required;
+- exact Boolean storage bits are reported.
+
+## M13B.2 — Bitpacked Q/K signatures + Boolean prefilter oracle
+
+### Candidate mechanism
+
+```text
+q -> S_q(q) -> packed bits
+k -> S_k(k) -> packed bits
+similarity -> XOR/XNOR + population count
+```
+
+### Deliverables
+
+- deterministic signature API with explicit bit width;
+- exact packing/unpacking tests;
+- Hamming/XNOR-popcount reference implementation;
+- preregistered threshold, top-k or block-admission rules;
+- comparisons against random masks, positional/structural masks, dense attention and matched-compute controls;
+- BooleanLab-compatible export of candidate functions and evidence.
+
+### Required metrics
+
+- retained block density `rho`;
+- recall of a declared dense-attention target set;
+- false-negative rate;
+- output and LSE error versus dense attention;
+- downstream quality when an end-to-end model is available;
+- Boolean bits stored per token/block;
+- exact numerical Q·K work estimated as avoided.
+
+### Acceptance
+
+- no threshold may be tuned on confirmatory data after observing results;
+- sparsity/quality points include dense and matched random/structural baselines;
+- no speed claim is made from host-only or operation-count evidence.
+
+## M13B.3 — Boolean block router before K/V staging
+
+This is the central systems experiment.
+
+### Deliverables
+
+- WGPU bitpacked block-mask buffer;
+- portable WGSL bit operations with deterministic fallback;
+- routing decision consumed before K/V tile staging in the qualified tiled path;
+- block-coherent routing preferred over irregular per-token branching;
+- accepted/rejected block telemetry;
+- logical K/V load model extended to count loads avoided by admission;
+- dense fallback when masks are too dense or routing is unsupported.
+
+### Acceptance
+
+- all-accept matches the existing qualified kernel;
+- partial masks match M13B.1 oracle semantics;
+- rejected blocks perform no K/V tile staging in the explicit shader control flow;
+- shader validation and device parity pass;
+- Boolean overhead is benchmarked separately from surviving numerical attention;
+- promotion as an optimization requires a measured real-device improvement on at least one preregistered workload.
+
+## M13B.4 — Two-plane overlapped execution + first-token readiness
+
+### Goal
+
+Evaluate a Boolean control plane that prepares decisions while the numerical plane processes accepted work.
+
+```text
+time ------------------------------------------------->
+Boolean:   B0 ---- B1 ---- B2 ---- B3 ---- B4
+                |       |       |       |
+Numerical:      N0 -----N1------N2------N3
+```
+
+### Deliverables
+
+- scheduling model for Boolean-decision production and numerical-tile consumption;
+- precomputed K/KV signatures stored with resident state;
+- Q-signature generation as soon as the current query representation exists;
+- decode able to use Boolean metadata on the **first generated token after prefill**;
+- instrumentation for dependency stalls, synchronization, dispatch count and router latency;
+- fused/same-dispatch and multi-dispatch variants where meaningful.
+
+### Acceptance
+
+- first decode token consumes valid precomputed K signatures;
+- no use-before-ready race exists;
+- overlap is demonstrated by trace/timing evidence rather than inferred from source structure;
+- first-token and steady-state decode latency are reported separately.
+
+## M13B.5 — Boolean KV page router
+
+Co-owned scientifically with KVLab and aligned with M14–M16.
+
+### Deliverables
+
+- bitpacked signature/metadata per KV page or block;
+- Boolean page-admission API;
+- resident metadata append/update alongside K/V append;
+- routing using query signature plus preregistered metadata;
+- exact accounting of metadata bytes read versus K/V bytes avoided;
+- cache-reset/reuse correctness tests;
+- no mandatory host-side routing in the token loop.
+
+### Acceptance
+
+- page rejection prevents corresponding numerical K/V reads where the architecture permits;
+- cache append/reset preserve signature/KV consistency;
+- false-negative/quality metrics are reported together with memory-traffic and latency metrics;
+- Boolean metadata cost is included in all memory comparisons.
+
+## M13B.6 — 1-bit QK research gate
+
+Only after the router path is understood, evaluate replacing exact Q·K itself with a Boolean similarity such as:
+
+```text
+score_bool(q, k) = transform(popcount(XNOR(S_q(q), S_k(k))))
+```
+
+### Deliverables
+
+- scalar mathematical oracle;
+- bit-width sweep;
+- sign/projection/hash signature families supplied by BooleanLab experiments;
+- comparison against exact FLAT Q·K, low-precision numerical paths and Boolean-prefilter-plus-exact-QK;
+- dedicated numerical/quality policy;
+- optional WGSL prototype only after oracle qualification.
+
+### Acceptance
+
+- no equivalence to dense attention is claimed without proof for the tested contract;
+- model/task quality is measured, not inferred from score correlation alone;
+- promotion requires a non-dominated measured end-to-end quality/performance trade-off for a declared workload.
+
+## M13B comparison ladder
+
+Where applicable, every Boolean-attention campaign compares:
+
+1. qualified dense FLAT attention;
+2. structural non-learned mask;
+3. random mask matched for retained density;
+4. Boolean router + exact FLAT attention;
+5. Boolean router + resident/paged KV when available;
+6. 1-bit QK candidate only after M13B.1–M13B.3 qualification.
+
+### Systems metrics
+
+- first-token latency;
+- steady-state decode latency;
+- prefill latency;
+- accepted/rejected block ratio;
+- Boolean front-end time;
+- surviving exact Q·K time;
+- K/V bytes logically requested and physically measured where available;
+- metadata bytes;
+- dispatch/synchronization count;
+- temporary memory;
+- tokens/s;
+- optional energy/power only when directly measured.
+
+### Scientific metrics
+
+- dense-target recall and false-negative rate;
+- O/LSE deviation;
+- downstream quality;
+- robustness across sequence lengths, heads and attention distributions;
+- stability of the routing rule across workloads;
+- exact provenance of the Boolean function/policy.
+
+## Immediate execution order for project resumption
+
+1. verify current `main` and existing qualified dense/M13 paths remain green;
+2. implement M13B.1 host-side Boolean admission contract and exact oracle;
+3. implement M13B.2 deterministic bitpacked signature/prefilter experiments with BooleanLab;
+4. qualify block granularity and admission quality before GPU optimization;
+5. implement M13B.3 portable WGPU block router before K/V staging;
+6. benchmark dense versus Boolean-router execution on real hardware;
+7. integrate M13B.4 first-token/overlap work with decode;
+8. co-develop M13B.5 with M14–M16 and KVLab;
+9. open M13B.6 only if earlier evidence justifies replacing exact Q·K rather than merely filtering it.
 
 ---
 
@@ -344,13 +587,15 @@ The M1 kernel prioritizes correctness. M4 changes work mapping so one workgroup 
 - logical capacity and current-length metadata;
 - device-resident append path;
 - zero host round-trip required per generated token;
-- batch/head indexing compatible with GQA/MQA.
+- batch/head indexing compatible with GQA/MQA;
+- extension point for resident Boolean signatures/metadata from M13B.4–M13B.5.
 
 ### Acceptance
 
 - append/replay deterministic against contiguous reference tensors;
 - capacity overflow explicit;
-- no K/V cache copy per decode token.
+- no K/V cache copy per decode token;
+- Boolean metadata, when enabled, remains transactionally consistent with its K/V entry.
 
 ## M15 — Decode kernel (`q_len = 1`)
 
@@ -360,13 +605,15 @@ The M1 kernel prioritizes correctness. M4 changes work mapping so one workgroup 
 - streaming over resident KV cache;
 - online softmax with no score matrix;
 - GQA/MQA-native mapping;
-- direct resident output.
+- direct resident output;
+- optional Boolean front-end admission available from the first generated token after prefill.
 
 ### Acceptance
 
 - parity for growing cache lengths;
 - latency measured as microseconds/token and tokens/s;
-- decode specialization beats generic prefill kernel on representative decode sizes before becoming default.
+- decode specialization beats generic prefill kernel on representative decode sizes before becoming default;
+- Boolean mode reports first-token and steady-state timing separately.
 
 ## M16 — Chunked prefill and paged KV groundwork
 
@@ -375,13 +622,15 @@ The M1 kernel prioritizes correctness. M4 changes work mapping so one workgroup 
 - chunked processing for long contexts;
 - cache page/table abstraction independent from vendor libraries;
 - stable logical-to-physical block mapping;
-- fragmentation/capacity telemetry.
+- fragmentation/capacity telemetry;
+- optional compact Boolean page metadata compatible with M13B.5.
 
 ### Acceptance
 
 - chunked result matches contiguous oracle;
 - page-boundary stress tests;
-- no stale-page reads after reset/reuse.
+- no stale-page reads after reset/reuse;
+- Boolean page metadata cannot become stale relative to page ownership/generation.
 
 ---
 
@@ -448,7 +697,8 @@ Create a small internal representation owned by the project rather than tying al
 - barriers;
 - vector types;
 - capability requirements;
-- deterministic serialization/hash for generated kernels.
+- deterministic serialization/hash for generated kernels;
+- optional Boolean mask/signature operations represented explicitly rather than hidden in handwritten shader text.
 
 ### Acceptance
 
@@ -515,7 +765,8 @@ Exploit exposed matrix hardware only through standards/open IR paths available t
 - limits: workgroup size, workgroup storage, subgroup properties, f16 support, binding limits;
 - adapter identity and backend;
 - stable capability fingerprint;
-- no marketing-name heuristics as the sole selection rule.
+- no marketing-name heuristics as the sole selection rule;
+- Boolean-routing characteristics recorded only from exposed capability or measurement, not assumed from vendor name.
 
 ### Acceptance
 
@@ -535,7 +786,8 @@ Candidate dimensions include:
 - subgroup use;
 - f32/f16 storage choices;
 - prefill/decode specialization;
-- GQA mapping.
+- GQA mapping;
+- after M13B qualification: Boolean-routing enable/disable, signature width and block granularity.
 
 ### Acceptance
 
@@ -556,7 +808,8 @@ Candidate dimensions include:
 
 - tuner never selects a candidate that failed parity;
 - selected candidate is reproducible from stored evidence;
-- cache corruption fails safely.
+- cache corruption fails safely;
+- Boolean-routing candidates are disabled when front-end overhead outweighs measured savings for the tuned workload.
 
 ---
 
@@ -572,14 +825,19 @@ Candidate dimensions include:
 - D=32/64/80/96/128;
 - short to long context sizes;
 - cold/warm pipeline distinction;
-- resident vs upload/download timing distinction.
+- resident vs upload/download timing distinction;
+- Boolean-router sweeps over retained density, signature width and block/page granularity.
 
 ### Metrics
 
 - latency;
+- first-token latency where decode is involved;
 - tokens/s;
 - effective bandwidth estimate;
 - arithmetic work estimate;
+- Boolean front-end time;
+- accepted/rejected blocks/pages;
+- K/V bytes avoided and Boolean metadata bytes added;
 - allocations;
 - intermediate bytes;
 - pipeline/dispatch count;
@@ -594,7 +852,8 @@ At minimum:
 1. scalar Rust oracle;
 2. naive/multi-dispatch SciRust WGPU attention;
 3. FLAT portable fused path;
-4. each optimized FLAT generation.
+4. each optimized FLAT generation;
+5. dense FLAT versus Boolean-router + exact-FLAT under matched model/workload semantics whenever Boolean routing is evaluated.
 
 External competitors may be measured only where environment/licensing permits, and results must be clearly labeled as external baselines rather than dependencies.
 
@@ -613,7 +872,10 @@ External competitors may be measured only where environment/licensing permits, a
 - dispatch count;
 - temporary allocation count/bytes;
 - fallback reason;
-- autotuner cache hit/miss.
+- autotuner cache hit/miss;
+- Boolean routing enabled/disabled;
+- retained block/page density;
+- Boolean front-end latency when measurable without mandatory synchronization.
 
 ### Acceptance
 
@@ -640,7 +902,8 @@ External competitors may be measured only where environment/licensing permits, a
 - no unnecessary H2D/D2H copies;
 - one fused attention dispatch for supported shapes;
 - explicit fallback policy for unsupported configurations;
-- integration tests in SciRust.
+- integration tests in SciRust;
+- reusable packed-bit/Boolean primitives promoted from validated work rather than duplicated ad hoc.
 
 ### Acceptance
 
@@ -668,13 +931,15 @@ External competitors may be measured only where environment/licensing permits, a
 - resident KV cache adapter;
 - q_len=1 decode kernel dispatch;
 - device-resident generation compatibility;
-- no host round-trip introduced into the token loop.
+- no host round-trip introduced into the token loop;
+- Boolean KV/page routing only after M13B.5 passes its quality and systems gates.
 
 ### Acceptance
 
 - real Thor benchmark;
 - tokens/s and per-token latency recorded;
-- correctness regression tests for cache reset/replay/EOS paths.
+- correctness regression tests for cache reset/replay/EOS paths;
+- first-token and steady-state decode results reported separately when Boolean routing is enabled.
 
 ---
 
@@ -714,6 +979,8 @@ When hardware is available, qualify at least:
 
 The core contract remains independent from any one vendor.
 
+Boolean-front-end results must be reported per device/backend; bitwise execution characteristics and memory-system benefits must not be generalized across vendors without evidence.
+
 ---
 
 # PHASE M — Robustness, safety, and reproducibility
@@ -727,7 +994,8 @@ The core contract remains independent from any one vendor.
 - softmax normalization invariants through oracle checks;
 - repeated dispatch stress;
 - cache reset/reuse stress;
-- extreme-but-finite values.
+- extreme-but-finite values;
+- Boolean all-accept/all-reject/malformed/stale-metadata cases.
 
 ## M39 — Fuzzing of host API/config parser
 
@@ -737,7 +1005,8 @@ The core contract remains independent from any one vendor.
 - overflow cases;
 - inconsistent lengths;
 - invalid tuning-cache data;
-- invalid serialized kernel metadata.
+- invalid serialized kernel metadata;
+- malformed Boolean mask/signature metadata and invalid block/page geometry.
 
 No GPU driver fuzzing is claimed unless an appropriate isolated harness exists.
 
@@ -749,7 +1018,8 @@ No GPU driver fuzzing is claimed unless an appropriate isolated harness exists.
 - git SHA;
 - environment metadata;
 - command line/config;
-- result checksum where useful.
+- result checksum where useful;
+- Boolean policy ID, signature width, block/page granularity and retained density when applicable.
 
 ---
 
@@ -757,7 +1027,7 @@ No GPU driver fuzzing is claimed unless an appropriate isolated harness exists.
 
 ## M41 — Licensing and ownership metadata
 
-The repository currently declares no license grant. Before external distribution as a product, Memorithm should explicitly set the intended proprietary licensing terms and ownership notices.
+The repository licensing/ownership terms must remain explicit and consistent with Memorithm policy before external product distribution.
 
 ### Deliverables
 
@@ -775,6 +1045,7 @@ The repository currently declares no license grant. Before external distribution
 - public API guide;
 - integration guide for SciRust;
 - GPU backend guide;
+- Boolean Front-End Attention architecture/evidence guide;
 - autotuning guide;
 - benchmark methodology;
 - troubleshooting;
@@ -811,6 +1082,9 @@ For each optimization PR:
 Optimization targets, in order of evidence rather than fashion, may include:
 
 - global-memory traffic;
+- Boolean early-admission overhead versus eliminated work;
+- bitpacked signature width and layout;
+- K/V block/page rejection rate;
 - workgroup-memory reuse;
 - occupancy;
 - register pressure;
@@ -849,4 +1123,6 @@ FLAT-ATTENTION can be considered 1.0-ready only when all of the following are tr
 - measured improvement over SciRust's previous multi-dispatch attention for supported target workloads;
 - CI green on every merged PR;
 - documented limitations and unsupported cases;
-- proprietary licensing/ownership policy finalized by Memorithm.
+- licensing/ownership policy finalized by Memorithm.
+
+Boolean Front-End Attention does not need to beat dense attention on every workload to be valid. If it is enabled in 1.0, it must have a qualified dense fallback, explicit quality semantics, reproducible device evidence and automatic or explicit disablement when it is not beneficial.
