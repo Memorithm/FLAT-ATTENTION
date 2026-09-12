@@ -8,6 +8,11 @@ fn shaders_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders")
 }
 
+fn shaders_readme() -> String {
+    let path = shaders_dir().join("README.md");
+    fs::read_to_string(path).expect("shaders/README.md must exist")
+}
+
 fn tracked_wgsl_names() -> Vec<String> {
     let mut names = Vec::new();
     for entry in fs::read_dir(shaders_dir()).expect("shaders/ must exist") {
@@ -24,8 +29,7 @@ fn tracked_wgsl_names() -> Vec<String> {
 
 #[test]
 fn every_handwritten_wgsl_is_named_in_shaders_readme() {
-    let readme = fs::read_to_string(shaders_dir().join("README.md"))
-        .expect("shaders/README.md must exist");
+    let readme = shaders_readme();
     let missing: Vec<_> = tracked_wgsl_names()
         .into_iter()
         .filter(|name| !readme.contains(name.as_str()))
@@ -38,15 +42,14 @@ fn every_handwritten_wgsl_is_named_in_shaders_readme() {
 
 #[test]
 fn shaders_readme_does_not_name_absent_wgsl_files() {
-    let readme = fs::read_to_string(shaders_dir().join("README.md"))
-        .expect("shaders/README.md must exist");
+    let readme = shaders_readme();
     let present = tracked_wgsl_names();
     let mut stale = Vec::new();
     for token in readme.split_whitespace() {
         let name = token.trim_matches('`').trim_end_matches(',');
         if name.starts_with("flat_")
             && name.ends_with(".wgsl")
-            && !present.iter().any(|n| n == name)
+            && !present.iter().any(|item| item == name)
         {
             stale.push(name.to_owned());
         }
