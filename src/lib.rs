@@ -91,7 +91,7 @@ pub use backward_grouped::backward_reference_grouped;
 
 mod numerical;
 pub use numerical::{
-    AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
+    within_tol, AccumulationPolicy, NumericalBackendKind, NumericalError, NumericalExecutor,
     NumericalGuarantees, NumericalMode, ReductionPolicy, SoftmaxUpdatePolicy,
 };
 
