@@ -44,7 +44,9 @@ fn shaders_readme_does_not_name_absent_wgsl_files() {
     let mut stale = Vec::new();
     for token in readme.split_whitespace() {
         let name = token.trim_matches('`').trim_end_matches(',');
-        if name.starts_with("flat_") && name.ends_with(".wgsl") && !present.iter().any(|n| n == name)
+        if name.starts_with("flat_")
+            && name.ends_with(".wgsl")
+            && !present.iter().any(|n| n == name)
         {
             stale.push(name.to_owned());
         }
