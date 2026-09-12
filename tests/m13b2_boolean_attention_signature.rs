@@ -31,7 +31,7 @@ fn hamming_rule_is_explicit_and_deterministic() {
 fn non_zero_tail_bits_fail_closed() {
     assert_eq!(
         BooleanAttentionSignature::new(65, vec![0, 2]),
-        Err(BooleanAttentionSignatureError::NonZeroTailBits),
+        Err(BooleanAttentionSignatureError::NonZeroTailBits)
     );
 }
 
@@ -45,13 +45,13 @@ fn width_mismatch_and_invalid_threshold_fail_closed() {
         Err(BooleanAttentionSignatureError::WidthMismatch {
             query_bits: 8,
             key_bits: 7,
-        }),
+        })
     );
     assert_eq!(
         HammingAdmissionRule::new(9, 8),
         Err(BooleanAttentionSignatureError::ThresholdOutOfRange {
             threshold: 9,
             bits: 8,
-        }),
+        })
     );
 }
