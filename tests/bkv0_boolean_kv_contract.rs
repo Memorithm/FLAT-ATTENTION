@@ -1,7 +1,9 @@
 #[path = "../src/boolean_kv.rs"]
 mod boolean_kv;
 
-use boolean_kv::{BooleanKvCache, BooleanKvError, PackedBooleanSignature};
+use boolean_kv::{
+    BooleanKvCache, BooleanKvError, PackedBooleanSignature, BOOLEAN_KV_SCHEMA_VERSION,
+};
 
 fn bits(values: &[bool]) -> PackedBooleanSignature {
     PackedBooleanSignature::from_bools(values).unwrap()
@@ -9,6 +11,7 @@ fn bits(values: &[bool]) -> PackedBooleanSignature {
 
 #[test]
 fn packing_is_canonical_across_word_boundary() {
+    assert_eq!(BOOLEAN_KV_SCHEMA_VERSION, 1);
     let mut values = vec![false; 65];
     values[0] = true;
     values[63] = true;
@@ -39,6 +42,8 @@ fn hamming_and_xnor_are_exact() {
 #[test]
 fn cache_accounting_separates_logical_and_physical_storage() {
     let mut cache = BooleanKvCache::new(65).unwrap();
+    assert_eq!(cache.signature_bits(), 65);
+    assert_eq!(cache.len(), 0);
     let key = bits(&vec![false; 65]);
     let mut value_bits = vec![false; 65];
     value_bits[0] = true;
@@ -81,9 +86,15 @@ fn reset_invalidates_generation_and_reuses_page_zero() {
 #[test]
 fn search_is_distance_then_page_deterministic() {
     let mut cache = BooleanKvCache::new(4).unwrap();
-    cache.append(bits(&[false, false, false, false]), None).unwrap();
-    cache.append(bits(&[true, false, false, false]), None).unwrap();
-    cache.append(bits(&[false, true, false, false]), None).unwrap();
+    cache
+        .append(bits(&[false, false, false, false]), None)
+        .unwrap();
+    cache
+        .append(bits(&[true, false, false, false]), None)
+        .unwrap();
+    cache
+        .append(bits(&[false, true, false, false]), None)
+        .unwrap();
     cache.append(bits(&[true, true, true, true]), None).unwrap();
 
     let matches = cache
@@ -99,7 +110,10 @@ fn search_is_distance_then_page_deterministic() {
         .search_hamming(&bits(&[false, false, false, false]), 4, Some(2))
         .unwrap();
     assert_eq!(
-        limited.iter().map(|item| item.logical_page).collect::<Vec<_>>(),
+        limited
+            .iter()
+            .map(|item| item.logical_page)
+            .collect::<Vec<_>>(),
         vec![0, 1]
     );
 }
