@@ -26,7 +26,9 @@ pub enum BooleanAttentionSignatureError {
 impl fmt::Display for BooleanAttentionSignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroBits => write!(f, "Boolean attention signature must contain at least one bit"),
+            Self::ZeroBits => {
+                write!(f, "Boolean attention signature must contain at least one bit")
+            }
             Self::WordCountMismatch {
                 bits,
                 expected_words,
@@ -101,10 +103,7 @@ impl BooleanAttentionSignature {
         &self.words
     }
 
-    pub fn hamming_distance(
-        &self,
-        other: &Self,
-    ) -> Result<usize, BooleanAttentionSignatureError> {
+    pub fn hamming_distance(&self, other: &Self) -> Result<usize, BooleanAttentionSignatureError> {
         if self.bits != other.bits {
             return Err(BooleanAttentionSignatureError::WidthMismatch {
                 query_bits: self.bits,
@@ -119,10 +118,7 @@ impl BooleanAttentionSignature {
             .sum())
     }
 
-    pub fn xnor_match_count(
-        &self,
-        other: &Self,
-    ) -> Result<usize, BooleanAttentionSignatureError> {
+    pub fn xnor_match_count(&self, other: &Self) -> Result<usize, BooleanAttentionSignatureError> {
         let distance = self.hamming_distance(other)?;
         Ok(self.bits - distance)
     }
@@ -134,10 +130,7 @@ pub struct HammingAdmissionRule {
 }
 
 impl HammingAdmissionRule {
-    pub fn new(
-        max_distance: usize,
-        bits: usize,
-    ) -> Result<Self, BooleanAttentionSignatureError> {
+    pub fn new(max_distance: usize, bits: usize) -> Result<Self, BooleanAttentionSignatureError> {
         if max_distance > bits {
             return Err(BooleanAttentionSignatureError::ThresholdOutOfRange {
                 threshold: max_distance,
