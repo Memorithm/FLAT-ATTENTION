@@ -43,25 +43,13 @@ fn exact_reference_matches_forward_reference_bit_exactly() {
     let executor = NumericalExecutor::new(NumericalMode::ExactReference).unwrap();
     let via_policy = executor.forward(&q, &k, &v, shape, config).unwrap();
 
-    assert_eq!(
-        oracle
-            .output
-            .iter()
-            .map(|x| x.to_bits())
-            .collect::<Vec<_>>(),
-        via_policy
-            .output
-            .iter()
-            .map(|x| x.to_bits())
-            .collect::<Vec<_>>()
+    assert!(
+        NumericalMode::ExactReference.matches_reference(&via_policy.output, &oracle.output, false),
+        "ExactReference O must match the scalar oracle bit-for-bit"
     );
-    assert_eq!(
-        oracle.lse.iter().map(|x| x.to_bits()).collect::<Vec<_>>(),
-        via_policy
-            .lse
-            .iter()
-            .map(|x| x.to_bits())
-            .collect::<Vec<_>>()
+    assert!(
+        NumericalMode::ExactReference.matches_reference(&via_policy.lse, &oracle.lse, false),
+        "ExactReference LSE must match the scalar oracle bit-for-bit"
     );
 }
 
