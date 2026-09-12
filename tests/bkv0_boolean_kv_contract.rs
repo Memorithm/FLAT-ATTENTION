@@ -44,7 +44,7 @@ fn cache_accounting_separates_logical_and_physical_storage() {
     let mut cache = BooleanKvCache::new(65).unwrap();
     assert_eq!(cache.signature_bits(), 65);
     assert_eq!(cache.len(), 0);
-    let key = bits(&vec![false; 65]);
+    let key = bits(&[false; 65]);
     let mut value_bits = vec![false; 65];
     value_bits[0] = true;
     let value = bits(&value_bits);
