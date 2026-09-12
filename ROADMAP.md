@@ -2,47 +2,79 @@
 
 This document is the execution plan for FLAT-ATTENTION, Memorithm's Rust-native fused attention engine for the SciRust ecosystem.
 
-The roadmap is gate-driven. Code is not a completed milestone until correctness, CI, device qualification and any claimed performance are backed by reproducible evidence. Current completion state belongs in `docs/ROADMAP_STATUS.md`; this file defines the target architecture and acceptance order.
+The roadmap is deliberately gate-driven: a milestone is not complete because code exists. It is complete only when its acceptance criteria are demonstrated by tests, CI, device validation, and—where performance is claimed—reproducible benchmarks.
 
 ## 0. Non-negotiable engineering rules
 
 ### 0.1 Language and dependency sovereignty
 
 - Rust is the host implementation language.
-- No project-authored C/C++ implementation layer or C ABI bridge.
-- No mandatory CUDA C++, `nvcc`, WMMA, CUTLASS, cuDNN or similar vendor SDK in the core architecture.
-- Portable GPU execution uses open shader/IR paths first.
-- Hardware-specific acceleration must sit behind explicit capability detection and preserve a portable fallback.
-- Optimized paths must never silently substitute CPU execution.
+- No project-authored C or C++ implementation layer.
+- No project-authored C ABI bridge.
+- No CUDA C/C++, `nvcc`, WMMA, CUTLASS, cuDNN, or similar vendor SDK is required by the core architecture.
+- Portable GPU execution is implemented through open shader / IR paths first.
+- Hardware-specific acceleration may be added only behind explicit capability detection and must preserve a portable fallback.
+- Optimized paths must not silently substitute a CPU implementation.
 
 ### 0.2 Correctness hierarchy
 
 1. mathematical definition;
 2. deterministic scalar Rust oracle;
 3. portable fused GPU implementation;
-4. optimized GPU implementation;
-5. backend-specific open-codegen specialization.
+4. optimized GPU implementations;
+5. backend-specific open-codegen specializations.
 
-Every layer is validated against the layer above it.
+Every level is validated against the level above it.
 
-### 0.3 Merge gate
+### 0.3 Merge gate — absolute rule
 
-Every implementation change uses a dedicated branch/PR. Inspect the exact head SHA, fix all real CI/review failures without weakening gates, and merge only when all required checks are green and the PR is mergeable. After merge, verify the new default branch before starting dependent work.
+No pull request may be merged until all required CI checks for its head commit are green.
+
+For every PR:
+
+1. create a dedicated branch;
+2. implement one coherent milestone or optimization;
+3. add or update tests and documentation in the same branch;
+4. open the PR;
+5. inspect every CI job;
+6. if any check fails, fix it on the same branch and rerun CI;
+7. merge only when every required check reports success;
+8. verify the resulting default-branch head;
+9. create the next branch from the verified default branch.
+
+A mergeable GitHub state is not sufficient. `fmt`, Clippy, tests, shader validation, MSRV, and any milestone-specific gate must actually pass.
 
 ### 0.4 Performance honesty
 
-No speedup, throughput, bandwidth, latency, memory or efficiency claim is accepted without a reproducible benchmark tied to an exact commit and identified device/backend. Record precision, shape, causal mode, warm-up, iterations, latency statistics, tokens/s or other relevant throughput, and memory/traffic evidence when measurable.
+No speedup, throughput, bandwidth, latency, memory, or efficiency claim is accepted without a reproducible benchmark.
 
-### 0.5 Priority research override — Boolean Front-End Attention
+Every benchmark record must include at least:
 
-Boolean control of attention is now a priority research track.
+- commit SHA;
+- device name;
+- driver/backend;
+- precision;
+- batch size;
+- heads / KV heads;
+- sequence length;
+- head dimension;
+- causal/non-causal mode;
+- warm-up count;
+- measured iterations;
+- median and percentile latency where practical;
+- effective tokens/s or TFLOP/s where meaningful;
+- peak allocated/intermediate memory where measurable.
 
-The hypothesis is not that a bitwise instruction is universally faster than modern dense matrix hardware. The hypothesis is that compact Boolean decisions can happen early enough, and in sufficiently parallel form, to prevent expensive numerical attention work and K/V movement from being launched at all.
+### 0.5 Priority research track — Boolean Front-End Attention
 
-The governing systems inequality is:
+Boolean control of attention is now a priority research track for FLAT-ATTENTION.
+
+The hypothesis is not that Boolean instructions are automatically faster than well-utilized floating-point tensor hardware. The hypothesis is that compact bit-parallel decisions can be made early enough to prevent a large amount of numerical attention and K/V memory traffic from being issued at all.
+
+The governing systems condition is:
 
 ```text
-T_boolean_front_end + T_FLAT_survivors < T_FLAT_dense
+T_boolean_front_end + T_flat_survivors < T_flat_dense
 ```
 
 The initial target is therefore a Boolean control plane in front of exact FLAT attention:
@@ -55,34 +87,36 @@ Q/K state
      -> accept: execute qualified FLAT numerical attention
 ```
 
-Research ownership:
+Research ownership is explicit:
 
-- **BooleanLab**: primary scientific bench for Boolean functions, signatures, routing predicates, equivalence, search and controlled experiments.
-- **FLAT-ATTENTION**: mask consumption, GPU routing, kernels and end-to-end systems qualification.
-- **KVLab**: cache/page selection, retention, tiering and decode-cache experiments.
-- **SciRust**: promotion target for reusable packed-bit/math primitives.
-- **NNIS**: optional native hardware qualification; it must not become a mandatory dependency of the portable FLAT core.
+- **BooleanLab** is the primary scientific bench for Boolean functions, signatures, routing predicates, equivalence screening, search and controlled experiments.
+- **FLAT-ATTENTION** owns mask consumption, GPU routing, kernels and end-to-end systems qualification.
+- **KVLab** owns cache/page selection, retention, tiering and decode-cache experiments.
+- **SciRust** is the promotion target for reusable packed-bit and mathematical primitives.
+- **NNIS** may later qualify hardware-specific acceleration, but no vendor-specific path is required by the portable FLAT core.
 
 Dense qualified attention remains the reference and fallback. Boolean routing must never silently weaken quality guarantees.
 
 ## 1. Target public contract
 
-FLAT-ATTENTION must support:
+FLAT-ATTENTION must eventually expose one stable attention contract able to serve training and inference:
 
-- dense MHA, GQA and MQA;
+- dense MHA;
+- GQA;
+- MQA;
 - causal and non-causal attention;
-- prefill and decode;
-- resident KV cache;
-- asymmetric Q/KV lengths and variable-length batches;
-- masks and additive biases;
-- optional bitpacked Boolean block/page admission before expensive numerical work;
+- prefill;
+- decode with KV cache;
+- variable sequence lengths;
+- masking/bias extensions;
+- optional bitpacked Boolean block/page admission before expensive numerical attention work;
 - forward and backward;
 - deterministic reference mode;
 - portable GPU mode;
 - optimized device-specialized mode;
 - explicit dense fallback when Boolean routing is unsupported or not beneficial.
 
-Canonical logical layout:
+Canonical logical tensor layout:
 
 ```text
 Q: [batch, q_heads, q_len, head_dim]
@@ -91,101 +125,281 @@ V: [batch, kv_heads, kv_len, value_dim]
 O: [batch, q_heads, q_len, value_dim]
 ```
 
+The initial milestone uses equal `q_len == kv_len`, equal head counts and `value_dim == head_dim`; later milestones remove those temporary restrictions explicitly.
+
 ---
 
 # PHASE A — Mathematical and repository foundation
 
-## M1 — Scalar oracle + fused portable forward
+## M1 — Scalar oracle + first fused portable forward
 
-Deterministic online-softmax oracle, causal/non-causal semantics, O/LSE outputs, fused WGSL path, no materialized `N x N` score/probability matrix, shader validation and strict MSRV/fmt/Clippy/tests.
+Status: in progress in PR #1.
+
+### Deliverables
+
+- `AttentionShape` and `FlatAttentionConfig` public contract;
+- deterministic Rust online-softmax oracle;
+- fused WGSL forward kernel;
+- causal and non-causal modes;
+- saved log-sum-exp (`LSE`);
+- no materialized `N x N` score or probability matrix;
+- shader parsing/validation test;
+- naive-attention parity tests;
+- MSRV 1.89 CI;
+- strict rustfmt and Clippy gates.
+
+### Acceptance
+
+- `cargo fmt --all -- --check` green;
+- `cargo clippy --all-targets --all-features -- -D warnings` green;
+- `cargo test --all-features` green;
+- WGSL accepted by the selected Naga validator;
+- causal/non-causal reference parity within documented tolerance;
+- no allocation proportional to `q_len * kv_len` in the reference/fused contract.
+
+---
+
+# PHASE B — Real portable GPU execution
 
 ## M2 — WGPU executor
 
-Real optional WGPU adapter/device/queue path, explicit buffers/bindings/dispatch, resident-buffer execution, explicit unsupported-backend errors and no disguised CPU fallback.
+### Deliverables
+
+- optional `wgpu` feature;
+- adapter/device/queue initialization;
+- GPU buffer contract for Q/K/V/O/LSE/config;
+- bind-group and pipeline creation;
+- explicit dispatch geometry;
+- upload/download convenience path for validation;
+- resident-buffer path for SciRust integration;
+- explicit backend-unavailable errors;
+- no CPU fallback disguised as GPU execution.
+
+### Acceptance
+
+- pipeline creation succeeds on a real WGPU adapter or lavapipe;
+- fused dispatch produces O and LSE;
+- malformed dimensions and unsupported head dimensions fail explicitly;
+- no intermediate score matrix GPU allocation.
 
 ## M3 — Device parity matrix
 
-GPU-vs-reference parity across head dimensions, tile-boundary sequence lengths, batches/heads, causal modes and adversarial numerical fixtures. O and LSE are checked independently.
+### Deliverables
+
+- GPU-vs-reference tests for dimensions 1, 8, 16, 32, 64, 80, 96, 128;
+- sequence lengths covering tile boundaries: 1, 15, 16, 17, 31, 32, 63, 64, 65, 127, 128, 129;
+- multiple batches and heads;
+- causal/non-causal cases;
+- adversarial numerical fixtures with large score ranges;
+- finite-value and shape validation.
+
+### Acceptance
+
+- all parity cases within explicit relative/absolute tolerances;
+- causal attention has zero future-token contribution within the defined numerical semantics;
+- LSE parity validated independently from O.
 
 ---
 
-# PHASE B — First performance architecture
+# PHASE C — First performance architecture
 
 ## M4 — Multi-query-row tiled kernel
 
-Reuse each staged K/V tile across multiple query rows while maintaining independent online-softmax state per query row.
+The M1 kernel prioritizes correctness. M4 changes work mapping so one workgroup handles a tile of query rows instead of one query row.
+
+### Deliverables
+
+- Q tile held in workgroup/register storage;
+- K/V tile reused across several query rows;
+- online-softmax state per query row;
+- compile-time kernel variants for key head dimensions;
+- tile constants isolated in one policy module.
+
+### Acceptance
+
+- exact API parity with M3;
+- no `N x N` matrix;
+- benchmark demonstrates reduced K/V global-memory traffic versus M2 for representative prefill cases.
 
 ## M5 — Subgroup reductions
 
-Use subgroup-assisted dot reductions only when capabilities are explicitly exposed; retain deterministic fallback and never assume subgroup width.
+### Deliverables
+
+- subgroup-aware dot-product reduction where backend capability exists;
+- deterministic fallback reduction;
+- capability probe and explicit dispatch selection;
+- no reliance on undefined subgroup width assumptions.
+
+### Acceptance
+
+- subgroup and fallback paths both match oracle;
+- optimized path selected only when required WGPU feature/capability is present;
+- benchmark evidence versus M4.
 
 ## M6 — Vectorized memory transactions
 
-Aligned packed Q/K/V/O transfers for common dimensions with correct scalar tails and explicit alignment contracts.
+### Deliverables
+
+- aligned packed loads/stores for Q/K/V/O where legal;
+- scalar tail path;
+- alignment-aware layout utilities;
+- specialization for common head dimensions 64 and 128.
+
+### Acceptance
+
+- unaligned/misaligned logical lengths remain correct through fallback;
+- vector path is benchmarked independently;
+- no unsafe host aliasing introduced.
 
 ## M7 — Double-buffered K/V staging
 
-Ping/pong workgroup tiles with documented barrier discipline and promotion only after real-device evidence.
+### Deliverables
+
+- ping/pong workgroup tiles;
+- overlap-friendly load/compute structure expressible in the portable backend;
+- explicit barrier discipline;
+- static reasoning/documentation of workgroup-memory use.
+
+### Acceptance
+
+- validator passes on all supported backends;
+- no workgroup race detected by parity/stress tests;
+- measured improvement on at least one real GPU before being selected as default.
 
 ---
 
-# PHASE C — Precision and numerical policy
+# PHASE D — Precision and numerical control
 
-## M8 — Mixed precision
+## M8 — Mixed-precision input path
 
-f16 where exposed, FP32 accumulation/online-softmax state, explicit conversion policy and f32 fallback.
+### Deliverables
+
+- f16 input/output path where supported;
+- FP32 score accumulation and online-softmax state;
+- conversion policy isolated from algorithm logic;
+- capability-based fallback to f32;
+- future bf16 contract defined without pretending unsupported WGSL capability exists.
+
+### Acceptance
+
+- precision-specific parity tolerances documented;
+- no NaN/Inf regressions on stress fixtures;
+- benchmark memory-bandwidth and latency effects.
 
 ## M9 — Numerical policy layer
 
-Reference, fast-portable and deterministic modes with documented guarantees and regression fixtures.
+### Deliverables
+
+- explicit accumulation policy;
+- exact/reference mode;
+- fast portable mode;
+- deterministic reduction mode where feasible;
+- stable exponentiation/max-update semantics;
+- regression corpus for numerical edge cases.
+
+### Acceptance
+
+- each mode has documented guarantees;
+- optimized modes never weaken validation silently;
+- deterministic mode reproduces results under repeated identical runs on the same backend/device contract.
 
 ---
 
-# PHASE D — Modern attention shapes
+# PHASE E — Modern transformer attention shapes
 
-## M10 — GQA/MQA
+## M10 — GQA and MQA
 
-Independent Q/KV head counts, no physical K/V duplication, explicit invalid grouping errors.
+### Deliverables
 
-## M11 — Asymmetric Q/KV lengths
+- independent `q_heads` and `kv_heads`;
+- validated head-group mapping;
+- MHA as the `q_heads == kv_heads` special case;
+- MQA as `kv_heads == 1`;
+- no expanded K/V duplication in memory.
 
-Rectangular attention and cross-attention without square-matrix assumptions.
+### Acceptance
+
+- oracle parity for MHA/GQA/MQA;
+- non-divisible head-group relationships rejected explicitly;
+- memory benchmark proves no physical K/V replication.
+
+## M11 — Asymmetric Q/KV lengths and cross-attention
+
+### Deliverables
+
+- independent `q_len` and `kv_len`;
+- encoder-decoder/cross-attention support;
+- causal semantics defined only where meaningful;
+- rectangular tiling.
+
+### Acceptance
+
+- parity across rectangular cases;
+- no square-matrix assumptions remain in public API or indexing.
 
 ## M12 — Variable-length batches
 
-Per-sequence validity metadata, padded/ragged handling and zero contribution outside declared lengths.
+### Deliverables
 
-## M13 — Mask and bias extensibility
+- per-sequence length metadata;
+- padded-batch masking without host-side score construction;
+- zero contribution outside valid lengths;
+- packed/ragged representation study and documented decision.
 
-Causal/padding masks, additive bias, ALiBi-compatible path and clean extension points. Add an explicit bitpacked Boolean block-admission hook that does not require a dense floating-point mask.
+### Acceptance
 
-Acceptance for Boolean admission semantics starts with an all-accept mode exactly equivalent to the existing dense oracle.
+- mixed sequence lengths in one batch match per-sequence oracle calls;
+- invalid lengths rejected.
+
+## M13 — Attention bias/mask extensibility
+
+### Deliverables
+
+- causal mask;
+- padding/length mask;
+- optional additive bias contract;
+- ALiBi-compatible bias path if required by SciRust models;
+- clean extension point for model-specific biases without forking the kernel architecture;
+- explicit extension point for bitpacked Boolean block admission without a dense `f32` mask.
+
+### Acceptance
+
+- every supported mask/bias has an oracle;
+- unsupported combinations fail explicitly;
+- Boolean admission semantics remain deterministic and separate from the policy that generates the mask.
 
 ---
 
-# PHASE E — Boolean Front-End Attention — PRIORITY
+# PHASE E-B — Boolean Front-End Attention — PRIORITY RESEARCH TRACK
 
-The M13B milestones are inserted without renumbering historical M14–M43 references.
+This phase is inserted without renumbering existing M14–M43 references.
 
-## M13B.1 — Bitpacked Boolean admission contract + exact oracle
+The first objective is not full 1-bit attention. It is to let a Boolean control plane decide where exact FLAT attention is allowed to spend numerical work and memory bandwidth.
 
-Define the boundary between the policy producing decisions and the exact attention kernel consuming them.
+## M13B.1 — Boolean attention admission contract + dense oracle
 
-Deliver:
+### Deliverables
 
-- `BooleanAttentionMask` or equivalent bitpacked contract;
+- `BooleanAttentionMask` or equivalent bitpacked host contract;
+- documented logical layout and exact storage accounting;
 - block-level admission as the primary execution representation;
-- token-level mode only for oracle/research use;
-- exact Rust oracle that skips rejected interactions but otherwise preserves qualified score/online-softmax semantics;
-- composition rules with causal/padding/bias semantics;
-- exact storage-bit accounting;
-- all-accept, all-reject, structured-sparse and adversarial fixtures.
+- token-level admission only as an oracle/research mode;
+- deterministic scalar oracle that skips rejected interactions but otherwise uses the same score and online-softmax semantics;
+- explicit composition with causal, padding/length and additive-bias semantics;
+- all-accept, all-reject, structured-sparse and adversarial fixtures;
+- no policy learning embedded in the core mask consumer.
 
-Accept only if all-accept is numerically identical to dense reference, rejected entries cannot affect O/LSE, invalid geometry fails explicitly and no `N x N` floating mask is required.
+### Acceptance
 
-## M13B.2 — Bitpacked Q/K signatures + Boolean prefilter
+- all-accept is numerically identical to dense reference attention;
+- rejected interactions cannot affect O or LSE;
+- malformed mask geometry fails explicitly;
+- no `N x N` floating-point mask is required;
+- exact Boolean storage bits are reported.
 
-Candidate signatures:
+## M13B.2 — Bitpacked Q/K signatures + Boolean prefilter oracle
+
+### Candidate mechanism
 
 ```text
 q -> S_q(q) -> packed bits
@@ -193,113 +407,230 @@ k -> S_k(k) -> packed bits
 similarity -> XOR/XNOR + population count
 ```
 
-Deliver deterministic signature APIs, packing tests, preregistered threshold/top-k/block policies and matched controls.
+### Deliverables
 
-Mandatory scientific metrics:
+- deterministic signature API with explicit bit width;
+- exact packing/unpacking tests;
+- Hamming/XNOR-popcount reference implementation;
+- preregistered threshold, top-k or block-admission rules;
+- comparisons against random masks, positional/structural masks, dense attention and matched-compute controls;
+- BooleanLab-compatible export of candidate functions and evidence.
 
-- retained density `rho`;
+### Required metrics
+
+- retained block density `rho`;
 - recall of a declared dense-attention target set;
 - false-negative rate;
-- O/LSE deviation;
-- downstream quality where model-level evaluation exists;
-- Boolean bits per token/block;
+- output and LSE error versus dense attention;
+- downstream quality when an end-to-end model is available;
+- Boolean bits stored per token/block;
 - exact numerical Q·K work estimated as avoided.
 
-Compare against dense FLAT, structural masks and random masks matched for density. No speed claim from operation counts alone.
+### Acceptance
+
+- no threshold may be tuned on confirmatory data after observing results;
+- sparsity/quality points include dense and matched random/structural baselines;
+- no speed claim is made from host-only or operation-count evidence.
 
 ## M13B.3 — Boolean block router before K/V staging
 
-This is the central systems milestone.
+This is the central systems experiment.
 
-Deliver a portable WGPU bitpacked block-mask path whose decision is consumed **before** K/V tile staging and exact Q·K work. Prefer block-coherent routing to irregular token-level divergence. Expose accepted/rejected block telemetry and extend logical K/V load accounting.
+### Deliverables
 
-Acceptance:
+- WGPU bitpacked block-mask buffer;
+- portable WGSL bit operations with deterministic fallback;
+- routing decision consumed before K/V tile staging in the qualified tiled path;
+- block-coherent routing preferred over irregular per-token branching;
+- accepted/rejected block telemetry;
+- logical K/V load model extended to count loads avoided by admission;
+- dense fallback when masks are too dense or routing is unsupported.
 
-- all-accept matches existing qualified kernel;
-- partial masks match M13B.1 oracle;
-- rejected blocks do not execute K/V tile staging in the explicit shader control flow;
-- device parity and shader validation pass;
-- Boolean overhead and surviving numerical work are timed separately;
-- default promotion requires a measured real-device win for at least one preregistered workload.
+### Acceptance
 
-## M13B.4 — Two-plane overlap + first-token readiness
+- all-accept matches the existing qualified kernel;
+- partial masks match M13B.1 oracle semantics;
+- rejected blocks perform no K/V tile staging in the explicit shader control flow;
+- shader validation and device parity pass;
+- Boolean overhead is benchmarked separately from surviving numerical attention;
+- promotion as an optimization requires a measured real-device improvement on at least one preregistered workload.
 
-Evaluate a Boolean plane preparing admission while the numerical plane processes already accepted work:
+## M13B.4 — Two-plane overlapped execution + first-token readiness
+
+### Goal
+
+Evaluate a Boolean control plane that prepares decisions while the numerical plane processes accepted work.
 
 ```text
-time ---------------------------------------------->
+time ------------------------------------------------->
 Boolean:   B0 ---- B1 ---- B2 ---- B3 ---- B4
                 |       |       |       |
 Numerical:      N0 -----N1------N2------N3
 ```
 
-Requirements:
+### Deliverables
 
-- precompute/store K or KV signatures with resident state;
-- produce the Q signature as soon as the current query representation exists;
-- allow the **first generated token after prefill** to consume valid Boolean metadata;
-- distinguish true overlap from serial prefiltering using timing/trace evidence;
-- report first-token and steady-state decode separately;
-- compare fused/same-dispatch and multi-dispatch designs where meaningful.
+- scheduling model for Boolean-decision production and numerical-tile consumption;
+- precomputed K/KV signatures stored with resident state;
+- Q-signature generation as soon as the current query representation exists;
+- decode able to use Boolean metadata on the **first generated token after prefill**;
+- instrumentation for dependency stalls, synchronization, dispatch count and router latency;
+- fused/same-dispatch and multi-dispatch variants where meaningful.
+
+### Acceptance
+
+- first decode token consumes valid precomputed K signatures;
+- no use-before-ready race exists;
+- overlap is demonstrated by trace/timing evidence rather than inferred from source structure;
+- first-token and steady-state decode latency are reported separately.
 
 ## M13B.5 — Boolean KV page router
 
-Co-develop with KVLab and M14–M16. Store compact signature/metadata beside KV pages/blocks so a cheap decision can determine whether a larger K/V region should be fetched.
+Co-owned scientifically with KVLab and aligned with M14–M16.
 
-Record metadata bytes read, K/V bytes avoided, false negatives, downstream quality, latency and cache consistency. Reset/reuse/append must keep signatures transactionally aligned with KV ownership. No host-side routing dependency in the token loop.
+### Deliverables
+
+- bitpacked signature/metadata per KV page or block;
+- Boolean page-admission API;
+- resident metadata append/update alongside K/V append;
+- routing using query signature plus preregistered metadata;
+- exact accounting of metadata bytes read versus K/V bytes avoided;
+- cache-reset/reuse correctness tests;
+- no mandatory host-side routing in the token loop.
+
+### Acceptance
+
+- page rejection prevents corresponding numerical K/V reads where the architecture permits;
+- cache append/reset preserve signature/KV consistency;
+- false-negative/quality metrics are reported together with memory-traffic and latency metrics;
+- Boolean metadata cost is included in all memory comparisons.
 
 ## M13B.6 — 1-bit QK research gate
 
-Only after the router path is understood, test replacing exact Q·K itself with a Boolean similarity such as:
+Only after the router path is understood, evaluate replacing exact Q·K itself with a Boolean similarity such as:
 
 ```text
-score_bool(q,k) = transform(popcount(XNOR(S_q(q), S_k(k))))
+score_bool(q, k) = transform(popcount(XNOR(S_q(q), S_k(k))))
 ```
 
-This is a research gate, not the assumed destination. Compare exact FLAT Q·K, low-precision numerical paths and Boolean-prefilter-plus-exact-QK. Promote only if end-to-end quality/performance is non-dominated for a declared workload.
+### Deliverables
+
+- scalar mathematical oracle;
+- bit-width sweep;
+- sign/projection/hash signature families supplied by BooleanLab experiments;
+- comparison against exact FLAT Q·K, low-precision numerical paths and Boolean-prefilter-plus-exact-QK;
+- dedicated numerical/quality policy;
+- optional WGSL prototype only after oracle qualification.
+
+### Acceptance
+
+- no equivalence to dense attention is claimed without proof for the tested contract;
+- model/task quality is measured, not inferred from score correlation alone;
+- promotion requires a non-dominated measured end-to-end quality/performance trade-off for a declared workload.
 
 ## M13B comparison ladder
 
-Where applicable every campaign compares:
+Where applicable, every Boolean-attention campaign compares:
 
-1. qualified dense FLAT;
+1. qualified dense FLAT attention;
 2. structural non-learned mask;
-3. random mask matched for density;
-4. Boolean router + exact FLAT;
-5. Boolean router + resident/paged KV;
-6. 1-bit QK only after M13B.1–M13B.3 qualification.
+3. random mask matched for retained density;
+4. Boolean router + exact FLAT attention;
+5. Boolean router + resident/paged KV when available;
+6. 1-bit QK candidate only after M13B.1–M13B.3 qualification.
 
-Systems metrics: first-token latency, steady decode, prefill latency, Boolean front-end time, retained density, surviving exact-QK time, K/V bytes requested/avoided, metadata bytes, dispatch/synchronization, temporary memory, tokens/s, and energy only when directly measurable.
+### Systems metrics
 
-Scientific metrics: dense-target recall, false-negative rate, O/LSE deviation, downstream quality, robustness across sequence/head distributions and exact provenance of the routing function/policy.
+- first-token latency;
+- steady-state decode latency;
+- prefill latency;
+- accepted/rejected block ratio;
+- Boolean front-end time;
+- surviving exact Q·K time;
+- K/V bytes logically requested and physically measured where available;
+- metadata bytes;
+- dispatch/synchronization count;
+- temporary memory;
+- tokens/s;
+- optional energy/power only when directly measured.
 
-## Immediate execution order when development resumes
+### Scientific metrics
 
-1. verify current `main` and existing dense/M13 paths remain green;
-2. implement M13B.1;
-3. run M13B.2 experiments jointly with BooleanLab;
-4. choose block granularity from measured quality/sparsity evidence;
-5. implement M13B.3 before K/V staging;
-6. benchmark dense versus Boolean-router paths on real hardware;
-7. integrate M13B.4 with decode and first-token measurement;
+- dense-target recall and false-negative rate;
+- O/LSE deviation;
+- downstream quality;
+- robustness across sequence lengths, heads and attention distributions;
+- stability of the routing rule across workloads;
+- exact provenance of the Boolean function/policy.
+
+## Immediate execution order for project resumption
+
+1. verify current `main` and existing qualified dense/M13 paths remain green;
+2. implement M13B.1 host-side Boolean admission contract and exact oracle;
+3. implement M13B.2 deterministic bitpacked signature/prefilter experiments with BooleanLab;
+4. qualify block granularity and admission quality before GPU optimization;
+5. implement M13B.3 portable WGPU block router before K/V staging;
+6. benchmark dense versus Boolean-router execution on real hardware;
+7. integrate M13B.4 first-token/overlap work with decode;
 8. co-develop M13B.5 with M14–M16 and KVLab;
-9. open M13B.6 only if the earlier evidence justifies replacing exact Q·K.
+9. open M13B.6 only if earlier evidence justifies replacing exact Q·K rather than merely filtering it.
 
 ---
 
 # PHASE F — Inference-first KV architecture
 
-## M14 — Resident KV cache
+## M14 — Resident KV cache contract
 
-Append-only device-resident K/V with capacity/current-length metadata, GQA/MQA-compatible indexing and an extension point for resident Boolean signatures. Boolean metadata, when enabled, must remain transactionally consistent with its K/V entry.
+### Deliverables
 
-## M15 — Specialized decode (`q_len = 1`)
+- append-only K/V cache representation;
+- logical capacity and current-length metadata;
+- device-resident append path;
+- zero host round-trip required per generated token;
+- batch/head indexing compatible with GQA/MQA;
+- extension point for resident Boolean signatures/metadata from M13B.4–M13B.5.
 
-Streaming online-softmax over resident KV, no score matrix, direct resident output and optional M13B admission from the first generated token. Report dense and Boolean first-token/steady-state latency separately.
+### Acceptance
 
-## M16 — Chunked prefill + paged KV
+- append/replay deterministic against contiguous reference tensors;
+- capacity overflow explicit;
+- no K/V cache copy per decode token;
+- Boolean metadata, when enabled, remains transactionally consistent with its K/V entry.
 
-Chunked long-context execution, logical-to-physical page mapping, fragmentation telemetry and optional compact Boolean page metadata. Page reuse/reset must never leave stale routing metadata.
+## M15 — Decode kernel (`q_len = 1`)
+
+### Deliverables
+
+- specialized decode attention path;
+- streaming over resident KV cache;
+- online softmax with no score matrix;
+- GQA/MQA-native mapping;
+- direct resident output;
+- optional Boolean front-end admission available from the first generated token after prefill.
+
+### Acceptance
+
+- parity for growing cache lengths;
+- latency measured as microseconds/token and tokens/s;
+- decode specialization beats generic prefill kernel on representative decode sizes before becoming default;
+- Boolean mode reports first-token and steady-state timing separately.
+
+## M16 — Chunked prefill and paged KV groundwork
+
+### Deliverables
+
+- chunked processing for long contexts;
+- cache page/table abstraction independent from vendor libraries;
+- stable logical-to-physical block mapping;
+- fragmentation/capacity telemetry;
+- optional compact Boolean page metadata compatible with M13B.5.
+
+### Acceptance
+
+- chunked result matches contiguous oracle;
+- page-boundary stress tests;
+- no stale-page reads after reset/reuse;
+- Boolean page metadata cannot become stale relative to page ownership/generation.
 
 ---
 
@@ -307,15 +638,47 @@ Chunked long-context execution, logical-to-physical page mapping, fragmentation 
 
 ## M17 — Backward mathematical oracle
 
-Scalar dQ/dK/dV using saved O/LSE and finite-difference checks.
+### Deliverables
+
+- scalar Rust dQ/dK/dV oracle;
+- use forward O/LSE contract;
+- finite-difference gradient tests on small cases;
+- causal/non-causal backward semantics.
+
+### Acceptance
+
+- analytic gradients match finite differences within defined tolerance;
+- shape/error behavior covered.
 
 ## M18 — Fused recomputation backward GPU kernel
 
-Recompute scores/probabilities from Q/K/LSE, no stored `N x N` probability matrix and race-free dQ/dK/dV accumulation.
+### Deliverables
 
-## M19 — Backward tiling/specialization
+- recompute scores/probabilities from Q/K and saved LSE;
+- no stored `N x N` probability matrix;
+- dQ/dK/dV accumulation strategy;
+- race-free reduction design;
+- portable GPU implementation first.
 
-Tiled, subgroup/vectorized and mixed-precision variants with deterministic fallback.
+### Acceptance
+
+- GPU gradients match M17;
+- memory profile demonstrates no probability-matrix storage;
+- forward+backward benchmark captured.
+
+## M19 — Backward tiling and specialization
+
+### Deliverables
+
+- tiled dQ/dK/dV kernels;
+- subgroup/vectorized variants;
+- mixed-precision support;
+- deterministic fallback.
+
+### Acceptance
+
+- performance improvements separately measured;
+- no gradient tolerance regression outside documented precision envelope.
 
 ---
 
@@ -323,19 +686,73 @@ Tiled, subgroup/vectorized and mixed-precision variants with deterministic fallb
 
 ## M20 — FLAT Kernel IR
 
-Represent loads/stores, dot/matrix fragments, reductions, online-softmax transitions, barriers, vector types, capabilities and optional Boolean mask/signature operations explicitly. Deterministic serialization/hash is required.
+Create a small internal representation owned by the project rather than tying algorithm structure to WGSL source text.
+
+### Deliverables
+
+- operations for tile load/store;
+- dot/matrix fragments;
+- reductions;
+- online-softmax state transitions;
+- barriers;
+- vector types;
+- capability requirements;
+- deterministic serialization/hash for generated kernels;
+- optional Boolean mask/signature operations represented explicitly rather than hidden in handwritten shader text.
+
+### Acceptance
+
+- M4-style kernel can be represented losslessly enough to regenerate a validated portable shader;
+- IR validation rejects illegal barrier/layout/capability combinations.
 
 ## M21 — Portable WGSL emitter
 
-Deterministic WGSL generation, specialization constants, generated-source hashing/cache and validator integration.
+### Deliverables
 
-## M22 — Open cooperative/subgroup matrix research
+- deterministic WGSL code generation from FLAT IR;
+- specialization constants baked into generated variants;
+- generated-source hashing/cache key;
+- validator integration.
 
-Track SPIR-V/Vulkan/WebGPU open matrix capabilities. No vendor-only SDK becomes mandatory and no acceleration is claimed without real-device proof.
+### Acceptance
 
-## M23 — Matrix fragment scheduler
+- generated kernel parity equals handwritten kernel;
+- generated output is deterministic for identical IR/config.
 
-Architecture-independent fragment layout/scheduler for common D=64/128 with correctness before performance.
+## M22 — Open cooperative-matrix/subgroup-matrix research gate
+
+### Goal
+
+Exploit exposed matrix hardware only through standards/open IR paths available to the runtime, without making a proprietary vendor programming SDK a core dependency.
+
+### Deliverables
+
+- capability inventory by backend/device;
+- SPIR-V/Vulkan cooperative-matrix feasibility study;
+- WebGPU/WGSL subgroup-matrix capability tracking;
+- prototype emitter only where the full toolchain can be kept within project policy;
+- fallback always retained.
+
+### Acceptance
+
+- no capability is claimed without real-device proof;
+- no vendor-only SDK becomes mandatory;
+- prototype must beat vector/subgroup fallback on target hardware before promotion.
+
+## M23 — Matrix-core mapping and fragment scheduler
+
+### Deliverables
+
+- FLAT IR matrix fragment layout;
+- tile decomposition for common D=64/128;
+- accumulator ownership model;
+- conversion between matrix result fragments and online-softmax reductions;
+- architecture-independent scheduler interface.
+
+### Acceptance
+
+- correctness parity first;
+- performance qualification separately per backend/device class.
 
 ---
 
@@ -343,120 +760,369 @@ Architecture-independent fragment layout/scheduler for common D=64/128 with corr
 
 ## M24 — Device capability model
 
-Limits, workgroup storage, subgroup properties, f16, binding limits, adapter/backend fingerprint. Boolean-routing characteristics may be recorded only from exposed capability or measurement, never marketing-name assumptions.
+### Deliverables
+
+- limits: workgroup size, workgroup storage, subgroup properties, f16 support, binding limits;
+- adapter identity and backend;
+- stable capability fingerprint;
+- no marketing-name heuristics as the sole selection rule;
+- Boolean-routing characteristics recorded only from exposed capability or measurement, not assumed from vendor name.
+
+### Acceptance
+
+- capability model serializes deterministically;
+- unsupported configurations filtered before pipeline creation.
 
 ## M25 — Deterministic candidate generator
 
-Candidates include tile sizes, workgroup size, vector width, subgroup/f16 choices, prefill/decode/GQA mapping and, after M13B qualification, Boolean routing enablement, signature width and block granularity.
+### Deliverables
+
+Candidate dimensions include:
+
+- query tile rows;
+- K/V tile rows;
+- workgroup size;
+- vector width;
+- subgroup use;
+- f32/f16 storage choices;
+- prefill/decode specialization;
+- GQA mapping;
+- after M13B qualification: Boolean-routing enable/disable, signature width and block granularity.
+
+### Acceptance
+
+- same capability fingerprint + policy produces same ordered candidate set;
+- resource limits respected statically where possible.
 
 ## M26 — Benchmark-driven autotuner
 
-Correctness gate before timing, robust measurement, persistent cache and safe invalidation. Disable Boolean routing automatically when measured front-end cost outweighs savings for the tuned workload.
+### Deliverables
+
+- warm-up and measurement protocol;
+- robust median/percentile statistics;
+- correctness gate before timing acceptance;
+- persistent tuning cache keyed by device/driver/kernel hash/problem class;
+- invalidation rules.
+
+### Acceptance
+
+- tuner never selects a candidate that failed parity;
+- selected candidate is reproducible from stored evidence;
+- cache corruption fails safely;
+- Boolean-routing candidates are disabled when front-end overhead outweighs measured savings for the tuned workload.
 
 ---
 
-# PHASE J — Benchmark and observability
+# PHASE J — Benchmark and observability system
 
 ## M27 — Benchmark harness
 
-Sweep prefill/decode, MHA/GQA/MQA, common D values and context sizes. Add Boolean sweeps over retained density, signature width and block/page granularity.
+### Deliverables
 
-Report latency, first-token latency, tokens/s, bandwidth/work estimates, Boolean time, accepted/rejected blocks/pages, K/V bytes avoided, metadata bytes, allocations, temporary bytes, dispatch count and optional externally measured power.
+- prefill sweep;
+- decode sweep;
+- MHA/GQA/MQA sweep;
+- D=32/64/80/96/128;
+- short to long context sizes;
+- cold/warm pipeline distinction;
+- resident vs upload/download timing distinction;
+- Boolean-router sweeps over retained density, signature width and block/page granularity.
+
+### Metrics
+
+- latency;
+- first-token latency where decode is involved;
+- tokens/s;
+- effective bandwidth estimate;
+- arithmetic work estimate;
+- Boolean front-end time;
+- accepted/rejected blocks/pages;
+- K/V bytes avoided and Boolean metadata bytes added;
+- allocations;
+- intermediate bytes;
+- pipeline/dispatch count;
+- optional power/energy hooks when available externally.
 
 ## M28 — Baseline comparison
 
-At minimum compare scalar oracle, prior SciRust WGPU path, portable dense FLAT, optimized FLAT generations and dense FLAT versus Boolean-router+exact-FLAT under matched workload semantics.
+### Baselines
+
+At minimum:
+
+1. scalar Rust oracle;
+2. naive/multi-dispatch SciRust WGPU attention;
+3. FLAT portable fused path;
+4. each optimized FLAT generation;
+5. dense FLAT versus Boolean-router + exact-FLAT under matched model/workload semantics whenever Boolean routing is evaluated.
+
+External competitors may be measured only where environment/licensing permits, and results must be clearly labeled as external baselines rather than dependencies.
+
+### Acceptance
+
+- every performance claim in README/docs is tied to a benchmark artifact and commit;
+- regressions are detectable across milestones.
 
 ## M29 — Runtime telemetry
 
-Kernel ID, tile geometry, device/backend fingerprint, dispatches, temporaries, fallback reason, autotuner cache state, Boolean routing state, retained density and Boolean timing when observable without mandatory hot-path synchronization.
+### Deliverables
+
+- selected kernel ID;
+- tile geometry;
+- backend/device fingerprint;
+- dispatch count;
+- temporary allocation count/bytes;
+- fallback reason;
+- autotuner cache hit/miss;
+- Boolean routing enabled/disabled;
+- retained block/page density;
+- Boolean front-end latency when measurable without mandatory synchronization.
+
+### Acceptance
+
+- telemetry adds no mandatory synchronization in the hot path when disabled.
 
 ---
 
-# PHASE K — SciRust and SciAgent integration
+# PHASE K — SciRust integration
 
-## M30 — Stable standalone API
+## M30 — Standalone stable API
 
-Backend-neutral requests/configs, owned/resident variants, explicit errors and semver policy.
+### Deliverables
+
+- backend-neutral request/config types;
+- owned and borrowed/resident variants where appropriate;
+- explicit errors;
+- semver policy before first reusable release.
 
 ## M31 — SciRust WGPU adapter
 
-Zero-unnecessary-copy integration, explicit fallback and reusable packed-bit primitives promoted from validated work rather than duplicated.
+### Deliverables
 
-## M32 — SciAgent prefill
+- adapter from SciRust resident GPU tensors to FLAT buffers;
+- no unnecessary H2D/D2H copies;
+- one fused attention dispatch for supported shapes;
+- explicit fallback policy for unsupported configurations;
+- integration tests in SciRust;
+- reusable packed-bit/Boolean primitives promoted from validated work rather than duplicated ad hoc.
 
-Model wiring, resident weights/activations and fixed-prompt/seed parity where sampling contracts permit.
+### Acceptance
 
-## M33 — SciAgent decode/KV
+- current SciRust multi-dispatch attention path and FLAT produce matching outputs;
+- supported FLAT path reduces attention dispatch/intermediate-score storage as designed;
+- SciRust CI green before integration merge.
 
-Resident KV adapter, q_len=1 dispatch, no host round-trip. Boolean page routing enters only after M13B.5 qualification. Benchmark first-token and steady decode separately.
+## M32 — SciAgent prefill integration
+
+### Deliverables
+
+- GQA/MHA model wiring as required by current SciAgent architecture;
+- resident weights and activations preserved;
+- end-to-end generation parity on fixed prompts/seeds where model sampling contract permits.
+
+### Acceptance
+
+- model-level output parity contract documented;
+- prefill latency benchmark before/after.
+
+## M33 — SciAgent decode/KV integration
+
+### Deliverables
+
+- resident KV cache adapter;
+- q_len=1 decode kernel dispatch;
+- device-resident generation compatibility;
+- no host round-trip introduced into the token loop;
+- Boolean KV/page routing only after M13B.5 passes its quality and systems gates.
+
+### Acceptance
+
+- real Thor benchmark;
+- tokens/s and per-token latency recorded;
+- correctness regression tests for cache reset/replay/EOS paths;
+- first-token and steady-state decode results reported separately when Boolean routing is enabled.
 
 ---
 
 # PHASE L — Portability qualification
 
-## M34 — Vulkan/Linux
+## M34 — Vulkan/Linux qualification
 
-Correctness on lavapipe where appropriate and performance only on real GPUs.
+Targets include software Vulkan (lavapipe) for correctness and real Vulkan GPUs for performance.
 
-## M35 — Direct3D 12/Windows
+### Acceptance
 
-Pipeline/parity qualification with explicit platform limitations.
+- correctness gate in CI where feasible;
+- real-device benchmark reports kept separate from software-adapter runs.
 
-## M36 — Metal
+## M35 — Direct3D 12/Windows qualification
 
-WGPU/Metal parity on available Apple hardware.
+### Acceptance
 
-## M37 — Vendor diversity
+- pipeline creation/parity on supported Windows adapter;
+- platform-specific issues documented, not hidden behind fallback.
 
-Qualify NVIDIA, AMD, Intel and software Vulkan as hardware permits. Boolean-front-end results are device/backend-specific until evidence supports broader generalization.
+## M36 — Metal qualification
+
+### Acceptance
+
+- WGPU/Metal parity on available Apple hardware;
+- capability limitations recorded explicitly.
+
+## M37 — Vendor diversity qualification
+
+When hardware is available, qualify at least:
+
+- NVIDIA;
+- AMD;
+- Intel;
+- software Vulkan reference path.
+
+The core contract remains independent from any one vendor.
+
+Boolean-front-end results must be reported per device/backend; bitwise execution characteristics and memory-system benefits must not be generalized across vendors without evidence.
 
 ---
 
-# PHASE M — Robustness and reproducibility
+# PHASE M — Robustness, safety, and reproducibility
 
-## M38 — Property/stress tests
+## M38 — Property and stress tests
 
-Randomized shapes, causal/softmax invariants, repeated dispatch, cache reset/reuse, finite extremes and Boolean all-accept/all-reject/malformed/stale-metadata cases.
+### Deliverables
 
-## M39 — Host API/config fuzzing
+- randomized shapes within supported limits;
+- causal invariants;
+- softmax normalization invariants through oracle checks;
+- repeated dispatch stress;
+- cache reset/reuse stress;
+- extreme-but-finite values;
+- Boolean all-accept/all-reject/malformed/stale-metadata cases.
 
-Shapes, overflow, lengths, tuning-cache/kernel metadata and Boolean mask/signature geometry. No GPU-driver fuzzing claim without an isolated harness.
+## M39 — Fuzzing of host API/config parser
+
+### Deliverables
+
+- malformed shapes;
+- overflow cases;
+- inconsistent lengths;
+- invalid tuning-cache data;
+- invalid serialized kernel metadata;
+- malformed Boolean mask/signature metadata and invalid block/page geometry.
+
+No GPU driver fuzzing is claimed unless an appropriate isolated harness exists.
 
 ## M40 — Reproducible benchmark manifests
 
-Machine-readable SHA/environment/config/results plus Boolean policy ID, signature width, block/page granularity and retained density when applicable.
+### Deliverables
+
+- machine-readable benchmark schema;
+- git SHA;
+- environment metadata;
+- command line/config;
+- result checksum where useful;
+- Boolean policy ID, signature width, block/page granularity and retained density when applicable.
 
 ---
 
-# PHASE N — Productization
+# PHASE N — Productization and proprietary project hygiene
 
-## M41 — Licensing/ownership
+## M41 — Licensing and ownership metadata
 
-Maintain explicit PolyForm Noncommercial licensing/ownership and third-party inventory consistent with repository policy.
+The repository licensing/ownership terms must remain explicit and consistent with Memorithm policy before external product distribution.
 
-## M42 — Documentation
+### Deliverables
 
-Architecture, algorithms, public API, SciRust integration, GPU backend, Boolean Front-End Attention evidence guide, autotuning, benchmarks and troubleshooting.
+- chosen license/terms file;
+- copyright notices;
+- third-party dependency/license inventory;
+- clear separation between FLAT-owned implementation and external test/benchmark references.
+
+## M42 — Documentation set
+
+### Deliverables
+
+- architecture document;
+- algorithm notes;
+- public API guide;
+- integration guide for SciRust;
+- GPU backend guide;
+- Boolean Front-End Attention architecture/evidence guide;
+- autotuning guide;
+- benchmark methodology;
+- troubleshooting;
+- contribution/development policy if external contributions are permitted.
 
 ## M43 — Release discipline
 
-Changelog, release checklist, compatibility matrix and benchmark snapshot for significant releases.
+### Deliverables
+
+- changelog;
+- release checklist;
+- signed/tagged release policy if desired;
+- compatibility matrix;
+- benchmark snapshot per significant release.
 
 ---
 
 # PHASE O — Continuous optimization loop
 
-Every optimization starts from a stated bottleneck and baseline, changes one coherent mechanism, preserves correctness, runs full CI and is retained only when evidence justifies it.
+After functional completeness, FLAT-ATTENTION enters a permanent measured optimization cycle.
 
-Optimization targets include global-memory traffic, Boolean early-admission overhead versus eliminated work, bitpacked signature layout, K/V block/page rejection rate, workgroup reuse, occupancy, register pressure, subgroup utilization, vector transfers, synchronization, tile work distribution, pipeline/cache overhead, decode launch overhead, GQA KV reuse, long-context scheduling and open matrix engines.
+For each optimization PR:
 
-No mechanism is permanent merely because it is theoretically faster. The benchmark decides.
+1. state the hypothesized bottleneck;
+2. attach the baseline benchmark;
+3. change one coherent mechanism;
+4. preserve/add correctness tests;
+5. run CI until fully green;
+6. benchmark the candidate on the target device;
+7. retain the change only when the evidence justifies it;
+8. record the result in benchmark history;
+9. merge only with all CI checks green.
+
+Optimization targets, in order of evidence rather than fashion, may include:
+
+- global-memory traffic;
+- Boolean early-admission overhead versus eliminated work;
+- bitpacked signature width and layout;
+- K/V block/page rejection rate;
+- workgroup-memory reuse;
+- occupancy;
+- register pressure;
+- subgroup utilization;
+- vector load/store efficiency;
+- synchronization count;
+- work distribution between query/KV tiles;
+- pipeline creation/cache overhead;
+- decode launch overhead;
+- GQA KV reuse;
+- long-context tile scheduling;
+- open matrix-engine utilization.
+
+No optimization mechanism is permanent merely because it is theoretically faster. The benchmark decides.
 
 ---
 
 # Definition of Done for FLAT-ATTENTION 1.0
 
-FLAT-ATTENTION is 1.0-ready only when the stable API, deterministic forward/backward oracles, real fused forward/backward GPU paths, MHA/GQA/MQA, asymmetric lengths, resident KV + decode, no `N x N` probability storage, supported mixed precision, portable WGPU, autotuned kernels, SciRust/SciAgent integration, reproducible benchmarks, CI discipline and documented limitations are complete.
+FLAT-ATTENTION can be considered 1.0-ready only when all of the following are true:
 
-Boolean Front-End Attention is not required to beat dense attention on every workload. If enabled in 1.0, it must have a qualified dense fallback, explicit quality semantics, reproducible device evidence and automatic/explicit disablement when it is not beneficial.
+- stable standalone Rust API;
+- deterministic scalar forward/backward oracle;
+- real fused GPU forward;
+- real recomputation-based backward;
+- causal/non-causal MHA/GQA/MQA;
+- asymmetric Q/KV lengths;
+- resident KV cache and specialized decode path;
+- no `N x N` probability storage in fused forward/backward architecture;
+- mixed-precision path where supported;
+- portable WGPU execution;
+- autotuned tiled kernels;
+- SciRust integration;
+- SciAgent prefill/decode integration;
+- reproducible benchmark suite;
+- measured improvement over SciRust's previous multi-dispatch attention for supported target workloads;
+- CI green on every merged PR;
+- documented limitations and unsupported cases;
+- licensing/ownership policy finalized by Memorithm.
+
+Boolean Front-End Attention does not need to beat dense attention on every workload to be valid. If it is enabled in 1.0, it must have a qualified dense fallback, explicit quality semantics, reproducible device evidence and automatic or explicit disablement when it is not beneficial.
