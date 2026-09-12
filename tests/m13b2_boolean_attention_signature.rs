@@ -12,6 +12,8 @@ fn xor_popcount_and_xnor_count_are_exact() {
     let query = BooleanAttentionSignature::new(8, vec![0b1010_1100]).unwrap();
     let key = BooleanAttentionSignature::new(8, vec![0b1001_1110]).unwrap();
 
+    assert_eq!(query.bits(), 8);
+    assert_eq!(query.words(), &[0b1010_1100]);
     assert_eq!(query.hamming_distance(&key).unwrap(), 3);
     assert_eq!(query.xnor_match_count(&key).unwrap(), 5);
 }
