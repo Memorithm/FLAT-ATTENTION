@@ -137,11 +137,14 @@ impl PackedBooleanSignature {
 
     pub fn hamming_distance(&self, other: &Self) -> Result<usize, BooleanKvError> {
         self.require_same_width(other)?;
-        self.words.iter().zip(&other.words).try_fold(0usize, |total, (left, right)| {
-            total
-                .checked_add((left ^ right).count_ones() as usize)
-                .ok_or(BooleanKvError::StorageOverflow)
-        })
+        self.words
+            .iter()
+            .zip(&other.words)
+            .try_fold(0usize, |total, (left, right)| {
+                total
+                    .checked_add((left ^ right).count_ones() as usize)
+                    .ok_or(BooleanKvError::StorageOverflow)
+            })
     }
 
     pub fn xnor_matches(&self, other: &Self) -> Result<usize, BooleanKvError> {
