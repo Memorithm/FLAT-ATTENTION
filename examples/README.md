@@ -30,7 +30,7 @@ them.
 | `f16_bench` | M8 packed-binary16 I/O path timing. |
 | `regression_gate` | Same-device kernel regression vs qualified Q4 portable. |
 | `m11_decode_bench` | Rectangular / decode-oriented M11 harness. |
-| `m15_decode_bench` | M15 resident `query_len=1` decode harness. |
+| `m15_decode_bench` | M15 resident decode harness (one query token). |
 | `m20_grouped_backward_bench` | M19/M20 grouped backward recomputation bench. |
 | `m20_grouped_backward_host_overhead` | Host overhead around grouped backward. |
 | `m27_cold_warm_pipeline` | Cold vs warm pipeline accounting. |
@@ -43,8 +43,8 @@ them.
 | `m48_decode_kv_reuse_sweep` | Decode that reuses projected/rotated K. |
 | `m53_asymmetric_vec4_bench` | M53 rectangular vec4 candidate bench. |
 | `m60_q1_direct_ab` | M60 Q1 direct vec4 A/B candidate. |
-| `fdal1_da_luc_oracle_sweep` | Research DA-LUC oracle sweep. Not `api::v1`. |
-| `fdal2_da_luc_decode_sweep` | Research DA-LUC decode sweep. Not `api::v1`. |
+| `fdal1_da_luc_oracle_sweep` | Research DA-LUC oracle sweep. Not api v1. |
+| `fdal2_da_luc_decode_sweep` | Research DA-LUC decode sweep. Not api v1. |
 
 ```bash
 cargo run --release --features wgpu --example subgroup_bench
