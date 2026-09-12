@@ -27,6 +27,15 @@ fn tracked_wgsl_names() -> Vec<String> {
     names
 }
 
+fn markdown_wgsl_token(token: &str) -> Option<&str> {
+    let name = token.trim_matches('`').trim_end_matches(',');
+    if name.starts_with("flat_") && name.ends_with(".wgsl") {
+        Some(name)
+    } else {
+        None
+    }
+}
+
 #[test]
 fn every_handwritten_wgsl_is_named_in_shaders_readme() {
     let readme = shaders_readme();
@@ -36,7 +45,7 @@ fn every_handwritten_wgsl_is_named_in_shaders_readme() {
         .collect();
     assert!(
         missing.is_empty(),
-        "handwritten WGSL files missing from shaders/README.md: {missing:?}",
+        "handwritten WGSL files missing from shaders/README.md: {missing:?}"
     );
 }
 
@@ -46,16 +55,16 @@ fn shaders_readme_does_not_name_absent_wgsl_files() {
     let present = tracked_wgsl_names();
     let mut stale = Vec::new();
     for token in readme.split_whitespace() {
-        let name = token.trim_matches('`').trim_end_matches(',');
-        if name.starts_with("flat_") && name.ends_with(".wgsl") && !present.iter().any(|item| item == name)
-        {
-            stale.push(name.to_owned());
+        if let Some(name) = markdown_wgsl_token(token) {
+            if !present.iter().any(|item| item == name) {
+                stale.push(name.to_owned());
+            }
         }
     }
     stale.sort();
     stale.dedup();
     assert!(
         stale.is_empty(),
-        "shaders/README.md names WGSL files that are not in shaders/: {stale:?}",
+        "shaders/README.md names WGSL files that are not in shaders/: {stale:?}"
     );
 }
