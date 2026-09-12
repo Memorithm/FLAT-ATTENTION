@@ -27,16 +27,30 @@ fn tracked_example_stems() -> Vec<String> {
     names
 }
 
-fn markdown_example_token(token: &str) -> Option<&str> {
-    let name = token.trim_matches('`').trim_end_matches(',');
-    if name.is_empty() || name.contains('.') || name.contains('/') {
-        return None;
+fn backticked_example_stems(readme: &str) -> Vec<&str> {
+    let mut stems = Vec::new();
+    let mut rest = readme;
+    while let Some(start) = rest.find('`') {
+        rest = &rest[start + 1..];
+        let Some(end) = rest.find('`') else {
+            break;
+        };
+        let inner = &rest[..end];
+        rest = &rest[end + 1..];
+        if is_example_stem(inner) {
+            stems.push(inner);
+        }
     }
-    if name.contains('_') || name == "hello_attention" || name == "io_model" {
-        Some(name)
-    } else {
-        None
+    stems
+}
+
+fn is_example_stem(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
     }
+    name.chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+        && name.contains('_')
 }
 
 #[test]
@@ -57,11 +71,9 @@ fn examples_readme_does_not_name_absent_example_stems() {
     let readme = examples_readme();
     let present = tracked_example_stems();
     let mut stale = Vec::new();
-    for token in readme.split_whitespace() {
-        if let Some(name) = markdown_example_token(token) {
-            if !present.iter().any(|item| item == name) {
-                stale.push(name.to_owned());
-            }
+    for name in backticked_example_stems(&readme) {
+        if !present.iter().any(|item| item == name) {
+            stale.push(name.to_owned());
         }
     }
     stale.sort();
