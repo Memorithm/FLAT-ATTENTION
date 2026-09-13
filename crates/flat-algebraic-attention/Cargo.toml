@@ -1,0 +1,10 @@
+[package]
+name = "flat-algebraic-attention"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+description = "Research-only multi-algebra attention control primitives for FLAT-ATTENTION"
+license-file = "../../LICENSE.md"
+
+[dependencies]
