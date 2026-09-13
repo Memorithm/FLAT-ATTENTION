@@ -19,6 +19,14 @@ pub mod boolean_attention_signature;
 #[path = "wgpu_boolean_router.rs"]
 pub mod wgpu_boolean_router;
 
+/// M13B.4 research-only prefill/first-decode readiness contract.
+///
+/// This validates that numerical K/V and Boolean routing metadata cover the
+/// same committed prefix before first-token consumption. It does not claim
+/// scheduling overlap or performance.
+#[path = "research_boolean_overlap.rs"]
+pub mod research_boolean_overlap;
+
 /// Research-only structured-history attention contract and scalar oracle.
 ///
 /// Kept outside `v1` so the production reusable API and its defaults remain
