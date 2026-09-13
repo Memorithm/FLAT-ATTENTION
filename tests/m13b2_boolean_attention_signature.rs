@@ -25,8 +25,24 @@ fn hamming_rule_is_explicit_and_deterministic() {
     let far = BooleanAttentionSignature::new(8, vec![0b0101_0011]).unwrap();
     let rule = HammingAdmissionRule::new(1, 8).unwrap();
 
+    assert_eq!(rule.bits(), 8);
     assert!(rule.admits(&query, &near).unwrap());
     assert!(!rule.admits(&query, &far).unwrap());
+}
+
+#[test]
+fn hamming_rule_rejects_signatures_from_another_declared_width() {
+    let rule = HammingAdmissionRule::new(1, 8).unwrap();
+    let query = BooleanAttentionSignature::new(4, vec![0b1010]).unwrap();
+    let key = BooleanAttentionSignature::new(4, vec![0b1011]).unwrap();
+
+    assert_eq!(
+        rule.admits(&query, &key),
+        Err(BooleanAttentionSignatureError::RuleWidthMismatch {
+            rule_bits: 8,
+            signature_bits: 4,
+        })
+    );
 }
 
 #[test]

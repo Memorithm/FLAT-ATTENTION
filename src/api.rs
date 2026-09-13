@@ -5,6 +5,20 @@
 //! handles. Backend adapters may consume the resident form with their own buffer
 //! type while preserving the same validated contract.
 
+/// M13B.1 canonical bit-packed Boolean block-admission mask.
+#[path = "boolean_attention_mask.rs"]
+pub mod boolean_attention_mask;
+
+/// M13B.2 canonical Boolean Q/K signatures and exact Hamming admission rule.
+#[path = "boolean_attention_signature.rs"]
+pub mod boolean_attention_signature;
+
+/// M13B.3 Boolean-only WGPU router. It has no numerical K/V binding so routing
+/// can be encoded before numerical K/V staging.
+#[cfg(feature = "wgpu")]
+#[path = "wgpu_boolean_router.rs"]
+pub mod wgpu_boolean_router;
+
 /// Research-only structured-history attention contract and scalar oracle.
 ///
 /// Kept outside `v1` so the production reusable API and its defaults remain
