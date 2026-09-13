@@ -1,5 +1,10 @@
 use core::fmt;
 
+use flat_attention::api::boolean_attention_mask::BooleanAttentionMask;
+use flat_attention::api::boolean_attention_signature::{
+    BooleanAttentionSignature, BooleanAttentionSignatureError,
+};
+
 use crate::f2::F2AffinePredicate;
 use crate::max_plus::MaxPlusValue;
 use crate::zhegalkin::{ZhegalkinError, ZhegalkinPolynomial};
@@ -65,6 +70,54 @@ impl AlgebraicEvidence {
     }
 }
 
+/// Typed binding to the canonical M13B Boolean front-end contracts.
+///
+/// The cooperation layer owns these values so the Boolean route retains the
+/// exact validated block geometry and Q/K signature provenance that produced
+/// the survivor decision. It does not reinterpret or regenerate Boolean
+/// metadata locally.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BooleanRoutingEvidence {
+    mask: BooleanAttentionMask,
+    query_signature: BooleanAttentionSignature,
+    key_signature: BooleanAttentionSignature,
+}
+
+impl BooleanRoutingEvidence {
+    /// Bind already-validated M13B mask/signature values.
+    ///
+    /// # Errors
+    ///
+    /// Fails closed when the canonical Q/K signatures have different widths.
+    pub fn new(
+        mask: BooleanAttentionMask,
+        query_signature: BooleanAttentionSignature,
+        key_signature: BooleanAttentionSignature,
+    ) -> Result<Self, CooperationError> {
+        query_signature.hamming_distance(&key_signature)?;
+        Ok(Self {
+            mask,
+            query_signature,
+            key_signature,
+        })
+    }
+
+    #[must_use]
+    pub const fn mask(&self) -> &BooleanAttentionMask {
+        &self.mask
+    }
+
+    #[must_use]
+    pub const fn query_signature(&self) -> &BooleanAttentionSignature {
+        &self.query_signature
+    }
+
+    #[must_use]
+    pub const fn key_signature(&self) -> &BooleanAttentionSignature {
+        &self.key_signature
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct AttentionAlgebraNeeds {
     pub eligibility_logic: bool,
@@ -76,6 +129,7 @@ pub struct AttentionAlgebraNeeds {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlgebraicRoute {
     domains: Vec<AlgebraDomain>,
+    boolean_evidence: Option<BooleanRoutingEvidence>,
 }
 
 impl AlgebraicRoute {
@@ -88,12 +142,20 @@ impl AlgebraicRoute {
     pub fn contains(&self, domain: AlgebraDomain) -> bool {
         self.domains.contains(&domain)
     }
+
+    /// Canonical M13B evidence retained by a Boolean route.
+    #[must_use]
+    pub const fn boolean_evidence(&self) -> Option<&BooleanRoutingEvidence> {
+        self.boolean_evidence.as_ref()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CooperationError {
     NoRequestedSemantics,
+    MissingBooleanRoutingEvidence,
+    BooleanSignature(BooleanAttentionSignatureError),
     Zhegalkin(ZhegalkinError),
 }
 
@@ -104,12 +166,25 @@ impl fmt::Display for CooperationError {
                 formatter,
                 "multi-algebra routing requires at least one requested semantic capability"
             ),
+            Self::MissingBooleanRoutingEvidence => write!(
+                formatter,
+                "Boolean eligibility routing requires canonical M13B mask/signature evidence"
+            ),
+            Self::BooleanSignature(error) => {
+                write!(formatter, "Boolean M13B evidence is invalid: {error}")
+            }
             Self::Zhegalkin(error) => write!(formatter, "Zhegalkin cooperation failed: {error}"),
         }
     }
 }
 
 impl std::error::Error for CooperationError {}
+
+impl From<BooleanAttentionSignatureError> for CooperationError {
+    fn from(error: BooleanAttentionSignatureError) -> Self {
+        Self::BooleanSignature(error)
+    }
+}
 
 impl From<ZhegalkinError> for CooperationError {
     fn from(error: ZhegalkinError) -> Self {
@@ -119,7 +194,15 @@ impl From<ZhegalkinError> for CooperationError {
 
 pub fn route_attention_needs(
     needs: AttentionAlgebraNeeds,
+    boolean_evidence: Option<BooleanRoutingEvidence>,
 ) -> Result<AlgebraicRoute, CooperationError> {
+    if needs.eligibility_logic && boolean_evidence.is_none() {
+        return Err(CooperationError::MissingBooleanRoutingEvidence);
+    }
+    if !needs.eligibility_logic && boolean_evidence.is_some() {
+        return Err(CooperationError::MissingBooleanRoutingEvidence);
+    }
+
     let mut domains = Vec::with_capacity(4);
     if needs.eligibility_logic {
         domains.push(AlgebraDomain::Boolean);
@@ -138,7 +221,10 @@ pub fn route_attention_needs(
         return Err(CooperationError::NoRequestedSemantics);
     }
 
-    Ok(AlgebraicRoute { domains })
+    Ok(AlgebraicRoute {
+        domains,
+        boolean_evidence,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,14 +317,26 @@ mod tests {
     use super::*;
     use crate::f2::F2Vector;
 
+    fn boolean_evidence() -> BooleanRoutingEvidence {
+        BooleanRoutingEvidence::new(
+            BooleanAttentionMask::from_admissions(&[true, false, true, true]).unwrap(),
+            BooleanAttentionSignature::new(4, vec![0b1011]).unwrap(),
+            BooleanAttentionSignature::new(4, vec![0b1001]).unwrap(),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn route_can_select_all_engines_without_implying_execution_order() {
-        let route = route_attention_needs(AttentionAlgebraNeeds {
-            eligibility_logic: true,
-            parity_or_binary_linear: true,
-            nonlinear_boolean_interaction: true,
-            precedence_or_critical_path: true,
-        })
+        let route = route_attention_needs(
+            AttentionAlgebraNeeds {
+                eligibility_logic: true,
+                parity_or_binary_linear: true,
+                nonlinear_boolean_interaction: true,
+                precedence_or_critical_path: true,
+            },
+            Some(boolean_evidence()),
+        )
         .unwrap();
 
         assert_eq!(
@@ -258,12 +356,61 @@ mod tests {
         ] {
             assert!(route.contains(domain));
         }
+        let evidence = route.boolean_evidence().unwrap();
+        assert_eq!(evidence.mask().blocks(), 4);
+        assert_eq!(evidence.mask().admitted_blocks(), vec![0, 2, 3]);
+        assert_eq!(evidence.query_signature().bits(), 4);
+        assert_eq!(evidence.key_signature().bits(), 4);
+    }
+
+    #[test]
+    fn boolean_route_without_m13b_evidence_fails_closed() {
+        assert_eq!(
+            route_attention_needs(
+                AttentionAlgebraNeeds {
+                    eligibility_logic: true,
+                    ..AttentionAlgebraNeeds::default()
+                },
+                None,
+            ),
+            Err(CooperationError::MissingBooleanRoutingEvidence)
+        );
+    }
+
+    #[test]
+    fn unrelated_boolean_evidence_is_not_silently_retained() {
+        assert_eq!(
+            route_attention_needs(
+                AttentionAlgebraNeeds {
+                    parity_or_binary_linear: true,
+                    ..AttentionAlgebraNeeds::default()
+                },
+                Some(boolean_evidence()),
+            ),
+            Err(CooperationError::MissingBooleanRoutingEvidence)
+        );
+    }
+
+    #[test]
+    fn mismatched_m13b_signature_widths_fail_closed() {
+        let error = BooleanRoutingEvidence::new(
+            BooleanAttentionMask::from_admissions(&[true]).unwrap(),
+            BooleanAttentionSignature::new(4, vec![0b1011]).unwrap(),
+            BooleanAttentionSignature::new(5, vec![0b1_1001]).unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            CooperationError::BooleanSignature(
+                BooleanAttentionSignatureError::WidthMismatch { .. }
+            )
+        ));
     }
 
     #[test]
     fn empty_semantic_request_fails_closed() {
         assert_eq!(
-            route_attention_needs(AttentionAlgebraNeeds::default()),
+            route_attention_needs(AttentionAlgebraNeeds::default(), None),
             Err(CooperationError::NoRequestedSemantics)
         );
     }
