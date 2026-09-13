@@ -6,15 +6,24 @@ use crate::f2::{F2AffinePredicate, F2Error, F2Vector};
 #[non_exhaustive]
 pub enum ZhegalkinError {
     ZeroVariables,
-    VariableOutOfBounds { variable: usize, variable_count: usize },
-    InputDimensionMismatch { expected: usize, actual: usize },
+    VariableOutOfBounds {
+        variable: usize,
+        variable_count: usize,
+    },
+    InputDimensionMismatch {
+        expected: usize,
+        actual: usize,
+    },
     F2(F2Error),
 }
 
 impl fmt::Display for ZhegalkinError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroVariables => write!(formatter, "Zhegalkin polynomials require at least one variable"),
+            Self::ZeroVariables => write!(
+                formatter,
+                "Zhegalkin polynomials require at least one variable"
+            ),
             Self::VariableOutOfBounds {
                 variable,
                 variable_count,
@@ -236,11 +245,9 @@ mod tests {
 
     #[test]
     fn duplicate_terms_cancel_modulo_two() {
-        let polynomial = ZhegalkinPolynomial::from_variable_sets(
-            3,
-            vec![vec![0, 1], vec![1, 0], vec![2]],
-        )
-        .unwrap();
+        let polynomial =
+            ZhegalkinPolynomial::from_variable_sets(3, vec![vec![0, 1], vec![1, 0], vec![2]])
+                .unwrap();
 
         assert_eq!(polynomial.terms().len(), 1);
         assert_eq!(polynomial.terms()[0].variables(), &[2]);
@@ -248,11 +255,8 @@ mod tests {
 
     #[test]
     fn or_identity_matches_boolean_truth_table() {
-        let polynomial = ZhegalkinPolynomial::from_variable_sets(
-            2,
-            vec![vec![0], vec![1], vec![0, 1]],
-        )
-        .unwrap();
+        let polynomial =
+            ZhegalkinPolynomial::from_variable_sets(2, vec![vec![0], vec![1], vec![0, 1]]).unwrap();
 
         for left in [false, true] {
             for right in [false, true] {
@@ -266,8 +270,7 @@ mod tests {
 
     #[test]
     fn not_identity_uses_constant_plus_variable() {
-        let polynomial =
-            ZhegalkinPolynomial::from_variable_sets(1, vec![vec![], vec![0]]).unwrap();
+        let polynomial = ZhegalkinPolynomial::from_variable_sets(1, vec![vec![], vec![0]]).unwrap();
 
         assert!(polynomial.evaluate(&input(&[false])).unwrap());
         assert!(!polynomial.evaluate(&input(&[true])).unwrap());
