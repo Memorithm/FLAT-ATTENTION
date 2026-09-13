@@ -7,4 +7,5 @@
 //! routing promotion.
 
 pub mod f2;
+pub mod max_plus;
 pub mod zhegalkin;
