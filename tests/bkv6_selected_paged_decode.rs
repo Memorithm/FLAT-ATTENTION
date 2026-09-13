@@ -82,9 +82,7 @@ fn fixture(len: usize, phase: f32) -> Vec<f32> {
 }
 
 fn signature(byte: u8) -> PackedBooleanSignature {
-    let bits = (0..8)
-        .map(|bit| byte & (1 << bit) != 0)
-        .collect::<Vec<_>>();
+    let bits = (0..8).map(|bit| byte & (1 << bit) != 0).collect::<Vec<_>>();
     PackedBooleanSignature::from_bools(&bits).unwrap()
 }
 
@@ -216,11 +214,7 @@ fn encode_f32(values: &[f32]) -> Vec<u8> {
     bytes
 }
 
-fn input_buffer(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    values: &[f32],
-) -> wgpu::Buffer {
+fn input_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[f32]) -> wgpu::Buffer {
     let bytes = encode_f32(values);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-bkv-k6-input"),

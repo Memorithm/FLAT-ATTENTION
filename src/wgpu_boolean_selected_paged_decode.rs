@@ -98,12 +98,11 @@ impl BooleanSelectedPagedKvTable {
             }
             previous_logical_page = Some(selected.logical_page);
 
-            let first_token = selected
-                .logical_page
-                .checked_mul(config.page_size)
-                .ok_or(BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
+            let first_token = selected.logical_page.checked_mul(config.page_size).ok_or(
+                BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
                     elements: selected.logical_page,
-                })?;
+                },
+            )?;
             let address = table.address(first_token).ok_or(
                 BooleanSelectedPagedDecodeError::MissingAuthoritativePage {
                     logical_page: selected.logical_page,
@@ -117,12 +116,11 @@ impl BooleanSelectedPagedKvTable {
                 });
             }
 
-            let remaining = telemetry
-                .live_tokens
-                .checked_sub(first_token)
-                .ok_or(BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
+            let remaining = telemetry.live_tokens.checked_sub(first_token).ok_or(
+                BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
                     elements: first_token,
-                })?;
+                },
+            )?;
             let expected_live_tokens = remaining.min(config.page_size);
             if selected.live_tokens != expected_live_tokens {
                 return Err(BooleanSelectedPagedDecodeError::LiveTokenMismatch {
@@ -359,9 +357,7 @@ impl WgpuBooleanSelectedPagedDecodePipeline {
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("flat-bkv-k6-selected-paged-decode"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(
-                BOOLEAN_SELECTED_PAGED_DECODE_WGSL,
-            )),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(BOOLEAN_SELECTED_PAGED_DECODE_WGSL)),
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("flat-bkv-k6-selected-paged-decode"),
@@ -447,10 +443,7 @@ impl WgpuBooleanSelectedPagedDecodePipeline {
         }
 
         let layout = Self::layout(pass.q_heads, pass.head_dim)?;
-        let physical_rows = checked_mul(
-            pass.page_table.physical_pages,
-            pass.page_table.page_size,
-        )?;
+        let physical_rows = checked_mul(pass.page_table.physical_pages, pass.page_table.page_size)?;
         let kv_width = checked_mul(pass.kv_heads, pass.head_dim)?;
         let kv_elements = checked_mul(physical_rows, kv_width)?;
         let kv_bytes = bytes_for_f32(kv_elements)?;
@@ -470,11 +463,7 @@ impl WgpuBooleanSelectedPagedDecodePipeline {
         validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
         validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;
-        validate_storage_binding_size(
-            "O|LSE",
-            layout.combined_bytes,
-            maximum_storage_bytes,
-        )?;
+        validate_storage_binding_size("O|LSE", layout.combined_bytes, maximum_storage_bytes)?;
 
         let scale = pass.config.resolved_scale(pass.head_dim)?;
         let mut params = Vec::with_capacity(16 + 4 * BOOLEAN_SELECTED_PAGED_MAX_PAGES);
@@ -565,10 +554,7 @@ fn validate_geometry(
     head_dim: usize,
 ) -> Result<(), BooleanSelectedPagedDecodeError> {
     if q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 {
-        return Err(BooleanSelectedPagedDecodeError::InvalidHeadGrouping {
-            q_heads,
-            kv_heads,
-        });
+        return Err(BooleanSelectedPagedDecodeError::InvalidHeadGrouping { q_heads, kv_heads });
     }
     if head_dim == 0 || head_dim % 2 != 0 {
         return Err(FlatAttentionError::InvalidRotaryHeadDim { head_dim }.into());
