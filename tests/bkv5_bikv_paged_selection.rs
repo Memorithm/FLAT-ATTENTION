@@ -10,8 +10,13 @@ pub mod api {
     pub use crate::boolean_kv;
 }
 
-#[path = "../src/paged_kv.rs"]
-pub mod paged_kv;
+// Reuse the real crate's paged-KV contract rather than path-importing
+// `src/paged_kv.rs`. Under `--features wgpu`, path-importing that source file
+// would recursively compile its WGPU children inside this integration-test
+// crate, where the production crate-root exports are intentionally absent.
+pub mod paged_kv {
+    pub use flat_attention::paged_kv::{PagedKvConfig, PagedKvError, PagedKvTable};
+}
 
 #[path = "../src/boolean_kv_paged_selection.rs"]
 pub mod boolean_kv_paged_selection;
