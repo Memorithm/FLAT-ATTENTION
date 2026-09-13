@@ -22,15 +22,11 @@ pub mod paged_kv {
 pub mod boolean_kv_paged_selection;
 
 use boolean_kv::{BooleanKvCache, PackedBooleanSignature};
-use boolean_kv_paged_selection::{
-    build_boolean_indexed_kv_selection, NumericalKvPageGeometry,
-};
+use boolean_kv_paged_selection::{build_boolean_indexed_kv_selection, NumericalKvPageGeometry};
 use paged_kv::{PagedKvConfig, PagedKvTable};
 
 fn signature(byte: u8) -> PackedBooleanSignature {
-    let bits = (0..8)
-        .map(|bit| byte & (1 << bit) != 0)
-        .collect::<Vec<_>>();
+    let bits = (0..8).map(|bit| byte & (1 << bit) != 0).collect::<Vec<_>>();
     PackedBooleanSignature::from_bools(&bits).unwrap()
 }
 
