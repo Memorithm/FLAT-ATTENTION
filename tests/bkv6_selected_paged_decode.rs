@@ -156,24 +156,43 @@ fn rotate_k_projection(
     rotated
 }
 
+#[derive(Clone, Copy)]
+struct TestAttentionGeometry {
+    q_heads: usize,
+    kv_heads: usize,
+    head_dim: usize,
+    theta: f32,
+    query_position: usize,
+}
+
+#[derive(Clone, Copy)]
+struct DeviceInputs<'a> {
+    q: &'a wgpu::Buffer,
+    k: &'a wgpu::Buffer,
+    v: &'a wgpu::Buffer,
+}
+
 fn restricted_oracle(
     q: &[f32],
     raw_k: &[f32],
     v: &[f32],
-    q_heads: usize,
-    kv_heads: usize,
-    head_dim: usize,
-    query_position: usize,
+    geometry: TestAttentionGeometry,
     selected_positions: &[usize],
-    theta: f32,
 ) -> (Vec<f32>, Vec<f32>) {
+    let TestAttentionGeometry {
+        q_heads,
+        kv_heads,
+        head_dim,
+        theta,
+        query_position,
+    } = geometry;
     let mut output = vec![0.0f32; q_heads * head_dim];
     let mut lse = vec![0.0f32; q_heads];
     let group_size = q_heads / kv_heads;
     let scale = 1.0 / (head_dim as f32).sqrt();
     let kv_width = kv_heads * head_dim;
 
-    for q_head in 0..q_heads {
+    for (q_head, lse_value) in lse.iter_mut().enumerate() {
         let kv_head = q_head / group_size;
         let q_base = q_head * head_dim;
         let rotated_q = rotate_vector(&q[q_base..q_base + head_dim], query_position, theta);
@@ -194,7 +213,7 @@ fn restricted_oracle(
             .iter()
             .map(|score| (*score - maximum).exp())
             .sum::<f32>();
-        lse[q_head] = maximum + denominator.ln();
+        *lse_value = maximum + denominator.ln();
         for (score, &position) in scores.iter().zip(selected_positions) {
             let weight = (*score - maximum).exp() / denominator;
             let v_base = position * kv_width + kv_head * head_dim;
@@ -277,15 +296,16 @@ fn run_selected(
     harness: &DeviceHarness,
     pipeline: &WgpuBooleanSelectedPagedDecodePipeline,
     page_table: &BooleanSelectedPagedKvTable,
-    q_gpu: &wgpu::Buffer,
-    k_gpu: &wgpu::Buffer,
-    v_gpu: &wgpu::Buffer,
-    q_heads: usize,
-    kv_heads: usize,
-    head_dim: usize,
-    theta: f32,
-    query_position: usize,
+    inputs: DeviceInputs<'_>,
+    geometry: TestAttentionGeometry,
 ) -> Vec<f32> {
+    let TestAttentionGeometry {
+        q_heads,
+        kv_heads,
+        head_dim,
+        theta,
+        query_position,
+    } = geometry;
     let output = pipeline
         .create_output_buffer(&harness.device, q_heads, head_dim)
         .unwrap();
@@ -299,9 +319,9 @@ fn run_selected(
             &harness.device,
             &mut encoder,
             BooleanSelectedDecodePass {
-                q: q_gpu,
-                k: k_gpu,
-                v: v_gpu,
+                q: inputs.q,
+                k: inputs.k,
+                v: inputs.v,
                 page_table,
                 out_and_lse: &output,
                 q_heads,
@@ -395,23 +415,23 @@ fn selected_decode_matches_all_accept_and_sparse_original_position_oracles() {
     let k_gpu = input_buffer(&harness.device, &harness.queue, &physical_k);
     let v_gpu = input_buffer(&harness.device, &harness.queue, &physical_v);
     let pipeline = WgpuBooleanSelectedPagedDecodePipeline::new(&harness.device).unwrap();
-
-    let all_selection = selection(&cache, &table, 8);
-    assert_eq!(all_selection.selected_page_ids(), vec![0, 1, 2]);
-    let all_table = BooleanSelectedPagedKvTable::from_selection(&all_selection, &table).unwrap();
-    let all_actual = run_selected(
-        &harness,
-        &pipeline,
-        &all_table,
-        &q_gpu,
-        &k_gpu,
-        &v_gpu,
+    let geometry = TestAttentionGeometry {
         q_heads,
         kv_heads,
         head_dim,
         theta,
         query_position,
-    );
+    };
+    let inputs = DeviceInputs {
+        q: &q_gpu,
+        k: &k_gpu,
+        v: &v_gpu,
+    };
+
+    let all_selection = selection(&cache, &table, 8);
+    assert_eq!(all_selection.selected_page_ids(), vec![0, 1, 2]);
+    let all_table = BooleanSelectedPagedKvTable::from_selection(&all_selection, &table).unwrap();
+    let all_actual = run_selected(&harness, &pipeline, &all_table, inputs, geometry);
     let dense_expected = forward_reference_projection_grouped_rope_asymmetric(
         &q,
         &raw_k,
@@ -451,30 +471,8 @@ fn selected_decode_matches_all_accept_and_sparse_original_position_oracles() {
     assert_eq!(sparse_selection.selected_page_ids(), vec![0, 2]);
     let sparse_table =
         BooleanSelectedPagedKvTable::from_selection(&sparse_selection, &table).unwrap();
-    let sparse_actual = run_selected(
-        &harness,
-        &pipeline,
-        &sparse_table,
-        &q_gpu,
-        &k_gpu,
-        &v_gpu,
-        q_heads,
-        kv_heads,
-        head_dim,
-        theta,
-        query_position,
-    );
-    let (sparse_output, sparse_lse) = restricted_oracle(
-        &q,
-        &raw_k,
-        &v,
-        q_heads,
-        kv_heads,
-        head_dim,
-        query_position,
-        &[0, 1, 4, 5],
-        theta,
-    );
+    let sparse_actual = run_selected(&harness, &pipeline, &sparse_table, inputs, geometry);
+    let (sparse_output, sparse_lse) = restricted_oracle(&q, &raw_k, &v, geometry, &[0, 1, 4, 5]);
     assert_close(
         "BKV-K6 sparse O",
         &sparse_actual[..q_heads * head_dim],
