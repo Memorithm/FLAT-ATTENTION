@@ -312,10 +312,8 @@ mod tests {
 
     #[test]
     fn affine_predicate_adds_constant_term() {
-        let predicate = F2AffinePredicate::new(
-            F2Vector::from_bools(&[true, true, false]).unwrap(),
-            true,
-        );
+        let predicate =
+            F2AffinePredicate::new(F2Vector::from_bools(&[true, true, false]).unwrap(), true);
         let input = F2Vector::from_bools(&[true, false, true]).unwrap();
 
         assert!(!predicate.evaluate(&input).unwrap());
