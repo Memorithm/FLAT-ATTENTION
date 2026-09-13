@@ -33,23 +33,15 @@ jobs:
               raise SystemExit('error enum marker not found')
           s = s.replace(enum_old, enum_new, 1)
 
-          display_old = '''            Self::MissingDenseLatency => write!(
-                  f,
-                  "BIKV qualification requires a non-zero dense baseline latency"
-              ),
-              Self::Overflow =>'''
-          display_new = '''            Self::MissingDenseLatency => write!(
-                  f,
-                  "BIKV qualification requires a non-zero dense baseline latency"
-              ),
-              Self::MissingBikvLatency => write!(
+          start = s.index('            Self::MissingDenseLatency =>')
+          end = s.index('            Self::Overflow =>', start)
+          dense_arm = s[start:end]
+          candidate_arm = '''            Self::MissingBikvLatency => write!(
                   f,
                   "BIKV qualification requires non-zero measured candidate latency"
               ),
-              Self::Overflow =>'''
-          if display_old not in s:
-              raise SystemExit('display marker not found')
-          s = s.replace(display_old, display_new, 1)
+          '''
+          s = s[:start] + dense_arm + candidate_arm + s[end:]
 
           marker = '            .ok_or(BikvQualificationError::Overflow)?;\n\n        Ok(Self {\n'
           replacement = '            .ok_or(BikvQualificationError::Overflow)?;\n        if total_bikv_latency_ns == 0 {\n            return Err(BikvQualificationError::MissingBikvLatency);\n        }\n\n        Ok(Self {\n'
