@@ -31,6 +31,14 @@ The `flat-semantic*` crates describe experimental structured-history / semantic
 control surfaces. They remain outside `api::v1` until an explicit promotion gate
 says otherwise. See `docs/research/` and `docs/SEMANTIC_*`.
 
+## Algebraic attention research
+
+`flat-algebraic-attention` is the research-only Multi-Algebra Attention (MAA)
+foundation. It starts with deterministic packed-bit `F2` primitives and is
+intended to host qualified Zhegalkin and max-plus oracles before any integration
+with existing M13B Boolean routing. It does not alter default routing or
+`api::v1`. See `docs/research/MULTI_ALGEBRA_ATTENTION.md`.
+
 ## How to treat these crates
 
 - Do not import a candidate crate from SciRust production code unless a
