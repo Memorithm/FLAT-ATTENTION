@@ -1,0 +1,86 @@
+name: BKV-K6.1 zero-latency guard
+
+on:
+  push:
+    branches:
+      - research/bkv-k6-qualification-gate
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: research/bkv-k6-qualification-gate
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Add zero-latency evidence guard
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/research_bkv_qualification.rs')
+          s = p.read_text()
+          s = s.replace(
+              '    MissingDenseLatency,\n    Overflow,\n',
+              '    MissingDenseLatency,\n    MissingBikvLatency,\n    Overflow,\n',
+              1,
+          )
+          s = s.replace(
+              '            Self::MissingDenseLatency => write!(\n                f,\n                "BIKV qualification requires a non-zero dense baseline latency"\n            ),\n            Self::Overflow =>',
+              '            Self::MissingDenseLatency => write!(\n                f,\n                "BIKV qualification requires a non-zero dense baseline latency"\n            ),\n            Self::MissingBikvLatency => write!(\n                f,\n                "BIKV qualification requires non-zero measured candidate latency"\n            ),\n            Self::Overflow =>',
+              1,
+          )
+          marker = '            .ok_or(BikvQualificationError::Overflow)?;\n\n        Ok(Self {\n'
+          replacement = '            .ok_or(BikvQualificationError::Overflow)?;\n        if total_bikv_latency_ns == 0 {\n            return Err(BikvQualificationError::MissingBikvLatency);\n        }\n\n        Ok(Self {\n'
+          if marker not in s:
+              raise SystemExit('total latency marker not found')
+          s = s.replace(marker, replacement, 1)
+          test_marker = '''        let mut invalid_latency = latency();
+              invalid_latency.dense_attention_ns = 0;
+              assert_eq!(
+                  BikvQualificationRecord::new(accounting(), invalid_latency),
+                  Err(BikvQualificationError::MissingDenseLatency)
+              );
+          '''
+          test_replacement = test_marker + '''
+              let zero_candidate_latency = BikvLatencyInput {
+                  signature_generation_ns: 0,
+                  boolean_search_ns: 0,
+                  synchronization_ns: 0,
+                  selected_attention_ns: 0,
+                  dense_attention_ns: 1,
+              };
+              assert_eq!(
+                  BikvQualificationRecord::new(accounting(), zero_candidate_latency),
+                  Err(BikvQualificationError::MissingBikvLatency)
+              );
+          '''
+          if test_marker not in s:
+              raise SystemExit('latency test marker not found')
+          p.write_text(s.replace(test_marker, test_replacement, 1))
+
+          p = Path('docs/BKV-K6-QUALIFICATION-GATE.md')
+          s = p.read_text()
+          marker = '- dense numerical attention latency.\n'
+          replacement = marker + '- non-zero measured candidate latency; an all-zero candidate timing is treated as missing evidence.\n'
+          if marker not in s:
+              raise SystemExit('documentation marker not found')
+          p.write_text(s.replace(marker, replacement, 1))
+          PY
+          cargo fmt --all
+          cargo test --test bkv_qualification_gate
+          cargo clippy --test bkv_qualification_gate -- -D warnings
+          git diff --check
+          git config user.name MEMOPERF
+          git config user.email contact@checkupauto.fr
+          git add src/research_bkv_qualification.rs docs/BKV-K6-QUALIFICATION-GATE.md
+          git rm .github/workflows/bkv-k61-zero-latency-fix.yml
+          git commit -m "fix: reject missing BIKV candidate timing"
+          git push origin HEAD:research/bkv-k6-qualification-gate
