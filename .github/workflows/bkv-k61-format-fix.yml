@@ -27,24 +27,11 @@ jobs:
 
           p = Path('src/research_bkv_qualification.rs')
           s = p.read_text()
-          old = '''    let selected_capacity_tokens = input
-              .selected_pages
-              .checked_mul(input.page_size)
-              .ok_or(BikvQualificationError::Overflow)?;
-          if input.selected_live_tokens > selected_capacity_tokens {
-              return Err(BikvQualificationError::SelectedTokensExceedSelectedCapacity {
-                  selected_live_tokens: input.selected_live_tokens,
-                  selected_capacity_tokens,
-              });
-          }
-          if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
-              return Err(BikvQualificationError::EmptySelectionMismatch {
-                  selected_pages: input.selected_pages,
-                  selected_live_tokens: input.selected_live_tokens,
-              });
-          }
-          '''
-          new = '''    if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
+          start_marker = '    let selected_capacity_tokens = input\n'
+          end_marker = '    if input.boolean_index_bytes_read == 0 {\n'
+          start = s.index(start_marker)
+          end = s.index(end_marker, start)
+          replacement = '''    if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
               return Err(BikvQualificationError::EmptySelectionMismatch {
                   selected_pages: input.selected_pages,
                   selected_live_tokens: input.selected_live_tokens,
@@ -61,16 +48,12 @@ jobs:
               });
           }
           '''
-          if old not in s:
-              raise SystemExit('validation block not found')
-          p.write_text(s.replace(old, new, 1))
+          p.write_text(s[:start] + replacement + s[end:])
 
           p = Path('tests/bkv_qualification_gate.rs')
           s = p.read_text()
-          marker = '''    assert_eq!(record.total_bikv_latency_ns(), 1_150);
-          '''
-          replacement = '''    assert_eq!(record.total_bikv_latency_ns(), 1_150);
-              assert_eq!(record.accounting().live_tokens, 256);
+          marker = '    assert_eq!(record.total_bikv_latency_ns(), 1_150);\n'
+          replacement = marker + '''    assert_eq!(record.accounting().live_tokens, 256);
               assert_eq!(record.latency().dense_attention_ns, 1_000);
           '''
           if marker not in s:
