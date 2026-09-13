@@ -3,6 +3,9 @@
 //! This module records the preregistered event order required to interpret
 //! first-token and steady-state Boolean/numerical overlap experiments. It does
 //! not schedule work, infer overlap from source structure, or claim a speedup.
+//! One [`M13B4Trace`] represents one execution unit; it cannot by itself prove
+//! cross-unit overlap between Boolean work for a future unit and numerical work
+//! for a current unit. That requires correlated traces in one timing domain.
 
 use core::fmt;
 
@@ -121,7 +124,10 @@ impl M13B4Trace {
                     });
                 }
             }
-            if self.events[..index].iter().any(|prior| prior.kind == event.kind) {
+            if self.events[..index]
+                .iter()
+                .any(|prior| prior.kind == event.kind)
+            {
                 return Err(M13B4TraceError::DuplicateEvent { kind: event.kind });
             }
         }
@@ -230,8 +236,7 @@ impl M13B4Trace {
                 }
             }
             (None, None) => {
-                if self.scheduling_variant
-                    == M13B4SchedulingVariant::MultiDispatchOverlapCandidate
+                if self.scheduling_variant == M13B4SchedulingVariant::MultiDispatchOverlapCandidate
                 {
                     return Err(M13B4TraceError::MissingSynchronizationEvidence);
                 }
