@@ -187,6 +187,70 @@ impl BooleanSelectedPagedKvTable {
     pub fn generation(&self) -> u64 {
         self.generation
     }
+
+    /// Revalidate frozen sparse descriptors against the current authoritative
+    /// numerical page table immediately before GPU submission.
+    pub fn validate_against(
+        &self,
+        table: &PagedKvTable,
+    ) -> Result<(), BooleanSelectedPagedDecodeError> {
+        let telemetry = table.telemetry()?;
+        let config = table.config();
+        let frozen_mapped_pages = self.full_live_tokens.div_ceil(self.page_size);
+
+        if self.generation != telemetry.generation {
+            return Err(BooleanSelectedPagedDecodeError::GenerationMismatch {
+                selection_generation: self.generation,
+                table_generation: telemetry.generation,
+            });
+        }
+        if self.full_live_tokens != telemetry.live_tokens
+            || frozen_mapped_pages != telemetry.mapped_pages
+            || self.page_size != config.page_size
+            || self.physical_pages != config.physical_pages
+        {
+            return Err(BooleanSelectedPagedDecodeError::SnapshotMismatch {
+                selection_live_tokens: self.full_live_tokens,
+                table_live_tokens: telemetry.live_tokens,
+                selection_mapped_pages: frozen_mapped_pages,
+                table_mapped_pages: telemetry.mapped_pages,
+            });
+        }
+
+        for entry in &self.entries {
+            let first_token = entry.logical_page.checked_mul(config.page_size).ok_or(
+                BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
+                    elements: entry.logical_page,
+                },
+            )?;
+            let address = table.address(first_token).ok_or(
+                BooleanSelectedPagedDecodeError::MissingAuthoritativePage {
+                    logical_page: entry.logical_page,
+                },
+            )?;
+            if entry.physical_page != address.physical_page {
+                return Err(BooleanSelectedPagedDecodeError::PhysicalPageMismatch {
+                    logical_page: entry.logical_page,
+                    selected_physical_page: entry.physical_page,
+                    authoritative_physical_page: address.physical_page,
+                });
+            }
+            let remaining = telemetry.live_tokens.checked_sub(first_token).ok_or(
+                BooleanSelectedPagedDecodeError::IndexSpaceExceeded {
+                    elements: first_token,
+                },
+            )?;
+            let expected_live_tokens = remaining.min(config.page_size);
+            if entry.live_tokens != expected_live_tokens {
+                return Err(BooleanSelectedPagedDecodeError::LiveTokenMismatch {
+                    logical_page: entry.logical_page,
+                    selected_live_tokens: entry.live_tokens,
+                    authoritative_live_tokens: expected_live_tokens,
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +270,8 @@ pub struct BooleanSelectedDecodePass<'a> {
     /// Raw V in the same physical layout as K.
     pub v: &'a wgpu::Buffer,
     pub page_table: &'a BooleanSelectedPagedKvTable,
+    /// Current numerical table, revalidated immediately before encoding.
+    pub authoritative_table: &'a PagedKvTable,
     pub out_and_lse: &'a wgpu::Buffer,
     pub q_heads: usize,
     pub kv_heads: usize,
@@ -416,6 +482,7 @@ impl WgpuBooleanSelectedPagedDecodePipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: BooleanSelectedDecodePass<'_>,
     ) -> Result<BooleanSelectedDecodeLayout, BooleanSelectedPagedDecodeError> {
+        pass.page_table.validate_against(pass.authoritative_table)?;
         if pass.page_table.entries.is_empty() || pass.page_table.selected_live_tokens == 0 {
             return Err(BooleanSelectedPagedDecodeError::EmptySelection);
         }
