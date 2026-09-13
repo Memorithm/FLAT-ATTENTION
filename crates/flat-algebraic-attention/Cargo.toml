@@ -8,3 +8,4 @@ description = "Research-only multi-algebra attention control primitives for FLAT
 license-file = "../../LICENSE.md"
 
 [dependencies]
+flat-attention = { path = "../.." }
