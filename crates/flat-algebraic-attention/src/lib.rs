@@ -6,6 +6,7 @@
 //! to qualify algebraic decision mechanisms before any public API or runtime
 //! routing promotion.
 
+pub mod cooperation;
 pub mod f2;
 pub mod max_plus;
 pub mod zhegalkin;
