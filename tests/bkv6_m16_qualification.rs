@@ -1,5 +1,6 @@
 #![cfg(feature = "wgpu")]
 
+use std::fs;
 use std::hint::black_box;
 use std::process::Command;
 use std::sync::mpsc;
@@ -25,15 +26,23 @@ pub mod boolean_kv_paged_selection;
 #[path = "../src/wgpu_boolean_selected_paged_decode.rs"]
 pub mod wgpu_boolean_selected_paged_decode;
 
+#[path = "../src/benchmark_manifest.rs"]
+pub mod benchmark_manifest;
+#[path = "../src/research_bkv_evidence.rs"]
+pub mod research_bkv_evidence;
 #[path = "../src/research_bkv_qualification.rs"]
 pub mod research_bkv_qualification;
 
+use benchmark_manifest::{
+    BenchmarkEnvironment, BenchmarkManifest, BenchmarkProblem, BenchmarkResult,
+};
 use boolean_kv::{BooleanKvCache, PackedBooleanSignature};
 use boolean_kv_paged_selection::{
     build_boolean_indexed_kv_selection, BooleanIndexedKvSelection, NumericalKvPageGeometry,
 };
 use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 use flat_attention::{PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable};
+use research_bkv_evidence::{BikvEvidenceGates, BikvEvidenceManifest, BikvEvidenceScope};
 use research_bkv_qualification::{
     BikvAccountingInput, BikvLatencyInput, BikvPromotionDecision, BikvQualificationRecord,
 };
@@ -77,6 +86,17 @@ fn elapsed_ns(start: Instant) -> u64 {
 fn median(mut samples: Vec<u64>) -> u64 {
     samples.sort_unstable();
     samples[samples.len() / 2]
+}
+
+fn percentile_95(samples: &[u64]) -> u64 {
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    let rank = ((sorted.len() * 95).div_ceil(100)).saturating_sub(1);
+    sorted[rank.min(sorted.len() - 1)]
+}
+
+fn tokens_per_second_milli(latency_ns: u64) -> u64 {
+    1_000_000_000_000u64 / latency_ns.max(1)
 }
 
 fn fixture(len: usize, phase: f32) -> Vec<f32> {
@@ -658,6 +678,8 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         dense_samples.push(elapsed_ns(dense_start));
     }
 
+    let candidate_p95_ns = percentile_95(&candidate_total_samples);
+    let dense_p95_ns = percentile_95(&dense_samples);
     let signature_generation_ns = median(signature_samples);
     let boolean_search_ns = median(search_samples);
     let selected_attention_ns = median(selected_submit_samples);
@@ -706,8 +728,95 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         BikvPromotionDecision::Promote
     };
 
+    let commit = git_head();
+    let environment = BenchmarkEnvironment {
+        device: info.name.clone(),
+        backend: format!("{:?}", info.backend),
+        driver: format!("{info:?}"),
+        os: std::env::consts::OS.to_owned(),
+        arch: std::env::consts::ARCH.to_owned(),
+    };
+    let problem = BenchmarkProblem {
+        precision: "f32".to_owned(),
+        batch: 1,
+        q_heads: geometry.q_heads,
+        kv_heads: geometry.kv_heads,
+        query_len: 1,
+        kv_len: geometry.kv_len,
+        head_dim: geometry.head_dim,
+        causal: true,
+    };
+    let warmup_iterations = u32::try_from(warmup).expect("warmup count fits u32");
+    let measured_iterations = u32::try_from(iterations).expect("iteration count fits u32");
+    let profile_flag = if cfg!(debug_assertions) {
+        ""
+    } else {
+        " --release"
+    };
+    let command = format!(
+        "FLAT_BKV_QUAL_PAGES={pages} FLAT_BKV_QUAL_PAGE_SIZE={page_size} FLAT_BKV_QUAL_WARMUP={warmup} FLAT_BKV_QUAL_ITERS={iterations} FLAT_BKV_QUAL_MAX_DISTANCE={max_distance} cargo test{profile_flag} --features wgpu --test bkv6_m16_qualification -- --nocapture"
+    );
+    let candidate_manifest = BenchmarkManifest {
+        commit_sha: commit.clone(),
+        benchmark_id: "bkv-k6-selected-candidate".to_owned(),
+        command: command.clone(),
+        environment: environment.clone(),
+        problem: problem.clone(),
+        warmup_iterations,
+        measured_iterations,
+        result: BenchmarkResult {
+            median_latency_ns: candidate_end_to_end_ns,
+            p95_latency_ns: candidate_p95_ns,
+            tokens_per_second_milli: tokens_per_second_milli(candidate_end_to_end_ns),
+        },
+    };
+    let dense_manifest = BenchmarkManifest {
+        commit_sha: commit.clone(),
+        benchmark_id: "m16-dense-baseline".to_owned(),
+        command,
+        environment,
+        problem,
+        warmup_iterations,
+        measured_iterations,
+        result: BenchmarkResult {
+            median_latency_ns: dense_attention_ns,
+            p95_latency_ns: dense_p95_ns,
+            tokens_per_second_milli: tokens_per_second_milli(dense_attention_ns),
+        },
+    };
+    let evidence = BikvEvidenceManifest {
+        candidate: candidate_manifest,
+        dense_baseline: dense_manifest,
+        qualification: record,
+        signature_bits: 8,
+        max_distance,
+        scope: BikvEvidenceScope {
+            timing_scope: "host-observed host-mirrored-query".to_owned(),
+            selection_policy: "matched-density synthetic Boolean signatures".to_owned(),
+            q_device_resident: true,
+            q_host_mirror_retained: true,
+            kv_device_resident: true,
+            uploads_readbacks_excluded: true,
+            resident_only_production_claim: false,
+            gpu_timestamp_claim: false,
+            physical_dram_traffic_claim: false,
+            model_quality_claim: false,
+        },
+        gates: BikvEvidenceGates {
+            all_accept_k6_vs_m16: all_accept_parity,
+            sparse_k6_vs_restricted_oracle: sparse_correctness,
+            quality_gate_passed,
+        },
+    };
+    assert_eq!(evidence.promotion_decision().unwrap(), decision);
+    let evidence_json = evidence.canonical_json().unwrap();
+    if let Ok(path) = std::env::var("FLAT_BKV_EVIDENCE_OUT") {
+        fs::write(&path, format!("{evidence_json}\n")).expect("write BKV evidence envelope");
+        println!("evidence_output={path}");
+    }
+
     println!("schema=bkv-k6-m16-qualification@1");
-    println!("commit={}", git_head());
+    println!("commit={commit}");
     println!("adapter={info:?}");
     println!("timing_scope=host-observed host-mirrored-query; signature_generation=host-mirror; selected_attention=encode+submit; synchronization=poll; dense=encode+submit+poll; no GPU timestamp claim");
     println!("q_device_resident=true q_host_mirror_retained=true kv_device_resident=true uploads_readbacks_excluded=true resident-only-production-claim=false");
@@ -756,4 +865,5 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     println!("fixture_policy=matched-density synthetic Boolean signatures; quality result is not a model-quality claim");
     println!("promotion_scope=host-mirrored-query synthetic fixture; not sufficient for resident-only production or BKV-7");
     println!("promotion_decision={decision:?}");
+    println!("evidence_json={evidence_json}");
 }
