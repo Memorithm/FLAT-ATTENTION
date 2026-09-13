@@ -6,6 +6,3 @@ rust-version = "1.89"
 publish = false
 description = "Research-only multi-algebra attention control primitives for FLAT-ATTENTION"
 license-file = "../../LICENSE.md"
-
-[dependencies]
-flat-attention = { path = "../.." }
