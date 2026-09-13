@@ -142,10 +142,8 @@ impl BikvQualificationRecord {
             usize_to_u64(accounting.head_dim)?,
             usize_to_u64(accounting.scalar_bytes)?,
         ])?;
-        let dense_numerical_kv_bytes = checked_mul_u64(
-            usize_to_u64(accounting.live_tokens)?,
-            kv_bytes_per_token,
-        )?;
+        let dense_numerical_kv_bytes =
+            checked_mul_u64(usize_to_u64(accounting.live_tokens)?, kv_bytes_per_token)?;
         let selected_numerical_kv_bytes = checked_mul_u64(
             usize_to_u64(accounting.selected_live_tokens)?,
             kv_bytes_per_token,
@@ -291,21 +289,23 @@ fn validate_accounting(input: BikvAccountingInput) -> Result<(), BikvQualificati
             mapped_capacity_tokens,
         });
     }
-    let selected_capacity_tokens = input
-        .selected_pages
-        .checked_mul(input.page_size)
-        .ok_or(BikvQualificationError::Overflow)?;
-    if input.selected_live_tokens > selected_capacity_tokens {
-        return Err(BikvQualificationError::SelectedTokensExceedSelectedCapacity {
-            selected_live_tokens: input.selected_live_tokens,
-            selected_capacity_tokens,
-        });
-    }
     if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
         return Err(BikvQualificationError::EmptySelectionMismatch {
             selected_pages: input.selected_pages,
             selected_live_tokens: input.selected_live_tokens,
         });
+    }
+    let selected_capacity_tokens = input
+        .selected_pages
+        .checked_mul(input.page_size)
+        .ok_or(BikvQualificationError::Overflow)?;
+    if input.selected_live_tokens > selected_capacity_tokens {
+        return Err(
+            BikvQualificationError::SelectedTokensExceedSelectedCapacity {
+                selected_live_tokens: input.selected_live_tokens,
+                selected_capacity_tokens,
+            },
+        );
     }
     if input.boolean_index_bytes_read == 0 {
         return Err(BikvQualificationError::MissingBooleanIndexTraffic);
@@ -368,7 +368,9 @@ mod tests {
         assert_eq!(record.avoided_bytes_per_boolean_byte_read(), 1_760.0);
         assert!((record.selected_page_density() - 0.5).abs() < f64::EPSILON);
         assert!((record.selected_token_density() - (120.0 / 230.0)).abs() < 1.0e-12);
-        assert!((record.dense_over_bikv_latency_ratio().unwrap() - (1_200.0 / 950.0)).abs() < 1.0e-12);
+        assert!(
+            (record.dense_over_bikv_latency_ratio().unwrap() - (1_200.0 / 950.0)).abs() < 1.0e-12
+        );
     }
 
     #[test]

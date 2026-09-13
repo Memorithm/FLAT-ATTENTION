@@ -33,6 +33,8 @@ fn qualification_schema_and_fallback_contract_are_stable() {
     .unwrap();
 
     assert_eq!(record.total_bikv_latency_ns(), 1_150);
+    assert_eq!(record.accounting().live_tokens, 256);
+    assert_eq!(record.latency().dense_attention_ns, 1_000);
     assert_eq!(
         record.promotion_decision(true, true),
         BikvPromotionDecision::FallbackNoLatencyWin
