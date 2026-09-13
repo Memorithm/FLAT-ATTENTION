@@ -17,6 +17,10 @@ pub enum BooleanAttentionSignatureError {
         query_bits: usize,
         key_bits: usize,
     },
+    RuleWidthMismatch {
+        rule_bits: usize,
+        signature_bits: usize,
+    },
     ThresholdOutOfRange {
         threshold: usize,
         bits: usize,
@@ -47,6 +51,13 @@ impl fmt::Display for BooleanAttentionSignatureError {
             } => write!(
                 f,
                 "Boolean attention query/key widths differ: query={query_bits}, key={key_bits}"
+            ),
+            Self::RuleWidthMismatch {
+                rule_bits,
+                signature_bits,
+            } => write!(
+                f,
+                "Boolean attention Hamming rule is bound to {rule_bits} bits, got signature width {signature_bits}"
             ),
             Self::ThresholdOutOfRange { threshold, bits } => write!(
                 f,
@@ -127,6 +138,7 @@ impl BooleanAttentionSignature {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HammingAdmissionRule {
     pub max_distance: usize,
+    bits: usize,
 }
 
 impl HammingAdmissionRule {
@@ -137,7 +149,12 @@ impl HammingAdmissionRule {
                 bits,
             });
         }
-        Ok(Self { max_distance })
+        Ok(Self { max_distance, bits })
+    }
+
+    #[must_use]
+    pub const fn bits(&self) -> usize {
+        self.bits
     }
 
     pub fn admits(
@@ -145,6 +162,18 @@ impl HammingAdmissionRule {
         query: &BooleanAttentionSignature,
         key: &BooleanAttentionSignature,
     ) -> Result<bool, BooleanAttentionSignatureError> {
+        if query.bits != self.bits {
+            return Err(BooleanAttentionSignatureError::RuleWidthMismatch {
+                rule_bits: self.bits,
+                signature_bits: query.bits,
+            });
+        }
+        if key.bits != self.bits {
+            return Err(BooleanAttentionSignatureError::RuleWidthMismatch {
+                rule_bits: self.bits,
+                signature_bits: key.bits,
+            });
+        }
         Ok(query.hamming_distance(key)? <= self.max_distance)
     }
 }
