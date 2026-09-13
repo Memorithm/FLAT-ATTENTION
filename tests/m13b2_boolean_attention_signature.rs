@@ -2,8 +2,8 @@
 mod boolean_attention_signature;
 
 use boolean_attention_signature::{
-    BOOLEAN_ATTENTION_SIGNATURE_SCHEMA_VERSION, BooleanAttentionSignature,
-    BooleanAttentionSignatureError, HammingAdmissionRule,
+    BooleanAttentionSignature, BooleanAttentionSignatureError, HammingAdmissionRule,
+    BOOLEAN_ATTENTION_SIGNATURE_SCHEMA_VERSION,
 };
 
 #[test]
