@@ -125,11 +125,7 @@ pub struct MaxPlusMatrix {
 }
 
 impl MaxPlusMatrix {
-    pub fn new(
-        rows: usize,
-        cols: usize,
-        values: Vec<MaxPlusValue>,
-    ) -> Result<Self, MaxPlusError> {
+    pub fn new(rows: usize, cols: usize, values: Vec<MaxPlusValue>) -> Result<Self, MaxPlusError> {
         if rows == 0 || cols == 0 {
             return Err(MaxPlusError::ZeroDimension);
         }
@@ -173,12 +169,12 @@ impl MaxPlusMatrix {
         self.values
             .chunks_exact(self.cols)
             .map(|row| {
-                row.iter().copied().zip(input.iter().copied()).try_fold(
-                    MaxPlusValue::ZERO,
-                    |accumulator, (weight, value)| {
+                row.iter()
+                    .copied()
+                    .zip(input.iter().copied())
+                    .try_fold(MaxPlusValue::ZERO, |accumulator, (weight, value)| {
                         Ok(accumulator.oplus(weight.otimes(value)?))
-                    },
-                )
+                    })
             })
             .collect()
     }
@@ -293,7 +289,10 @@ mod tests {
 
         assert_eq!(MaxPlusValue::ZERO.oplus(value), value);
         assert_eq!(MaxPlusValue::ONE.otimes(value).unwrap(), value);
-        assert_eq!(MaxPlusValue::ZERO.otimes(value).unwrap(), MaxPlusValue::ZERO);
+        assert_eq!(
+            MaxPlusValue::ZERO.otimes(value).unwrap(),
+            MaxPlusValue::ZERO
+        );
         assert_eq!(
             MaxPlusValue::Finite(5).oplus(MaxPlusValue::Finite(9)),
             MaxPlusValue::Finite(9)
