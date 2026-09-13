@@ -161,9 +161,8 @@ impl BooleanWgpuRouterPlan {
                 value: query_words.len(),
             }
         })?;
-        let key_count = u32::try_from(keys.len()).map_err(|_| {
-            WgpuBooleanRouterError::IndexSpaceExceeded { value: keys.len() }
-        })?;
+        let key_count = u32::try_from(keys.len())
+            .map_err(|_| WgpuBooleanRouterError::IndexSpaceExceeded { value: keys.len() })?;
         let max_distance = u32::try_from(rule.max_distance).map_err(|_| {
             WgpuBooleanRouterError::IndexSpaceExceeded {
                 value: rule.max_distance,
@@ -384,12 +383,9 @@ mod tests {
             BooleanAttentionSignature::new(65, vec![0b0011, 1]).unwrap(),
             BooleanAttentionSignature::new(65, vec![0, 0]).unwrap(),
         ];
-        let plan = BooleanWgpuRouterPlan::new(
-            &query,
-            &keys,
-            HammingAdmissionRule::new(1, 65).unwrap(),
-        )
-        .unwrap();
+        let plan =
+            BooleanWgpuRouterPlan::new(&query, &keys, HammingAdmissionRule::new(1, 65).unwrap())
+                .unwrap();
 
         assert_eq!(plan.key_count(), 3);
         assert_eq!(plan.words_per_signature(), 4);
