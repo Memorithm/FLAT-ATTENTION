@@ -84,6 +84,7 @@ pub enum BikvQualificationError {
     },
     MissingBooleanIndexTraffic,
     MissingDenseLatency,
+    MissingBikvLatency,
     Overflow,
 }
 
@@ -119,6 +120,10 @@ impl fmt::Display for BikvQualificationError {
                 f,
                 "BIKV qualification requires a non-zero dense baseline latency"
             ),
+            Self::MissingBikvLatency => write!(
+        f,
+        "BIKV qualification requires non-zero measured candidate latency"
+    ),
             Self::Overflow => write!(f, "BIKV qualification accounting overflow"),
         }
     }
@@ -157,6 +162,9 @@ impl BikvQualificationRecord {
             .and_then(|value| value.checked_add(latency.synchronization_ns))
             .and_then(|value| value.checked_add(latency.selected_attention_ns))
             .ok_or(BikvQualificationError::Overflow)?;
+        if total_bikv_latency_ns == 0 {
+            return Err(BikvQualificationError::MissingBikvLatency);
+        }
 
         Ok(Self {
             accounting,
@@ -442,6 +450,21 @@ mod tests {
         assert_eq!(
             record.promotion_decision(true, false),
             BikvPromotionDecision::FallbackQualityGate
+        );
+    }
+
+    #[test]
+    fn rejects_missing_candidate_timing() {
+        let zero_candidate_latency = BikvLatencyInput {
+            signature_generation_ns: 0,
+            boolean_search_ns: 0,
+            synchronization_ns: 0,
+            selected_attention_ns: 0,
+            dense_attention_ns: 1,
+        };
+        assert_eq!(
+            BikvQualificationRecord::new(accounting(), zero_candidate_latency),
+            Err(BikvQualificationError::MissingBikvLatency)
         );
     }
 }

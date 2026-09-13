@@ -24,6 +24,7 @@ This gate intentionally comes before BKV-7 adaptive tiering. Elastic placement/r
 - synchronization latency;
 - selected numerical attention latency;
 - dense numerical attention latency.
+- non-zero measured candidate latency; an all-zero candidate timing is treated as missing evidence.
 
 The record derives:
 
