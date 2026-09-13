@@ -220,7 +220,10 @@ pub const fn supports_direct_single_domain_bridge(
     source: AlgebraDomain,
     target: AlgebraDomain,
 ) -> bool {
-    matches!((source, target), (AlgebraDomain::Boolean, AlgebraDomain::MaxPlus))
+    matches!(
+        (source, target),
+        (AlgebraDomain::Boolean, AlgebraDomain::MaxPlus)
+    )
 }
 
 #[cfg(test)]
