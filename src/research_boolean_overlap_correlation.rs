@@ -149,26 +149,13 @@ pub fn measure_cross_unit_overlap(
         M13B4TraceEventKind::NumericalAttentionEnd,
         false,
     )?;
-    let next_q_signature_start_ns = timestamp(
-        next.trace,
-        M13B4TraceEventKind::QSignatureStart,
-        true,
-    )?;
-    let next_q_signature_end_ns = timestamp(
-        next.trace,
-        M13B4TraceEventKind::QSignatureEnd,
-        true,
-    )?;
-    let next_boolean_routing_start_ns = timestamp(
-        next.trace,
-        M13B4TraceEventKind::BooleanRoutingStart,
-        true,
-    )?;
-    let next_boolean_routing_end_ns = timestamp(
-        next.trace,
-        M13B4TraceEventKind::BooleanRoutingEnd,
-        true,
-    )?;
+    let next_q_signature_start_ns =
+        timestamp(next.trace, M13B4TraceEventKind::QSignatureStart, true)?;
+    let next_q_signature_end_ns = timestamp(next.trace, M13B4TraceEventKind::QSignatureEnd, true)?;
+    let next_boolean_routing_start_ns =
+        timestamp(next.trace, M13B4TraceEventKind::BooleanRoutingStart, true)?;
+    let next_boolean_routing_end_ns =
+        timestamp(next.trace, M13B4TraceEventKind::BooleanRoutingEnd, true)?;
 
     let q_signature_overlap_ns = interval_intersection_ns(
         current_numerical_start_ns,
@@ -217,17 +204,8 @@ fn timestamp(
     })
 }
 
-const fn interval_intersection_ns(
-    a_start: u64,
-    a_end: u64,
-    b_start: u64,
-    b_end: u64,
-) -> u64 {
-    let start = if a_start > b_start {
-        a_start
-    } else {
-        b_start
-    };
+const fn interval_intersection_ns(a_start: u64, a_end: u64, b_start: u64, b_end: u64) -> u64 {
+    let start = if a_start > b_start { a_start } else { b_start };
     let end = if a_end < b_end { a_end } else { b_end };
     end.saturating_sub(start)
 }
