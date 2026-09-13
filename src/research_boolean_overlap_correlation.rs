@@ -27,8 +27,8 @@ pub struct M13B4CorrelatedTraceRef<'a> {
     pub unit_index: u64,
 }
 
-/// Exact interval evidence for Boolean work of unit `n+1` intersecting numerical
-/// attention work of unit `n`.
+/// Exact interval evidence for recorded Boolean operations of unit `n+1`
+/// intersecting numerical attention work of unit `n`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct M13B4CrossUnitOverlapEvidence {
     pub timing_source: M13B4TimingSource,
@@ -37,10 +37,17 @@ pub struct M13B4CrossUnitOverlapEvidence {
     pub next_unit_index: u64,
     pub current_numerical_start_ns: u64,
     pub current_numerical_end_ns: u64,
-    pub next_boolean_start_ns: u64,
-    pub next_boolean_end_ns: u64,
-    /// Exact intersection duration of the two declared intervals.
-    /// A positive value is evidence of temporal intersection only, not speedup.
+    pub next_q_signature_start_ns: u64,
+    pub next_q_signature_end_ns: u64,
+    pub next_boolean_routing_start_ns: u64,
+    pub next_boolean_routing_end_ns: u64,
+    /// Exact intersection with recorded Q-signature work.
+    pub q_signature_overlap_ns: u64,
+    /// Exact intersection with recorded Boolean routing work.
+    pub boolean_routing_overlap_ns: u64,
+    /// Sum of intersections with the two recorded Boolean-work intervals only.
+    /// Scheduling gaps and survivor-metadata publication time are excluded.
+    /// A positive value is temporal-intersection evidence only, not speedup.
     pub overlap_ns: u64,
 }
 
@@ -62,6 +69,7 @@ pub enum M13B4CorrelationError {
     },
     PrefillScopeNotCorrelatable,
     UnitIndexOverflow,
+    OverlapCounterOverflow,
     NonAdjacentUnitIndices {
         current: u64,
         next: u64,
@@ -69,18 +77,21 @@ pub enum M13B4CorrelationError {
 }
 
 /// Measure temporal intersection between numerical attention of the current
-/// decode unit and Boolean front-end work of the immediately following unit.
+/// decode unit and the recorded Boolean operations of the immediately following
+/// unit.
 ///
-/// The Boolean interval is `QSignatureStart..SurvivorMetadataReady`; this covers
-/// Q-signature generation plus Boolean admission/routing under the preregistered
-/// trace contract. The numerical interval is
-/// `NumericalAttentionStart..NumericalAttentionEnd`.
+/// Under the preregistered trace contract, Boolean-plane work is exactly the
+/// union of `QSignatureStart..QSignatureEnd` and
+/// `BooleanRoutingStart..BooleanRoutingEnd`. Gaps between those operations and
+/// survivor-metadata publication are not counted as Boolean work. The numerical
+/// interval is `NumericalAttentionStart..NumericalAttentionEnd`.
 ///
 /// # Errors
 ///
 /// Fails closed unless both traces validate, both are decode scopes, timing
-/// domain identifiers and timing sources match, scheduling variants match, and
-/// the execution-unit indices are exactly adjacent.
+/// domain identifiers and timing sources match, scheduling variants match, the
+/// execution-unit indices are exactly adjacent, and the exact overlap sum does
+/// not overflow `u64`.
 pub fn measure_cross_unit_overlap(
     current: M13B4CorrelatedTraceRef<'_>,
     next: M13B4CorrelatedTraceRef<'_>,
@@ -128,26 +139,44 @@ pub fn measure_cross_unit_overlap(
         });
     }
 
-    let current_numerical_start_ns = current
-        .trace
-        .timestamp_ns(M13B4TraceEventKind::NumericalAttentionStart)
-        .map_err(M13B4CorrelationError::CurrentTrace)?;
-    let current_numerical_end_ns = current
-        .trace
-        .timestamp_ns(M13B4TraceEventKind::NumericalAttentionEnd)
-        .map_err(M13B4CorrelationError::CurrentTrace)?;
-    let next_boolean_start_ns = next
-        .trace
-        .timestamp_ns(M13B4TraceEventKind::QSignatureStart)
-        .map_err(M13B4CorrelationError::NextTrace)?;
-    let next_boolean_end_ns = next
-        .trace
-        .timestamp_ns(M13B4TraceEventKind::SurvivorMetadataReady)
-        .map_err(M13B4CorrelationError::NextTrace)?;
+    let current_numerical_start_ns = timestamp(
+        current.trace,
+        M13B4TraceEventKind::NumericalAttentionStart,
+        false,
+    )?;
+    let current_numerical_end_ns = timestamp(
+        current.trace,
+        M13B4TraceEventKind::NumericalAttentionEnd,
+        false,
+    )?;
+    let next_q_signature_start_ns = timestamp(next.trace, M13B4TraceEventKind::QSignatureStart, true)?;
+    let next_q_signature_end_ns = timestamp(next.trace, M13B4TraceEventKind::QSignatureEnd, true)?;
+    let next_boolean_routing_start_ns = timestamp(
+        next.trace,
+        M13B4TraceEventKind::BooleanRoutingStart,
+        true,
+    )?;
+    let next_boolean_routing_end_ns = timestamp(
+        next.trace,
+        M13B4TraceEventKind::BooleanRoutingEnd,
+        true,
+    )?;
 
-    let intersection_start = current_numerical_start_ns.max(next_boolean_start_ns);
-    let intersection_end = current_numerical_end_ns.min(next_boolean_end_ns);
-    let overlap_ns = intersection_end.saturating_sub(intersection_start);
+    let q_signature_overlap_ns = interval_intersection_ns(
+        current_numerical_start_ns,
+        current_numerical_end_ns,
+        next_q_signature_start_ns,
+        next_q_signature_end_ns,
+    );
+    let boolean_routing_overlap_ns = interval_intersection_ns(
+        current_numerical_start_ns,
+        current_numerical_end_ns,
+        next_boolean_routing_start_ns,
+        next_boolean_routing_end_ns,
+    );
+    let overlap_ns = q_signature_overlap_ns
+        .checked_add(boolean_routing_overlap_ns)
+        .ok_or(M13B4CorrelationError::OverlapCounterOverflow)?;
 
     Ok(M13B4CrossUnitOverlapEvidence {
         timing_source: current.trace.timing_source,
@@ -156,10 +185,34 @@ pub fn measure_cross_unit_overlap(
         next_unit_index: next.unit_index,
         current_numerical_start_ns,
         current_numerical_end_ns,
-        next_boolean_start_ns,
-        next_boolean_end_ns,
+        next_q_signature_start_ns,
+        next_q_signature_end_ns,
+        next_boolean_routing_start_ns,
+        next_boolean_routing_end_ns,
+        q_signature_overlap_ns,
+        boolean_routing_overlap_ns,
         overlap_ns,
     })
+}
+
+fn timestamp(
+    trace: &M13B4Trace,
+    kind: M13B4TraceEventKind,
+    next_trace: bool,
+) -> Result<u64, M13B4CorrelationError> {
+    trace.timestamp_ns(kind).map_err(|error| {
+        if next_trace {
+            M13B4CorrelationError::NextTrace(error)
+        } else {
+            M13B4CorrelationError::CurrentTrace(error)
+        }
+    })
+}
+
+const fn interval_intersection_ns(a_start: u64, a_end: u64, b_start: u64, b_end: u64) -> u64 {
+    let start = if a_start > b_start { a_start } else { b_start };
+    let end = if a_end < b_end { a_end } else { b_end };
+    end.saturating_sub(start)
 }
 
 impl fmt::Display for M13B4CorrelationError {
@@ -199,8 +252,32 @@ mod tests {
         }
     }
 
+    fn decode_trace_with_gaps(offset_ns: u64) -> M13B4Trace {
+        let event = |kind, timestamp_ns| M13B4TraceEvent {
+            kind,
+            timestamp_ns: offset_ns + timestamp_ns,
+        };
+        M13B4Trace {
+            timing_source: M13B4TimingSource::DeviceTimestamp,
+            scheduling_variant: M13B4SchedulingVariant::SerialMatched,
+            scope: M13B4TraceScope::SteadyStateDecode,
+            events: vec![
+                event(M13B4TraceEventKind::QueryRepresentationReady, 10),
+                event(M13B4TraceEventKind::QSignatureStart, 11),
+                event(M13B4TraceEventKind::QSignatureEnd, 12),
+                event(M13B4TraceEventKind::BooleanRoutingStart, 20),
+                event(M13B4TraceEventKind::BooleanRoutingEnd, 21),
+                event(M13B4TraceEventKind::SurvivorMetadataReady, 29),
+                event(M13B4TraceEventKind::NumericalKvStagingStart, 30),
+                event(M13B4TraceEventKind::NumericalAttentionStart, 31),
+                event(M13B4TraceEventKind::NumericalAttentionEnd, 38),
+                event(M13B4TraceEventKind::OutputReady, 39),
+            ],
+        }
+    }
+
     #[test]
-    fn measures_exact_cross_unit_interval_intersection() {
+    fn measures_only_recorded_boolean_operation_intersections() {
         let current_trace = decode_trace(0, M13B4TimingSource::DeviceTimestamp);
         let next_trace = decode_trace(14, M13B4TimingSource::DeviceTimestamp);
         let evidence = measure_cross_unit_overlap(
@@ -219,9 +296,39 @@ mod tests {
 
         assert_eq!(evidence.current_numerical_start_ns, 23);
         assert_eq!(evidence.current_numerical_end_ns, 30);
-        assert_eq!(evidence.next_boolean_start_ns, 25);
-        assert_eq!(evidence.next_boolean_end_ns, 35);
-        assert_eq!(evidence.overlap_ns, 5);
+        assert_eq!(evidence.next_q_signature_start_ns, 25);
+        assert_eq!(evidence.next_q_signature_end_ns, 29);
+        assert_eq!(evidence.next_boolean_routing_start_ns, 30);
+        assert_eq!(evidence.next_boolean_routing_end_ns, 34);
+        assert_eq!(evidence.q_signature_overlap_ns, 4);
+        assert_eq!(evidence.boolean_routing_overlap_ns, 0);
+        assert_eq!(evidence.overlap_ns, 4);
+    }
+
+    #[test]
+    fn scheduling_gaps_are_not_counted_as_boolean_overlap() {
+        let current_trace = decode_trace(0, M13B4TimingSource::DeviceTimestamp);
+        let next_trace = decode_trace_with_gaps(10);
+        let evidence = measure_cross_unit_overlap(
+            M13B4CorrelatedTraceRef {
+                trace: &current_trace,
+                timing_domain_id: "gpu-clock-0",
+                unit_index: 9,
+            },
+            M13B4CorrelatedTraceRef {
+                trace: &next_trace,
+                timing_domain_id: "gpu-clock-0",
+                unit_index: 10,
+            },
+        )
+        .unwrap();
+
+        // Numerical work is 23..30. Q-signature is 21..22 and routing is
+        // 30..31. The enclosing 21..39 interval overlaps, but neither recorded
+        // Boolean operation does.
+        assert_eq!(evidence.q_signature_overlap_ns, 0);
+        assert_eq!(evidence.boolean_routing_overlap_ns, 0);
+        assert_eq!(evidence.overlap_ns, 0);
     }
 
     #[test]
