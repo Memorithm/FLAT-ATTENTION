@@ -337,8 +337,7 @@ fn json_string(value: &str) -> String {
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             character if character <= '\u{1f}' => {
-                write!(out, "\\u{:04x}", character as u32)
-                    .expect("writing to String cannot fail");
+                write!(out, "\\u{:04x}", character as u32).expect("writing to String cannot fail");
             }
             character => out.push(character),
         }
