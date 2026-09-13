@@ -162,18 +162,13 @@ impl HammingAdmissionRule {
         query: &BooleanAttentionSignature,
         key: &BooleanAttentionSignature,
     ) -> Result<bool, BooleanAttentionSignatureError> {
+        let distance = query.hamming_distance(key)?;
         if query.bits != self.bits {
             return Err(BooleanAttentionSignatureError::RuleWidthMismatch {
                 rule_bits: self.bits,
                 signature_bits: query.bits,
             });
         }
-        if key.bits != self.bits {
-            return Err(BooleanAttentionSignatureError::RuleWidthMismatch {
-                rule_bits: self.bits,
-                signature_bits: key.bits,
-            });
-        }
-        Ok(query.hamming_distance(key)? <= self.max_distance)
+        Ok(distance <= self.max_distance)
     }
 }
