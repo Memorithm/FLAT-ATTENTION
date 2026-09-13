@@ -36,8 +36,7 @@ use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 use flat_attention::{PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable};
 use research_bkv_qualification::{BikvAccountingInput, BikvLatencyInput, BikvQualificationRecord};
 use wgpu_boolean_selected_paged_decode::{
-    BooleanSelectedDecodePass, BooleanSelectedPagedKvTable,
-    WgpuBooleanSelectedPagedDecodePipeline,
+    BooleanSelectedDecodePass, BooleanSelectedPagedKvTable, WgpuBooleanSelectedPagedDecodePipeline,
 };
 
 const ATOL: f32 = 2.0e-4;
@@ -106,9 +105,7 @@ fn signature_variant(query: &PackedBooleanSignature, page: usize) -> PackedBoole
         1 => byte ^= 0xff,
         _ => byte ^= 0x01,
     }
-    let bits = (0..8)
-        .map(|bit| byte & (1 << bit) != 0)
-        .collect::<Vec<_>>();
+    let bits = (0..8).map(|bit| byte & (1 << bit) != 0).collect::<Vec<_>>();
     PackedBooleanSignature::from_bools(&bits).unwrap()
 }
 
@@ -286,9 +283,10 @@ fn restricted_oracle(
 
 fn close(actual: &[f32], expected: &[f32]) -> bool {
     actual.len() == expected.len()
-        && actual.iter().zip(expected).all(|(&actual, &expected)| {
-            (actual - expected).abs() <= ATOL + RTOL * expected.abs()
-        })
+        && actual
+            .iter()
+            .zip(expected)
+            .all(|(&actual, &expected)| (actual - expected).abs() <= ATOL + RTOL * expected.abs())
 }
 
 fn max_abs_diff(left: &[f32], right: &[f32]) -> f32 {
@@ -298,6 +296,7 @@ fn max_abs_diff(left: &[f32], right: &[f32]) -> f32 {
         .fold(0.0, f32::max)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn encode_selected(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -442,14 +441,8 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     .unwrap();
     table.append(geometry.kv_len).unwrap();
     let q = fixture(geometry.q_heads * geometry.head_dim, 0.2);
-    let raw_k = fixture(
-        geometry.kv_len * geometry.kv_heads * geometry.head_dim,
-        0.8,
-    );
-    let v = fixture(
-        geometry.kv_len * geometry.kv_heads * geometry.head_dim,
-        1.4,
-    );
+    let raw_k = fixture(geometry.kv_len * geometry.kv_heads * geometry.head_dim, 0.8);
+    let v = fixture(geometry.kv_len * geometry.kv_heads * geometry.head_dim, 1.4);
     let rotated_k = rotate_k(&raw_k, geometry);
     let physical_k = physicalize(&rotated_k, &table, geometry, 17.0);
     let physical_v = physicalize(&v, &table, geometry, -19.0);
@@ -483,16 +476,11 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         "qualification threshold selected zero pages"
     );
     let selected_table = BooleanSelectedPagedKvTable::from_selection(&candidate, &table).unwrap();
-    let all_accept = build_boolean_indexed_kv_selection(
-        &cache,
-        &table,
-        &query,
-        8,
-        None,
-        numerical_geometry,
-    )
-    .unwrap();
-    let all_accept_table = BooleanSelectedPagedKvTable::from_selection(&all_accept, &table).unwrap();
+    let all_accept =
+        build_boolean_indexed_kv_selection(&cache, &table, &query, 8, None, numerical_geometry)
+            .unwrap();
+    let all_accept_table =
+        BooleanSelectedPagedKvTable::from_selection(&all_accept, &table).unwrap();
 
     let selected_pipeline = WgpuBooleanSelectedPagedDecodePipeline::new(&device).unwrap();
     let dense_pipeline = WgpuPagedDecodePipeline::new(&device).unwrap();
@@ -555,11 +543,21 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     let sparse_correctness = close(&selected_values, &sparse_oracle);
     let quality_gate_passed = close(&selected_values, &dense_values);
     let correctness_gate_passed = all_accept_parity && sparse_correctness;
-    assert!(all_accept_parity, "K6 all-accept must match M16 on identical buffers");
-    assert!(sparse_correctness, "K6 sparse path must match its restricted numerical oracle");
+    assert!(
+        all_accept_parity,
+        "K6 all-accept must match M16 on identical buffers"
+    );
+    assert!(
+        sparse_correctness,
+        "K6 sparse path must match its restricted numerical oracle"
+    );
 
     for _ in 0..warmup {
-        let _ = black_box(signature_from_query(&q, geometry.q_heads, geometry.head_dim));
+        let _ = black_box(signature_from_query(
+            &q,
+            geometry.q_heads,
+            geometry.head_dim,
+        ));
         let warm_selection = build_boolean_indexed_kv_selection(
             &cache,
             &table,
@@ -569,7 +567,9 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
             numerical_geometry,
         )
         .unwrap();
-        let _ = black_box(BooleanSelectedPagedKvTable::from_selection(&warm_selection, &table).unwrap());
+        let _ = black_box(
+            BooleanSelectedPagedKvTable::from_selection(&warm_selection, &table).unwrap(),
+        );
         encode_selected(
             &device,
             &queue,
