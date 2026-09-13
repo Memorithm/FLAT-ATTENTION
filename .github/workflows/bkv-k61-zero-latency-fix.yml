@@ -27,44 +27,55 @@ jobs:
 
           p = Path('src/research_bkv_qualification.rs')
           s = p.read_text()
-          s = s.replace(
-              '    MissingDenseLatency,\n    Overflow,\n',
-              '    MissingDenseLatency,\n    MissingBikvLatency,\n    Overflow,\n',
-              1,
-          )
-          s = s.replace(
-              '            Self::MissingDenseLatency => write!(\n                f,\n                "BIKV qualification requires a non-zero dense baseline latency"\n            ),\n            Self::Overflow =>',
-              '            Self::MissingDenseLatency => write!(\n                f,\n                "BIKV qualification requires a non-zero dense baseline latency"\n            ),\n            Self::MissingBikvLatency => write!(\n                f,\n                "BIKV qualification requires non-zero measured candidate latency"\n            ),\n            Self::Overflow =>',
-              1,
-          )
+          enum_old = '    MissingDenseLatency,\n    Overflow,\n'
+          enum_new = '    MissingDenseLatency,\n    MissingBikvLatency,\n    Overflow,\n'
+          if enum_old not in s:
+              raise SystemExit('error enum marker not found')
+          s = s.replace(enum_old, enum_new, 1)
+
+          display_old = '''            Self::MissingDenseLatency => write!(
+                  f,
+                  "BIKV qualification requires a non-zero dense baseline latency"
+              ),
+              Self::Overflow =>'''
+          display_new = '''            Self::MissingDenseLatency => write!(
+                  f,
+                  "BIKV qualification requires a non-zero dense baseline latency"
+              ),
+              Self::MissingBikvLatency => write!(
+                  f,
+                  "BIKV qualification requires non-zero measured candidate latency"
+              ),
+              Self::Overflow =>'''
+          if display_old not in s:
+              raise SystemExit('display marker not found')
+          s = s.replace(display_old, display_new, 1)
+
           marker = '            .ok_or(BikvQualificationError::Overflow)?;\n\n        Ok(Self {\n'
           replacement = '            .ok_or(BikvQualificationError::Overflow)?;\n        if total_bikv_latency_ns == 0 {\n            return Err(BikvQualificationError::MissingBikvLatency);\n        }\n\n        Ok(Self {\n'
           if marker not in s:
               raise SystemExit('total latency marker not found')
           s = s.replace(marker, replacement, 1)
-          test_marker = '''        let mut invalid_latency = latency();
-              invalid_latency.dense_attention_ns = 0;
-              assert_eq!(
-                  BikvQualificationRecord::new(accounting(), invalid_latency),
-                  Err(BikvQualificationError::MissingDenseLatency)
-              );
+
+          test = '''
+
+              #[test]
+              fn rejects_missing_candidate_timing() {
+                  let zero_candidate_latency = BikvLatencyInput {
+                      signature_generation_ns: 0,
+                      boolean_search_ns: 0,
+                      synchronization_ns: 0,
+                      selected_attention_ns: 0,
+                      dense_attention_ns: 1,
+                  };
+                  assert_eq!(
+                      BikvQualificationRecord::new(accounting(), zero_candidate_latency),
+                      Err(BikvQualificationError::MissingBikvLatency)
+                  );
+              }
           '''
-          test_replacement = test_marker + '''
-              let zero_candidate_latency = BikvLatencyInput {
-                  signature_generation_ns: 0,
-                  boolean_search_ns: 0,
-                  synchronization_ns: 0,
-                  selected_attention_ns: 0,
-                  dense_attention_ns: 1,
-              };
-              assert_eq!(
-                  BikvQualificationRecord::new(accounting(), zero_candidate_latency),
-                  Err(BikvQualificationError::MissingBikvLatency)
-              );
-          '''
-          if test_marker not in s:
-              raise SystemExit('latency test marker not found')
-          p.write_text(s.replace(test_marker, test_replacement, 1))
+          prefix, suffix = s.rsplit('\n}', 1)
+          p.write_text(prefix + test + '\n}' + suffix)
 
           p = Path('docs/BKV-K6-QUALIFICATION-GATE.md')
           s = p.read_text()
