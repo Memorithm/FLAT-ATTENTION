@@ -28,12 +28,15 @@ Before encoding device work, the selected table is revalidated against the curre
 
 - Boolean selection generation equals numerical KV generation;
 - full live-token and mapped-page snapshot matches;
+- page geometry still matches the frozen selected table;
 - at least one numerical survivor page exists;
 - selected logical pages are strictly increasing and unique;
 - every logical page is in range;
 - every selected physical page equals the authoritative numerical mapping;
 - every selected page carries the exact authoritative live-token count, including the final partial page;
 - selected page count stays within the portable bounded uniform-table capacity.
+
+The decode pass carries the current authoritative numerical table and repeats these checks inside `encode`, immediately before any GPU submission. A truncate or reset after selection construction therefore invalidates the frozen descriptor rather than allowing released or repurposed K/V rows to be consumed.
 
 A stale or forged selection must fail before GPU submission.
 
@@ -46,7 +49,8 @@ BKV-K6 is accepted only when all of the following hold:
 3. A non-contiguous selection matches a restricted numerical oracle that rotates K at the original token positions; compact survivor renumbering is not permitted.
 4. Forged physical-page metadata is rejected.
 5. Stale generation metadata is rejected.
-6. Existing M16 dense paged decode remains untouched and green.
+6. Truncate and reset after selection construction are rejected by encode-time authoritative revalidation.
+7. Existing M16 dense paged decode remains untouched and green.
 
 ## Explicit non-claims
 

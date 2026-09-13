@@ -296,6 +296,7 @@ fn run_selected(
     harness: &DeviceHarness,
     pipeline: &WgpuBooleanSelectedPagedDecodePipeline,
     page_table: &BooleanSelectedPagedKvTable,
+    authoritative_table: &PagedKvTable,
     inputs: DeviceInputs<'_>,
     geometry: TestAttentionGeometry,
 ) -> Vec<f32> {
@@ -323,6 +324,7 @@ fn run_selected(
                 k: inputs.k,
                 v: inputs.v,
                 page_table,
+                authoritative_table,
                 out_and_lse: &output,
                 q_heads,
                 kv_heads,
@@ -372,6 +374,18 @@ fn selected_table_preserves_original_page_identity_and_fails_closed() {
     stale.generation += 1;
     assert!(matches!(
         BooleanSelectedPagedKvTable::from_selection(&stale, &table),
+        Err(BooleanSelectedPagedDecodeError::GenerationMismatch { .. })
+    ));
+
+    let mut changed_table = table;
+    changed_table.truncate(2).unwrap();
+    assert!(matches!(
+        selected.validate_against(&changed_table),
+        Err(BooleanSelectedPagedDecodeError::SnapshotMismatch { .. })
+    ));
+    changed_table.reset().unwrap();
+    assert!(matches!(
+        selected.validate_against(&changed_table),
         Err(BooleanSelectedPagedDecodeError::GenerationMismatch { .. })
     ));
 }
@@ -431,7 +445,7 @@ fn selected_decode_matches_all_accept_and_sparse_original_position_oracles() {
     let all_selection = selection(&cache, &table, 8);
     assert_eq!(all_selection.selected_page_ids(), vec![0, 1, 2]);
     let all_table = BooleanSelectedPagedKvTable::from_selection(&all_selection, &table).unwrap();
-    let all_actual = run_selected(&harness, &pipeline, &all_table, inputs, geometry);
+    let all_actual = run_selected(&harness, &pipeline, &all_table, &table, inputs, geometry);
     let dense_expected = forward_reference_projection_grouped_rope_asymmetric(
         &q,
         &raw_k,
@@ -471,7 +485,7 @@ fn selected_decode_matches_all_accept_and_sparse_original_position_oracles() {
     assert_eq!(sparse_selection.selected_page_ids(), vec![0, 2]);
     let sparse_table =
         BooleanSelectedPagedKvTable::from_selection(&sparse_selection, &table).unwrap();
-    let sparse_actual = run_selected(&harness, &pipeline, &sparse_table, inputs, geometry);
+    let sparse_actual = run_selected(&harness, &pipeline, &sparse_table, &table, inputs, geometry);
     let (sparse_output, sparse_lse) = restricted_oracle(&q, &raw_k, &v, geometry, &[0, 1, 4, 5]);
     assert_close(
         "BKV-K6 sparse O",
