@@ -34,7 +34,9 @@ use boolean_kv_paged_selection::{
 };
 use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 use flat_attention::{PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable};
-use research_bkv_qualification::{BikvAccountingInput, BikvLatencyInput, BikvQualificationRecord};
+use research_bkv_qualification::{
+    BikvAccountingInput, BikvLatencyInput, BikvPromotionDecision, BikvQualificationRecord,
+};
 use wgpu_boolean_selected_paged_decode::{
     BooleanSelectedDecodePass, BooleanSelectedPagedKvTable, WgpuBooleanSelectedPagedDecodePipeline,
 };
@@ -597,8 +599,11 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     let mut search_samples = Vec::with_capacity(iterations);
     let mut selected_submit_samples = Vec::with_capacity(iterations);
     let mut selected_sync_samples = Vec::with_capacity(iterations);
+    let mut candidate_total_samples = Vec::with_capacity(iterations);
     let mut dense_samples = Vec::with_capacity(iterations);
     for _ in 0..iterations {
+        let candidate_start = Instant::now();
+
         let start = Instant::now();
         let measured_query = black_box(signature_from_query(
             &q,
@@ -637,6 +642,7 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         let sync_start = Instant::now();
         let _ = device.poll(wgpu::PollType::wait_indefinitely());
         selected_sync_samples.push(elapsed_ns(sync_start));
+        candidate_total_samples.push(elapsed_ns(candidate_start));
 
         let dense_start = Instant::now();
         encode_dense(
@@ -652,12 +658,18 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         dense_samples.push(elapsed_ns(dense_start));
     }
 
+    let signature_generation_ns = median(signature_samples);
+    let boolean_search_ns = median(search_samples);
+    let selected_attention_ns = median(selected_submit_samples);
+    let synchronization_ns = median(selected_sync_samples);
+    let candidate_end_to_end_ns = median(candidate_total_samples);
+    let dense_attention_ns = median(dense_samples);
     let latency = BikvLatencyInput {
-        signature_generation_ns: median(signature_samples),
-        boolean_search_ns: median(search_samples),
-        synchronization_ns: median(selected_sync_samples),
-        selected_attention_ns: median(selected_submit_samples),
-        dense_attention_ns: median(dense_samples),
+        signature_generation_ns,
+        boolean_search_ns,
+        synchronization_ns,
+        selected_attention_ns,
+        dense_attention_ns,
     };
     let telemetry = table.telemetry().unwrap();
     let accounting = BikvAccountingInput {
@@ -684,13 +696,21 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         record.avoided_numerical_kv_bytes(),
         u64::try_from(candidate.avoided_numerical_kv_bytes).unwrap()
     );
-    let decision = record.promotion_decision(correctness_gate_passed, quality_gate_passed);
+    let decision = if !correctness_gate_passed {
+        BikvPromotionDecision::FallbackCorrectnessGate
+    } else if !quality_gate_passed {
+        BikvPromotionDecision::FallbackQualityGate
+    } else if candidate_end_to_end_ns >= dense_attention_ns {
+        BikvPromotionDecision::FallbackNoLatencyWin
+    } else {
+        BikvPromotionDecision::Promote
+    };
 
     println!("schema=bkv-k6-m16-qualification@1");
     println!("commit={}", git_head());
     println!("adapter={info:?}");
-    println!("timing_scope=host-observed; selected_attention=encode+submit; synchronization=poll; dense=encode+submit+poll; no GPU timestamp claim");
-    println!("same_resident_qkv=true uploads_readbacks_excluded=true");
+    println!("timing_scope=host-observed host-mirrored-query; signature_generation=host-mirror; selected_attention=encode+submit; synchronization=poll; dense=encode+submit+poll; no GPU timestamp claim");
+    println!("q_device_resident=true q_host_mirror_retained=true kv_device_resident=true uploads_readbacks_excluded=true resident-only-production-claim=false");
     println!(
         "geometry page_size={} mapped_pages={} kv_len={} q_heads={} kv_heads={} head_dim={} signature_bits=8 max_distance={}",
         page_size, pages, geometry.kv_len, geometry.q_heads, geometry.kv_heads, geometry.head_dim, max_distance
@@ -712,12 +732,13 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         record.avoided_bytes_per_boolean_byte_read()
     );
     println!(
-        "latency_ns signature_generation={} boolean_search_and_materialization={} selected_encode_submit={} selected_poll_sync={} dense_encode_submit_poll={} total_bikv={}",
+        "latency_ns signature_generation={} boolean_search_and_materialization={} selected_encode_submit={} selected_poll_sync={} dense_encode_submit_poll={} candidate_end_to_end_median={} phase_median_sum_diagnostic={}",
         latency.signature_generation_ns,
         latency.boolean_search_ns,
         latency.selected_attention_ns,
         latency.synchronization_ns,
         latency.dense_attention_ns,
+        candidate_end_to_end_ns,
         record.total_bikv_latency_ns()
     );
     println!(
@@ -733,5 +754,6 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
         max_abs_diff(&selected_values, &dense_values)
     );
     println!("fixture_policy=matched-density synthetic Boolean signatures; quality result is not a model-quality claim");
+    println!("promotion_scope=host-mirrored-query synthetic fixture; not sufficient for resident-only production or BKV-7");
     println!("promotion_decision={decision:?}");
 }
