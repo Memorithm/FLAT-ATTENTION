@@ -19,9 +19,64 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
-      - name: Format and validate BKV-K6.1
+      - name: Repair, format, and validate BKV-K6.1
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/research_bkv_qualification.rs')
+          s = p.read_text()
+          old = '''    let selected_capacity_tokens = input
+              .selected_pages
+              .checked_mul(input.page_size)
+              .ok_or(BikvQualificationError::Overflow)?;
+          if input.selected_live_tokens > selected_capacity_tokens {
+              return Err(BikvQualificationError::SelectedTokensExceedSelectedCapacity {
+                  selected_live_tokens: input.selected_live_tokens,
+                  selected_capacity_tokens,
+              });
+          }
+          if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
+              return Err(BikvQualificationError::EmptySelectionMismatch {
+                  selected_pages: input.selected_pages,
+                  selected_live_tokens: input.selected_live_tokens,
+              });
+          }
+          '''
+          new = '''    if (input.selected_pages == 0) != (input.selected_live_tokens == 0) {
+              return Err(BikvQualificationError::EmptySelectionMismatch {
+                  selected_pages: input.selected_pages,
+                  selected_live_tokens: input.selected_live_tokens,
+              });
+          }
+          let selected_capacity_tokens = input
+              .selected_pages
+              .checked_mul(input.page_size)
+              .ok_or(BikvQualificationError::Overflow)?;
+          if input.selected_live_tokens > selected_capacity_tokens {
+              return Err(BikvQualificationError::SelectedTokensExceedSelectedCapacity {
+                  selected_live_tokens: input.selected_live_tokens,
+                  selected_capacity_tokens,
+              });
+          }
+          '''
+          if old not in s:
+              raise SystemExit('validation block not found')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('tests/bkv_qualification_gate.rs')
+          s = p.read_text()
+          marker = '''    assert_eq!(record.total_bikv_latency_ns(), 1_150);
+          '''
+          replacement = '''    assert_eq!(record.total_bikv_latency_ns(), 1_150);
+              assert_eq!(record.accounting().live_tokens, 256);
+              assert_eq!(record.latency().dense_attention_ns, 1_000);
+          '''
+          if marker not in s:
+              raise SystemExit('integration-test marker not found')
+          p.write_text(s.replace(marker, replacement, 1))
+          PY
           cargo fmt --all
           cargo test --test bkv_qualification_gate
           cargo clippy --test bkv_qualification_gate -- -D warnings
@@ -30,5 +85,5 @@ jobs:
           git config user.email contact@checkupauto.fr
           git add src/research_bkv_qualification.rs tests/bkv_qualification_gate.rs
           git rm .github/workflows/bkv-k61-format-fix.yml
-          git commit -m "style: format BIKV qualification gate"
+          git commit -m "fix: validate BIKV selection consistency first"
           git push origin HEAD:research/bkv-k6-qualification-gate
