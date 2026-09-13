@@ -53,23 +53,32 @@ pub enum WgpuBooleanRouterError {
     Signature(BooleanAttentionSignatureError),
     Mask(BooleanAttentionMaskError),
     ArithmeticOverflow,
-    IndexSpaceExceeded { value: usize },
+    IndexSpaceExceeded {
+        value: usize,
+    },
     BufferTooSmall {
         binding: &'static str,
         required_bytes: u64,
         actual_bytes: u64,
     },
-    DispatchLimit { required: u32, maximum: u32 },
+    DispatchLimit {
+        required: u32,
+        maximum: u32,
+    },
     Pipeline(String),
 }
 
 impl fmt::Display for WgpuBooleanRouterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroKeys => write!(f, "Boolean WGPU router requires at least one key signature"),
+            Self::ZeroKeys => {
+                write!(f, "Boolean WGPU router requires at least one key signature")
+            }
             Self::Signature(error) => write!(f, "invalid Boolean attention signature: {error}"),
             Self::Mask(error) => write!(f, "invalid Boolean attention mask: {error}"),
-            Self::ArithmeticOverflow => write!(f, "Boolean WGPU router size computation overflowed"),
+            Self::ArithmeticOverflow => {
+                write!(f, "Boolean WGPU router size computation overflowed")
+            }
             Self::IndexSpaceExceeded { value } => write!(
                 f,
                 "Boolean WGPU router value {value} exceeds the WGSL u32 index space"
