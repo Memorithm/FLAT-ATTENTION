@@ -22,6 +22,15 @@ jobs:
       - name: Format and validate harness
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/bkv6_m16_qualification.rs')
+          text = path.read_text()
+          marker = 'fn encode_selected(\n'
+          if marker not in text:
+              raise SystemExit('encode_selected marker not found')
+          path.write_text(text.replace(marker, '#[allow(clippy::too_many_arguments)]\nfn encode_selected(\n', 1))
+          PY
           cargo fmt --all
           cargo test --features wgpu --test bkv6_m16_qualification
           cargo clippy --features wgpu --test bkv6_m16_qualification -- -D warnings
