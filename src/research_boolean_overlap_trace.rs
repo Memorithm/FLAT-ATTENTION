@@ -3,7 +3,7 @@
 //! This module records the preregistered event order required to interpret
 //! first-token and steady-state Boolean/numerical overlap experiments. It does
 //! not schedule work, infer overlap from source structure, or claim a speedup.
-//! One [`M13B4Trace`] represents one execution unit; it cannot by itself prove
+//! One `M13B4Trace` represents one execution unit; it cannot by itself prove
 //! cross-unit overlap between Boolean work for a future unit and numerical work
 //! for a current unit. That requires correlated traces in one timing domain.
 
