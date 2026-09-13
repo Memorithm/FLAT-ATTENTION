@@ -49,6 +49,7 @@ variant.
 
 | File | Role |
 |------|------|
+| `flat_decode_boolean_selected_paged.wgsl` | BKV-K6 research-only Boolean-selected paged decode preserving original logical positions. Not `api::v1`. No default routing. |
 | `flat_da_luc_decode.wgsl` | DA-LUC research decode candidate. Not `api::v1`. No default routing. |
 
 See [`docs/SHADERS.md`](../docs/SHADERS.md) and [`docs/m9-numerical-policy.md`](../docs/m9-numerical-policy.md).
