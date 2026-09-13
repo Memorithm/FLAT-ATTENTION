@@ -7,6 +7,9 @@
 
 use core::fmt;
 
+/// Cross-unit timing-domain correlation and exact interval-intersection evidence.
+#[path = "research_boolean_overlap_correlation.rs"]
+pub mod correlation;
 /// Backend-neutral event/timestamp contract for preregistered M13B.4 evidence.
 #[path = "research_boolean_overlap_trace.rs"]
 pub mod trace;
