@@ -748,11 +748,18 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     };
     let warmup_iterations = u32::try_from(warmup).expect("warmup count fits u32");
     let measured_iterations = u32::try_from(iterations).expect("iteration count fits u32");
-    let command = "cargo test --features wgpu --test bkv6_m16_qualification -- --nocapture";
+    let profile_flag = if cfg!(debug_assertions) {
+        ""
+    } else {
+        " --release"
+    };
+    let command = format!(
+        "FLAT_BKV_QUAL_PAGES={pages} FLAT_BKV_QUAL_PAGE_SIZE={page_size} FLAT_BKV_QUAL_WARMUP={warmup} FLAT_BKV_QUAL_ITERS={iterations} FLAT_BKV_QUAL_MAX_DISTANCE={max_distance} cargo test{profile_flag} --features wgpu --test bkv6_m16_qualification -- --nocapture"
+    );
     let candidate_manifest = BenchmarkManifest {
         commit_sha: commit.clone(),
         benchmark_id: "bkv-k6-selected-candidate".to_owned(),
-        command: command.to_owned(),
+        command: command.clone(),
         environment: environment.clone(),
         problem: problem.clone(),
         warmup_iterations,
@@ -766,7 +773,7 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     let dense_manifest = BenchmarkManifest {
         commit_sha: commit.clone(),
         benchmark_id: "m16-dense-baseline".to_owned(),
-        command: command.to_owned(),
+        command,
         environment,
         problem,
         warmup_iterations,
