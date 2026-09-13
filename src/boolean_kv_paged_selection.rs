@@ -283,9 +283,7 @@ mod tests {
     use crate::paged_kv::PagedKvConfig;
 
     fn signature(byte: u8) -> PackedBooleanSignature {
-        let bits = (0..8)
-            .map(|bit| byte & (1 << bit) != 0)
-            .collect::<Vec<_>>();
+        let bits = (0..8).map(|bit| byte & (1 << bit) != 0).collect::<Vec<_>>();
         PackedBooleanSignature::from_bools(&bits).unwrap()
     }
 
