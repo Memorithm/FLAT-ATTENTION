@@ -7,6 +7,10 @@
 
 use core::fmt;
 
+/// Backend-neutral event/timestamp contract for preregistered M13B.4 evidence.
+#[path = "research_boolean_overlap_trace.rs"]
+pub mod trace;
+
 pub const M13B4_READINESS_SCHEMA_VERSION: u32 = 1;
 
 /// Snapshot taken at the prefill/decode boundary.
