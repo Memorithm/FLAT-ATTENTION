@@ -1,13 +1,13 @@
 use core::fmt;
 
-use flat_attention::api::boolean_attention_mask::BooleanAttentionMask;
-use flat_attention::api::boolean_attention_signature::{
-    BooleanAttentionSignature, BooleanAttentionSignatureError,
-};
-
 use crate::f2::F2AffinePredicate;
 use crate::max_plus::MaxPlusValue;
 use crate::zhegalkin::{ZhegalkinError, ZhegalkinPolynomial};
+
+const M13B_MASK_SCHEMA_VERSION: u32 = 1;
+const M13B_SIGNATURE_SCHEMA_VERSION: u32 = 1;
+const M13B_BOOLEAN_KV_SCHEMA_VERSION: u32 = 1;
+const PACKED_WORD_BITS: usize = u64::BITS as usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AlgebraDomain {
@@ -70,52 +70,155 @@ impl AlgebraicEvidence {
     }
 }
 
-/// Typed binding to the canonical M13B Boolean front-end contracts.
+/// Dependency-free adapter carrying canonical M13B Boolean survivor evidence.
 ///
-/// The cooperation layer owns these values so the Boolean route retains the
-/// exact validated block geometry and Q/K signature provenance that produced
-/// the survivor decision. It does not reinterpret or regenerate Boolean
-/// metadata locally.
+/// The values are copied from the already-validated M13B mask/signature/Boolean
+/// KV contracts by the caller. This adapter validates the serialized geometry
+/// again and retains it verbatim so the multi-algebra route cannot collapse the
+/// Boolean side into a capability flag. It deliberately does not interpret or
+/// regenerate numerical K/V data.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BooleanRoutingEvidence {
-    mask: BooleanAttentionMask,
-    query_signature: BooleanAttentionSignature,
-    key_signature: BooleanAttentionSignature,
+pub struct M13bBooleanRoutingEvidence {
+    mask_schema_version: u32,
+    blocks: usize,
+    mask_words: Vec<u64>,
+    signature_schema_version: u32,
+    signature_bits: usize,
+    query_signature_words: Vec<u64>,
+    key_signature_words: Vec<u64>,
+    boolean_kv_schema_version: Option<u32>,
+    boolean_kv_generation: Option<u64>,
 }
 
-impl BooleanRoutingEvidence {
-    /// Bind already-validated M13B mask/signature values.
-    ///
-    /// # Errors
-    ///
-    /// Fails closed when the canonical Q/K signatures have different widths.
+impl M13bBooleanRoutingEvidence {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
-        mask: BooleanAttentionMask,
-        query_signature: BooleanAttentionSignature,
-        key_signature: BooleanAttentionSignature,
+        mask_schema_version: u32,
+        blocks: usize,
+        mask_words: Vec<u64>,
+        signature_schema_version: u32,
+        signature_bits: usize,
+        query_signature_words: Vec<u64>,
+        key_signature_words: Vec<u64>,
+        boolean_kv_schema_version: Option<u32>,
+        boolean_kv_generation: Option<u64>,
     ) -> Result<Self, CooperationError> {
-        query_signature.hamming_distance(&key_signature)?;
+        if mask_schema_version != M13B_MASK_SCHEMA_VERSION {
+            return Err(CooperationError::UnsupportedM13bSchema {
+                contract: "boolean-attention-mask",
+                expected: M13B_MASK_SCHEMA_VERSION,
+                actual: mask_schema_version,
+            });
+        }
+        validate_packed("Boolean attention mask", blocks, &mask_words)?;
+
+        if signature_schema_version != M13B_SIGNATURE_SCHEMA_VERSION {
+            return Err(CooperationError::UnsupportedM13bSchema {
+                contract: "boolean-attention-signature",
+                expected: M13B_SIGNATURE_SCHEMA_VERSION,
+                actual: signature_schema_version,
+            });
+        }
+        validate_packed("query Boolean attention signature", signature_bits, &query_signature_words)?;
+        validate_packed("key Boolean attention signature", signature_bits, &key_signature_words)?;
+
+        match (boolean_kv_schema_version, boolean_kv_generation) {
+            (None, None) => {}
+            (Some(version), Some(_)) if version == M13B_BOOLEAN_KV_SCHEMA_VERSION => {}
+            (Some(version), Some(_)) => {
+                return Err(CooperationError::UnsupportedM13bSchema {
+                    contract: "boolean-kv",
+                    expected: M13B_BOOLEAN_KV_SCHEMA_VERSION,
+                    actual: version,
+                });
+            }
+            _ => return Err(CooperationError::IncompleteBooleanKvProvenance),
+        }
+
         Ok(Self {
-            mask,
-            query_signature,
-            key_signature,
+            mask_schema_version,
+            blocks,
+            mask_words,
+            signature_schema_version,
+            signature_bits,
+            query_signature_words,
+            key_signature_words,
+            boolean_kv_schema_version,
+            boolean_kv_generation,
         })
     }
 
     #[must_use]
-    pub const fn mask(&self) -> &BooleanAttentionMask {
-        &self.mask
+    pub const fn mask_schema_version(&self) -> u32 {
+        self.mask_schema_version
     }
 
     #[must_use]
-    pub const fn query_signature(&self) -> &BooleanAttentionSignature {
-        &self.query_signature
+    pub const fn blocks(&self) -> usize {
+        self.blocks
     }
 
     #[must_use]
-    pub const fn key_signature(&self) -> &BooleanAttentionSignature {
-        &self.key_signature
+    pub fn mask_words(&self) -> &[u64] {
+        &self.mask_words
     }
+
+    #[must_use]
+    pub const fn signature_schema_version(&self) -> u32 {
+        self.signature_schema_version
+    }
+
+    #[must_use]
+    pub const fn signature_bits(&self) -> usize {
+        self.signature_bits
+    }
+
+    #[must_use]
+    pub fn query_signature_words(&self) -> &[u64] {
+        &self.query_signature_words
+    }
+
+    #[must_use]
+    pub fn key_signature_words(&self) -> &[u64] {
+        &self.key_signature_words
+    }
+
+    #[must_use]
+    pub const fn boolean_kv_generation(&self) -> Option<u64> {
+        self.boolean_kv_generation
+    }
+
+    #[must_use]
+    pub const fn boolean_kv_schema_version(&self) -> Option<u32> {
+        self.boolean_kv_schema_version
+    }
+}
+
+fn validate_packed(
+    contract: &'static str,
+    bit_len: usize,
+    words: &[u64],
+) -> Result<(), CooperationError> {
+    if bit_len == 0 {
+        return Err(CooperationError::ZeroM13bWidth { contract });
+    }
+    let expected_words = bit_len.div_ceil(PACKED_WORD_BITS);
+    if words.len() != expected_words {
+        return Err(CooperationError::M13bWordCountMismatch {
+            contract,
+            bit_len,
+            expected_words,
+            actual_words: words.len(),
+        });
+    }
+    let tail_bits = bit_len % PACKED_WORD_BITS;
+    if tail_bits != 0 {
+        let valid_mask = (1u64 << tail_bits) - 1;
+        if words.last().copied().unwrap_or_default() & !valid_mask != 0 {
+            return Err(CooperationError::M13bNonZeroTailBits { contract });
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -129,7 +232,7 @@ pub struct AttentionAlgebraNeeds {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlgebraicRoute {
     domains: Vec<AlgebraDomain>,
-    boolean_evidence: Option<BooleanRoutingEvidence>,
+    boolean_evidence: Option<M13bBooleanRoutingEvidence>,
 }
 
 impl AlgebraicRoute {
@@ -143,9 +246,8 @@ impl AlgebraicRoute {
         self.domains.contains(&domain)
     }
 
-    /// Canonical M13B evidence retained by a Boolean route.
     #[must_use]
-    pub const fn boolean_evidence(&self) -> Option<&BooleanRoutingEvidence> {
+    pub const fn boolean_evidence(&self) -> Option<&M13bBooleanRoutingEvidence> {
         self.boolean_evidence.as_ref()
     }
 }
@@ -155,7 +257,25 @@ impl AlgebraicRoute {
 pub enum CooperationError {
     NoRequestedSemantics,
     MissingBooleanRoutingEvidence,
-    BooleanSignature(BooleanAttentionSignatureError),
+    UnexpectedBooleanRoutingEvidence,
+    UnsupportedM13bSchema {
+        contract: &'static str,
+        expected: u32,
+        actual: u32,
+    },
+    ZeroM13bWidth {
+        contract: &'static str,
+    },
+    M13bWordCountMismatch {
+        contract: &'static str,
+        bit_len: usize,
+        expected_words: usize,
+        actual_words: usize,
+    },
+    M13bNonZeroTailBits {
+        contract: &'static str,
+    },
+    IncompleteBooleanKvProvenance,
     Zhegalkin(ZhegalkinError),
 }
 
@@ -168,23 +288,46 @@ impl fmt::Display for CooperationError {
             ),
             Self::MissingBooleanRoutingEvidence => write!(
                 formatter,
-                "Boolean eligibility routing requires canonical M13B mask/signature evidence"
+                "Boolean eligibility routing requires canonical M13B survivor evidence"
             ),
-            Self::BooleanSignature(error) => {
-                write!(formatter, "Boolean M13B evidence is invalid: {error}")
+            Self::UnexpectedBooleanRoutingEvidence => write!(
+                formatter,
+                "M13B Boolean evidence was supplied without Boolean eligibility routing"
+            ),
+            Self::UnsupportedM13bSchema {
+                contract,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "unsupported {contract} schema version: expected {expected}, got {actual}"
+            ),
+            Self::ZeroM13bWidth { contract } => {
+                write!(formatter, "{contract} width must be non-zero")
             }
+            Self::M13bWordCountMismatch {
+                contract,
+                bit_len,
+                expected_words,
+                actual_words,
+            } => write!(
+                formatter,
+                "{contract} with {bit_len} bits requires {expected_words} u64 words, got {actual_words}"
+            ),
+            Self::M13bNonZeroTailBits { contract } => write!(
+                formatter,
+                "unused high bits in the final {contract} word must be zero"
+            ),
+            Self::IncompleteBooleanKvProvenance => write!(
+                formatter,
+                "Boolean-KV schema version and generation must be supplied together"
+            ),
             Self::Zhegalkin(error) => write!(formatter, "Zhegalkin cooperation failed: {error}"),
         }
     }
 }
 
 impl std::error::Error for CooperationError {}
-
-impl From<BooleanAttentionSignatureError> for CooperationError {
-    fn from(error: BooleanAttentionSignatureError) -> Self {
-        Self::BooleanSignature(error)
-    }
-}
 
 impl From<ZhegalkinError> for CooperationError {
     fn from(error: ZhegalkinError) -> Self {
@@ -194,13 +337,13 @@ impl From<ZhegalkinError> for CooperationError {
 
 pub fn route_attention_needs(
     needs: AttentionAlgebraNeeds,
-    boolean_evidence: Option<BooleanRoutingEvidence>,
+    boolean_evidence: Option<M13bBooleanRoutingEvidence>,
 ) -> Result<AlgebraicRoute, CooperationError> {
     if needs.eligibility_logic && boolean_evidence.is_none() {
         return Err(CooperationError::MissingBooleanRoutingEvidence);
     }
     if !needs.eligibility_logic && boolean_evidence.is_some() {
-        return Err(CooperationError::MissingBooleanRoutingEvidence);
+        return Err(CooperationError::UnexpectedBooleanRoutingEvidence);
     }
 
     let mut domains = Vec::with_capacity(4);
@@ -317,11 +460,17 @@ mod tests {
     use super::*;
     use crate::f2::F2Vector;
 
-    fn boolean_evidence() -> BooleanRoutingEvidence {
-        BooleanRoutingEvidence::new(
-            BooleanAttentionMask::from_admissions(&[true, false, true, true]).unwrap(),
-            BooleanAttentionSignature::new(4, vec![0b1011]).unwrap(),
-            BooleanAttentionSignature::new(4, vec![0b1001]).unwrap(),
+    fn boolean_evidence() -> M13bBooleanRoutingEvidence {
+        M13bBooleanRoutingEvidence::new(
+            1,
+            4,
+            vec![0b1101],
+            1,
+            4,
+            vec![0b1011],
+            vec![0b1001],
+            Some(1),
+            Some(7),
         )
         .unwrap()
     }
@@ -357,10 +506,10 @@ mod tests {
             assert!(route.contains(domain));
         }
         let evidence = route.boolean_evidence().unwrap();
-        assert_eq!(evidence.mask().blocks(), 4);
-        assert_eq!(evidence.mask().admitted_blocks(), vec![0, 2, 3]);
-        assert_eq!(evidence.query_signature().bits(), 4);
-        assert_eq!(evidence.key_signature().bits(), 4);
+        assert_eq!(evidence.blocks(), 4);
+        assert_eq!(evidence.mask_words(), &[0b1101]);
+        assert_eq!(evidence.signature_bits(), 4);
+        assert_eq!(evidence.boolean_kv_generation(), Some(7));
     }
 
     #[test]
@@ -378,7 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn unrelated_boolean_evidence_is_not_silently_retained() {
+    fn unrelated_boolean_evidence_is_rejected() {
         assert_eq!(
             route_attention_needs(
                 AttentionAlgebraNeeds {
@@ -387,24 +536,24 @@ mod tests {
                 },
                 Some(boolean_evidence()),
             ),
-            Err(CooperationError::MissingBooleanRoutingEvidence)
+            Err(CooperationError::UnexpectedBooleanRoutingEvidence)
         );
     }
 
     #[test]
-    fn mismatched_m13b_signature_widths_fail_closed() {
-        let error = BooleanRoutingEvidence::new(
-            BooleanAttentionMask::from_admissions(&[true]).unwrap(),
-            BooleanAttentionSignature::new(4, vec![0b1011]).unwrap(),
-            BooleanAttentionSignature::new(5, vec![0b1_1001]).unwrap(),
-        )
-        .unwrap_err();
+    fn malformed_m13b_evidence_fails_closed() {
         assert!(matches!(
-            error,
-            CooperationError::BooleanSignature(
-                BooleanAttentionSignatureError::WidthMismatch { .. }
-            )
+            M13bBooleanRoutingEvidence::new(1, 65, vec![1], 1, 4, vec![1], vec![1], None, None),
+            Err(CooperationError::M13bWordCountMismatch { .. })
         ));
+        assert!(matches!(
+            M13bBooleanRoutingEvidence::new(1, 4, vec![0b1_0000], 1, 4, vec![1], vec![1], None, None),
+            Err(CooperationError::M13bNonZeroTailBits { .. })
+        ));
+        assert_eq!(
+            M13bBooleanRoutingEvidence::new(1, 4, vec![1], 1, 4, vec![1], vec![1], Some(1), None),
+            Err(CooperationError::IncompleteBooleanKvProvenance)
+        );
     }
 
     #[test]
