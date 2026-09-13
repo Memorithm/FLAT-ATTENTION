@@ -75,9 +75,11 @@ impl FirstDecodeReadyPrefix {
             });
         }
         if consumption.historical_signature_rebuilds != 0 {
-            return Err(FirstTokenReadinessError::HistoricalSignatureRebuildOnFirstToken {
-                rebuilds: consumption.historical_signature_rebuilds,
-            });
+            return Err(
+                FirstTokenReadinessError::HistoricalSignatureRebuildOnFirstToken {
+                    rebuilds: consumption.historical_signature_rebuilds,
+                },
+            );
         }
         Ok(())
     }
@@ -299,9 +301,7 @@ mod tests {
                 prefix_tokens: 10,
                 historical_signature_rebuilds: 1,
             }),
-            Err(
-                FirstTokenReadinessError::HistoricalSignatureRebuildOnFirstToken { rebuilds: 1 }
-            )
+            Err(FirstTokenReadinessError::HistoricalSignatureRebuildOnFirstToken { rebuilds: 1 })
         );
     }
 
