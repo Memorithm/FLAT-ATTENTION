@@ -1,9 +1,9 @@
 #[path = "../src/benchmark_manifest.rs"]
 pub mod benchmark_manifest;
-#[path = "../src/research_bkv_qualification.rs"]
-pub mod research_bkv_qualification;
 #[path = "../src/research_bkv_evidence.rs"]
 pub mod research_bkv_evidence;
+#[path = "../src/research_bkv_qualification.rs"]
+pub mod research_bkv_qualification;
 
 use benchmark_manifest::{
     BenchmarkEnvironment, BenchmarkManifest, BenchmarkProblem, BenchmarkResult,
@@ -139,7 +139,9 @@ fn canonical_evidence_is_deterministic_and_self_describing() {
     let first_json = first.canonical_json().unwrap();
     let second_json = second.canonical_json().unwrap();
     assert_eq!(first_json, second_json);
-    assert!(first_json.contains(&format!("\"schema_version\":{BIKV_EVIDENCE_SCHEMA_VERSION}")));
+    assert!(first_json.contains(&format!(
+        "\"schema_version\":{BIKV_EVIDENCE_SCHEMA_VERSION}"
+    )));
     assert!(first_json.contains("\"candidate\":{"));
     assert!(first_json.contains("\"dense_baseline\":{"));
     assert!(first_json.contains("\"boolean_index_bytes_read\":128"));
