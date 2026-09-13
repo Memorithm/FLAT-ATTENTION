@@ -10,8 +10,8 @@
 use core::fmt;
 
 use super::trace::{
-    M13B4SchedulingVariant, M13B4TimingSource, M13B4Trace, M13B4TraceError,
-    M13B4TraceEventKind, M13B4TraceScope,
+    M13B4SchedulingVariant, M13B4TimingSource, M13B4Trace, M13B4TraceError, M13B4TraceEventKind,
+    M13B4TraceScope,
 };
 
 /// One validated trace plus the external correlation metadata required to place
@@ -172,8 +172,8 @@ impl std::error::Error for M13B4CorrelationError {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::trace::M13B4TraceEvent;
+    use super::*;
 
     fn decode_trace(offset_ns: u64, timing_source: M13B4TimingSource) -> M13B4Trace {
         let event = |kind, timestamp_ns| M13B4TraceEvent {
