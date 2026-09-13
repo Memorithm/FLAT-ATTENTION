@@ -70,6 +70,10 @@ pub enum BikvQualificationError {
         selected_live_tokens: usize,
         live_tokens: usize,
     },
+    MappedPageCountMismatch {
+        mapped_pages: usize,
+        required_pages: usize,
+    },
     LiveTokensExceedMappedCapacity {
         live_tokens: usize,
         mapped_capacity_tokens: usize,
@@ -77,6 +81,12 @@ pub enum BikvQualificationError {
     SelectedTokensExceedSelectedCapacity {
         selected_live_tokens: usize,
         selected_capacity_tokens: usize,
+    },
+    SelectedTokenCountImpossible {
+        selected_pages: usize,
+        selected_live_tokens: usize,
+        full_page_total: usize,
+        final_page_total: usize,
     },
     EmptySelectionMismatch {
         selected_pages: usize,
@@ -91,24 +101,57 @@ pub enum BikvQualificationError {
 impl fmt::Display for BikvQualificationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroDimension(name) => write!(f, "BIKV qualification dimension {name} must be non-zero"),
-            Self::SelectedPagesExceedMapped { selected_pages, mapped_pages } => write!(
+            Self::ZeroDimension(name) => {
+                write!(f, "BIKV qualification dimension {name} must be non-zero")
+            }
+            Self::SelectedPagesExceedMapped {
+                selected_pages,
+                mapped_pages,
+            } => write!(
                 f,
                 "BIKV selected pages ({selected_pages}) exceed mapped pages ({mapped_pages})"
             ),
-            Self::SelectedTokensExceedLive { selected_live_tokens, live_tokens } => write!(
+            Self::SelectedTokensExceedLive {
+                selected_live_tokens,
+                live_tokens,
+            } => write!(
                 f,
                 "BIKV selected live tokens ({selected_live_tokens}) exceed live tokens ({live_tokens})"
             ),
-            Self::LiveTokensExceedMappedCapacity { live_tokens, mapped_capacity_tokens } => write!(
+            Self::MappedPageCountMismatch {
+                mapped_pages,
+                required_pages,
+            } => write!(
+                f,
+                "BIKV mapped page count ({mapped_pages}) does not match the live-token geometry ({required_pages})"
+            ),
+            Self::LiveTokensExceedMappedCapacity {
+                live_tokens,
+                mapped_capacity_tokens,
+            } => write!(
                 f,
                 "BIKV live tokens ({live_tokens}) exceed mapped page capacity ({mapped_capacity_tokens})"
             ),
-            Self::SelectedTokensExceedSelectedCapacity { selected_live_tokens, selected_capacity_tokens } => write!(
+            Self::SelectedTokensExceedSelectedCapacity {
+                selected_live_tokens,
+                selected_capacity_tokens,
+            } => write!(
                 f,
                 "BIKV selected live tokens ({selected_live_tokens}) exceed selected page capacity ({selected_capacity_tokens})"
             ),
-            Self::EmptySelectionMismatch { selected_pages, selected_live_tokens } => write!(
+            Self::SelectedTokenCountImpossible {
+                selected_pages,
+                selected_live_tokens,
+                full_page_total,
+                final_page_total,
+            } => write!(
+                f,
+                "BIKV selected token count ({selected_live_tokens}) is impossible for {selected_pages} selected pages; expected {full_page_total} without the final partial page or {final_page_total} with it"
+            ),
+            Self::EmptySelectionMismatch {
+                selected_pages,
+                selected_live_tokens,
+            } => write!(
                 f,
                 "BIKV empty-selection accounting is inconsistent: {selected_pages} pages, {selected_live_tokens} live tokens"
             ),
@@ -121,9 +164,9 @@ impl fmt::Display for BikvQualificationError {
                 "BIKV qualification requires a non-zero dense baseline latency"
             ),
             Self::MissingBikvLatency => write!(
-        f,
-        "BIKV qualification requires non-zero measured candidate latency"
-    ),
+                f,
+                "BIKV qualification requires non-zero measured candidate latency"
+            ),
             Self::Overflow => write!(f, "BIKV qualification accounting overflow"),
         }
     }
@@ -287,6 +330,19 @@ fn validate_accounting(input: BikvAccountingInput) -> Result<(), BikvQualificati
             live_tokens: input.live_tokens,
         });
     }
+
+    let required_pages = input
+        .live_tokens
+        .checked_add(input.page_size - 1)
+        .ok_or(BikvQualificationError::Overflow)?
+        / input.page_size;
+    if input.mapped_pages != required_pages {
+        return Err(BikvQualificationError::MappedPageCountMismatch {
+            mapped_pages: input.mapped_pages,
+            required_pages,
+        });
+    }
+
     let mapped_capacity_tokens = input
         .mapped_pages
         .checked_mul(input.page_size)
@@ -315,6 +371,33 @@ fn validate_accounting(input: BikvAccountingInput) -> Result<(), BikvQualificati
             },
         );
     }
+
+    if input.selected_pages > 0 {
+        let final_page_tokens = input.live_tokens % input.page_size;
+        let final_page_tokens = if final_page_tokens == 0 {
+            input.page_size
+        } else {
+            final_page_tokens
+        };
+        let full_page_total = selected_capacity_tokens;
+        let final_page_total = input
+            .selected_pages
+            .checked_sub(1)
+            .and_then(|full_pages| full_pages.checked_mul(input.page_size))
+            .and_then(|tokens| tokens.checked_add(final_page_tokens))
+            .ok_or(BikvQualificationError::Overflow)?;
+        if input.selected_live_tokens != full_page_total
+            && input.selected_live_tokens != final_page_total
+        {
+            return Err(BikvQualificationError::SelectedTokenCountImpossible {
+                selected_pages: input.selected_pages,
+                selected_live_tokens: input.selected_live_tokens,
+                full_page_total,
+                final_page_total,
+            });
+        }
+    }
+
     if input.boolean_index_bytes_read == 0 {
         return Err(BikvQualificationError::MissingBooleanIndexTraffic);
     }
@@ -344,7 +427,7 @@ mod tests {
     fn accounting() -> BikvAccountingInput {
         BikvAccountingInput {
             live_tokens: 230,
-            selected_live_tokens: 120,
+            selected_live_tokens: 128,
             mapped_pages: 4,
             selected_pages: 2,
             page_size: 64,
@@ -370,15 +453,38 @@ mod tests {
         let record = BikvQualificationRecord::new(accounting(), latency()).unwrap();
         assert_eq!(record.kv_bytes_per_token(), 2_048);
         assert_eq!(record.dense_numerical_kv_bytes(), 471_040);
-        assert_eq!(record.selected_numerical_kv_bytes(), 245_760);
-        assert_eq!(record.avoided_numerical_kv_bytes(), 225_280);
+        assert_eq!(record.selected_numerical_kv_bytes(), 262_144);
+        assert_eq!(record.avoided_numerical_kv_bytes(), 208_896);
         assert_eq!(record.total_bikv_latency_ns(), 950);
-        assert_eq!(record.avoided_bytes_per_boolean_byte_read(), 1_760.0);
+        assert_eq!(record.avoided_bytes_per_boolean_byte_read(), 1_632.0);
         assert!((record.selected_page_density() - 0.5).abs() < f64::EPSILON);
-        assert!((record.selected_token_density() - (120.0 / 230.0)).abs() < 1.0e-12);
+        assert!((record.selected_token_density() - (128.0 / 230.0)).abs() < 1.0e-12);
         assert!(
             (record.dense_over_bikv_latency_ratio().unwrap() - (1_200.0 / 950.0)).abs() < 1.0e-12
         );
+    }
+
+    #[test]
+    fn accepts_selection_that_includes_final_partial_page() {
+        let mut with_final_page = accounting();
+        with_final_page.selected_live_tokens = 102;
+        let record = BikvQualificationRecord::new(with_final_page, latency()).unwrap();
+        assert_eq!(record.selected_numerical_kv_bytes(), 208_896);
+    }
+
+    #[test]
+    fn rejects_impossible_selected_token_total() {
+        let mut impossible = accounting();
+        impossible.selected_live_tokens = 120;
+        assert!(matches!(
+            BikvQualificationRecord::new(impossible, latency()),
+            Err(BikvQualificationError::SelectedTokenCountImpossible {
+                selected_pages: 2,
+                selected_live_tokens: 120,
+                full_page_total: 128,
+                final_page_total: 102,
+            })
+        ));
     }
 
     #[test]
@@ -422,6 +528,16 @@ mod tests {
         assert!(matches!(
             BikvQualificationRecord::new(invalid, latency()),
             Err(BikvQualificationError::EmptySelectionMismatch { .. })
+        ));
+
+        let mut invalid = accounting();
+        invalid.mapped_pages = 5;
+        assert!(matches!(
+            BikvQualificationRecord::new(invalid, latency()),
+            Err(BikvQualificationError::MappedPageCountMismatch {
+                mapped_pages: 5,
+                required_pages: 4,
+            })
         ));
 
         let mut invalid = accounting();
