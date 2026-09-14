@@ -551,17 +551,7 @@ mod tests {
     #[test]
     fn malformed_m13b_evidence_fails_closed() {
         assert!(matches!(
-            M13bBooleanRoutingEvidence::new(
-                1,
-                65,
-                vec![1],
-                1,
-                4,
-                vec![1],
-                vec![1],
-                None,
-                None,
-            ),
+            M13bBooleanRoutingEvidence::new(1, 65, vec![1], 1, 4, vec![1], vec![1], None, None,),
             Err(CooperationError::M13bWordCountMismatch { .. })
         ));
         assert!(matches!(
@@ -579,17 +569,7 @@ mod tests {
             Err(CooperationError::M13bNonZeroTailBits { .. })
         ));
         assert_eq!(
-            M13bBooleanRoutingEvidence::new(
-                1,
-                4,
-                vec![1],
-                1,
-                4,
-                vec![1],
-                vec![1],
-                Some(1),
-                None,
-            ),
+            M13bBooleanRoutingEvidence::new(1, 4, vec![1], 1, 4, vec![1], vec![1], Some(1), None,),
             Err(CooperationError::IncompleteBooleanKvProvenance)
         );
     }
