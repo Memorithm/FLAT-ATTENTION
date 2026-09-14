@@ -261,23 +261,21 @@ pub fn qualify_candidate(
         None
     };
 
-    let f2 = inputs
-        .f2
-        .map(|evaluation| {
-            Ok(F2CandidateDecision {
-                qualified: evaluation.predicate.evaluate(evaluation.input)?,
-            })
+    let f2 = if let Some(evaluation) = inputs.f2 {
+        Some(F2CandidateDecision {
+            qualified: evaluation.predicate.evaluate(evaluation.input)?,
         })
-        .transpose()?;
+    } else {
+        None
+    };
 
-    let zhegalkin = inputs
-        .zhegalkin
-        .map(|evaluation| {
-            Ok(ZhegalkinCandidateDecision {
-                qualified: evaluation.polynomial.evaluate(evaluation.input)?,
-            })
+    let zhegalkin = if let Some(evaluation) = inputs.zhegalkin {
+        Some(ZhegalkinCandidateDecision {
+            qualified: evaluation.polynomial.evaluate(evaluation.input)?,
         })
-        .transpose()?;
+    } else {
+        None
+    };
 
     let max_plus = inputs.max_plus.map(evaluate_max_plus).transpose()?;
 
