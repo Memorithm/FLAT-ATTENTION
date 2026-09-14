@@ -15,7 +15,9 @@
 use core::fmt;
 
 use super::research_da_luc::DalucKvViewContract;
-use super::research_da_luc_oracle::tiering::{DalucPrecisionTier, DalucTierId, DalucTierRoutingPlan};
+use super::research_da_luc_oracle::tiering::{
+    DalucPrecisionTier, DalucTierId, DalucTierRoutingPlan,
+};
 use super::research_da_luc_paged_binding::{
     bind_paged_tier_plan, DalucPagedTierBinding, DalucPagedTierBindingError,
 };
@@ -55,7 +57,10 @@ impl fmt::Display for DalucCacheScopedPagedTierBindingError {
             Self::Binding(error) => write!(formatter, "{error}"),
             Self::Cache(error) => write!(formatter, "{error}"),
             Self::AllocationFailure => {
-                write!(formatter, "FDAL6 cache-scoped tier catalog allocation failed")
+                write!(
+                    formatter,
+                    "FDAL6 cache-scoped tier catalog allocation failed"
+                )
             }
         }
     }
