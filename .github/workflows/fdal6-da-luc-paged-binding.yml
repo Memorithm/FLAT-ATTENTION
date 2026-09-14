@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/api.rs"
       - "src/paged_kv.rs"
       - "src/kv_observation.rs"
       - "src/wgpu_paged_kv_cache.rs"
@@ -15,6 +18,7 @@ on:
       - "src/research_da_luc_paged_cache_binding.rs"
       - "tests/fdal6_da_luc_paged_binding.rs"
       - "tests/fdal6_da_luc_cache_scoped_binding.rs"
+      - "tests/fdal6_da_luc_paged_transitions.rs"
       - ".github/workflows/fdal6-da-luc-paged-binding.yml"
 
 permissions:
@@ -52,8 +56,13 @@ jobs:
       - name: Exact-head format gate
         run: cargo fmt --all -- --check
       - name: Exact-head strict lint
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Exact-head strict documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --workspace --all-features --no-deps --document-private-items
       - name: FDAL6 paged binding and freshness qualification
         run: |
-          cargo test --features wgpu --test fdal6_da_luc_paged_binding -- --nocapture
-          cargo test --features wgpu --test fdal6_da_luc_cache_scoped_binding -- --nocapture
+          cargo test --locked --features wgpu --test fdal6_da_luc_paged_binding -- --nocapture
+          cargo test --locked --features wgpu --test fdal6_da_luc_cache_scoped_binding -- --nocapture
+          cargo test --locked --features wgpu --test fdal6_da_luc_paged_transitions -- --nocapture
