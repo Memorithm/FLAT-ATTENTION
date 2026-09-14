@@ -2,6 +2,8 @@
 
 This guide is the maintained entry point for FLAT's architecture, algorithms, public API, SciRust integration, GPU backends, autotuning, benchmark methodology, troubleshooting and development policy. Milestone-specific evidence remains in the adjacent `M*.md` documents and `ROADMAP.md` remains the acceptance-plan authority.
 
+If you just cloned the repository, start with [ONBOARDING.md](ONBOARDING.md) (host-only, no GPU).
+
 ## 1. Architecture
 
 FLAT is a Rust-native fused attention engine. The correctness hierarchy is deliberately one-way:
@@ -28,11 +30,15 @@ Accumulation-sensitive paths keep the numerical policy explicit. F32 is the port
 
 Deterministic/reference mode prioritizes reproducibility over throughput. Optimized paths may change reduction order and therefore use documented tolerance rather than pretending to be bit-identical.
 
+Numerical modes and guarantees are specified in [m9-numerical-policy.md](m9-numerical-policy.md).
+
 ## 3. Public API
 
 The backend-neutral reusable contract is versioned under `flat_attention::api::v1`; see `API_SEMVER.md` for compatibility rules.
 
 Use backend-neutral request/config types when a caller wants validation independent of a particular GPU API. Use borrowed requests for host-owned slices, owned requests where the request must own host data, and resident request contracts when an integration owns backend buffers externally.
+
+A host-only walkthrough lives in `examples/hello_attention.rs` and `tests/host_oracle_smoke.rs`.
 
 With feature `wgpu`, the crate exposes qualified executors/pipelines for grouped forward, asymmetric projection/RoPE attention, decode/KV use, and training forward/backward. Caller-owned APIs accept an existing `wgpu::Device`, `Queue`, buffers and/or command encoder so SciRust can preserve a single ownership/synchronization domain.
 
@@ -55,6 +61,8 @@ FLAT writes WGSL and uses WGPU as the portable GPU boundary. The core architectu
 Linux/Vulkan is continuously qualified against Mesa lavapipe for software-adapter correctness. Exact-candidate physical NVIDIA Vulkan parity has also been demonstrated on Jetson Thor. Metal is qualified through WGPU/Metal on hosted Apple hardware. Direct3D 12 qualification is tracked independently; platform/runtime limitations remain explicit rather than being hidden by another backend.
 
 A backend qualification result means shader translation, pipeline creation, resource binding, dispatch and numerical parity succeeded for that environment. It is not automatically a performance statement.
+
+Handwritten WGSL files and their routing status are listed in [SHADERS.md](SHADERS.md).
 
 ## 6. Kernel policy and autotuning
 
@@ -100,15 +108,18 @@ Performance PRs state the hypothesized bottleneck before changing code, preserve
 
 Host implementation stays Rust-native. Project-authored C/C++ and C ABI bridges are outside the architecture. Hardware-specific acceleration, if ever added, must be capability-gated and retain the portable path.
 
-The repository is source-available under PolyForm Noncommercial 1.0.0 with separate written commercial licensing. External source contributions are not accepted until the copyright holder explicitly establishes contribution-rights/provenance terms; discussion and bug reports remain welcome without transferring source rights.
+The repository is source-available under PolyForm Noncommercial 1.0.0 with separate written commercial licensing, the same license as SciRust. External source contributions are not accepted until the copyright holder explicitly establishes contribution-rights/provenance terms; discussion and bug reports remain welcome without transferring source rights.
 
 ## 10. Evidence map
 
+- [ONBOARDING.md](ONBOARDING.md) — first host-only steps.
 - `ROADMAP.md` — milestone gates and 1.0 definition of done.
 - `API_SEMVER.md` — stable API/versioning policy.
+- [CRATES.md](CRATES.md), [EXAMPLES.md](EXAMPLES.md), [SHADERS.md](SHADERS.md) — workspace maps.
+- `m9-numerical-policy.md` — numerical mode guarantees.
 - `M27_BENCHMARK_HARNESS.md`, `M28_*` — measurement and baseline generations.
 - `M29_RUNTIME_TELEMETRY.md` — observability contract.
 - `M34_VULKAN_LINUX.md`, `M36_METAL.md` — backend qualification evidence boundaries.
 - `M38_PROPERTY_STRESS.md`, `M39_HOST_API_FUZZING.md` — robustness/safety gates.
 - `M40_BENCHMARK_MANIFESTS.md` — reproducible machine-readable benchmark provenance.
-- `LICENSE.md`, `LICENSING.md`, `THIRD_PARTY_LICENSES.md` — ownership/licensing boundary.
+- `LICENSE.md`, `LICENSING.md`, `THIRD_PARTY_LICENSES.md` — ownership/licensing boundary (PolyForm Noncommercial 1.0.0, same as SciRust).

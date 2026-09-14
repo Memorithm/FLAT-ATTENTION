@@ -50,6 +50,21 @@ The permanent device gate runs repeated executions and compares `f32::to_bits()`
 
 This guarantee is intentionally local. M9 does **not** promise identical bit patterns across GPU vendors, driver versions, shader compilers or different transcendental implementations.
 
+## Comparison bands in code
+
+The policy above is executable in `src/numerical_tol.rs` and
+`NumericalMode::matches_reference`:
+
+| Comparison | Code contract |
+|------------|---------------|
+| ExactReference vs oracle | `f32::to_bits()` equality (`EXACT_REFERENCE_BITS`) |
+| FastPortable / DeterministicPortable f32 vs oracle | `FAST_PORTABLE_ABS_ATOL = 1e-4`, `FAST_PORTABLE_REL_RTOL = 1e-3` |
+| Packed-binary16 I/O promoted to FP32 | `PACKED_F16_ABS_ATOL = 2e-3`, `PACKED_F16_REL_RTOL = 5e-3` |
+
+These constants describe **how a test may compare** a result to the oracle. They do not change kernel arithmetic and they are not a performance claim.
+
+`ExactReference` returns no atol/rtol pair (`comparison_tolerance` is `None`): bit equality is the only accepted check.
+
 ## Shared stable-softmax policy
 
 All modes retain the same algorithmic invariant:
