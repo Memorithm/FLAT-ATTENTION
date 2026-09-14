@@ -3,11 +3,12 @@
 //! Physical storage is `[physical_pages, page_size, kv_heads * head_dim]`.
 //! Logical token placement is owned by [`PagedKvTable`]. Appends copy only newly
 //! produced rows from caller-owned resident buffers into their final physical
-//! page locations. Existing live K/V rows are never compacted or recopied.
+//! page locations. Existing live K/V rows are never compacted or recopied by append.
 //!
-//! This type records device-to-device copies only. It never maps, polls,
-//! submits, synchronizes, or performs a host round-trip unless the caller uses
-//! [`WgpuPagedKvCache::append_and_submit`], the managed convenience path.
+//! This type never maps, polls, synchronizes, or performs a host payload round-trip.
+//! The managed [`WgpuPagedKvCache::append_and_submit`] and
+//! [`WgpuPagedKvCache::fork_prefix_and_submit`] paths own and submit their encoders.
+//! Fork explicitly copies a live prefix into independent resident storage.
 
 use core::fmt;
 use std::sync::Arc;
@@ -83,6 +84,11 @@ pub enum WgpuPagedKvCacheError {
     BranchEpochOverflow,
     ForeignCheckpoint,
     UnsubmittedRecordedWrites,
+    /// A physical fork cannot read beyond the source's live prefix.
+    ForkPrefixOutOfBounds {
+        requested_len: usize,
+        current_len: usize,
+    },
     CheckpointGenerationMismatch {
         checkpoint_generation: u64,
         current_generation: u64,
@@ -130,7 +136,14 @@ impl fmt::Display for WgpuPagedKvCacheError {
             ),
             Self::UnsubmittedRecordedWrites => write!(
                 f,
-                "destructive paged resident KV transition is blocked because externally recorded GPU writes may still be submit-able"
+                "paged resident KV operation is blocked because externally recorded GPU writes may still be submit-able"
+            ),
+            Self::ForkPrefixOutOfBounds {
+                requested_len,
+                current_len,
+            } => write!(
+                f,
+                "paged resident KV fork prefix {requested_len} exceeds current live length {current_len}"
             ),
             Self::CheckpointGenerationMismatch {
                 checkpoint_generation,
@@ -446,6 +459,149 @@ impl WgpuPagedKvCache {
         self.table.truncate(new_len)?;
         self.branch_epoch = next_branch_epoch;
         Ok(())
+    }
+
+    /// Copy a live prefix into a new independent cache and submit the copies.
+    ///
+    /// Unlike [`Self::checkpoint`], this preserves K/V bytes independently of
+    /// subsequent source truncate/reset/reappend operations. The child has a new
+    /// cache-instance token, generation zero and branch epoch zero. Parent and
+    /// child checkpoints are never interchangeable. No pages or buffers are shared:
+    /// this is an eager device-to-device copy, not copy-on-write.
+    ///
+    /// `destination_config` explicitly controls the new allocation, and may use
+    /// a different page size. Exactly `prefix_len` logical rows are copied using
+    /// both page tables; unused capacity and a partial page's stale tail are not
+    /// copied. Logical positions and existing RoPE-rotated K bytes are unchanged.
+    /// Zero length creates an independent empty cache with the requested capacity.
+    ///
+    /// # Ordering and scope
+    ///
+    /// `device`, `queue` and all cache buffers must belong to the same WGPU device.
+    /// Source writes must already be submitted to this queue. Externally recorded
+    /// appends are rejected, even if the caller subsequently submitted them, because
+    /// their submission provenance cannot be established by this API. The owned
+    /// encoder never escapes. The return value proves submission, not completion;
+    /// later work on the same queue observes the fork in queue order without a host
+    /// wait. Raw buffer writes outside the managed cache API remain the caller's
+    /// responsibility and must not race this operation.
+    ///
+    /// # Cost
+    ///
+    /// The requested child allocation is two buffers of
+    /// `destination_capacity * kv_heads * head_dim * size_of::<f32>()` bytes.
+    /// Copy commands cover that row width times `prefix_len` for each of K and V.
+    /// This does not measure physical traffic or save memory. No host payload
+    /// readback, quantization, cross-model mapping or model-state snapshot occurs.
+    ///
+    /// # Errors
+    ///
+    /// Rejects tainted writes, a prefix beyond the live source, insufficient child
+    /// capacity, invalid geometry, arithmetic overflow and declared device limits.
+    /// A returned error leaves the source unchanged and submits no fork commands.
+    /// WGPU device/validation/allocation errors retain WGPU's own error semantics,
+    /// as in [`Self::new`]; this is not a device-loss recovery mechanism.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use flat_attention::paged_kv::{PagedKvConfig, WgpuPagedKvCache, WgpuPagedKvCacheError};
+    /// # fn example(device: &wgpu::Device, queue: &wgpu::Queue, source: &mut WgpuPagedKvCache)
+    /// # -> Result<(), WgpuPagedKvCacheError> {
+    /// let (mut control, _submission) = source.fork_prefix_and_submit(
+    ///     device, queue, source.len(), source.config(),
+    /// )?;
+    /// source.reset()?; // Reusing source pages cannot overwrite control's copies.
+    /// let checkpoint = control.checkpoint();
+    /// control.restore(&checkpoint)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn fork_prefix_and_submit(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        prefix_len: usize,
+        destination_config: PagedKvConfig,
+    ) -> Result<(Self, wgpu::SubmissionIndex), WgpuPagedKvCacheError> {
+        if self.unsubmitted_recorded_writes {
+            return Err(WgpuPagedKvCacheError::UnsubmittedRecordedWrites);
+        }
+        if prefix_len > self.len() {
+            return Err(WgpuPagedKvCacheError::ForkPrefixOutOfBounds {
+                requested_len: prefix_len,
+                current_len: self.len(),
+            });
+        }
+        let capacity = destination_config.capacity_tokens()?;
+        if prefix_len > capacity {
+            return Err(PagedKvError::CapacityExceeded {
+                requested: prefix_len,
+                capacity,
+            }
+            .into());
+        }
+
+        let mut child = Self::new(device, destination_config, self.kv_heads, self.head_dim)?;
+        child.table.append(prefix_len)?;
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("flat-m16-paged-kv-prefix-fork"),
+        });
+        let mut logical = 0usize;
+        while logical < prefix_len {
+            let source = self
+                .table
+                .address(logical)
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            let destination = child
+                .table
+                .address(logical)
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            let source_remaining = self.config().page_size - source.offset_in_page;
+            let destination_remaining = destination_config.page_size - destination.offset_in_page;
+            let rows = source_remaining
+                .min(destination_remaining)
+                .min(prefix_len - logical);
+            let source_row = source
+                .physical_page
+                .checked_mul(self.config().page_size)
+                .and_then(|row| row.checked_add(source.offset_in_page))
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            let destination_row = destination
+                .physical_page
+                .checked_mul(destination_config.page_size)
+                .and_then(|row| row.checked_add(destination.offset_in_page))
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            let source_offset = checked_u64_mul(source_row, self.row_bytes)?;
+            let destination_offset = checked_u64_mul(destination_row, self.row_bytes)?;
+            let copy_bytes = checked_u64_mul(rows, self.row_bytes)?;
+            let source_end = source_offset
+                .checked_add(copy_bytes)
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            let destination_end = destination_offset
+                .checked_add(copy_bytes)
+                .ok_or(WgpuPagedKvCacheError::ShapeOverflow)?;
+            if rows == 0 || source_end > self.tensor_bytes || destination_end > child.tensor_bytes {
+                return Err(WgpuPagedKvCacheError::ShapeOverflow);
+            }
+            encoder.copy_buffer_to_buffer(
+                &self.k,
+                source_offset,
+                &child.k,
+                destination_offset,
+                copy_bytes,
+            );
+            encoder.copy_buffer_to_buffer(
+                &self.v,
+                source_offset,
+                &child.v,
+                destination_offset,
+                copy_bytes,
+            );
+            logical += rows;
+        }
+        let submission = queue.submit(Some(encoder.finish()));
+        Ok((child, submission))
     }
 
     /// Record and submit one append using an encoder owned by this method.
