@@ -814,7 +814,7 @@ mod tests {
             &[AlgebraDomain::Boolean, AlgebraDomain::F2]
         );
         assert_eq!(evidence.boolean_only().score_work_avoided(), 1);
-        assert_eq!(evidence.multi_algebra().score_work_avoided_vs_dense_for_test(), 2);
+        assert_eq!(evidence.multi_algebra().score_work_avoided(), 2);
         assert_eq!(evidence.additional_score_work_avoided_vs_boolean(), 1);
         assert_eq!(evidence.multi_algebra().score_reduction_ppm(), 500_000);
         assert_eq!(

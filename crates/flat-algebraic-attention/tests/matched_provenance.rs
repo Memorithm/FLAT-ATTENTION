@@ -7,16 +7,12 @@ use flat_algebraic_attention::evidence::{
     ArmEvidence, EvidenceArm, EvidenceError, LatencyObservation, MatchedAttentionEvidence,
     MatchedWorkloadIdentity,
 };
-use flat_algebraic_attention::experiment::{
-    derive_matched_host_evidence, MatchedExperimentError,
-};
+use flat_algebraic_attention::experiment::{derive_matched_host_evidence, MatchedExperimentError};
 use flat_algebraic_attention::f2::{F2AffinePredicate, F2Vector};
 use flat_algebraic_attention::qualification::{
     CandidateQualificationInputs, F2CandidateEvaluation, RecompositionPolicy,
 };
-use flat_algebraic_attention::survivor_set::{
-    qualify_survivor_set, CandidateFrame, SurvivorSet,
-};
+use flat_algebraic_attention::survivor_set::{qualify_survivor_set, CandidateFrame, SurvivorSet};
 
 const POLICY: RecompositionPolicy = RecompositionPolicy::AllSelectedMustQualify;
 
@@ -119,7 +115,9 @@ fn different_mask_with_equal_counts_cannot_relabel_an_oracle() {
     let survivors = batch(&source, &canonical(4), &[true; 4]);
     assert_eq!(
         derive(&target, &survivors, &[]),
-        Err(MatchedExperimentError::Evidence(EvidenceError::OracleRouteMismatch))
+        Err(MatchedExperimentError::Evidence(
+            EvidenceError::OracleRouteMismatch
+        ))
     );
 }
 
@@ -131,7 +129,9 @@ fn metadata_generation_and_signature_are_bound_even_when_masks_match() {
     for target in targets {
         assert_eq!(
             derive(&target, &survivors, &[]),
-            Err(MatchedExperimentError::Evidence(EvidenceError::OracleRouteMismatch))
+            Err(MatchedExperimentError::Evidence(
+                EvidenceError::OracleRouteMismatch
+            ))
         );
     }
     assert_eq!(survivors.qualification_route(), &source);
@@ -155,7 +155,9 @@ fn another_domain_selection_cannot_relabel_an_oracle() {
     .unwrap();
     assert_eq!(
         derive(&target, &survivors, &[]),
-        Err(MatchedExperimentError::Evidence(EvidenceError::OracleRouteMismatch))
+        Err(MatchedExperimentError::Evidence(
+            EvidenceError::OracleRouteMismatch
+        ))
     );
 }
 
@@ -165,7 +167,13 @@ fn input_order_may_change_without_changing_candidate_identity() {
     let survivors = batch(&route, &[(3, 3), (1, 1), (2, 2), (0, 0)], &[true; 4]);
     assert_eq!(survivors.survivor_indices(), &[2, 0]);
     assert_eq!(survivors.first_noncanonical_boolean_candidate(), None);
-    assert_eq!(derive(&route, &survivors, &[0, 2]).unwrap().multi_algebra().retained_relevant(), 2);
+    assert_eq!(
+        derive(&route, &survivors, &[0, 2])
+            .unwrap()
+            .multi_algebra()
+            .retained_relevant(),
+        2
+    );
 }
 
 #[test]
@@ -176,8 +184,19 @@ fn low_level_constructor_cannot_forge_boolean_control_count() {
     let boolean = ArmEvidence::new(EvidenceArm::BooleanOnlyControl, 4, 3, 3, 0, 0, None).unwrap();
     let multi = ArmEvidence::new(EvidenceArm::MultiAlgebraCandidate, 4, 2, 2, 0, 0, None).unwrap();
     assert_eq!(
-        MatchedAttentionEvidence::new(identity(4), dense, boolean, multi, &route, POLICY, &survivors),
-        Err(EvidenceError::OracleBooleanSurvivorMismatch { evidence: 3, oracle: 2 })
+        MatchedAttentionEvidence::new(
+            identity(4),
+            dense,
+            boolean,
+            multi,
+            &route,
+            POLICY,
+            &survivors
+        ),
+        Err(EvidenceError::OracleBooleanSurvivorMismatch {
+            evidence: 3,
+            oracle: 2
+        })
     );
 }
 
@@ -189,7 +208,15 @@ fn nested_relevance_cannot_lose_more_labels_than_removed_candidates() {
     let boolean = ArmEvidence::new(EvidenceArm::BooleanOnlyControl, 4, 3, 3, 2, 2, None).unwrap();
     let multi = ArmEvidence::new(EvidenceArm::MultiAlgebraCandidate, 4, 2, 2, 2, 0, None).unwrap();
     assert_eq!(
-        MatchedAttentionEvidence::new(identity(4), dense, boolean, multi, &route, POLICY, &survivors),
+        MatchedAttentionEvidence::new(
+            identity(4),
+            dense,
+            boolean,
+            multi,
+            &route,
+            POLICY,
+            &survivors
+        ),
         Err(EvidenceError::NonNestedRelevantCounts {
             boolean_only: 2,
             multi_algebra: 0,
@@ -206,12 +233,17 @@ fn all_four_bit_masks_predicates_and_labels_match_independent_sets() {
         for predicate_mask in 0u64..16 {
             let pass: Vec<_> = (0..4).map(|i| predicate_mask & (1 << i) != 0).collect();
             let survivors = batch(&route, &canonical(4), &pass);
-            let expected: Vec<_> = (0..4).filter(|i| mask & predicate_mask & (1 << i) != 0).collect();
+            let expected: Vec<_> = (0..4)
+                .filter(|i| mask & predicate_mask & (1 << i) != 0)
+                .collect();
             assert_eq!(survivors.survivor_indices(), expected);
             for relevant_mask in 0u64..16 {
                 let relevant: Vec<_> = (0..4).filter(|i| relevant_mask & (1 << i) != 0).collect();
                 let evidence = derive(&route, &survivors, &relevant).unwrap();
-                assert_eq!(evidence.boolean_only().survivor_count(), mask.count_ones() as usize);
+                assert_eq!(
+                    evidence.boolean_only().survivor_count(),
+                    mask.count_ones() as usize
+                );
                 assert_eq!(evidence.multi_algebra().survivor_count(), expected.len());
                 assert_eq!(
                     evidence.multi_algebra().retained_relevant(),
@@ -256,7 +288,10 @@ fn intersection_bounds_match_exhaustive_sets_not_just_inequalities() {
                         retained as usize,
                         None,
                     );
-                    assert_eq!(evidence.is_ok(), possible.contains(&(survivors, relevant, retained)));
+                    assert_eq!(
+                        evidence.is_ok(),
+                        possible.contains(&(survivors, relevant, retained))
+                    );
                 }
             }
         }
@@ -275,7 +310,11 @@ fn observed_latency_extrema_match_exhaustive_sample_sequences() {
                 value /= 4;
             }
             let total: u128 = samples.iter().map(|&x| u128::from(x)).sum();
-            possible.insert((total, *samples.iter().min().unwrap(), *samples.iter().max().unwrap()));
+            possible.insert((
+                total,
+                *samples.iter().min().unwrap(),
+                *samples.iter().max().unwrap(),
+            ));
         }
         for min in 0..4 {
             for max in 0..4 {

@@ -135,6 +135,8 @@ The original foundation plan was expanded into smaller reviewable slices as the 
 - **MAA-5**: per-candidate multi-algebra qualification with explicit policy-defined recomposition.
 - **MAA-6**: deterministic survivor-set construction with per-domain rejection attribution.
 - **MAA-7**: schema-versioned matched host evidence versus dense FLAT and Boolean-only routing.
+- **MAA-8**: derive matched arms from the canonical mask, survivor oracle and one reference relevance set.
+- **MAA-9**: bind evidence to its original route, metadata generation and candidate mapping; validate realizable intersection and observed-latency summaries. See [integrity gates and continuation protocol](MAA_EVIDENCE_INTEGRITY.md).
 - **MAA-GPU**: portable WGPU candidates only after host evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
