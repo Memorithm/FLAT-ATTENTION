@@ -9,4 +9,5 @@
 pub mod cooperation;
 pub mod f2;
 pub mod max_plus;
+pub mod qualification;
 pub mod zhegalkin;
