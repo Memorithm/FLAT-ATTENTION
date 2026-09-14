@@ -238,11 +238,7 @@ pub fn qualify_candidate(
         inputs.boolean_block.is_some(),
     )?;
     require_evaluation(route, AlgebraDomain::F2, inputs.f2.is_some())?;
-    require_evaluation(
-        route,
-        AlgebraDomain::Zhegalkin,
-        inputs.zhegalkin.is_some(),
-    )?;
+    require_evaluation(route, AlgebraDomain::Zhegalkin, inputs.zhegalkin.is_some())?;
     require_evaluation(route, AlgebraDomain::MaxPlus, inputs.max_plus.is_some())?;
 
     let boolean = if let Some(block_index) = inputs.boolean_block {
@@ -283,15 +279,12 @@ pub fn qualify_candidate(
         })
         .transpose()?;
 
-    let max_plus = inputs
-        .max_plus
-        .map(|evaluation| evaluate_max_plus(evaluation))
-        .transpose()?;
+    let max_plus = inputs.max_plus.map(evaluate_max_plus).transpose()?;
 
-    let all_qualified = boolean.map_or(true, |decision| decision.qualified())
-        && f2.map_or(true, |decision| decision.qualified())
-        && zhegalkin.map_or(true, |decision| decision.qualified())
-        && max_plus.map_or(true, |decision| decision.qualified());
+    let all_qualified = boolean.is_none_or(|decision| decision.qualified())
+        && f2.is_none_or(|decision| decision.qualified())
+        && zhegalkin.is_none_or(|decision| decision.qualified())
+        && max_plus.is_none_or(|decision| decision.qualified());
 
     let disposition = match policy {
         RecompositionPolicy::AllSelectedMustQualify if all_qualified => CandidateDisposition::Admit,
@@ -387,13 +380,10 @@ mod tests {
     fn all_four_domains_can_cooperate_without_losing_individual_verdicts() {
         let route = all_domain_route();
         let f2_input = F2Vector::from_bools(&[true, false]).unwrap();
-        let f2_predicate = F2AffinePredicate::new(
-            F2Vector::from_bools(&[true, false]).unwrap(),
-            false,
-        );
+        let f2_predicate =
+            F2AffinePredicate::new(F2Vector::from_bools(&[true, false]).unwrap(), false);
         let zhegalkin_input = F2Vector::from_bools(&[true, true]).unwrap();
-        let zhegalkin =
-            ZhegalkinPolynomial::from_variable_sets(2, vec![vec![0, 1]]).unwrap();
+        let zhegalkin = ZhegalkinPolynomial::from_variable_sets(2, vec![vec![0, 1]]).unwrap();
         let schedule = MaxPlusSchedule::new(2, vec![MaxPlusEdge::new(0, 1, 3)]).unwrap();
         let initial = [MaxPlusValue::Finite(0), MaxPlusValue::ZERO];
 
@@ -421,7 +411,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(decision.disposition(), CandidateDisposition::Admit);
-        assert_eq!(decision.recomposition_quality(), ConversionQuality::PolicyDefined);
+        assert_eq!(
+            decision.recomposition_quality(),
+            ConversionQuality::PolicyDefined
+        );
         assert!(decision.boolean().unwrap().qualified());
         assert!(decision.f2().unwrap().qualified());
         assert!(decision.zhegalkin().unwrap().qualified());
@@ -436,13 +429,10 @@ mod tests {
     fn one_domain_rejection_rejects_without_erasing_other_evidence() {
         let route = all_domain_route();
         let f2_input = F2Vector::from_bools(&[false, false]).unwrap();
-        let f2_predicate = F2AffinePredicate::new(
-            F2Vector::from_bools(&[true, false]).unwrap(),
-            false,
-        );
+        let f2_predicate =
+            F2AffinePredicate::new(F2Vector::from_bools(&[true, false]).unwrap(), false);
         let zhegalkin_input = F2Vector::from_bools(&[true, true]).unwrap();
-        let zhegalkin =
-            ZhegalkinPolynomial::from_variable_sets(2, vec![vec![0, 1]]).unwrap();
+        let zhegalkin = ZhegalkinPolynomial::from_variable_sets(2, vec![vec![0, 1]]).unwrap();
         let schedule = MaxPlusSchedule::new(2, vec![MaxPlusEdge::new(0, 1, 3)]).unwrap();
         let initial = [MaxPlusValue::Finite(0), MaxPlusValue::ZERO];
 
