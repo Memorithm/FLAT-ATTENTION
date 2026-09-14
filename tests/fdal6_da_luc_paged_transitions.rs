@@ -19,7 +19,7 @@ use flat_attention::paged_kv::{PagedKvConfig, WgpuPagedKvCache, WgpuPagedKvCache
 
 fn harness() -> Option<(wgpu::Device, wgpu::Queue)> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::VULKAN,
+        backends: wgpu::Backends::all(),
         ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -29,12 +29,10 @@ fn harness() -> Option<(wgpu::Device, wgpu::Queue)> {
         apply_limit_buckets: false,
     }));
     let Ok(adapter) = adapter else {
-        // Other backend qualification workflows run all tests with this flag.
-        // The dedicated FDAL6 gate explicitly requires Vulkan.
         if std::env::var_os("FLAT_REQUIRE_WGPU").is_some() {
-            panic!("FDAL6 page transition tests require a Vulkan adapter");
+            panic!("FDAL6 page transition tests require a WGPU adapter");
         }
-        eprintln!("Vulkan unavailable; optional FDAL6 page transition tests skipped");
+        eprintln!("WGPU unavailable; optional FDAL6 page transition tests skipped");
         return None;
     };
     Some(
