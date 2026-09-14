@@ -143,7 +143,9 @@ impl SurvivorSet {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SurvivorSetError {
-    DuplicateCandidateIndex { candidate_index: usize },
+    DuplicateCandidateIndex {
+        candidate_index: usize,
+    },
     CandidateQualification {
         candidate_index: usize,
         source: QualificationError,
@@ -235,16 +237,10 @@ fn rejected_domains(
     if decision.f2().is_some_and(|value| !value.qualified()) {
         domains.push(AlgebraDomain::F2);
     }
-    if decision
-        .zhegalkin()
-        .is_some_and(|value| !value.qualified())
-    {
+    if decision.zhegalkin().is_some_and(|value| !value.qualified()) {
         domains.push(AlgebraDomain::Zhegalkin);
     }
-    if decision
-        .max_plus()
-        .is_some_and(|value| !value.qualified())
-    {
+    if decision.max_plus().is_some_and(|value| !value.qualified()) {
         domains.push(AlgebraDomain::MaxPlus);
     }
     domains
@@ -465,7 +461,10 @@ mod tests {
             None,
         )
         .unwrap();
-        let candidates = [CandidateFrame::new(42, CandidateQualificationInputs::default())];
+        let candidates = [CandidateFrame::new(
+            42,
+            CandidateQualificationInputs::default(),
+        )];
 
         assert_eq!(
             qualify_survivor_set(
@@ -493,12 +492,8 @@ mod tests {
         )
         .unwrap();
 
-        let result = qualify_survivor_set(
-            &route,
-            &[],
-            RecompositionPolicy::AllSelectedMustQualify,
-        )
-        .unwrap();
+        let result =
+            qualify_survivor_set(&route, &[], RecompositionPolicy::AllSelectedMustQualify).unwrap();
         assert_eq!(result.evaluated(), 0);
         assert!(result.survivor_indices().is_empty());
         assert!(result.rejections().is_empty());
