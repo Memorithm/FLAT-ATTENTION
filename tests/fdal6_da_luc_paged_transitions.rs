@@ -57,7 +57,9 @@ fn source(device: &wgpu::Device, rows: usize) -> wgpu::Buffer {
 fn append(device: &wgpu::Device, queue: &wgpu::Queue, cache: &mut WgpuPagedKvCache, rows: usize) {
     let k = source(device, rows);
     let v = source(device, rows);
-    cache.append_and_submit(device, queue, &k, &v, rows).unwrap();
+    cache
+        .append_and_submit(device, queue, &k, &v, rows)
+        .unwrap();
 }
 
 fn seeded(device: &wgpu::Device, queue: &wgpu::Queue) -> WgpuPagedKvCache {
@@ -211,7 +213,9 @@ fn reordered_catalog_produces_canonical_page_changes_with_partial_tail() {
         ]
     );
     assert_eq!(
-        next.transitions_from(&previous, &cache).unwrap().transitions(),
+        next.transitions_from(&previous, &cache)
+            .unwrap()
+            .transitions(),
         plan.transitions()
     );
     plan.validate_cache(&cache).unwrap();
