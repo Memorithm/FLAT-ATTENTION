@@ -116,16 +116,14 @@ pub fn derive_matched_host_evidence(
         .collect::<BTreeSet<_>>();
     let multi_retained_relevant = relevant.intersection(&multi_survivors).count();
 
-    let (dense_latency, boolean_latency, multi_latency) = latency.map_or(
-        (None, None, None),
-        |latency| {
-            (
-                Some(latency.dense),
-                Some(latency.boolean_only),
-                Some(latency.multi_algebra),
-            )
-        },
-    );
+    let (dense_latency, boolean_latency, multi_latency) = match latency {
+        Some(latency) => (
+            Some(latency.dense),
+            Some(latency.boolean_only),
+            Some(latency.multi_algebra),
+        ),
+        None => (None, None, None),
+    };
 
     let reference_relevant = relevant.len();
     let dense = ArmEvidence::new(
