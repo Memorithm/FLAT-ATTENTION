@@ -76,6 +76,8 @@ pub struct LatencyObservation {
 }
 
 impl LatencyObservation {
+    /// Validate a summary whose minimum and maximum were actually observed.
+    /// This establishes arithmetic consistency, not measurement provenance.
     pub fn new(
         sample_count: u64,
         total_ns: u128,
@@ -89,8 +91,10 @@ impl LatencyObservation {
             return Err(EvidenceError::InvalidLatencyRange { min_ns, max_ns });
         }
         let samples = u128::from(sample_count);
-        let lower = u128::from(min_ns) * samples;
-        let upper = u128::from(max_ns) * samples;
+        // Both extrema must occur. With one sample and distinct extrema this
+        // interval is empty, correctly rejecting an impossible observation.
+        let lower = u128::from(min_ns) * (samples - 1) + u128::from(max_ns);
+        let upper = u128::from(max_ns) * (samples - 1) + u128::from(min_ns);
         if !(lower..=upper).contains(&total_ns) {
             return Err(EvidenceError::InvalidLatencyTotal {
                 sample_count,
@@ -198,6 +202,16 @@ impl ArmEvidence {
                     retained_relevant,
                 });
             }
+        }
+        let minimum = reference_relevant.saturating_sub(candidate_count - survivor_count);
+        let maximum = reference_relevant.min(survivor_count);
+        if !(minimum..=maximum).contains(&retained_relevant) {
+            return Err(EvidenceError::ImpossibleRelevantIntersection {
+                arm,
+                retained_relevant,
+                minimum,
+                maximum,
+            });
         }
         Ok(Self {
             arm,
@@ -325,6 +339,15 @@ impl MatchedAttentionEvidence {
                 multi_algebra: multi_algebra.retained_relevant(),
             });
         }
+        let removed = boolean_only.survivor_count() - multi_algebra.survivor_count();
+        let minimum = boolean_only.retained_relevant().saturating_sub(removed);
+        if multi_algebra.retained_relevant() < minimum {
+            return Err(EvidenceError::NonNestedRelevantCounts {
+                boolean_only: boolean_only.retained_relevant(),
+                multi_algebra: multi_algebra.retained_relevant(),
+                minimum,
+            });
+        }
         if survivor_set.evaluated() != identity.candidate_count() {
             return Err(EvidenceError::OracleEvaluatedMismatch {
                 expected: identity.candidate_count(),
@@ -338,6 +361,7 @@ impl MatchedAttentionEvidence {
             });
         }
 
+        validate_oracle_binding(&boolean_only, route, policy, survivor_set)?;
         validate_latency_triplet(&dense, &boolean_only, &multi_algebra)?;
 
         Ok(Self {
@@ -441,6 +465,12 @@ pub enum EvidenceError {
         retained_relevant: usize,
         reference_relevant: usize,
     },
+    ImpossibleRelevantIntersection {
+        arm: EvidenceArm,
+        retained_relevant: usize,
+        minimum: usize,
+        maximum: usize,
+    },
     DenseDidNotScoreAll {
         candidate_count: usize,
         survivor_count: usize,
@@ -473,6 +503,11 @@ pub enum EvidenceError {
         boolean_only: usize,
         multi_algebra: usize,
     },
+    NonNestedRelevantCounts {
+        boolean_only: usize,
+        multi_algebra: usize,
+        minimum: usize,
+    },
     OracleEvaluatedMismatch {
         expected: usize,
         actual: usize,
@@ -480,6 +515,22 @@ pub enum EvidenceError {
     OracleSurvivorMismatch {
         evidence: usize,
         oracle: usize,
+    },
+    OracleRouteMismatch,
+    OraclePolicyMismatch,
+    NonCanonicalBooleanMapping {
+        candidate_index: usize,
+    },
+    OracleBooleanSurvivorMismatch {
+        evidence: usize,
+        oracle: usize,
+    },
+    OracleCandidateOutOfBounds {
+        candidate_index: usize,
+        candidate_count: usize,
+    },
+    OracleSurvivorRejectedByBoolean {
+        candidate_index: usize,
     },
     IncompleteLatencyTriplet,
     LatencySampleCountMismatch {
@@ -511,6 +562,68 @@ fn require_arm(expected: EvidenceArm, actual: EvidenceArm) -> Result<(), Evidenc
     } else {
         Err(EvidenceError::ArmKindMismatch { expected, actual })
     }
+}
+
+fn validate_oracle_binding(
+    boolean_only: &ArmEvidence,
+    route: &AlgebraicRoute,
+    policy: RecompositionPolicy,
+    survivors: &SurvivorSet,
+) -> Result<(), EvidenceError> {
+    if survivors.qualification_route() != route {
+        return Err(EvidenceError::OracleRouteMismatch);
+    }
+    if survivors.qualification_policy() != policy {
+        return Err(EvidenceError::OraclePolicyMismatch);
+    }
+    if let Some(candidate_index) = survivors.first_noncanonical_boolean_candidate() {
+        return Err(EvidenceError::NonCanonicalBooleanMapping { candidate_index });
+    }
+    let boolean = route
+        .boolean_evidence()
+        .ok_or(EvidenceError::RouteMissingBoolean)?;
+    let candidate_count = boolean_only.candidate_count();
+    if boolean.blocks() != candidate_count {
+        return Err(EvidenceError::CandidateCountMismatch {
+            arm: EvidenceArm::BooleanOnlyControl,
+            expected: candidate_count,
+            actual: boolean.blocks(),
+        });
+    }
+    let oracle = boolean
+        .mask_words()
+        .iter()
+        .map(|word| word.count_ones() as usize)
+        .sum();
+    if boolean_only.survivor_count() != oracle {
+        return Err(EvidenceError::OracleBooleanSurvivorMismatch {
+            evidence: boolean_only.survivor_count(),
+            oracle,
+        });
+    }
+    // The factory enforces unique candidate IDs. Equal evaluated count and
+    // these bounds therefore prove a complete partition of the block space.
+    let indices = survivors
+        .survivor_indices()
+        .iter()
+        .copied()
+        .chain(survivors.rejections().iter().map(|r| r.candidate_index()));
+    for candidate_index in indices {
+        if candidate_index >= candidate_count {
+            return Err(EvidenceError::OracleCandidateOutOfBounds {
+                candidate_index,
+                candidate_count,
+            });
+        }
+    }
+    for &candidate_index in survivors.survivor_indices() {
+        let word = boolean.mask_words()[candidate_index / u64::BITS as usize];
+        let bit = 1u64 << (candidate_index % u64::BITS as usize);
+        if word & bit == 0 {
+            return Err(EvidenceError::OracleSurvivorRejectedByBoolean { candidate_index });
+        }
+    }
+    Ok(())
 }
 
 fn validate_latency_triplet(
@@ -639,7 +752,7 @@ mod tests {
     }
 
     fn latency(total_ns: u128) -> LatencyObservation {
-        LatencyObservation::new(10, total_ns, 90, 200).unwrap()
+        LatencyObservation::new(10, total_ns, 80, 200).unwrap()
     }
 
     fn dense(with_latency: bool) -> ArmEvidence {
@@ -701,7 +814,7 @@ mod tests {
             &[AlgebraDomain::Boolean, AlgebraDomain::F2]
         );
         assert_eq!(evidence.boolean_only().score_work_avoided(), 1);
-        assert_eq!(evidence.multi_algebra().score_work_avoided(), 2);
+        assert_eq!(evidence.multi_algebra().score_work_avoided_vs_dense_for_test(), 2);
         assert_eq!(evidence.additional_score_work_avoided_vs_boolean(), 1);
         assert_eq!(evidence.multi_algebra().score_reduction_ppm(), 500_000);
         assert_eq!(
