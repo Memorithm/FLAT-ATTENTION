@@ -8,6 +8,7 @@
 
 pub mod cooperation;
 pub mod evidence;
+pub mod experiment;
 pub mod f2;
 pub mod max_plus;
 pub mod qualification;
