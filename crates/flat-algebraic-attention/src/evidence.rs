@@ -580,8 +580,7 @@ mod tests {
             Some(boolean),
         )
         .unwrap();
-        let predicate =
-            F2AffinePredicate::new(F2Vector::from_bools(&[true]).unwrap(), false);
+        let predicate = F2AffinePredicate::new(F2Vector::from_bools(&[true]).unwrap(), false);
         let pass = F2Vector::from_bools(&[true]).unwrap();
         let fail = F2Vector::from_bools(&[false]).unwrap();
         let pass_eval = F2CandidateEvaluation {
