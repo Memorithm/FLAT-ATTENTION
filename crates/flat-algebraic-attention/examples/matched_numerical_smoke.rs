@@ -23,8 +23,8 @@ use flat_attention::api::boolean_attention_signature::{
     BooleanAttentionSignature, BOOLEAN_ATTENTION_SIGNATURE_SCHEMA_VERSION,
 };
 use flat_attention::{
-    forward_reference_grouped_asymmetric, AsymmetricGroupedAttentionShape,
-    FlatAttentionConfig, FlatAttentionOutput,
+    forward_reference_grouped_asymmetric, AsymmetricGroupedAttentionShape, FlatAttentionConfig,
+    FlatAttentionOutput,
 };
 
 const PROTOCOL: &str = "maa-numerical-smoke/v1";
@@ -63,53 +63,83 @@ fn require(condition: bool, message: &'static str) -> Result<()> {
 }
 
 fn frozen_cases() -> Vec<Case> {
-    ["all_accept", "constant_values", "dominant_key_dropped", "empty_selection"]
-        .into_iter()
-        .map(|id| {
-            let mut k = Vec::with_capacity(N * D);
-            let mut v = Vec::with_capacity(N * D);
-            for i in 0..N {
-                if id == "dominant_key_dropped" {
-                    k.extend_from_slice(&[if i == 2 { 12.0 } else { 0.0 }, 0.0]);
-                    let value = if i == 2 { 10.0 } else { 0.0 };
-                    v.extend_from_slice(&[value, -value]);
+    [
+        "all_accept",
+        "constant_values",
+        "dominant_key_dropped",
+        "empty_selection",
+    ]
+    .into_iter()
+    .map(|id| {
+        let mut k = Vec::with_capacity(N * D);
+        let mut v = Vec::with_capacity(N * D);
+        for i in 0..N {
+            if id == "dominant_key_dropped" {
+                k.extend_from_slice(&[if i == 2 { 12.0 } else { 0.0 }, 0.0]);
+                let value = if i == 2 { 10.0 } else { 0.0 };
+                v.extend_from_slice(&[value, -value]);
+            } else {
+                k.extend_from_slice(&[i as f32 / 4.0 - 1.0, (i % 3) as f32 - 1.0]);
+                if id == "constant_values" {
+                    v.extend_from_slice(&[2.0, -3.0]);
                 } else {
-                    k.extend_from_slice(&[i as f32 / 4.0 - 1.0, (i % 3) as f32 - 1.0]);
-                    if id == "constant_values" {
-                        v.extend_from_slice(&[2.0, -3.0]);
-                    } else {
-                        v.extend_from_slice(&[i as f32 / 8.0, 1.0 - i as f32 / 8.0]);
-                    }
+                    v.extend_from_slice(&[i as f32 / 8.0, 1.0 - i as f32 / 8.0]);
                 }
             }
-            let boolean = (0..N).map(|i| id == "all_accept" || (i != 3 && i != 7)).collect();
-            let features = (0..N)
-                .map(|i| {
-                    if id == "all_accept" {
-                        [true; 3]
-                    } else {
-                        [id != "empty_selection" && i % 2 == 0, i < 6, i != 2]
-                    }
-                })
-                .collect();
-            Case { id, q: vec![1.0, 0.0], k, v, boolean, features }
-        })
-        .collect()
+        }
+        let boolean = (0..N)
+            .map(|i| id == "all_accept" || (i != 3 && i != 7))
+            .collect();
+        let features = (0..N)
+            .map(|i| {
+                if id == "all_accept" {
+                    [true; 3]
+                } else {
+                    [id != "empty_selection" && i % 2 == 0, i < 6, i != 2]
+                }
+            })
+            .collect();
+        Case {
+            id,
+            q: vec![1.0, 0.0],
+            k,
+            v,
+            boolean,
+            features,
+        }
+    })
+    .collect()
 }
 
 fn validate_case(case: &Case) -> Result<()> {
     require(case.q.len() == D, "wrong query geometry")?;
-    require(case.k.len() == N * D && case.v.len() == N * D, "wrong KV geometry")?;
-    require(case.boolean.len() == N && case.features.len() == N, "wrong predicate geometry")?;
     require(
-        case.q.iter().chain(&case.k).chain(&case.v).all(|value| value.is_finite()),
+        case.k.len() == N * D && case.v.len() == N * D,
+        "wrong KV geometry",
+    )?;
+    require(
+        case.boolean.len() == N && case.features.len() == N,
+        "wrong predicate geometry",
+    )?;
+    require(
+        case.q
+            .iter()
+            .chain(&case.k)
+            .chain(&case.v)
+            .all(|value| value.is_finite()),
         "non-finite input, including rejected keys",
     )
 }
 
 fn validate_selection(indices: &[usize]) -> Result<()> {
-    require(indices.iter().all(|&i| i < N), "candidate index out of bounds")?;
-    require(indices.windows(2).all(|pair| pair[0] < pair[1]), "candidate IDs must be unique and ordered")
+    require(
+        indices.iter().all(|&i| i < N),
+        "candidate index out of bounds",
+    )?;
+    require(
+        indices.windows(2).all(|pair| pair[0] < pair[1]),
+        "candidate IDs must be unique and ordered",
+    )
 }
 
 /// No positional terms are present; all original keys are in the completed prefix.
@@ -139,10 +169,23 @@ fn evaluate(case: &Case, indices: &[usize]) -> Result<Option<FlatAttentionOutput
             head_dim: D,
             query_position_offset: N - 1,
         },
-        FlatAttentionConfig { causal: false, softmax_scale: Some(1.0) },
+        FlatAttentionConfig {
+            causal: false,
+            softmax_scale: Some(1.0),
+        },
     )?;
-    require(output.output.len() == D && output.lse.len() == 1, "unexpected oracle output geometry")?;
-    require(output.output.iter().chain(&output.lse).all(|x| x.is_finite()), "non-finite oracle result")?;
+    require(
+        output.output.len() == D && output.lse.len() == 1,
+        "unexpected oracle output geometry",
+    )?;
+    require(
+        output
+            .output
+            .iter()
+            .chain(&output.lse)
+            .all(|x| x.is_finite()),
+        "non-finite oracle result",
+    )?;
     Ok(Some(output))
 }
 
@@ -190,21 +233,52 @@ fn algebraic_selection(case: &Case, use_f2: bool, use_zhegalkin: bool) -> Result
     )?;
     let predicate = F2AffinePredicate::new(F2Vector::from_bools(&[true, false, false])?, false);
     let polynomial = ZhegalkinPolynomial::from_variable_sets(3, vec![vec![1, 2]])?;
-    let inputs = case.features.iter().map(|x| F2Vector::from_bools(x)).collect::<std::result::Result<Vec<_>, _>>()?;
-    let frames: Vec<_> = inputs.iter().enumerate().map(|(i, input)| {
-        CandidateFrame::new(i, CandidateQualificationInputs {
-            boolean_block: Some(i),
-            f2: use_f2.then_some(F2CandidateEvaluation { predicate: &predicate, input }),
-            zhegalkin: use_zhegalkin.then_some(ZhegalkinCandidateEvaluation { polynomial: &polynomial, input }),
-            max_plus: None,
+    let inputs = case
+        .features
+        .iter()
+        .map(|x| F2Vector::from_bools(x))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let frames: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .map(|(i, input)| {
+            CandidateFrame::new(
+                i,
+                CandidateQualificationInputs {
+                    boolean_block: Some(i),
+                    f2: use_f2.then_some(F2CandidateEvaluation {
+                        predicate: &predicate,
+                        input,
+                    }),
+                    zhegalkin: use_zhegalkin.then_some(ZhegalkinCandidateEvaluation {
+                        polynomial: &polynomial,
+                        input,
+                    }),
+                    max_plus: None,
+                },
+            )
         })
-    }).collect();
+        .collect();
     let survivors = qualify_survivor_set(&route, &frames, POLICY)?;
     // These fixed fixtures are versioned in source; this identifier is not a hash.
-    let identity = MatchedWorkloadIdentity::new(PROTOCOL, case.id, "source-fixture:v1:not-a-digest", N)?;
-    let evidence = derive_matched_host_evidence(identity, &[dense_top1(case)?], &route, POLICY, &survivors, None)?;
-    require(!evidence.has_matched_latency(), "synthetic smoke must not carry latency")?;
-    require(evidence.multi_algebra().survivor_count() == survivors.survivor_count(), "evidence mismatch")?;
+    let identity =
+        MatchedWorkloadIdentity::new(PROTOCOL, case.id, "source-fixture:v1:not-a-digest", N)?;
+    let evidence = derive_matched_host_evidence(
+        identity,
+        &[dense_top1(case)?],
+        &route,
+        POLICY,
+        &survivors,
+        None,
+    )?;
+    require(
+        !evidence.has_matched_latency(),
+        "synthetic smoke must not carry latency",
+    )?;
+    require(
+        evidence.multi_algebra().survivor_count() == survivors.survivor_count(),
+        "evidence mismatch",
+    )?;
     let indices = survivors.survivor_indices().to_vec();
     validate_selection(&indices)?;
     Ok(indices)
@@ -219,7 +293,10 @@ fn mixed_priority(mut value: u64) -> u64 {
 
 fn density_control(boolean: &[usize], count: usize, arm: &'static str) -> Result<Vec<usize>> {
     validate_selection(boolean)?;
-    require(count <= boolean.len(), "control exceeds available candidates")?;
+    require(
+        count <= boolean.len(),
+        "control exceeds available candidates",
+    )?;
     let mut indices = boolean.to_vec();
     match arm {
         "first" => {}
@@ -242,8 +319,11 @@ fn case_rows(case: &Case) -> Result<Vec<Row>> {
     let zhegalkin = algebraic_selection(case, false, true)?;
     let combined = algebraic_selection(case, true, true)?;
     let mut arms = vec![
-        ("dense", all), ("boolean", boolean.clone()), ("f2", f2),
-        ("zhegalkin", zhegalkin), ("combined", combined.clone()),
+        ("dense", all),
+        ("boolean", boolean.clone()),
+        ("f2", f2),
+        ("zhegalkin", zhegalkin),
+        ("combined", combined.clone()),
     ];
     for name in ["first", "last", "seeded_priority"] {
         arms.push((name, density_control(&boolean, combined.len(), name)?));
@@ -254,50 +334,97 @@ fn case_rows(case: &Case) -> Result<Vec<Row>> {
         let (output_error, lse_error) = match result {
             None => (None, None),
             Some(output) => {
-                let error = output.output.iter().zip(&dense.output)
-                    .map(|(&actual, &reference)| (actual - reference).abs()).fold(0.0f32, f32::max);
+                let error = output
+                    .output
+                    .iter()
+                    .zip(&dense.output)
+                    .map(|(&actual, &reference)| (actual - reference).abs())
+                    .fold(0.0f32, f32::max);
                 let lse = (output.lse[0] - dense.lse[0]).abs();
-                require(error.is_finite() && lse.is_finite(), "non-finite diagnostic")?;
+                require(
+                    error.is_finite() && lse.is_finite(),
+                    "non-finite diagnostic",
+                )?;
                 (Some(error), Some(lse))
             }
         };
-        rows.push(Row { case: case.id, arm, retained_top1: usize::from(indices.contains(&relevant)), indices, output_error, lse_error });
+        rows.push(Row {
+            case: case.id,
+            arm,
+            retained_top1: usize::from(indices.contains(&relevant)),
+            indices,
+            output_error,
+            lse_error,
+        });
     }
     Ok(rows)
 }
 
 fn row<'a>(rows: &'a [Row], case: &str, arm: &str) -> Result<&'a Row> {
-    rows.iter().find(|r| r.case == case && r.arm == arm).ok_or_else(|| "missing frozen arm".into())
+    rows.iter()
+        .find(|r| r.case == case && r.arm == arm)
+        .ok_or_else(|| "missing frozen arm".into())
 }
 
 fn validate_acceptance(rows: &[Row]) -> Result<()> {
     require(rows.len() == 32, "wrong number of frozen observations")?;
-    for arm in ["dense", "boolean", "f2", "zhegalkin", "combined", "first", "last", "seeded_priority"] {
+    for arm in [
+        "dense",
+        "boolean",
+        "f2",
+        "zhegalkin",
+        "combined",
+        "first",
+        "last",
+        "seeded_priority",
+    ] {
         let r = row(rows, "all_accept", arm)?;
-        require(r.indices.len() == N && r.output_error.is_some_and(|x| x <= 1e-6)
-            && r.lse_error.is_some_and(|x| x <= 1e-6), "all-accept parity failed")?;
+        require(
+            r.indices.len() == N
+                && r.output_error.is_some_and(|x| x <= 1e-6)
+                && r.lse_error.is_some_and(|x| x <= 1e-6),
+            "all-accept parity failed",
+        )?;
     }
     let constant = row(rows, "constant_values", "combined")?;
-    require(constant.output_error.is_some_and(|x| x <= 1e-6)
-        && constant.lse_error.is_some_and(|x| x > 1e-3), "constant-value O/LSE distinction failed")?;
+    require(
+        constant.output_error.is_some_and(|x| x <= 1e-6)
+            && constant.lse_error.is_some_and(|x| x > 1e-3),
+        "constant-value O/LSE distinction failed",
+    )?;
     let negative = row(rows, "dominant_key_dropped", "combined")?;
-    require(negative.retained_top1 == 0 && negative.output_error.is_some_and(|x| x > 9.0), "required negative control failed")?;
-    require(row(rows, "dominant_key_dropped", "f2")?.retained_top1 == 1, "F2 ablation lost the dominant key")?;
+    require(
+        negative.retained_top1 == 0 && negative.output_error.is_some_and(|x| x > 9.0),
+        "required negative control failed",
+    )?;
+    require(
+        row(rows, "dominant_key_dropped", "f2")?.retained_top1 == 1,
+        "F2 ablation lost the dominant key",
+    )?;
     for r in rows {
         validate_selection(&r.indices)?;
         if r.indices.is_empty() {
-            require(r.output_error.is_none() && r.lse_error.is_none() && r.retained_top1 == 0, "empty arm fabricated output")?;
+            require(
+                r.output_error.is_none() && r.lse_error.is_none() && r.retained_top1 == 0,
+                "empty arm fabricated output",
+            )?;
         }
     }
     let empty = row(rows, "empty_selection", "combined")?;
-    require(empty.indices.is_empty(), "empty-selection fixture is not empty")?;
+    require(
+        empty.indices.is_empty(),
+        "empty-selection fixture is not empty",
+    )?;
     for case in frozen_cases() {
         let boolean = row(rows, case.id, "boolean")?;
         let combined = row(rows, case.id, "combined")?;
         for name in ["first", "last", "seeded_priority"] {
             let control = row(rows, case.id, name)?;
-            require(control.indices.len() == combined.indices.len()
-                && control.indices.iter().all(|i| boolean.indices.contains(i)), "density control mismatch")?;
+            require(
+                control.indices.len() == combined.indices.len()
+                    && control.indices.iter().all(|i| boolean.indices.contains(i)),
+                "density control mismatch",
+            )?;
         }
     }
     Ok(())
@@ -315,11 +442,29 @@ fn run_suite() -> Result<Vec<Row>> {
 fn write_csv(writer: &mut impl Write, rows: &[Row]) -> Result<()> {
     writeln!(writer, "protocol,case,arm,candidates,score_evaluations,retained_top1,status,output_max_abs_error,lse_abs_error,selected_ids")?;
     for r in rows {
-        let status = if r.indices.is_empty() { "no_survivors" } else { "observed" };
-        let output = r.output_error.map_or_else(String::new, |x| format!("{x:.9e}"));
+        let status = if r.indices.is_empty() {
+            "no_survivors"
+        } else {
+            "observed"
+        };
+        let output = r
+            .output_error
+            .map_or_else(String::new, |x| format!("{x:.9e}"));
         let lse = r.lse_error.map_or_else(String::new, |x| format!("{x:.9e}"));
-        let ids = r.indices.iter().map(usize::to_string).collect::<Vec<_>>().join("|");
-        writeln!(writer, "{PROTOCOL},{},{},{N},{},{},{status},{output},{lse},{ids}", r.case, r.arm, r.indices.len(), r.retained_top1)?;
+        let ids = r
+            .indices
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join("|");
+        writeln!(
+            writer,
+            "{PROTOCOL},{},{},{N},{},{},{status},{output},{lse},{ids}",
+            r.case,
+            r.arm,
+            r.indices.len(),
+            r.retained_top1
+        )?;
     }
     Ok(())
 }
@@ -337,7 +482,12 @@ mod tests {
     fn all_frozen_criteria_pass_and_all_arms_are_reported() {
         let rows = run_suite().unwrap();
         assert_eq!(rows.len(), 32);
-        assert_eq!(row(&rows, "dominant_key_dropped", "combined").unwrap().indices, vec![0, 4]);
+        assert_eq!(
+            row(&rows, "dominant_key_dropped", "combined")
+                .unwrap()
+                .indices,
+            vec![0, 4]
+        );
     }
 
     #[test]
@@ -401,8 +551,10 @@ mod tests {
         }
         let rows = run_suite().unwrap();
         for arm in ["first", "last", "seeded_priority"] {
-            assert_eq!(row(&rows, "constant_values", arm).unwrap().indices,
-                row(&rows, "dominant_key_dropped", arm).unwrap().indices);
+            assert_eq!(
+                row(&rows, "constant_values", arm).unwrap().indices,
+                row(&rows, "dominant_key_dropped", arm).unwrap().indices
+            );
         }
         assert!(density_control(&boolean, boolean.len() + 1, "first").is_err());
         assert!(density_control(&boolean, 1, "unknown").is_err());

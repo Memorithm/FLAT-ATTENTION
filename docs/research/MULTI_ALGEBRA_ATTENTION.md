@@ -137,6 +137,7 @@ The original foundation plan was expanded into smaller reviewable slices as the 
 - **MAA-7**: schema-versioned matched host evidence versus dense FLAT and Boolean-only routing.
 - **MAA-8**: derive matched arms from the canonical mask, survivor oracle and one reference relevance set.
 - **MAA-9**: bind evidence to its original route, metadata generation and candidate mapping; validate realizable intersection and observed-latency summaries. See [integrity gates and continuation protocol](MAA_EVIDENCE_INTEGRITY.md).
+- **MAA-10a**: preregistered bounded numerical smoke through the existing FLAT oracle, with structural F2/Zhegalkin ablations, matched-density controls, O/LSE diagnostics and required negative/empty controls. See [protocol](MAA_NUMERICAL_SMOKE_PREREGISTRATION.md). Not a performance campaign or completion of full MAA-10.
 - **MAA-GPU**: portable WGPU candidates only after host evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
