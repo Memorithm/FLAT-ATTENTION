@@ -1,0 +1,52 @@
+name: maa-host
+
+on:
+  pull_request:
+    paths:
+      - 'crates/flat-algebraic-attention/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/maa-host.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/flat-algebraic-attention/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/maa-host.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+      - name: Record exact source revision
+        run: git rev-parse HEAD
+      - name: Check MAA formatting
+        run: cargo fmt -p flat-algebraic-attention -- --check
+      - name: Strict MAA Clippy
+        run: cargo clippy -p flat-algebraic-attention --locked --all-targets -- -D warnings
+      - name: Debug host oracle and exhaustive evidence regressions
+        run: cargo test -p flat-algebraic-attention --locked --all-targets -- --nocapture
+      - name: Release host oracle and exhaustive evidence regressions
+        run: cargo test -p flat-algebraic-attention --locked --release --all-targets -- --nocapture
+      - name: Strict MAA documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc -p flat-algebraic-attention --locked --no-deps
