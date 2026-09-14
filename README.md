@@ -31,6 +31,16 @@ See the [MAA contract](docs/research/MULTI_ALGEBRA_ATTENTION.md) and
 This is host correctness qualification, not a replacement for softmax or a GPU
 performance result. The stable attention API and default routing are unchanged.
 
+MAA-10a adds a [preregistered numerical smoke](docs/research/MAA_NUMERICAL_SMOKE_PREREGISTRATION.md)
+that executes the existing FLAT oracle on four frozen synthetic cases and eight
+arms per case. It includes per-domain ablations, density-matched controls, a
+required dominant-key-drop negative control, and explicit empty-selection handling.
+It does not measure latency or establish model-quality improvements.
+
+```bash
+cargo run -p flat-algebraic-attention --locked --release --example matched_numerical_smoke
+```
+
 ## Non-negotiable design rules
 
 - Rust is the host language.

@@ -46,6 +46,21 @@ jobs:
         run: cargo test -p flat-algebraic-attention --locked --all-targets -- --nocapture
       - name: Release host oracle and exhaustive evidence regressions
         run: cargo test -p flat-algebraic-attention --locked --release --all-targets -- --nocapture
+      - name: Frozen numerical smoke and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example matched_numerical_smoke > "$RUNNER_TEMP/maa-numerical-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example matched_numerical_smoke > "$RUNNER_TEMP/maa-numerical-second.csv"
+          cmp "$RUNNER_TEMP/maa-numerical-first.csv" "$RUNNER_TEMP/maa-numerical-second.csv"
+          cat "$RUNNER_TEMP/maa-numerical-first.csv"
+          {
+            echo '### MAA-10a synthetic numerical diagnostics (not performance evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-numerical-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
