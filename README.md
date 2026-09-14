@@ -18,6 +18,19 @@ while keeping the implementation under SciRust architectural control.
 - **Release policy**: A release is created only after the checklist and exact-head qualification gates in `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_POLICY.md` and related documents are satisfied. See also [`CHANGELOG.md`](CHANGELOG.md) and [`ROADMAP.md`](ROADMAP.md).
 - **Performance**: No speedup, throughput, latency or efficiency claim is accepted without a reproducible benchmark tied to an exact commit SHA and identified device.
 
+## Multi-Algebra Attention research
+
+The research-only `flat-algebraic-attention` crate coordinates Boolean admission,
+finite-field `F2` predicates, Zhegalkin polynomials and max-plus readiness constraints.
+MAA-8 derives matched dense / Boolean-only / multi-algebra evidence from canonical
+host oracles. MAA-9 binds those records to their qualification route, metadata
+generation and candidate identity, and rejects impossible coverage/timing summaries.
+
+See the [MAA contract](docs/research/MULTI_ALGEBRA_ATTENTION.md) and
+[MAA-9 integrity gates and next experiments](docs/research/MAA_EVIDENCE_INTEGRITY.md).
+This is host correctness qualification, not a replacement for softmax or a GPU
+performance result. The stable attention API and default routing are unchanged.
+
 ## Non-negotiable design rules
 
 - Rust is the host language.
