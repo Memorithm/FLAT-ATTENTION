@@ -54,7 +54,7 @@ P(x) = a_empty XOR XOR_{S != empty} a_S * product_{i in S} x_i
 
 with `x_i^2 = x_i`.
 
-MAA will explicitly decompose:
+MAA explicitly decomposes:
 
 ```text
 P(x) = L(x) XOR N(x)
@@ -73,7 +73,7 @@ a (*_plus) b = a + b
 
 with an explicit negative-infinity element.
 
-MAA will use max-plus only for temporal/readiness constraints unless later evidence justifies a broader role. Example:
+MAA uses max-plus only for temporal/readiness constraints unless later evidence justifies a broader role. Example:
 
 ```text
 t_route = max(t_query + d_signature,
@@ -101,6 +101,18 @@ Q/K state
 
 The domains are cooperative, not mandatory serial filters. A plan may legitimately use only a subset of them.
 
+## Matched evidence model
+
+Host qualification compares three arms under one workload identity and candidate geometry:
+
+1. dense qualified FLAT reference;
+2. Boolean-only M13B control;
+3. nested multi-algebra candidate using Boolean admission plus at least one additional algebraic domain.
+
+Logical score accounting and physical latency observations are deliberately separate. Avoided exact-score evaluations are algorithmic evidence only and must not be translated into latency, bandwidth, energy, or device-utilization claims. Latency evidence is comparable only when all three arms are present with matched sample counts. Survivor-quality evidence is recorded relative to the same dense-reference relevant set.
+
+For this first nested matched design, the multi-algebra arm is not allowed to resurrect work rejected by the Boolean control. Its recorded survivor set must agree with the deterministic host qualification oracle.
+
 ## Promotion rules
 
 No MAA component may enter the stable public API or default runtime routing until all applicable gates are satisfied:
@@ -114,15 +126,16 @@ No MAA component may enter the stable public API or default runtime routing unti
 - any performance claim is tied to reproducible real-device evidence;
 - quality/sparsity claims include dense and matched-control baselines.
 
-## Planned milestones
+## Implementation milestones
+
+The original foundation plan was expanded into smaller reviewable slices as the repository contracts became concrete:
 
 - **MAA-0**: mathematical contract and repository boundary.
-- **MAA-1**: packed deterministic `F2` vector, linear-map, and affine-predicate oracle.
-- **MAA-2**: canonical Zhegalkin representation with exact linear/nonlinear decomposition.
-- **MAA-3**: explicit max-plus values and deterministic readiness/critical-path oracle.
-- **MAA-4**: cooperation plan binding existing M13B Boolean metadata to the three new algebraic layers.
-- **MAA-5**: evidence schema and matched experiments versus dense FLAT and Boolean-only routing.
-- **MAA-GPU**: portable WGPU candidates only after host-oracle qualification justifies them.
+- **MAA-1..4**: typed algebra primitives, exact bridges, max-plus oracle, cooperation routing, and canonical M13B Boolean evidence binding.
+- **MAA-5**: per-candidate multi-algebra qualification with explicit policy-defined recomposition.
+- **MAA-6**: deterministic survivor-set construction with per-domain rejection attribution.
+- **MAA-7**: schema-versioned matched host evidence versus dense FLAT and Boolean-only routing.
+- **MAA-GPU**: portable WGPU candidates only after host evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
 
