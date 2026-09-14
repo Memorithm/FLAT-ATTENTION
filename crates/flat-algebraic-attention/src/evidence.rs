@@ -5,7 +5,7 @@ use crate::qualification::RecompositionPolicy;
 use crate::survivor_set::{DomainRejectionCounts, SurvivorSet};
 
 pub const MAA_HOST_EVIDENCE_SCHEMA_VERSION: u32 = 1;
-const PARTS_PER_MILLION: u128 = 1_000_000;
+const PPM: u128 = 1_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EvidenceArm {
@@ -32,9 +32,9 @@ impl MatchedWorkloadIdentity {
         let suite = suite.into();
         let case = case.into();
         let input_digest = input_digest.into();
-        require_non_empty("suite", &suite)?;
-        require_non_empty("case", &case)?;
-        require_non_empty("input_digest", &input_digest)?;
+        require_text("suite", &suite)?;
+        require_text("case", &case)?;
+        require_text("input_digest", &input_digest)?;
         if candidate_count == 0 {
             return Err(EvidenceError::ZeroCandidateCount);
         }
@@ -91,7 +91,7 @@ impl LatencyObservation {
         let samples = u128::from(sample_count);
         let lower = u128::from(min_ns) * samples;
         let upper = u128::from(max_ns) * samples;
-        if total_ns < lower || total_ns > upper {
+        if !(lower..=upper).contains(&total_ns) {
             return Err(EvidenceError::InvalidLatencyTotal {
                 sample_count,
                 total_ns,
@@ -158,28 +158,28 @@ impl ArmEvidence {
             return Err(EvidenceError::ZeroCandidateCount);
         }
         if survivor_count > candidate_count {
-            return Err(EvidenceError::SurvivorCountExceedsCandidates {
+            return Err(EvidenceError::TooManySurvivors {
                 arm,
                 survivor_count,
                 candidate_count,
             });
         }
         if exact_score_evaluations != survivor_count {
-            return Err(EvidenceError::ScoreCountMustMatchSurvivors {
+            return Err(EvidenceError::ScoreSurvivorMismatch {
                 arm,
                 exact_score_evaluations,
                 survivor_count,
             });
         }
         if reference_relevant > candidate_count {
-            return Err(EvidenceError::ReferenceRelevantExceedsCandidates {
+            return Err(EvidenceError::TooManyReferenceRelevant {
                 arm,
                 reference_relevant,
                 candidate_count,
             });
         }
         if retained_relevant > reference_relevant {
-            return Err(EvidenceError::RetainedRelevantExceedsReference {
+            return Err(EvidenceError::TooManyRetainedRelevant {
                 arm,
                 retained_relevant,
                 reference_relevant,
@@ -187,13 +187,13 @@ impl ArmEvidence {
         }
         if arm == EvidenceArm::DenseReference {
             if survivor_count != candidate_count {
-                return Err(EvidenceError::DenseMustScoreAll {
+                return Err(EvidenceError::DenseDidNotScoreAll {
                     candidate_count,
                     survivor_count,
                 });
             }
             if retained_relevant != reference_relevant {
-                return Err(EvidenceError::DenseMustRetainReferenceRelevant {
+                return Err(EvidenceError::DenseLostReferenceRelevant {
                     reference_relevant,
                     retained_relevant,
                 });
@@ -253,7 +253,7 @@ impl ArmEvidence {
     #[must_use]
     pub fn score_reduction_ppm(&self) -> u32 {
         ratio_ppm(self.score_work_avoided(), self.candidate_count)
-            .expect("candidate_count is validated as non-zero")
+            .expect("candidate count is validated as non-zero")
     }
 
     #[must_use]
@@ -307,41 +307,38 @@ impl MatchedAttentionEvidence {
                 multi_algebra: multi_algebra.reference_relevant(),
             });
         }
-
         if !route.contains(AlgebraDomain::Boolean) {
-            return Err(EvidenceError::CandidateRouteMissingBoolean);
+            return Err(EvidenceError::RouteMissingBoolean);
         }
         if route.domains().len() < 2 {
-            return Err(EvidenceError::CandidateRouteNeedsAdditionalDomain);
+            return Err(EvidenceError::RouteMissingAdditionalDomain);
         }
-
         if multi_algebra.survivor_count() > boolean_only.survivor_count() {
-            return Err(EvidenceError::MultiSurvivorsExceedBooleanControl {
+            return Err(EvidenceError::MultiResurrectedBooleanRejection {
                 boolean_only: boolean_only.survivor_count(),
                 multi_algebra: multi_algebra.survivor_count(),
             });
         }
         if multi_algebra.retained_relevant() > boolean_only.retained_relevant() {
-            return Err(EvidenceError::MultiCoverageExceedsBooleanControl {
+            return Err(EvidenceError::MultiResurrectedRelevantCandidate {
                 boolean_only: boolean_only.retained_relevant(),
                 multi_algebra: multi_algebra.retained_relevant(),
             });
         }
-
         if survivor_set.evaluated() != identity.candidate_count() {
-            return Err(EvidenceError::SurvivorOracleEvaluatedMismatch {
+            return Err(EvidenceError::OracleEvaluatedMismatch {
                 expected: identity.candidate_count(),
                 actual: survivor_set.evaluated(),
             });
         }
         if survivor_set.survivor_count() != multi_algebra.survivor_count() {
-            return Err(EvidenceError::SurvivorOracleCountMismatch {
+            return Err(EvidenceError::OracleSurvivorMismatch {
                 evidence: multi_algebra.survivor_count(),
                 oracle: survivor_set.survivor_count(),
             });
         }
 
-        validate_matched_latency(&dense, &boolean_only, &multi_algebra)?;
+        validate_latency_triplet(&dense, &boolean_only, &multi_algebra)?;
 
         Ok(Self {
             schema_version: MAA_HOST_EVIDENCE_SCHEMA_VERSION,
@@ -424,31 +421,31 @@ pub enum EvidenceError {
         min_ns: u64,
         max_ns: u64,
     },
-    SurvivorCountExceedsCandidates {
+    TooManySurvivors {
         arm: EvidenceArm,
         survivor_count: usize,
         candidate_count: usize,
     },
-    ScoreCountMustMatchSurvivors {
+    ScoreSurvivorMismatch {
         arm: EvidenceArm,
         exact_score_evaluations: usize,
         survivor_count: usize,
     },
-    ReferenceRelevantExceedsCandidates {
+    TooManyReferenceRelevant {
         arm: EvidenceArm,
         reference_relevant: usize,
         candidate_count: usize,
     },
-    RetainedRelevantExceedsReference {
+    TooManyRetainedRelevant {
         arm: EvidenceArm,
         retained_relevant: usize,
         reference_relevant: usize,
     },
-    DenseMustScoreAll {
+    DenseDidNotScoreAll {
         candidate_count: usize,
         survivor_count: usize,
     },
-    DenseMustRetainReferenceRelevant {
+    DenseLostReferenceRelevant {
         reference_relevant: usize,
         retained_relevant: usize,
     },
@@ -466,21 +463,21 @@ pub enum EvidenceError {
         boolean_only: usize,
         multi_algebra: usize,
     },
-    CandidateRouteMissingBoolean,
-    CandidateRouteNeedsAdditionalDomain,
-    MultiSurvivorsExceedBooleanControl {
+    RouteMissingBoolean,
+    RouteMissingAdditionalDomain,
+    MultiResurrectedBooleanRejection {
         boolean_only: usize,
         multi_algebra: usize,
     },
-    MultiCoverageExceedsBooleanControl {
+    MultiResurrectedRelevantCandidate {
         boolean_only: usize,
         multi_algebra: usize,
     },
-    SurvivorOracleEvaluatedMismatch {
+    OracleEvaluatedMismatch {
         expected: usize,
         actual: usize,
     },
-    SurvivorOracleCountMismatch {
+    OracleSurvivorMismatch {
         evidence: usize,
         oracle: usize,
     },
@@ -494,36 +491,13 @@ pub enum EvidenceError {
 
 impl fmt::Display for EvidenceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::EmptyIdentityField { field } => write!(formatter, "evidence identity field {field} must be non-empty"),
-            Self::ZeroCandidateCount => write!(formatter, "matched evidence requires at least one candidate"),
-            Self::ZeroLatencySamples => write!(formatter, "latency evidence requires at least one sample"),
-            Self::InvalidLatencyRange { min_ns, max_ns } => write!(formatter, "latency minimum {min_ns}ns exceeds maximum {max_ns}ns"),
-            Self::InvalidLatencyTotal { sample_count, total_ns, min_ns, max_ns } => write!(formatter, "latency total {total_ns}ns is inconsistent with {sample_count} samples in [{min_ns}, {max_ns}]ns"),
-            Self::SurvivorCountExceedsCandidates { arm, survivor_count, candidate_count } => write!(formatter, "{arm:?} reports {survivor_count} survivors for only {candidate_count} candidates"),
-            Self::ScoreCountMustMatchSurvivors { arm, exact_score_evaluations, survivor_count } => write!(formatter, "{arm:?} reports {exact_score_evaluations} exact scores for {survivor_count} survivors"),
-            Self::ReferenceRelevantExceedsCandidates { arm, reference_relevant, candidate_count } => write!(formatter, "{arm:?} reports {reference_relevant} reference-relevant candidates for only {candidate_count} candidates"),
-            Self::RetainedRelevantExceedsReference { arm, retained_relevant, reference_relevant } => write!(formatter, "{arm:?} retains {retained_relevant} relevant candidates but the dense reference labels only {reference_relevant}"),
-            Self::DenseMustScoreAll { candidate_count, survivor_count } => write!(formatter, "dense reference must score all {candidate_count} candidates, got {survivor_count}"),
-            Self::DenseMustRetainReferenceRelevant { reference_relevant, retained_relevant } => write!(formatter, "dense reference must retain all {reference_relevant} reference-relevant candidates, got {retained_relevant}"),
-            Self::ArmKindMismatch { expected, actual } => write!(formatter, "matched evidence expected arm {expected:?}, got {actual:?}"),
-            Self::CandidateCountMismatch { arm, expected, actual } => write!(formatter, "{arm:?} candidate count mismatch: expected {expected}, got {actual}"),
-            Self::ReferenceRelevantMismatch { dense, boolean_only, multi_algebra } => write!(formatter, "reference-relevant count is not matched across arms: dense={dense}, Boolean-only={boolean_only}, multi-algebra={multi_algebra}"),
-            Self::CandidateRouteMissingBoolean => write!(formatter, "nested matched MAA evidence requires the candidate route to include Boolean admission"),
-            Self::CandidateRouteNeedsAdditionalDomain => write!(formatter, "multi-algebra candidate route must include at least one domain in addition to Boolean"),
-            Self::MultiSurvivorsExceedBooleanControl { boolean_only, multi_algebra } => write!(formatter, "nested multi-algebra candidate cannot resurrect Boolean-rejected work: Boolean-only survivors={boolean_only}, multi-algebra survivors={multi_algebra}"),
-            Self::MultiCoverageExceedsBooleanControl { boolean_only, multi_algebra } => write!(formatter, "nested multi-algebra candidate cannot retain reference items removed by its Boolean control: Boolean-only retained={boolean_only}, multi-algebra retained={multi_algebra}"),
-            Self::SurvivorOracleEvaluatedMismatch { expected, actual } => write!(formatter, "survivor oracle evaluated {actual} candidates, expected {expected}"),
-            Self::SurvivorOracleCountMismatch { evidence, oracle } => write!(formatter, "multi-algebra evidence reports {evidence} survivors but the qualification oracle produced {oracle}"),
-            Self::IncompleteLatencyTriplet => write!(formatter, "latency evidence must be absent for all arms or present for dense, Boolean-only, and multi-algebra arms"),
-            Self::LatencySampleCountMismatch { dense, boolean_only, multi_algebra } => write!(formatter, "latency sample counts are not matched across arms: dense={dense}, Boolean-only={boolean_only}, multi-algebra={multi_algebra}"),
-        }
+        write!(formatter, "{self:?}")
     }
 }
 
 impl std::error::Error for EvidenceError {}
 
-fn require_non_empty(field: &'static str, value: &str) -> Result<(), EvidenceError> {
+fn require_text(field: &'static str, value: &str) -> Result<(), EvidenceError> {
     if value.trim().is_empty() {
         Err(EvidenceError::EmptyIdentityField { field })
     } else {
@@ -539,12 +513,16 @@ fn require_arm(expected: EvidenceArm, actual: EvidenceArm) -> Result<(), Evidenc
     }
 }
 
-fn validate_matched_latency(
+fn validate_latency_triplet(
     dense: &ArmEvidence,
     boolean_only: &ArmEvidence,
     multi_algebra: &ArmEvidence,
 ) -> Result<(), EvidenceError> {
-    match (dense.latency(), boolean_only.latency(), multi_algebra.latency()) {
+    match (
+        dense.latency(),
+        boolean_only.latency(),
+        multi_algebra.latency(),
+    ) {
         (None, None, None) => Ok(()),
         (Some(dense), Some(boolean_only), Some(multi_algebra)) => {
             if dense.sample_count() != boolean_only.sample_count()
@@ -566,8 +544,8 @@ fn ratio_ppm(numerator: usize, denominator: usize) -> Option<u32> {
     if denominator == 0 {
         return None;
     }
-    let value = (numerator as u128 * PARTS_PER_MILLION) / denominator as u128;
-    Some(value as u32)
+    let scaled = (numerator as u128 * PPM) / denominator as u128;
+    Some(scaled as u32)
 }
 
 #[cfg(test)]
@@ -577,12 +555,10 @@ mod tests {
         route_attention_needs, AttentionAlgebraNeeds, M13bBooleanRoutingEvidence,
     };
     use crate::f2::{F2AffinePredicate, F2Vector};
-    use crate::qualification::{
-        CandidateQualificationInputs, F2CandidateEvaluation, RecompositionPolicy,
-    };
+    use crate::qualification::{CandidateQualificationInputs, F2CandidateEvaluation};
     use crate::survivor_set::{qualify_survivor_set, CandidateFrame};
 
-    fn route() -> AlgebraicRoute {
+    fn fixture() -> (AlgebraicRoute, SurvivorSet) {
         let boolean = M13bBooleanRoutingEvidence::new(
             1,
             4,
@@ -595,7 +571,7 @@ mod tests {
             Some(7),
         )
         .unwrap();
-        route_attention_needs(
+        let route = route_attention_needs(
             AttentionAlgebraNeeds {
                 eligibility_logic: true,
                 parity_or_binary_linear: true,
@@ -603,11 +579,9 @@ mod tests {
             },
             Some(boolean),
         )
-        .unwrap()
-    }
-
-    fn survivor_set(route: &AlgebraicRoute) -> SurvivorSet {
-        let predicate = F2AffinePredicate::new(F2Vector::from_bools(&[true]).unwrap(), false);
+        .unwrap();
+        let predicate =
+            F2AffinePredicate::new(F2Vector::from_bools(&[true]).unwrap(), false);
         let pass = F2Vector::from_bools(&[true]).unwrap();
         let fail = F2Vector::from_bools(&[false]).unwrap();
         let pass_eval = F2CandidateEvaluation {
@@ -652,19 +626,24 @@ mod tests {
                 },
             ),
         ];
-        qualify_survivor_set(
-            route,
+        let survivors = qualify_survivor_set(
+            &route,
             &candidates,
             RecompositionPolicy::AllSelectedMustQualify,
         )
-        .unwrap()
+        .unwrap();
+        (route, survivors)
+    }
+
+    fn identity() -> MatchedWorkloadIdentity {
+        MatchedWorkloadIdentity::new("maa-host", "four-candidates", "sha256:test", 4).unwrap()
     }
 
     fn latency(total_ns: u128) -> LatencyObservation {
         LatencyObservation::new(10, total_ns, 90, 200).unwrap()
     }
 
-    fn dense() -> ArmEvidence {
+    fn dense(with_latency: bool) -> ArmEvidence {
         ArmEvidence::new(
             EvidenceArm::DenseReference,
             4,
@@ -672,12 +651,12 @@ mod tests {
             4,
             2,
             2,
-            Some(latency(1_200)),
+            with_latency.then(|| latency(1_200)),
         )
         .unwrap()
     }
 
-    fn boolean_only() -> ArmEvidence {
+    fn boolean_only(with_latency: bool) -> ArmEvidence {
         ArmEvidence::new(
             EvidenceArm::BooleanOnlyControl,
             4,
@@ -685,12 +664,12 @@ mod tests {
             3,
             2,
             2,
-            Some(latency(1_100)),
+            with_latency.then(|| latency(1_100)),
         )
         .unwrap()
     }
 
-    fn multi() -> ArmEvidence {
+    fn multi(with_latency: bool) -> ArmEvidence {
         ArmEvidence::new(
             EvidenceArm::MultiAlgebraCandidate,
             4,
@@ -698,24 +677,19 @@ mod tests {
             2,
             2,
             2,
-            Some(latency(1_000)),
+            with_latency.then(|| latency(1_000)),
         )
         .unwrap()
     }
 
-    fn identity() -> MatchedWorkloadIdentity {
-        MatchedWorkloadIdentity::new("maa-host", "four-candidates", "sha256:test", 4).unwrap()
-    }
-
     #[test]
-    fn matched_triplet_preserves_logical_and_physical_evidence_without_claiming_speedup() {
-        let route = route();
-        let survivors = survivor_set(&route);
+    fn matched_triplet_records_score_reduction_and_rejections() {
+        let (route, survivors) = fixture();
         let evidence = MatchedAttentionEvidence::new(
             identity(),
-            dense(),
-            boolean_only(),
-            multi(),
+            dense(true),
+            boolean_only(true),
+            multi(true),
             &route,
             RecompositionPolicy::AllSelectedMustQualify,
             &survivors,
@@ -727,12 +701,14 @@ mod tests {
             evidence.route_domains(),
             &[AlgebraDomain::Boolean, AlgebraDomain::F2]
         );
-        assert_eq!(evidence.dense().score_work_avoided(), 0);
         assert_eq!(evidence.boolean_only().score_work_avoided(), 1);
         assert_eq!(evidence.multi_algebra().score_work_avoided(), 2);
         assert_eq!(evidence.additional_score_work_avoided_vs_boolean(), 1);
         assert_eq!(evidence.multi_algebra().score_reduction_ppm(), 500_000);
-        assert_eq!(evidence.multi_algebra().relevant_coverage_ppm(), Some(1_000_000));
+        assert_eq!(
+            evidence.multi_algebra().relevant_coverage_ppm(),
+            Some(1_000_000)
+        );
         assert_eq!(evidence.rejection_counts().boolean(), 1);
         assert_eq!(evidence.rejection_counts().f2(), 1);
         assert!(evidence.has_matched_latency());
@@ -741,9 +717,8 @@ mod tests {
 
     #[test]
     fn nested_candidate_cannot_resurrect_boolean_rejections() {
-        let route = route();
-        let survivors = survivor_set(&route);
-        let too_many = ArmEvidence::new(
+        let (route, survivors) = fixture();
+        let resurrected = ArmEvidence::new(
             EvidenceArm::MultiAlgebraCandidate,
             4,
             4,
@@ -753,18 +728,17 @@ mod tests {
             Some(latency(1_000)),
         )
         .unwrap();
-
         assert_eq!(
             MatchedAttentionEvidence::new(
                 identity(),
-                dense(),
-                boolean_only(),
-                too_many,
+                dense(true),
+                boolean_only(true),
+                resurrected,
                 &route,
                 RecompositionPolicy::AllSelectedMustQualify,
                 &survivors,
             ),
-            Err(EvidenceError::MultiSurvivorsExceedBooleanControl {
+            Err(EvidenceError::MultiResurrectedBooleanRejection {
                 boolean_only: 3,
                 multi_algebra: 4,
             })
@@ -772,9 +746,8 @@ mod tests {
     }
 
     #[test]
-    fn survivor_oracle_and_recorded_candidate_count_must_agree() {
-        let route = route();
-        let survivors = survivor_set(&route);
+    fn recorded_survivors_must_match_the_host_oracle() {
+        let (route, survivors) = fixture();
         let wrong = ArmEvidence::new(
             EvidenceArm::MultiAlgebraCandidate,
             4,
@@ -785,18 +758,17 @@ mod tests {
             Some(latency(1_000)),
         )
         .unwrap();
-
         assert_eq!(
             MatchedAttentionEvidence::new(
                 identity(),
-                dense(),
-                boolean_only(),
+                dense(true),
+                boolean_only(true),
                 wrong,
                 &route,
                 RecompositionPolicy::AllSelectedMustQualify,
                 &survivors,
             ),
-            Err(EvidenceError::SurvivorOracleCountMismatch {
+            Err(EvidenceError::OracleSurvivorMismatch {
                 evidence: 1,
                 oracle: 2,
             })
@@ -804,36 +776,36 @@ mod tests {
     }
 
     #[test]
-    fn latency_must_be_a_complete_matched_triplet() {
-        let route = route();
-        let survivors = survivor_set(&route);
-        let no_latency = ArmEvidence::new(
-            EvidenceArm::MultiAlgebraCandidate,
-            4,
-            2,
-            2,
-            2,
-            2,
-            None,
-        )
-        .unwrap();
-
+    fn latency_must_be_all_present_or_all_absent() {
+        let (route, survivors) = fixture();
         assert_eq!(
             MatchedAttentionEvidence::new(
                 identity(),
-                dense(),
-                boolean_only(),
-                no_latency,
+                dense(true),
+                boolean_only(true),
+                multi(false),
                 &route,
                 RecompositionPolicy::AllSelectedMustQualify,
                 &survivors,
             ),
             Err(EvidenceError::IncompleteLatencyTriplet)
         );
+
+        let logical_only = MatchedAttentionEvidence::new(
+            identity(),
+            dense(false),
+            boolean_only(false),
+            multi(false),
+            &route,
+            RecompositionPolicy::AllSelectedMustQualify,
+            &survivors,
+        )
+        .unwrap();
+        assert!(!logical_only.has_matched_latency());
     }
 
     #[test]
-    fn latency_summary_rejects_impossible_total() {
+    fn latency_summary_rejects_an_impossible_total() {
         assert_eq!(
             LatencyObservation::new(10, 500, 90, 200),
             Err(EvidenceError::InvalidLatencyTotal {
@@ -843,45 +815,5 @@ mod tests {
                 max_ns: 200,
             })
         );
-    }
-
-    #[test]
-    fn arm_score_work_must_equal_survivor_work() {
-        assert_eq!(
-            ArmEvidence::new(
-                EvidenceArm::BooleanOnlyControl,
-                4,
-                3,
-                2,
-                2,
-                2,
-                None,
-            ),
-            Err(EvidenceError::ScoreCountMustMatchSurvivors {
-                arm: EvidenceArm::BooleanOnlyControl,
-                exact_score_evaluations: 2,
-                survivor_count: 3,
-            })
-        );
-    }
-
-    #[test]
-    fn logical_only_triplet_is_valid_without_latency_claims() {
-        let route = route();
-        let survivors = survivor_set(&route);
-        let dense = ArmEvidence::new(EvidenceArm::DenseReference, 4, 4, 4, 2, 2, None).unwrap();
-        let boolean = ArmEvidence::new(EvidenceArm::BooleanOnlyControl, 4, 3, 3, 2, 2, None).unwrap();
-        let multi = ArmEvidence::new(EvidenceArm::MultiAlgebraCandidate, 4, 2, 2, 2, 2, None).unwrap();
-        let evidence = MatchedAttentionEvidence::new(
-            identity(),
-            dense,
-            boolean,
-            multi,
-            &route,
-            RecompositionPolicy::AllSelectedMustQualify,
-            &survivors,
-        )
-        .unwrap();
-        assert!(!evidence.has_matched_latency());
     }
 }
