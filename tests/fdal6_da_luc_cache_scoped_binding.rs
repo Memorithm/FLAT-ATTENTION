@@ -167,6 +167,62 @@ fn cache_scoped_binding_accepts_the_origin_cache() {
 }
 
 #[test]
+fn cache_scoped_binding_retains_an_independent_validated_tier_catalog() {
+    let Some(harness) = harness() else {
+        return;
+    };
+    let cache = seeded_cache(&harness, 8);
+    let contract = contract(8);
+    let mut tiers = [
+        DalucPrecisionTier {
+            id: DalucTierId(10),
+            keys: contract.keys,
+            values: contract.values,
+        },
+        DalucPrecisionTier {
+            id: DalucTierId(20),
+            keys: contract.keys,
+            values: DalucValueRepresentation::Dense {
+                dtype: DalucFloatDType::F16,
+            },
+        },
+    ];
+    let quotas = [
+        DalucTierQuota {
+            tier_id: DalucTierId(10),
+            segments: 1,
+        },
+        DalucTierQuota {
+            tier_id: DalucTierId(20),
+            segments: 1,
+        },
+    ];
+    let plan = route_by_recency(contract, 4, &tiers, &quotas).unwrap();
+    let scoped = bind_paged_tier_plan_to_cache(&cache, contract, &tiers, &plan).unwrap();
+
+    assert_eq!(scoped.tiers(), &tiers);
+    tiers[0].id = DalucTierId(99);
+    tiers[0].values = DalucValueRepresentation::Dense {
+        dtype: DalucFloatDType::Bf16,
+    };
+
+    assert_eq!(scoped.tiers()[0].id, DalucTierId(10));
+    assert_eq!(
+        scoped.tiers()[0].values,
+        DalucValueRepresentation::Dense {
+            dtype: DalucFloatDType::F32,
+        }
+    );
+    assert_eq!(scoped.tiers()[1].id, DalucTierId(20));
+    assert_eq!(
+        scoped.tiers()[1].values,
+        DalucValueRepresentation::Dense {
+            dtype: DalucFloatDType::F16,
+        }
+    );
+}
+
+#[test]
 fn cache_scoped_binding_rejects_identical_foreign_cache_metadata() {
     let Some(harness) = harness() else {
         return;
