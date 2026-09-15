@@ -470,18 +470,18 @@ mod tests {
         let frozen = manifest(&all);
         let context = matching_context(&smaller);
 
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&context),
-            Err(HoldoutError::RouteMismatch {
-                expected: vec![
-                    AlgebraDomain::Boolean,
-                    AlgebraDomain::F2,
-                    AlgebraDomain::Zhegalkin,
-                    AlgebraDomain::MaxPlus,
-                ],
-                actual: vec![AlgebraDomain::Boolean, AlgebraDomain::F2],
-            })
-        );
+            Err(HoldoutError::RouteMismatch { expected, actual })
+                if expected
+                    == vec![
+                        AlgebraDomain::Boolean,
+                        AlgebraDomain::F2,
+                        AlgebraDomain::Zhegalkin,
+                        AlgebraDomain::MaxPlus,
+                    ]
+                    && actual == vec![AlgebraDomain::Boolean, AlgebraDomain::F2]
+        ));
     }
 
     #[test]
@@ -498,10 +498,10 @@ mod tests {
             digest(B),
             digest(D),
         );
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&wrong_policy),
             Err(HoldoutError::PolicyIdMismatch)
-        );
+        ));
 
         let wrong_revision = ConfirmatoryContext::new(
             "maa-policy-v1",
@@ -512,10 +512,10 @@ mod tests {
             digest(B),
             digest(D),
         );
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&wrong_revision),
             Err(HoldoutError::SourceRevisionMismatch)
-        );
+        ));
 
         // RecompositionPolicy currently has one real variant. The equality
         // guard remains in production code; a mismatch regression belongs with
@@ -530,10 +530,10 @@ mod tests {
             digest(B),
             digest(D),
         );
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&wrong_predicate),
             Err(HoldoutError::PredicateDigestMismatch)
-        );
+        ));
 
         let wrong_features = ConfirmatoryContext::new(
             "maa-policy-v1",
@@ -544,10 +544,10 @@ mod tests {
             digest(E),
             digest(D),
         );
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&wrong_features),
             Err(HoldoutError::FeatureSchemaDigestMismatch)
-        );
+        ));
 
         let wrong_holdout = ConfirmatoryContext::new(
             "maa-policy-v1",
@@ -558,10 +558,10 @@ mod tests {
             digest(B),
             digest(F),
         );
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&wrong_holdout),
             Err(HoldoutError::ConfirmatoryDatasetDigestMismatch)
-        );
+        ));
     }
 
     #[test]
@@ -578,9 +578,9 @@ mod tests {
             digest(C),
         );
 
-        assert_eq!(
+        assert!(matches!(
             frozen.bind_confirmatory(&context),
             Err(HoldoutError::TuningDatasetUsedAsConfirmatory)
-        );
+        ));
     }
 }
