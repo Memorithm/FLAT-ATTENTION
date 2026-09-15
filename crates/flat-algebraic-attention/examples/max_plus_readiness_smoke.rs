@@ -7,9 +7,7 @@ use flat_algebraic_attention::qualification::{
 use flat_algebraic_attention::readiness::{
     plan_survivor_readiness, MaxPlusReadinessPlan, SurvivorNodeBinding,
 };
-use flat_algebraic_attention::survivor_set::{
-    qualify_survivor_set, CandidateFrame, SurvivorSet,
-};
+use flat_algebraic_attention::survivor_set::{qualify_survivor_set, CandidateFrame, SurvivorSet};
 
 const PROTOCOL: &str = "maa-maxplus-readiness/v1";
 
@@ -42,12 +40,7 @@ fn survivor_set(candidate_ids: &[usize]) -> SurvivorSet {
         })
         .collect::<Vec<_>>();
 
-    qualify_survivor_set(
-        &route,
-        &frames,
-        RecompositionPolicy::AllSelectedMustQualify,
-    )
-    .unwrap()
+    qualify_survivor_set(&route, &frames, RecompositionPolicy::AllSelectedMustQualify).unwrap()
 }
 
 fn ids(values: &[usize]) -> String {
@@ -167,8 +160,7 @@ fn main() {
     );
 
     let original_order_survivors = survivor_set(&[10, 5]);
-    let original_order_schedule =
-        MaxPlusSchedule::new(3, vec![MaxPlusEdge::new(0, 2, 4)]).unwrap();
+    let original_order_schedule = MaxPlusSchedule::new(3, vec![MaxPlusEdge::new(0, 2, 4)]).unwrap();
     emit_case(
         "original_order",
         &original_order_survivors,
@@ -186,8 +178,7 @@ fn main() {
     );
 
     let shared_node_survivors = survivor_set(&[7, 4]);
-    let shared_node_schedule =
-        MaxPlusSchedule::new(2, vec![MaxPlusEdge::new(0, 1, 2)]).unwrap();
+    let shared_node_schedule = MaxPlusSchedule::new(2, vec![MaxPlusEdge::new(0, 1, 2)]).unwrap();
     emit_case(
         "shared_node",
         &shared_node_survivors,
