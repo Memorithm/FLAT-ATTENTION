@@ -123,7 +123,10 @@ fn semantic_survivors() -> Result<SurvivorSet> {
 }
 
 fn evaluate(indices: &[usize]) -> Result<FlatAttentionOutput> {
-    require(!indices.is_empty(), "final numerical selection must not be empty")?;
+    require(
+        !indices.is_empty(),
+        "final numerical selection must not be empty",
+    )?;
     require(
         indices.iter().all(|&candidate_index| candidate_index < N),
         "candidate index out of bounds",
