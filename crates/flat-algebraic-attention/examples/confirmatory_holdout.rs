@@ -396,7 +396,7 @@ fn run() -> Result<Vec<String>> {
         let multi_metrics = sparse_metrics(case, &multi, &top2, &dense)?;
         aggregate.record(boolean_metrics, multi_metrics);
         rows.push(format!(
-            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
+            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
             ids(&top2),
             ids(&boolean),
             ids(&multi),
