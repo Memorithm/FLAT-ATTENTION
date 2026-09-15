@@ -64,6 +64,7 @@ struct Case {
 struct SparseMetrics {
     selected: usize,
     top2_hits: usize,
+    false_negatives: usize,
     output_error: Option<f64>,
     lse_error: Option<f64>,
 }
@@ -74,6 +75,8 @@ struct Aggregate {
     multi_scores: usize,
     boolean_top2_hits: usize,
     multi_top2_hits: usize,
+    boolean_false_negatives: usize,
+    multi_false_negatives: usize,
     boolean_empty: usize,
     multi_empty: usize,
     comparable_cases: usize,
@@ -89,6 +92,8 @@ impl Aggregate {
         self.multi_scores += multi.selected;
         self.boolean_top2_hits += boolean.top2_hits;
         self.multi_top2_hits += multi.top2_hits;
+        self.boolean_false_negatives += boolean.false_negatives;
+        self.multi_false_negatives += multi.false_negatives;
         self.boolean_empty += usize::from(boolean.selected == 0);
         self.multi_empty += usize::from(multi.selected == 0);
 
@@ -336,6 +341,7 @@ fn sparse_metrics(
         .iter()
         .filter(|candidate_id| relevance.contains(candidate_id))
         .count();
+    let false_negatives = top2.len() - top2_hits;
     let sparse = evaluate(case, selected)?;
     let (output_error, lse_error) = match sparse {
         None => (None, None),
@@ -353,6 +359,7 @@ fn sparse_metrics(
     Ok(SparseMetrics {
         selected: selected.len(),
         top2_hits,
+        false_negatives,
         output_error,
         lse_error,
     })
@@ -396,7 +403,7 @@ fn run() -> Result<Vec<String>> {
         let multi_metrics = sparse_metrics(case, &multi, &top2, &dense)?;
         aggregate.record(boolean_metrics, multi_metrics);
         rows.push(format!(
-            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
+            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
             ids(&top2),
             ids(&boolean),
             ids(&multi),
@@ -404,6 +411,8 @@ fn run() -> Result<Vec<String>> {
             multi_metrics.selected,
             boolean_metrics.top2_hits,
             multi_metrics.top2_hits,
+            boolean_metrics.false_negatives,
+            multi_metrics.false_negatives,
             opt_float(boolean_metrics.output_error),
             opt_float(multi_metrics.output_error),
             opt_float(boolean_metrics.lse_error),
@@ -417,11 +426,13 @@ fn run() -> Result<Vec<String>> {
         .boolean_scores
         .saturating_sub(aggregate.multi_scores);
     rows.push(format!(
-        "aggregate,ALL,-,-,-,{},{},{},{},{:.9},{:.9},{:.9},{:.9},{},{},{},{},{}",
+        "aggregate,ALL,-,-,-,{},{},{},{},{},{},{:.9},{:.9},{:.9},{:.9},{},{},{},{},{}",
         aggregate.boolean_scores,
         aggregate.multi_scores,
         aggregate.boolean_top2_hits,
         aggregate.multi_top2_hits,
+        aggregate.boolean_false_negatives,
+        aggregate.multi_false_negatives,
         aggregate.boolean_output_error_sum,
         aggregate.multi_output_error_sum,
         aggregate.boolean_lse_error_sum,
@@ -437,7 +448,7 @@ fn run() -> Result<Vec<String>> {
 
 fn main() -> Result<()> {
     println!(
-        "row_type,case_id,dense_top2,boolean_ids,multi_ids,boolean_scores,multi_scores,boolean_top2_hits,multi_top2_hits,boolean_output_error,multi_output_error,boolean_lse_error,multi_lse_error,boolean_empty,multi_empty,comparable_cases,additional_scores_avoided,classification"
+        "row_type,case_id,dense_top2,boolean_ids,multi_ids,boolean_scores,multi_scores,boolean_top2_hits,multi_top2_hits,boolean_false_negatives,multi_false_negatives,boolean_output_error,multi_output_error,boolean_lse_error,multi_lse_error,boolean_empty,multi_empty,comparable_cases,additional_scores_avoided,classification"
     );
     for row in run()? {
         println!("{row}");
