@@ -76,6 +76,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-maxplus-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Max-Plus final-readiness numerical equivalence and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example max_plus_numerical_equivalence > "$RUNNER_TEMP/maa-maxplus-numerical-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example max_plus_numerical_equivalence > "$RUNNER_TEMP/maa-maxplus-numerical-second.csv"
+          cmp "$RUNNER_TEMP/maa-maxplus-numerical-first.csv" "$RUNNER_TEMP/maa-maxplus-numerical-second.csv"
+          cat "$RUNNER_TEMP/maa-maxplus-numerical-first.csv"
+          {
+            echo '### MAA-10c final-readiness numerical equivalence (not performance evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-maxplus-numerical-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
