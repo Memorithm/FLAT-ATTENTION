@@ -61,6 +61,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-numerical-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Max-Plus readiness/defer smoke and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example max_plus_readiness_smoke > "$RUNNER_TEMP/maa-maxplus-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example max_plus_readiness_smoke > "$RUNNER_TEMP/maa-maxplus-second.csv"
+          cmp "$RUNNER_TEMP/maa-maxplus-first.csv" "$RUNNER_TEMP/maa-maxplus-second.csv"
+          cat "$RUNNER_TEMP/maa-maxplus-first.csv"
+          {
+            echo '### MAA-10b Max-Plus readiness diagnostics (abstract time, not performance evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-maxplus-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
