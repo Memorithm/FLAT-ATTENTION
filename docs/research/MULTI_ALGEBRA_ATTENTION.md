@@ -85,6 +85,8 @@ t_attention = max(t_route + d_route,
 
 This is a scheduling model, not a claim that GPU concurrency or latency improvement exists. Such claims require trace/timing evidence under the existing M13B.4 evidence rules.
 
+For the default MAA temporal interpretation, Max-Plus is applied **after** semantic survivor qualification. A finite readiness time may defer an already-qualified survivor but does not make it numerically irrelevant. Unreachable readiness for an already-qualified survivor is a fail-closed contract error. A separate explicitly declared policy may still use a deadline as an admissibility predicate in research code, but that policy must not be confused with the default readiness/defer model.
+
 ## Cooperation model
 
 The intended research graph is:
@@ -138,6 +140,7 @@ The original foundation plan was expanded into smaller reviewable slices as the 
 - **MAA-8**: derive matched arms from the canonical mask, survivor oracle and one reference relevance set.
 - **MAA-9**: bind evidence to its original route, metadata generation and candidate mapping; validate realizable intersection and observed-latency summaries. See [integrity gates and continuation protocol](MAA_EVIDENCE_INTEGRITY.md).
 - **MAA-10a**: preregistered bounded numerical smoke through the existing FLAT oracle, with structural F2/Zhegalkin ablations, matched-density controls, O/LSE diagnostics and required negative/empty controls. See [protocol](MAA_NUMERICAL_SMOKE_PREREGISTRATION.md). Not a performance campaign or completion of full MAA-10.
+- **MAA-10b**: separate Max-Plus readiness/defer planning from relevance rejection, require exact eventual survivor preservation, and exercise deterministic chain/fork-join/shared-node schedules. See [protocol](MAA_MAX_PLUS_READINESS_PREREGISTRATION.md).
 - **MAA-GPU**: portable WGPU candidates only after host evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
