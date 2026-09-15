@@ -1,4 +1,5 @@
 use core::fmt;
+use core::fmt::Write as _;
 
 use crate::cooperation::{AlgebraDomain, AlgebraicRoute};
 use crate::qualification::RecompositionPolicy;
@@ -27,10 +28,9 @@ impl Sha256Digest {
     }
 
     #[must_use]
-    pub fn to_hex(self) -> String {
+    pub fn to_hex(&self) -> String {
         let mut output = String::with_capacity(64);
         for byte in self.0 {
-            use core::fmt::Write as _;
             write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
         }
         output
@@ -156,7 +156,7 @@ impl FrozenPolicyManifest {
         if context.source_revision != self.source_revision {
             return Err(HoldoutError::SourceRevisionMismatch);
         }
-        if context.route.domains() != self.route_domains {
+        if context.route.domains() != self.route_domains.as_slice() {
             return Err(HoldoutError::RouteMismatch {
                 expected: self.route_domains.clone(),
                 actual: context.route.domains().to_vec(),
@@ -454,6 +454,14 @@ mod tests {
                 AlgebraDomain::MaxPlus,
             ]
         );
+        assert_eq!(
+            frozen.recomposition_policy(),
+            RecompositionPolicy::AllSelectedMustQualify
+        );
+        assert_eq!(frozen.predicate_digest(), digest(A));
+        assert_eq!(frozen.feature_schema_digest(), digest(B));
+        assert_eq!(frozen.tuning_dataset_digest(), digest(C));
+        assert_eq!(frozen.confirmatory_dataset_digest(), digest(D));
     }
 
     #[test]
@@ -478,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn every_frozen_identity_mismatch_fails_closed() {
+    fn representable_frozen_identity_mismatches_fail_closed() {
         let route = all_domains_route();
         let frozen = manifest(&route);
 
@@ -510,22 +518,9 @@ mod tests {
             Err(HoldoutError::SourceRevisionMismatch)
         );
 
-        let wrong_recomposition = ConfirmatoryContext::new(
-            "maa-policy-v1",
-            "commit:0123456789abcdef",
-            &route,
-            RecompositionPolicy::AnySelectedMayQualify,
-            digest(A),
-            digest(B),
-            digest(D),
-        );
-        assert_eq!(
-            frozen.bind_confirmatory(&wrong_recomposition),
-            Err(HoldoutError::RecompositionPolicyMismatch {
-                expected: RecompositionPolicy::AllSelectedMustQualify,
-                actual: RecompositionPolicy::AnySelectedMayQualify,
-            })
-        );
+        // RecompositionPolicy currently has one real variant. The equality
+        // guard remains in production code; a mismatch regression belongs with
+        // the first future second policy rather than a dummy test-only variant.
 
         let wrong_predicate = ConfirmatoryContext::new(
             "maa-policy-v1",
