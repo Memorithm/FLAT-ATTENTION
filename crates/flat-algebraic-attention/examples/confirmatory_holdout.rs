@@ -382,6 +382,10 @@ fn opt_float(value: Option<f64>) -> String {
 }
 
 fn run() -> Result<Vec<String>> {
+    require(
+        PROTOCOL == "maa-confirmatory-holdout/v1",
+        "confirmatory protocol identity drifted",
+    )?;
     bind_frozen_manifest()?;
     let cases = generate_cases();
     let dense_indices = (0..CANDIDATES).collect::<Vec<_>>();
@@ -403,7 +407,7 @@ fn run() -> Result<Vec<String>> {
         let multi_metrics = sparse_metrics(case, &multi, &top2, &dense)?;
         aggregate.record(boolean_metrics, multi_metrics);
         rows.push(format!(
-            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
+            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
             ids(&top2),
             ids(&boolean),
             ids(&multi),
