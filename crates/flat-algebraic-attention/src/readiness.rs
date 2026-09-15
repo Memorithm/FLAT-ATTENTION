@@ -1,6 +1,7 @@
 use core::fmt;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::cooperation::AlgebraDomain;
 use crate::max_plus::{MaxPlusError, MaxPlusSchedule, MaxPlusValue};
 use crate::survivor_set::SurvivorSet;
 
@@ -146,6 +147,7 @@ impl MaxPlusReadinessPlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ReadinessError {
+    PrequalifiedWithMaxPlus,
     DuplicateBinding {
         candidate_index: usize,
     },
@@ -170,6 +172,10 @@ pub enum ReadinessError {
 impl fmt::Display for ReadinessError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::PrequalifiedWithMaxPlus => write!(
+                formatter,
+                "readiness-only planning requires a survivor set that was not already filtered by Max-Plus"
+            ),
             Self::DuplicateBinding { candidate_index } => write!(
                 formatter,
                 "candidate {candidate_index} has more than one max-plus readiness binding"
@@ -223,12 +229,22 @@ impl From<MaxPlusError> for ReadinessError {
 /// must have exactly one reachable schedule node. A late survivor is deferred
 /// until its feasible time and remains part of the eventual numerical candidate
 /// set. An unreachable survivor fails closed instead of being silently dropped.
+/// A survivor set whose qualification route already included Max-Plus is rejected
+/// because relevance filtering may already have removed late or unreachable
+/// candidates before this readiness-only planner can classify them.
 pub fn plan_survivor_readiness(
     survivor_set: &SurvivorSet,
     schedule: &MaxPlusSchedule,
     initial: &[MaxPlusValue],
     bindings: &[SurvivorNodeBinding],
 ) -> Result<MaxPlusReadinessPlan, ReadinessError> {
+    if survivor_set
+        .qualification_route()
+        .contains(AlgebraDomain::MaxPlus)
+    {
+        return Err(ReadinessError::PrequalifiedWithMaxPlus);
+    }
+
     let feasible_times = schedule.earliest_feasible_times(initial)?;
     let survivor_ids = survivor_set
         .survivor_indices()
@@ -298,7 +314,8 @@ mod tests {
     use crate::f2::{F2AffinePredicate, F2Vector};
     use crate::max_plus::MaxPlusEdge;
     use crate::qualification::{
-        CandidateQualificationInputs, F2CandidateEvaluation, RecompositionPolicy,
+        CandidateQualificationInputs, F2CandidateEvaluation, MaxPlusCandidateEvaluation,
+        RecompositionPolicy,
     };
     use crate::survivor_set::{qualify_survivor_set, CandidateFrame};
 
@@ -331,6 +348,38 @@ mod tests {
             })
             .collect::<Vec<_>>();
         qualify_survivor_set(&route, &frames, RecompositionPolicy::AllSelectedMustQualify).unwrap()
+    }
+
+    fn max_plus_prequalified_survivor_set() -> SurvivorSet {
+        let route = route_attention_needs(
+            AttentionAlgebraNeeds {
+                precedence_or_critical_path: true,
+                ..AttentionAlgebraNeeds::default()
+            },
+            None,
+        )
+        .unwrap();
+        let schedule = MaxPlusSchedule::new(1, vec![]).unwrap();
+        let initial = [MaxPlusValue::Finite(0)];
+        let frame = CandidateFrame::new(
+            0,
+            CandidateQualificationInputs {
+                max_plus: Some(MaxPlusCandidateEvaluation {
+                    schedule: &schedule,
+                    initial: &initial,
+                    node: 0,
+                    not_after: 0,
+                }),
+                ..CandidateQualificationInputs::default()
+            },
+        );
+
+        qualify_survivor_set(
+            &route,
+            &[frame],
+            RecompositionPolicy::AllSelectedMustQualify,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -405,6 +454,22 @@ mod tests {
             vec![10, 5]
         );
         assert_eq!(plan.snapshot_at(4).ready_indices(), &[10, 5]);
+    }
+
+    #[test]
+    fn max_plus_prequalified_survivor_sets_fail_closed() {
+        let survivors = max_plus_prequalified_survivor_set();
+        let schedule = MaxPlusSchedule::new(1, vec![]).unwrap();
+
+        assert_eq!(
+            plan_survivor_readiness(
+                &survivors,
+                &schedule,
+                &[MaxPlusValue::Finite(0)],
+                &[SurvivorNodeBinding::new(0, 0)],
+            ),
+            Err(ReadinessError::PrequalifiedWithMaxPlus)
+        );
     }
 
     #[test]
