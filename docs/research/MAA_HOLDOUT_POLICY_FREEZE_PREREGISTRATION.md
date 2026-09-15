@@ -64,9 +64,13 @@ A mismatch must name the field that drifted and fail closed.
 4. The manifest stores the exact ordered route domains selected by the existing
    `AlgebraicRoute` and the exact `RecompositionPolicy`.
 5. A matching confirmatory context validates successfully.
-6. Mismatches in policy ID, source revision, route, recomposition policy,
-   predicate digest, feature-schema digest, or holdout dataset digest each fail
-   closed with distinct error evidence.
+6. Mismatches in policy ID, source revision, route, predicate digest,
+   feature-schema digest, or holdout dataset digest each fail closed with
+   distinct error evidence. Recomposition-policy equality remains a mandatory
+   runtime guard; the current `RecompositionPolicy` API has only the real
+   `AllSelectedMustQualify` variant, so a negative mismatch regression is
+   deferred until a second real policy exists. No dummy policy is introduced
+   solely to manufacture that test case.
 7. Supplying the frozen tuning dataset digest as the observed confirmatory
    dataset fails closed.
 8. The manifest is immutable after construction; confirmatory validation does
@@ -76,6 +80,16 @@ A mismatch must name the field that drifted and fail closed.
    label alone.
 10. Existing MAA debug/release tests, deterministic smokes, documentation,
     repository CI/WGPU, semver, CodeQL and supply-chain gates remain green.
+
+## Implementation note recorded before confirmatory observation
+
+During implementation, repository inspection showed that
+`RecompositionPolicy` currently has a single real variant. This is an API fact,
+not an experimental result. The manifest therefore still freezes and compares
+that enum exactly, but MAA-11a does not add an artificial second variant merely
+to make a negative unit test possible. If a second recomposition policy is ever
+introduced for independent reasons, its first implementation must add the
+mismatch regression to this holdout contract.
 
 ## Anti-leakage boundary
 
