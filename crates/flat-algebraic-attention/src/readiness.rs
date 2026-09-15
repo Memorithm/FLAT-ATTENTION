@@ -265,12 +265,13 @@ pub fn plan_survivor_readiness(
         let node = *node_by_candidate
             .get(&candidate_index)
             .ok_or(ReadinessError::MissingBinding { candidate_index })?;
-        let feasible_time = feasible_times[node].as_finite().ok_or(
-            ReadinessError::UnreachableSurvivor {
-                candidate_index,
-                node,
-            },
-        )?;
+        let feasible_time =
+            feasible_times[node]
+                .as_finite()
+                .ok_or(ReadinessError::UnreachableSurvivor {
+                    candidate_index,
+                    node,
+                })?;
         survivors_in_original_order.push(ScheduledSurvivor {
             candidate_index,
             node,
@@ -279,9 +280,8 @@ pub fn plan_survivor_readiness(
     }
 
     let mut readiness_order = survivors_in_original_order.clone();
-    readiness_order.sort_unstable_by_key(|survivor| {
-        (survivor.feasible_time(), survivor.candidate_index())
-    });
+    readiness_order
+        .sort_unstable_by_key(|survivor| (survivor.feasible_time(), survivor.candidate_index()));
     let critical_ready_time = readiness_order.last().map(ScheduledSurvivor::feasible_time);
 
     Ok(MaxPlusReadinessPlan {
@@ -330,12 +330,7 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        qualify_survivor_set(
-            &route,
-            &frames,
-            RecompositionPolicy::AllSelectedMustQualify,
-        )
-        .unwrap()
+        qualify_survivor_set(&route, &frames, RecompositionPolicy::AllSelectedMustQualify).unwrap()
     }
 
     #[test]
@@ -509,13 +504,8 @@ mod tests {
     fn empty_survivor_set_has_no_critical_time() {
         let survivors = survivor_set(&[]);
         let schedule = MaxPlusSchedule::new(1, vec![]).unwrap();
-        let plan = plan_survivor_readiness(
-            &survivors,
-            &schedule,
-            &[MaxPlusValue::Finite(0)],
-            &[],
-        )
-        .unwrap();
+        let plan = plan_survivor_readiness(&survivors, &schedule, &[MaxPlusValue::Finite(0)], &[])
+            .unwrap();
 
         assert_eq!(plan.critical_ready_time(), None);
         assert!(plan.survivors_in_original_order().is_empty());
