@@ -364,10 +364,9 @@ mod tests {
 
     #[test]
     fn digest_accepts_mixed_case_and_normalizes_to_lowercase() {
-        let value = Sha256Digest::parse(
-            "AaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa",
-        )
-        .unwrap();
+        let value =
+            Sha256Digest::parse("AaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa")
+                .unwrap();
         assert_eq!(value.to_hex(), A);
         assert_eq!(value.to_string(), A);
     }
