@@ -1,0 +1,61 @@
+name: M16 physical KV prefix fork qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/lib.rs"
+      - "src/paged_kv.rs"
+      - "src/wgpu_paged_kv_cache.rs"
+      - "src/wgpu_paged_kv_observation.rs"
+      - "src/wgpu_paged_decode.rs"
+      - "shaders/flat_decode_paged.wgsl"
+      - "tests/m16_paged_kv_fork.rs"
+      - "docs/KV-PHYSICAL-PREFIX-FORK.md"
+      - ".github/workflows/m16-kv-fork.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m16-kv-fork-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fork:
+    name: M16 fork bytes and paged decode on Vulkan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      WGPU_BACKEND: vulkan
+      FLAT_REQUIRE_WGPU: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Install Vulkan software device
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+      - name: Adapter report
+        run: vulkaninfo --summary
+      - name: Exact-head fork byte and numerical qualification
+        run: cargo test --locked --features wgpu --test m16_paged_kv_fork -- --nocapture
+      - name: Exact-head executable documentation
+        run: cargo test --locked --features wgpu --doc
+      - name: Exact-head strict lint
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Exact-head strict documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --workspace --all-features --no-deps --document-private-items
+      - name: Exact-head format
+        run: cargo fmt --all -- --check
