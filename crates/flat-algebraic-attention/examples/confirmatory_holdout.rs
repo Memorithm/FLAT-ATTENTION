@@ -8,9 +8,7 @@ use flat_algebraic_attention::cooperation::{
     route_attention_needs, AttentionAlgebraNeeds, M13bBooleanRoutingEvidence,
 };
 use flat_algebraic_attention::f2::{F2AffinePredicate, F2Vector};
-use flat_algebraic_attention::holdout::{
-    ConfirmatoryContext, FrozenPolicyManifest, Sha256Digest,
-};
+use flat_algebraic_attention::holdout::{ConfirmatoryContext, FrozenPolicyManifest, Sha256Digest};
 use flat_algebraic_attention::qualification::{
     CandidateQualificationInputs, F2CandidateEvaluation, RecompositionPolicy,
     ZhegalkinCandidateEvaluation,
