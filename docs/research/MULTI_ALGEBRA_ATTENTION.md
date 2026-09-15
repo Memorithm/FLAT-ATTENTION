@@ -115,6 +115,8 @@ Logical score accounting and physical latency observations are deliberately sepa
 
 For this first nested matched design, the multi-algebra arm is not allowed to resurrect work rejected by the Boolean control. Its recorded survivor set must agree with the deterministic host qualification oracle.
 
+Confirmatory MAA evidence additionally requires an explicit frozen-policy boundary. A confirmatory observation must be bound to the preregistered source revision, ordered algebraic route, recomposition policy, predicate identity, feature-schema identity and holdout dataset identity. Exploratory/tuning and confirmatory dataset identities must remain distinct. This contract prevents silent post-observation policy substitution; it does not by itself prove that a human never inspected a holdout before the freeze.
+
 ## Promotion rules
 
 No MAA component may enter the stable public API or default runtime routing until all applicable gates are satisfied:
@@ -126,7 +128,8 @@ No MAA component may enter the stable public API or default runtime routing unti
 - no hidden CPU fallback is presented as GPU execution;
 - portable GPU work, if added, is qualified against the Rust oracle;
 - any performance claim is tied to reproducible real-device evidence;
-- quality/sparsity claims include dense and matched-control baselines.
+- quality/sparsity claims include dense and matched-control baselines;
+- confirmatory claims use a policy/dataset identity frozen before confirmatory observation.
 
 ## Implementation milestones
 
@@ -141,7 +144,9 @@ The original foundation plan was expanded into smaller reviewable slices as the 
 - **MAA-9**: bind evidence to its original route, metadata generation and candidate mapping; validate realizable intersection and observed-latency summaries. See [integrity gates and continuation protocol](MAA_EVIDENCE_INTEGRITY.md).
 - **MAA-10a**: preregistered bounded numerical smoke through the existing FLAT oracle, with structural F2/Zhegalkin ablations, matched-density controls, O/LSE diagnostics and required negative/empty controls. See [protocol](MAA_NUMERICAL_SMOKE_PREREGISTRATION.md). Not a performance campaign or completion of full MAA-10.
 - **MAA-10b**: separate Max-Plus readiness/defer planning from relevance rejection, require exact eventual survivor preservation, and exercise deterministic chain/fork-join/shared-node schedules. See [protocol](MAA_MAX_PLUS_READINESS_PREREGISTRATION.md).
-- **MAA-GPU**: portable WGPU candidates only after host evidence justifies a specific GPU hypothesis.
+- **MAA-10c**: require a complete Max-Plus readiness snapshot to reconstruct the exact original semantic survivor list and prove bit-for-bit O/LSE equivalence through the existing FLAT numerical oracle. See [protocol](MAA_MAX_PLUS_NUMERICAL_EQUIVALENCE_PREREGISTRATION.md).
+- **MAA-11a**: freeze policy/source/route/recomposition/predicate/features/tuning-dataset/confirmatory-dataset identity before any confirmatory holdout observation. See [protocol](MAA_HOLDOUT_POLICY_FREEZE_PREREGISTRATION.md).
+- **MAA-GPU**: portable WGPU candidates only after host confirmatory evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
 
