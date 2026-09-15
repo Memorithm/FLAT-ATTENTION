@@ -176,7 +176,9 @@ fn generate_cases() -> [Case; CASES] {
     })
 }
 
-fn policy_route(admissions: &[bool; CANDIDATES]) -> Result<flat_algebraic_attention::cooperation::AlgebraicRoute> {
+fn policy_route(
+    admissions: &[bool; CANDIDATES],
+) -> Result<flat_algebraic_attention::cooperation::AlgebraicRoute> {
     let mask = BooleanAttentionMask::from_admissions(admissions)?;
     let query_signature = BooleanAttentionSignature::new(CANDIDATES, vec![0xff])?;
     let key_signature = BooleanAttentionSignature::new(CANDIDATES, mask.words().to_vec())?;
@@ -258,7 +260,8 @@ fn boolean_indices(case: &Case) -> Vec<usize> {
 }
 
 fn multi_indices(case: &Case) -> Result<Vec<usize>> {
-    let admissions = std::array::from_fn(|candidate_id| case.candidates[candidate_id].structural_admit);
+    let admissions =
+        std::array::from_fn(|candidate_id| case.candidates[candidate_id].structural_admit);
     let route = policy_route(&admissions)?;
     let f2 = F2AffinePredicate::new(F2Vector::from_bools(&[true, false, false])?, false);
     let zhegalkin = ZhegalkinPolynomial::from_variable_sets(3, vec![vec![1, 2]])?;
@@ -385,7 +388,9 @@ fn run() -> Result<Vec<String>> {
         let boolean = boolean_indices(case);
         let multi = multi_indices(case)?;
         require(
-            multi.iter().all(|candidate_id| boolean.contains(candidate_id)),
+            multi
+                .iter()
+                .all(|candidate_id| boolean.contains(candidate_id)),
             "multi-algebra resurrected a Boolean rejection",
         )?;
         let dense = evaluate(case, &dense_indices)?.ok_or("dense selection cannot be empty")?;
@@ -393,7 +398,7 @@ fn run() -> Result<Vec<String>> {
         let multi_metrics = sparse_metrics(case, &multi, &top2, &dense)?;
         aggregate.record(boolean_metrics, multi_metrics);
         rows.push(format!(
-            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "case,{case_id},{},{},{},{},{},{},{},{},{},{},{},{},-,-,-",
             ids(&top2),
             ids(&boolean),
             ids(&multi),
@@ -410,7 +415,9 @@ fn run() -> Result<Vec<String>> {
         ));
     }
 
-    let additional_avoided = aggregate.boolean_scores.saturating_sub(aggregate.multi_scores);
+    let additional_avoided = aggregate
+        .boolean_scores
+        .saturating_sub(aggregate.multi_scores);
     rows.push(format!(
         "aggregate,ALL,-,-,-,{},{},{},{},{:.9},{:.9},{:.9},{:.9},{},{},{},{},{}",
         aggregate.boolean_scores,
@@ -456,15 +463,30 @@ mod tests {
         for case_id in 0..CASES {
             assert_eq!(first[case_id].q, second[case_id].q);
             for candidate_id in 0..CANDIDATES {
-                assert_eq!(first[case_id].candidates[candidate_id].k, second[case_id].candidates[candidate_id].k);
-                assert_eq!(first[case_id].candidates[candidate_id].v, second[case_id].candidates[candidate_id].v);
+                assert_eq!(
+                    first[case_id].candidates[candidate_id].k,
+                    second[case_id].candidates[candidate_id].k
+                );
+                assert_eq!(
+                    first[case_id].candidates[candidate_id].v,
+                    second[case_id].candidates[candidate_id].v
+                );
                 assert_eq!(
                     first[case_id].candidates[candidate_id].structural_admit,
                     second[case_id].candidates[candidate_id].structural_admit
                 );
-                assert_eq!(first[case_id].candidates[candidate_id].x0, second[case_id].candidates[candidate_id].x0);
-                assert_eq!(first[case_id].candidates[candidate_id].x1, second[case_id].candidates[candidate_id].x1);
-                assert_eq!(first[case_id].candidates[candidate_id].x2, second[case_id].candidates[candidate_id].x2);
+                assert_eq!(
+                    first[case_id].candidates[candidate_id].x0,
+                    second[case_id].candidates[candidate_id].x0
+                );
+                assert_eq!(
+                    first[case_id].candidates[candidate_id].x1,
+                    second[case_id].candidates[candidate_id].x1
+                );
+                assert_eq!(
+                    first[case_id].candidates[candidate_id].x2,
+                    second[case_id].candidates[candidate_id].x2
+                );
             }
         }
     }
