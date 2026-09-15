@@ -91,6 +91,22 @@ jobs:
             cat "$RUNNER_TEMP/maa-maxplus-numerical-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Frozen confirmatory holdout and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example confirmatory_holdout > "$RUNNER_TEMP/maa-holdout-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example confirmatory_holdout > "$RUNNER_TEMP/maa-holdout-second.csv"
+          cmp "$RUNNER_TEMP/maa-holdout-first.csv" "$RUNNER_TEMP/maa-holdout-second.csv"
+          cat "$RUNNER_TEMP/maa-holdout-first.csv"
+          {
+            echo '### MAA-11b frozen synthetic holdout (confirmatory; not performance evidence)'
+            echo "Harness revision: $(git rev-parse HEAD)"
+            echo 'Frozen policy source revision: 4030b229a2ff329c1263cad677812d659422b448'
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-holdout-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
