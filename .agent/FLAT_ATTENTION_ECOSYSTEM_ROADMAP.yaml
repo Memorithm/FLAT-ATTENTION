@@ -214,3 +214,28 @@ agent_operating_protocol:
     If this roadmap or the published engineering roadmap cannot be read, do not
     make major architecture, performance-promotion, cross-repository contract, or
     merge decisions. Read-only diagnosis is allowed.
+
+research_engine_integrated_consumer_2026_09_16:
+  status: implemented_public_software_candidate_not_release_qualified
+  consumer_pull_request: https://github.com/Memorithm/TDI/pull/413
+  consumer_revision: cabb0b5ab2c6ad2c45121134bbeffa4c822ef028
+  public_software_evidence: 70_actual_process_integration_tests_passed_locally
+  source_build_attestation: false
+  hardware_execution_performed: false
+  final_or_blocked_model_authorization: false
+  exact_head_ci: pending
+  authority: no_existing_stage_default_backend_or_maturity_promotion
+  source_revision: 1d5ac64cc87c5dd526e04527c3bb4b78ba0add33
+  adapter_pull_request: https://github.com/Memorithm/TDI/pull/411
+  adapter_revision: 8424c0dac025b6764b865466ca0b165463abefc2
+  consumed_api: forward_reference_grouped_asymmetric
+  semantic_scope: public_standard_softmax_f32_BHND_only
+  local_evidence:
+    - actual_MHA_GQA_MQA_dense_causal_and_offset_reference_calls
+    - independent_two_pass_f64_oracle_and_future_value_noninterference
+    - actual_Hub_run_verify_archive_and_restart
+    - default_and_optional_NNIS_feature_builds_and_Clippy_pass_Rust_1_89
+  invariants:
+    - FA7_phase_b_nonsoftmax_gate_unchanged
+    - no_new_semantic_default_routing_KV_representation_or_GPU_performance_claim
+    - standalone_consumer_does_not_raise_FLAT_or_TDI_MSRV
