@@ -16,10 +16,26 @@ path-import implementation files. It does not move the contracts into
   pages onto the authoritative `PagedKvTable`, preserving original logical page
   identity and exact live-token accounting.
 
-The selection report retains Boolean bytes read, full/selected/avoided
+The selection report retains Boolean key bytes read, full/selected/avoided
 numerical K/V bytes, candidate density and
 `numerical_KV_bytes_avoided / Boolean_KV_bytes_read`. These are logical/storage
-quantities, not DRAM, PCIe, cache-line or device-transfer measurements.
+accounting quantities, not DRAM, PCIe, cache-line or device-transfer
+measurements.
+
+The accounting boundary is deliberate. `BooleanKvCache::accounting()` reports
+packed signature payload bytes: key payload plus any optional Boolean value-signature
+payload. This excludes the Rust object/`Vec`/`Option` metadata, allocation capacity,
+alignment and allocator overhead, so it is not a measurement of total host/device
+residency.
+The current CPU Hamming router scans every key signature before ranking and
+applying an optional result limit, so `boolean_key_bytes_read` records the key
+signature payload bytes inspected by that search and excludes optional value-signature
+payload bytes. A result limit therefore reduces the numerical survivor set but does not
+pretend that the current full-scan Boolean search read fewer keys. The regression
+`bkv5_accounting_boundary` freezes this distinction. A future indexed search
+that genuinely inspects fewer key signatures must update the implementation,
+metric semantics and qualification evidence together rather than reusing a
+packed-storage payload number as a read measurement.
 
 ## Invariants
 
