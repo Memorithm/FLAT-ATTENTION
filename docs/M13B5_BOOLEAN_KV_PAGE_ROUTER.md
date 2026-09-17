@@ -59,6 +59,23 @@ These controls select logical page IDs only. They do not turn candidate density
 into measured traffic, latency, quality, residency or speedup, and dense
 numerical FLAT remains authoritative.
 
+## Canonical page-selection evidence
+
+`BooleanIndexedKvSelection::canonical_evidence_json()` emits the research schema
+`flat.boolean-kv-selection.v1`. It retains the exact logical/physical page IDs,
+live-token counts, Hamming/XNOR accounting, exact numerical K+V bytes/token and
+the already-computed Boolean/numerical byte accounting in deterministic field
+order. Evidence export recomputes packed Boolean bytes as
+`mapped_pages * ceil(signature_bits / 64) * 8`, recomputes full/selected/avoided
+numerical totals from retained bytes/token geometry, and also revalidates
+ordering, uniqueness and signature accounting so a mutated transparent research
+record fails closed.
+
+The trailing FNV-1a checksum is an accidental-corruption/content-identity aid for
+KVLab ingestion; it is not cryptographic attestation. The envelope deliberately
+does not contain a physical-DRAM, latency, model-quality or promotion field, so
+a retained routing decision cannot be mistaken for a performance result.
+
 ## Evidence boundary
 
 The public integration test consumes these contracts through the actual

@@ -1,9 +1,17 @@
 use core::fmt;
+use std::fmt::Write as _;
 
 use crate::api::boolean_kv::{
     BooleanKvCache, BooleanKvError, BooleanKvMatch, PackedBooleanSignature,
 };
 use crate::paged_kv::{PagedKvError, PagedKvTable};
+
+/// Canonical schema emitted when retaining a Boolean KV page-selection decision.
+///
+/// This is research evidence only. It records the logical selection and exact
+/// accounting already computed by the router; it does not claim physical DRAM
+/// traffic, latency, model quality, or a performance improvement.
+pub const BOOLEAN_KV_SELECTION_EVIDENCE_SCHEMA: &str = "flat.boolean-kv-selection.v1";
 
 /// Numerical K/V storage geometry used only for exact traffic accounting.
 ///
@@ -57,6 +65,8 @@ pub struct BooleanIndexedKvSelection {
     pub mapped_pages: usize,
     pub boolean_pages_scanned: usize,
     pub boolean_key_bytes_read: usize,
+    /// Exact numerical K+V storage bytes represented by one live token.
+    pub numerical_kv_bytes_per_token: usize,
     pub full_numerical_kv_bytes: usize,
     pub selected_numerical_kv_bytes: usize,
     pub avoided_numerical_kv_bytes: usize,
@@ -94,6 +104,284 @@ impl BooleanIndexedKvSelection {
             Some(self.avoided_numerical_kv_bytes as f64 / self.boolean_key_bytes_read as f64)
         }
     }
+
+    /// Validate the retained selection evidence independently from construction.
+    ///
+    /// `BooleanIndexedKvSelection` is intentionally a transparent research
+    /// record. Callers can therefore deserialize or reconstruct one outside the
+    /// canonical builder. Evidence export revalidates the invariants needed to
+    /// prevent a forged/mutated aggregate from being retained as if it came from
+    /// the authoritative page router.
+    pub fn validate_evidence(&self) -> Result<(), BooleanKvSelectionEvidenceError> {
+        if self.signature_bits == 0 {
+            return Err(BooleanKvSelectionEvidenceError::ZeroSignatureBits);
+        }
+        if self.boolean_pages_scanned != self.mapped_pages {
+            return Err(BooleanKvSelectionEvidenceError::ScannedPageCountMismatch {
+                scanned_pages: self.boolean_pages_scanned,
+                mapped_pages: self.mapped_pages,
+            });
+        }
+        if self.selected_pages.len() > self.mapped_pages {
+            return Err(BooleanKvSelectionEvidenceError::TooManySelectedPages {
+                selected_pages: self.selected_pages.len(),
+                mapped_pages: self.mapped_pages,
+            });
+        }
+        let expected_boolean_bytes = self
+            .mapped_pages
+            .checked_mul(self.signature_bits.div_ceil(64))
+            .and_then(|words| words.checked_mul(core::mem::size_of::<u64>()))
+            .ok_or(BooleanKvSelectionEvidenceError::EvidenceAccountingOverflow)?;
+        if self.boolean_key_bytes_read != expected_boolean_bytes {
+            return Err(
+                BooleanKvSelectionEvidenceError::BooleanByteAccountingMismatch {
+                    recorded: self.boolean_key_bytes_read,
+                    expected: expected_boolean_bytes,
+                },
+            );
+        }
+        if (self.live_tokens == 0) != (self.mapped_pages == 0) {
+            return Err(
+                BooleanKvSelectionEvidenceError::LivePageCardinalityMismatch {
+                    live_tokens: self.live_tokens,
+                    mapped_pages: self.mapped_pages,
+                },
+            );
+        }
+        if self.live_tokens == 0 {
+            if self.numerical_kv_bytes_per_token == 0
+                || self.full_numerical_kv_bytes != 0
+                || self.selected_numerical_kv_bytes != 0
+                || self.avoided_numerical_kv_bytes != 0
+                || !self.selected_pages.is_empty()
+            {
+                return Err(BooleanKvSelectionEvidenceError::EmptySelectionAccountingMismatch);
+            }
+        } else {
+            if self.numerical_kv_bytes_per_token == 0 {
+                return Err(BooleanKvSelectionEvidenceError::ZeroNumericalBytesPerToken);
+            }
+            let expected_full = self
+                .live_tokens
+                .checked_mul(self.numerical_kv_bytes_per_token)
+                .ok_or(BooleanKvSelectionEvidenceError::EvidenceAccountingOverflow)?;
+            if self.full_numerical_kv_bytes != expected_full {
+                return Err(
+                    BooleanKvSelectionEvidenceError::FullByteAccountingMismatch {
+                        recorded: self.full_numerical_kv_bytes,
+                        expected: expected_full,
+                    },
+                );
+            }
+            let selected_live_tokens =
+                self.selected_pages.iter().try_fold(0usize, |sum, page| {
+                    sum.checked_add(page.live_tokens)
+                        .ok_or(BooleanKvSelectionEvidenceError::EvidenceAccountingOverflow)
+                })?;
+            if selected_live_tokens > self.live_tokens {
+                return Err(
+                    BooleanKvSelectionEvidenceError::SelectedLiveTokensExceedTotal {
+                        selected_live_tokens,
+                        live_tokens: self.live_tokens,
+                    },
+                );
+            }
+            let expected_selected = selected_live_tokens
+                .checked_mul(self.numerical_kv_bytes_per_token)
+                .ok_or(BooleanKvSelectionEvidenceError::EvidenceAccountingOverflow)?;
+            if self.selected_numerical_kv_bytes != expected_selected {
+                return Err(
+                    BooleanKvSelectionEvidenceError::SelectedByteAccountingMismatch {
+                        recorded: self.selected_numerical_kv_bytes,
+                        expected: expected_selected,
+                    },
+                );
+            }
+            let expected_avoided = expected_full
+                .checked_sub(expected_selected)
+                .ok_or(BooleanKvSelectionEvidenceError::EvidenceAccountingOverflow)?;
+            if self.avoided_numerical_kv_bytes != expected_avoided {
+                return Err(
+                    BooleanKvSelectionEvidenceError::AvoidedByteAccountingMismatch {
+                        recorded: self.avoided_numerical_kv_bytes,
+                        expected: expected_avoided,
+                    },
+                );
+            }
+        }
+
+        let mut previous_logical = None;
+        let mut physical_pages = std::collections::BTreeSet::new();
+        for page in &self.selected_pages {
+            if page.logical_page >= self.mapped_pages {
+                return Err(BooleanKvSelectionEvidenceError::LogicalPageOutOfRange {
+                    logical_page: page.logical_page,
+                    mapped_pages: self.mapped_pages,
+                });
+            }
+            if previous_logical.is_some_and(|previous| page.logical_page <= previous) {
+                return Err(BooleanKvSelectionEvidenceError::LogicalPagesNotStrictlyOrdered);
+            }
+            if page.live_tokens == 0 {
+                return Err(BooleanKvSelectionEvidenceError::ZeroLiveTokens {
+                    logical_page: page.logical_page,
+                });
+            }
+            if page.hamming_distance.checked_add(page.xnor_matches) != Some(self.signature_bits) {
+                return Err(
+                    BooleanKvSelectionEvidenceError::SignatureAccountingMismatch {
+                        logical_page: page.logical_page,
+                    },
+                );
+            }
+            if !physical_pages.insert(page.physical_page) {
+                return Err(BooleanKvSelectionEvidenceError::DuplicatePhysicalPage {
+                    physical_page: page.physical_page,
+                });
+            }
+            previous_logical = Some(page.logical_page);
+        }
+        Ok(())
+    }
+
+    /// Deterministic, dependency-free JSON for cross-project evidence retention.
+    ///
+    /// The checksum detects accidental mutation and gives KVLab a stable content
+    /// identity to retain. It is not a cryptographic authenticity primitive.
+    pub fn canonical_evidence_json(&self) -> Result<String, BooleanKvSelectionEvidenceError> {
+        self.validate_evidence()?;
+        let mut payload = String::with_capacity(512 + self.selected_pages.len() * 128);
+        write!(
+            payload,
+            "{{\"schema\":\"{}\",\"generation\":{},\"signature_bits\":{},\"live_tokens\":{},\"mapped_pages\":{},\"boolean_pages_scanned\":{},\"boolean_key_bytes_read\":{},\"numerical_kv_bytes_per_token\":{},\"full_numerical_kv_bytes\":{},\"selected_numerical_kv_bytes\":{},\"avoided_numerical_kv_bytes\":{},\"selected_pages\":[",
+            BOOLEAN_KV_SELECTION_EVIDENCE_SCHEMA,
+            self.generation,
+            self.signature_bits,
+            self.live_tokens,
+            self.mapped_pages,
+            self.boolean_pages_scanned,
+            self.boolean_key_bytes_read,
+            self.numerical_kv_bytes_per_token,
+            self.full_numerical_kv_bytes,
+            self.selected_numerical_kv_bytes,
+            self.avoided_numerical_kv_bytes,
+        )
+        .expect("writing to String cannot fail");
+        for (index, page) in self.selected_pages.iter().enumerate() {
+            if index != 0 {
+                payload.push(',');
+            }
+            write!(
+                payload,
+                "{{\"logical_page\":{},\"physical_page\":{},\"live_tokens\":{},\"hamming_distance\":{},\"xnor_matches\":{}}}",
+                page.logical_page,
+                page.physical_page,
+                page.live_tokens,
+                page.hamming_distance,
+                page.xnor_matches,
+            )
+            .expect("writing to String cannot fail");
+        }
+        payload.push(']');
+        let checksum = fnv1a64(payload.as_bytes());
+        write!(
+            payload,
+            ",\"evidence_checksum\":{{\"algorithm\":\"fnv1a64\",\"value\":\"{checksum:016x}\"}}}}"
+        )
+        .expect("writing to String cannot fail");
+        Ok(payload)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BooleanKvSelectionEvidenceError {
+    ZeroSignatureBits,
+    ScannedPageCountMismatch {
+        scanned_pages: usize,
+        mapped_pages: usize,
+    },
+    TooManySelectedPages {
+        selected_pages: usize,
+        mapped_pages: usize,
+    },
+    EvidenceAccountingOverflow,
+    BooleanByteAccountingMismatch {
+        recorded: usize,
+        expected: usize,
+    },
+    LivePageCardinalityMismatch {
+        live_tokens: usize,
+        mapped_pages: usize,
+    },
+    ZeroNumericalBytesPerToken,
+    EmptySelectionAccountingMismatch,
+    FullByteAccountingMismatch {
+        recorded: usize,
+        expected: usize,
+    },
+    SelectedLiveTokensExceedTotal {
+        selected_live_tokens: usize,
+        live_tokens: usize,
+    },
+    SelectedByteAccountingMismatch {
+        recorded: usize,
+        expected: usize,
+    },
+    AvoidedByteAccountingMismatch {
+        recorded: usize,
+        expected: usize,
+    },
+    LogicalPageOutOfRange {
+        logical_page: usize,
+        mapped_pages: usize,
+    },
+    LogicalPagesNotStrictlyOrdered,
+    ZeroLiveTokens {
+        logical_page: usize,
+    },
+    SignatureAccountingMismatch {
+        logical_page: usize,
+    },
+    DuplicatePhysicalPage {
+        physical_page: usize,
+    },
+}
+
+impl fmt::Display for BooleanKvSelectionEvidenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroSignatureBits => write!(f, "Boolean KV selection evidence requires non-zero signature_bits"),
+            Self::ScannedPageCountMismatch { scanned_pages, mapped_pages } => write!(f, "Boolean KV selection scanned {scanned_pages} pages for {mapped_pages} mapped pages"),
+            Self::TooManySelectedPages { selected_pages, mapped_pages } => write!(f, "Boolean KV selection retains {selected_pages} pages from only {mapped_pages} mapped pages"),
+            Self::EvidenceAccountingOverflow => write!(f, "Boolean KV selection evidence accounting overflow"),
+            Self::BooleanByteAccountingMismatch { recorded, expected } => write!(f, "Boolean KV selection Boolean-byte accounting mismatch: recorded {recorded}, expected {expected}"),
+            Self::LivePageCardinalityMismatch { live_tokens, mapped_pages } => write!(f, "Boolean KV selection live-token/page cardinality is inconsistent: {live_tokens} live tokens across {mapped_pages} mapped pages"),
+            Self::ZeroNumericalBytesPerToken => write!(f, "non-empty Boolean KV selection requires non-zero numerical KV bytes per token"),
+            Self::EmptySelectionAccountingMismatch => write!(f, "empty Boolean KV selection must retain numerical byte geometry but zero totals and no selected pages"),
+            Self::FullByteAccountingMismatch { recorded, expected } => write!(f, "Boolean KV selection full numerical-byte accounting mismatch: recorded {recorded}, expected {expected}"),
+            Self::SelectedLiveTokensExceedTotal { selected_live_tokens, live_tokens } => write!(f, "Boolean KV selection retains {selected_live_tokens} selected live tokens from only {live_tokens} total live tokens"),
+            Self::SelectedByteAccountingMismatch { recorded, expected } => write!(f, "Boolean KV selection selected numerical-byte accounting mismatch: recorded {recorded}, expected {expected}"),
+            Self::AvoidedByteAccountingMismatch { recorded, expected } => write!(f, "Boolean KV selection avoided numerical-byte accounting mismatch: recorded {recorded}, expected {expected}"),
+            Self::LogicalPageOutOfRange { logical_page, mapped_pages } => write!(f, "Boolean KV selection logical page {logical_page} is outside {mapped_pages} mapped pages"),
+            Self::LogicalPagesNotStrictlyOrdered => write!(f, "Boolean KV selection logical pages must be strictly increasing"),
+            Self::ZeroLiveTokens { logical_page } => write!(f, "Boolean KV selection page {logical_page} cannot retain zero live tokens"),
+            Self::SignatureAccountingMismatch { logical_page } => write!(f, "Boolean KV selection page {logical_page} has inconsistent Hamming/XNOR accounting"),
+            Self::DuplicatePhysicalPage { physical_page } => write!(f, "Boolean KV selection repeats physical page {physical_page}"),
+        }
+    }
+}
+
+impl std::error::Error for BooleanKvSelectionEvidenceError {}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -230,6 +518,7 @@ pub fn build_boolean_indexed_kv_selection(
         mapped_pages: telemetry.mapped_pages,
         boolean_pages_scanned: boolean_cache.len(),
         boolean_key_bytes_read: accounting.key_physical_bytes,
+        numerical_kv_bytes_per_token: bytes_per_token,
         full_numerical_kv_bytes,
         selected_numerical_kv_bytes,
         avoided_numerical_kv_bytes,
@@ -437,6 +726,123 @@ mod tests {
                 },
             ),
             Err(BooleanKvPagedSelectionError::ZeroNumericalGeometry)
+        );
+    }
+    #[test]
+    fn canonical_selection_evidence_is_deterministic_and_retains_page_identity() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            Some(2),
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+
+        let first = plan.canonical_evidence_json().unwrap();
+        let second = plan.canonical_evidence_json().unwrap();
+        assert_eq!(first, second);
+        assert!(first.contains("\"schema\":\"flat.boolean-kv-selection.v1\""));
+        assert!(first.contains("\"logical_page\":1"));
+        assert!(first.contains("\"logical_page\":2"));
+        assert!(first.contains("\"evidence_checksum\":{\"algorithm\":\"fnv1a64\""));
+    }
+
+    #[test]
+    fn selection_evidence_rejects_mutated_page_order_and_signature_accounting() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let mut plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            None,
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+
+        plan.selected_pages.swap(0, 1);
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(BooleanKvSelectionEvidenceError::LogicalPagesNotStrictlyOrdered)
+        );
+
+        plan.selected_pages
+            .sort_unstable_by_key(|page| page.logical_page);
+        plan.selected_pages[0].xnor_matches = 0;
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(BooleanKvSelectionEvidenceError::SignatureAccountingMismatch { logical_page: 0 })
+        );
+    }
+    #[test]
+    fn selection_evidence_rejects_selected_byte_drift_even_when_total_is_conserved() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let mut plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            Some(2),
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+
+        plan.selected_numerical_kv_bytes = 320;
+        plan.avoided_numerical_kv_bytes = 320;
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(
+                BooleanKvSelectionEvidenceError::SelectedByteAccountingMismatch {
+                    recorded: 320,
+                    expected: 384,
+                }
+            )
+        );
+    }
+    #[test]
+    fn selection_evidence_rejects_mutated_boolean_byte_accounting() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let mut plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            Some(2),
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+        plan.boolean_key_bytes_read = 1;
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(
+                BooleanKvSelectionEvidenceError::BooleanByteAccountingMismatch {
+                    recorded: 1,
+                    expected: 24,
+                }
+            )
         );
     }
 }
