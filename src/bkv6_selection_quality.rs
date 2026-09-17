@@ -102,6 +102,15 @@ impl Bkv6SelectionQualityEvidence {
         })
     }
 
+    /// Canonical embedded FLAT selection evidence used to derive this record.
+    ///
+    /// This accessor exists for fail-closed provenance binding. It does not
+    /// authorize routing or reinterpret the quality record as model quality.
+    #[must_use]
+    pub fn selection_json(&self) -> &str {
+        &self.selection_json
+    }
+
     #[must_use]
     pub fn mapped_pages(&self) -> usize {
         self.mapped_pages

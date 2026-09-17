@@ -13,3 +13,16 @@ The contract rejects an empty/undefined dense target, an empty mapped-page unive
 This is **target-page selection quality**, not downstream model quality. The experiment must separately preregister how the dense target is produced, the recall/FNR acceptance threshold, task/model quality metrics when applicable, and whether the run is development, validation, or confirmatory. The threshold is deliberately not embedded in this API so a caller cannot mistake a library default for a preregistered scientific decision.
 
 This evidence does not show physical DRAM/HBM traffic avoidance, latency improvement, TTFT/TPOT improvement, preserved perplexity/task quality, or readiness for BKV-7. Those require the independent measurements already required by the BKV-K6 qualification gate and Boolean-KV roadmap.
+
+## Qualification provenance binding
+
+The research-only `flat.bikv-selection-quality-binding.v1` envelope joins this
+quality record to the existing `flat.bikv-selection-binding.v1` qualification
+binding for the **same exact** `flat.boolean-kv-selection.v2` payload. It fails
+closed when the quality evidence was derived from another selection and retains
+both canonical envelopes under an outer checksum.
+
+This binding deliberately does not invent a recall threshold and does not
+reinterpret the existing `quality_gate_passed` field. Any acceptance threshold
+and downstream model-quality gate remain independently preregistered experiment
+inputs. The new envelope is provenance infrastructure only.
