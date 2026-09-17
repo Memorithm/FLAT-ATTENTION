@@ -31,7 +31,9 @@ fn read_accounting_stays_distinct_from_resident_boolean_metadata() {
         .append(signature(0b0000_0011), Some(signature(0b1111_1100)))
         .expect("page 2 Boolean metadata");
 
-    let resident = cache.accounting().expect("representable Boolean accounting");
+    let resident = cache
+        .accounting()
+        .expect("representable Boolean accounting");
     assert_eq!(resident.key_physical_bytes, 24);
     assert_eq!(resident.value_physical_bytes, 24);
     assert_eq!(resident.total_physical_bytes, 48);
@@ -67,5 +69,8 @@ fn read_accounting_stays_distinct_from_resident_boolean_metadata() {
     // These quantities must not silently collapse into one metric: storage
     // residency includes the optional Boolean value signatures, while current
     // routing reads only the key-signature bytes.
-    assert_eq!(resident.total_physical_bytes, 2 * selection.boolean_key_bytes_read);
+    assert_eq!(
+        resident.total_physical_bytes,
+        2 * selection.boolean_key_bytes_read
+    );
 }
