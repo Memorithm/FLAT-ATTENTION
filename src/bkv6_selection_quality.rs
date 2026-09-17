@@ -196,7 +196,8 @@ impl Bkv6SelectionQualityEvidence {
             self.mapped_pages,
         )
         .expect("writing to String cannot fail");
-        debug_assert_eq!(payload.pop(), Some('}'));
+        let closing_brace = payload.pop();
+        debug_assert_eq!(closing_brace, Some('}'));
         let checksum = fnv1a64(payload.as_bytes());
         write!(
             payload,
