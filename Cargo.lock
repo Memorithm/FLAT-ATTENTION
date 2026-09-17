@@ -335,6 +335,9 @@ dependencies = [
 [[package]]
 name = "flat-algebraic-attention"
 version = "0.1.0"
+dependencies = [
+ "flat-attention",
+]
 
 [[package]]
 name = "flat-attention"

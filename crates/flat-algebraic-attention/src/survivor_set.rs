@@ -106,6 +106,9 @@ pub struct SurvivorSet {
     survivor_indices: Vec<usize>,
     rejections: Vec<CandidateRejection>,
     rejection_counts: DomainRejectionCounts,
+    qualification_route: AlgebraicRoute,
+    qualification_policy: RecompositionPolicy,
+    first_noncanonical_boolean_candidate: Option<usize>,
 }
 
 impl SurvivorSet {
@@ -137,6 +140,26 @@ impl SurvivorSet {
     #[must_use]
     pub const fn rejection_counts(&self) -> DomainRejectionCounts {
         self.rejection_counts
+    }
+
+    /// Immutable route snapshot, including the complete supplied M13B metadata.
+    /// This is not an attestation of numerical inputs or predicate definitions.
+    #[must_use]
+    pub const fn qualification_route(&self) -> &AlgebraicRoute {
+        &self.qualification_route
+    }
+
+    #[must_use]
+    pub const fn qualification_policy(&self) -> RecompositionPolicy {
+        self.qualification_policy
+    }
+
+    /// First candidate whose ID was not its Boolean block index, if any.
+    /// General survivor batches still permit arbitrary IDs. Matched block-space
+    /// evidence requires identity mapping for admitted AND rejected candidates.
+    #[must_use]
+    pub const fn first_noncanonical_boolean_candidate(&self) -> Option<usize> {
+        self.first_noncanonical_boolean_candidate
     }
 }
 
@@ -188,12 +211,18 @@ pub fn qualify_survivor_set(
     let mut survivor_indices = Vec::with_capacity(candidates.len());
     let mut rejections = Vec::new();
     let mut rejection_counts = DomainRejectionCounts::default();
+    let mut first_noncanonical_boolean_candidate = None;
 
     for candidate in candidates {
         if !seen.insert(candidate.candidate_index) {
             return Err(SurvivorSetError::DuplicateCandidateIndex {
                 candidate_index: candidate.candidate_index,
             });
+        }
+        if route.contains(AlgebraDomain::Boolean)
+            && candidate.inputs.boolean_block != Some(candidate.candidate_index)
+        {
+            first_noncanonical_boolean_candidate.get_or_insert(candidate.candidate_index);
         }
 
         let decision = qualify_candidate(route, candidate.inputs, policy).map_err(|source| {
@@ -224,6 +253,9 @@ pub fn qualify_survivor_set(
         survivor_indices,
         rejections,
         rejection_counts,
+        qualification_route: route.clone(),
+        qualification_policy: policy,
+        first_noncanonical_boolean_candidate,
     })
 }
 
