@@ -63,10 +63,13 @@ numerical FLAT remains authoritative.
 
 `BooleanIndexedKvSelection::canonical_evidence_json()` emits the research schema
 `flat.boolean-kv-selection.v1`. It retains the exact logical/physical page IDs,
-live-token counts, Hamming/XNOR accounting and the already-computed Boolean and
-numerical byte accounting in deterministic field order. Evidence export first
-revalidates ordering, uniqueness, signature accounting and aggregate-byte
-invariants so a mutated transparent research record fails closed.
+live-token counts, Hamming/XNOR accounting, exact numerical K+V bytes/token and
+the already-computed Boolean/numerical byte accounting in deterministic field
+order. Evidence export recomputes packed Boolean bytes as
+`mapped_pages * ceil(signature_bits / 64) * 8`, recomputes full/selected/avoided
+numerical totals from retained bytes/token geometry, and also revalidates
+ordering, uniqueness and signature accounting so a mutated transparent research
+record fails closed.
 
 The trailing FNV-1a checksum is an accidental-corruption/content-identity aid for
 KVLab ingestion; it is not cryptographic attestation. The envelope deliberately
