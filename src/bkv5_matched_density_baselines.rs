@@ -3,6 +3,7 @@ use std::collections::BinaryHeap;
 
 pub const BKV5_RANDOM_BASELINE_ALGORITHM: &str = "splitmix64-page-ranking-v1";
 pub const BKV5_POSITIONAL_BASELINE_ALGORITHM: &str = "tail-window-v1";
+pub const BKV5_KVLAB_REFERENCE_REVISION: &str = "7b2b9a07f0ad17e3f0942a9f920f633f7a50f483";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -199,8 +200,8 @@ fn splitmix64(value: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        Bkv5MatchedDensityBaselines, Bkv5MatchedDensityError, BKV5_POSITIONAL_BASELINE_ALGORITHM,
-        BKV5_RANDOM_BASELINE_ALGORITHM,
+        Bkv5MatchedDensityBaselines, Bkv5MatchedDensityError, BKV5_KVLAB_REFERENCE_REVISION,
+        BKV5_POSITIONAL_BASELINE_ALGORITHM, BKV5_RANDOM_BASELINE_ALGORITHM,
     };
 
     #[test]
@@ -221,6 +222,10 @@ mod tests {
 
     #[test]
     fn cross_repository_reference_vectors_are_stable() {
+        assert_eq!(
+            BKV5_KVLAB_REFERENCE_REVISION,
+            "7b2b9a07f0ad17e3f0942a9f920f633f7a50f483"
+        );
         let seed_7 = Bkv5MatchedDensityBaselines::new(32, vec![0, 4, 8, 12, 16, 20], 7).unwrap();
         let seed_8 = Bkv5MatchedDensityBaselines::new(32, vec![0, 4, 8, 12, 16, 20], 8).unwrap();
 

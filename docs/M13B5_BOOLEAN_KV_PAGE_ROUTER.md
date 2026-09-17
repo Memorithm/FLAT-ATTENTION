@@ -53,7 +53,7 @@ BKV-K5 now exposes selection-only matched-density controls through
 versioned `splitmix64-page-ranking-v1` rule and the positional control uses
 `tail-window-v1`; both select exactly the Boolean candidate count. Full/paged
 numerical controls retain every logical page. Shared reference vectors match
-KVLab's BKV-K5 control contract.
+KVLab's BKV-K5 control contract merged at `7b2b9a07f0ad17e3f0942a9f920f633f7a50f483`.
 
 These controls select logical page IDs only. They do not turn candidate density
 into measured traffic, latency, quality, residency or speedup, and dense
