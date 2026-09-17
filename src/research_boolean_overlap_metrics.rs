@@ -59,6 +59,13 @@ pub enum M13B4TraceSummaryError {
     PrefillScope,
     /// The measurement harness must report at least one dispatch.
     ZeroDispatchCount,
+    /// The multi-dispatch scheduling variant requires distinct Boolean and numerical dispatches.
+    InsufficientMultiDispatchCount {
+        /// Smallest dispatch count admitted by this variant.
+        minimum: u32,
+        /// Dispatch count observed by the measurement harness.
+        observed: u32,
+    },
 }
 
 /// Build exact phase accounting from one validated decode trace.
@@ -82,6 +89,14 @@ pub fn summarize_decode_trace(
     }
     if dispatch_count == 0 {
         return Err(M13B4TraceSummaryError::ZeroDispatchCount);
+    }
+    if trace.scheduling_variant == M13B4SchedulingVariant::MultiDispatchOverlapCandidate
+        && dispatch_count < 2
+    {
+        return Err(M13B4TraceSummaryError::InsufficientMultiDispatchCount {
+            minimum: 2,
+            observed: dispatch_count,
+        });
     }
 
     let interval = |start, end| {
@@ -221,6 +236,17 @@ mod tests {
         assert_eq!(
             summarize_decode_trace(&decode_trace(M13B4TraceScope::FirstDecode, false), 0),
             Err(M13B4TraceSummaryError::ZeroDispatchCount)
+        );
+    }
+
+    #[test]
+    fn rejects_one_dispatch_for_multi_dispatch_variant() {
+        assert_eq!(
+            summarize_decode_trace(&decode_trace(M13B4TraceScope::FirstDecode, true), 1),
+            Err(M13B4TraceSummaryError::InsufficientMultiDispatchCount {
+                minimum: 2,
+                observed: 1,
+            })
         );
     }
 

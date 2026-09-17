@@ -234,6 +234,21 @@ impl M13B4Trace {
                         after: M13B4TraceEventKind::SynchronizationWaitEnd,
                     });
                 }
+                let query_ready =
+                    self.timestamp_ns(M13B4TraceEventKind::QueryRepresentationReady)?;
+                if start.timestamp_ns < query_ready {
+                    return Err(M13B4TraceError::InvalidEventOrder {
+                        before: M13B4TraceEventKind::QueryRepresentationReady,
+                        after: M13B4TraceEventKind::SynchronizationWaitStart,
+                    });
+                }
+                let output_ready = self.timestamp_ns(M13B4TraceEventKind::OutputReady)?;
+                if end.timestamp_ns > output_ready {
+                    return Err(M13B4TraceError::InvalidEventOrder {
+                        before: M13B4TraceEventKind::SynchronizationWaitEnd,
+                        after: M13B4TraceEventKind::OutputReady,
+                    });
+                }
             }
             (None, None) => {
                 if self.scheduling_variant == M13B4SchedulingVariant::MultiDispatchOverlapCandidate
@@ -354,6 +369,64 @@ mod tests {
             },
         ]);
         events
+    }
+
+    #[test]
+    fn decode_trace_rejects_wait_before_query_unit() {
+        let mut events = decode_events(true);
+        let start = events
+            .iter_mut()
+            .find(|event| event.kind == M13B4TraceEventKind::SynchronizationWaitStart)
+            .unwrap();
+        start.timestamp_ns = 9;
+        let end = events
+            .iter_mut()
+            .find(|event| event.kind == M13B4TraceEventKind::SynchronizationWaitEnd)
+            .unwrap();
+        end.timestamp_ns = 9;
+        events.sort_by_key(|event| event.timestamp_ns);
+        let trace = M13B4Trace {
+            timing_source: M13B4TimingSource::DeviceTimestamp,
+            scheduling_variant: M13B4SchedulingVariant::MultiDispatchOverlapCandidate,
+            scope: M13B4TraceScope::FirstDecode,
+            events,
+        };
+        assert_eq!(
+            trace.validate(),
+            Err(M13B4TraceError::InvalidEventOrder {
+                before: M13B4TraceEventKind::QueryRepresentationReady,
+                after: M13B4TraceEventKind::SynchronizationWaitStart,
+            })
+        );
+    }
+
+    #[test]
+    fn decode_trace_rejects_wait_after_output_unit() {
+        let mut events = decode_events(true);
+        let start = events
+            .iter_mut()
+            .find(|event| event.kind == M13B4TraceEventKind::SynchronizationWaitStart)
+            .unwrap();
+        start.timestamp_ns = 32;
+        let end = events
+            .iter_mut()
+            .find(|event| event.kind == M13B4TraceEventKind::SynchronizationWaitEnd)
+            .unwrap();
+        end.timestamp_ns = 33;
+        events.sort_by_key(|event| event.timestamp_ns);
+        let trace = M13B4Trace {
+            timing_source: M13B4TimingSource::DeviceTimestamp,
+            scheduling_variant: M13B4SchedulingVariant::MultiDispatchOverlapCandidate,
+            scope: M13B4TraceScope::FirstDecode,
+            events,
+        };
+        assert_eq!(
+            trace.validate(),
+            Err(M13B4TraceError::InvalidEventOrder {
+                before: M13B4TraceEventKind::SynchronizationWaitEnd,
+                after: M13B4TraceEventKind::OutputReady,
+            })
+        );
     }
 
     #[test]
