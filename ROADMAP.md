@@ -486,7 +486,7 @@ Numerical:      N0 -----N1------N2------N3
 
 ## M13B.5 — Boolean KV page router
 
-Co-owned scientifically with KVLab and aligned with M14–M16.
+Co-owned scientifically with KVLab and aligned with M14–M16. The research API and its evidence boundary are documented in [`docs/M13B5_BOOLEAN_KV_PAGE_ROUTER.md`](docs/M13B5_BOOLEAN_KV_PAGE_ROUTER.md).
 
 ### Deliverables
 
