@@ -133,6 +133,45 @@ impl BooleanIndexedKvSelection {
         {
             return Err(BooleanKvSelectionEvidenceError::NumericalByteAccountingMismatch);
         }
+        if (self.live_tokens == 0) != (self.mapped_pages == 0) {
+            return Err(
+                BooleanKvSelectionEvidenceError::LivePageCardinalityMismatch {
+                    live_tokens: self.live_tokens,
+                    mapped_pages: self.mapped_pages,
+                },
+            );
+        }
+        if self.live_tokens == 0 {
+            if self.full_numerical_kv_bytes != 0
+                || self.selected_numerical_kv_bytes != 0
+                || self.avoided_numerical_kv_bytes != 0
+                || !self.selected_pages.is_empty()
+            {
+                return Err(BooleanKvSelectionEvidenceError::EmptySelectionAccountingMismatch);
+            }
+        } else {
+            if self.full_numerical_kv_bytes % self.live_tokens != 0 {
+                return Err(BooleanKvSelectionEvidenceError::NumericalByteAccountingMismatch);
+            }
+            let bytes_per_token = self.full_numerical_kv_bytes / self.live_tokens;
+            let selected_live_tokens =
+                self.selected_pages.iter().try_fold(0usize, |sum, page| {
+                    sum.checked_add(page.live_tokens)
+                        .ok_or(BooleanKvSelectionEvidenceError::NumericalByteAccountingMismatch)
+                })?;
+            if selected_live_tokens > self.live_tokens
+                || selected_live_tokens.checked_mul(bytes_per_token)
+                    != Some(self.selected_numerical_kv_bytes)
+            {
+                return Err(
+                    BooleanKvSelectionEvidenceError::SelectedByteAccountingMismatch {
+                        selected_live_tokens,
+                        bytes_per_token,
+                        selected_numerical_kv_bytes: self.selected_numerical_kv_bytes,
+                    },
+                );
+            }
+        }
         if self.mapped_pages > 0 && self.boolean_key_bytes_read == 0 {
             return Err(BooleanKvSelectionEvidenceError::MissingBooleanBytesRead);
         }
@@ -232,6 +271,16 @@ pub enum BooleanKvSelectionEvidenceError {
         mapped_pages: usize,
     },
     NumericalByteAccountingMismatch,
+    LivePageCardinalityMismatch {
+        live_tokens: usize,
+        mapped_pages: usize,
+    },
+    EmptySelectionAccountingMismatch,
+    SelectedByteAccountingMismatch {
+        selected_live_tokens: usize,
+        bytes_per_token: usize,
+        selected_numerical_kv_bytes: usize,
+    },
     MissingBooleanBytesRead,
     LogicalPageOutOfRange {
         logical_page: usize,
@@ -256,6 +305,9 @@ impl fmt::Display for BooleanKvSelectionEvidenceError {
             Self::ScannedPageCountMismatch { scanned_pages, mapped_pages } => write!(f, "Boolean KV selection scanned {scanned_pages} pages for {mapped_pages} mapped pages"),
             Self::TooManySelectedPages { selected_pages, mapped_pages } => write!(f, "Boolean KV selection retains {selected_pages} pages from only {mapped_pages} mapped pages"),
             Self::NumericalByteAccountingMismatch => write!(f, "Boolean KV selection numerical byte accounting is inconsistent"),
+            Self::LivePageCardinalityMismatch { live_tokens, mapped_pages } => write!(f, "Boolean KV selection live-token/page cardinality is inconsistent: {live_tokens} live tokens across {mapped_pages} mapped pages"),
+            Self::EmptySelectionAccountingMismatch => write!(f, "empty Boolean KV selection must retain zero numerical bytes and no selected pages"),
+            Self::SelectedByteAccountingMismatch { selected_live_tokens, bytes_per_token, selected_numerical_kv_bytes } => write!(f, "Boolean KV selection selected-byte accounting is inconsistent: {selected_live_tokens} live tokens at {bytes_per_token} bytes/token but {selected_numerical_kv_bytes} selected bytes recorded"),
             Self::MissingBooleanBytesRead => write!(f, "Boolean KV selection with mapped pages must retain non-zero Boolean key bytes read"),
             Self::LogicalPageOutOfRange { logical_page, mapped_pages } => write!(f, "Boolean KV selection logical page {logical_page} is outside {mapped_pages} mapped pages"),
             Self::LogicalPagesNotStrictlyOrdered => write!(f, "Boolean KV selection logical pages must be strictly increasing"),
@@ -677,6 +729,37 @@ mod tests {
         assert_eq!(
             plan.validate_evidence(),
             Err(BooleanKvSelectionEvidenceError::SignatureAccountingMismatch { logical_page: 0 })
+        );
+    }
+    #[test]
+    fn selection_evidence_rejects_selected_byte_drift_even_when_total_is_conserved() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let mut plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            Some(2),
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+
+        plan.selected_numerical_kv_bytes = 320;
+        plan.avoided_numerical_kv_bytes = 320;
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(
+                BooleanKvSelectionEvidenceError::SelectedByteAccountingMismatch {
+                    selected_live_tokens: 6,
+                    bytes_per_token: 64,
+                    selected_numerical_kv_bytes: 320,
+                }
+            )
         );
     }
 }
