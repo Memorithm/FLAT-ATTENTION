@@ -1,4 +1,5 @@
 use core::fmt;
+use std::collections::BinaryHeap;
 
 pub const BKV5_RANDOM_BASELINE_ALGORITHM: &str = "splitmix64-page-ranking-v1";
 pub const BKV5_POSITIONAL_BASELINE_ALGORITHM: &str = "tail-window-v1";
@@ -118,16 +119,27 @@ impl Bkv5MatchedDensityBaselines {
         if count == 0 {
             return Ok(Vec::new());
         }
+        if count == self.total_pages {
+            return Ok(self.full_pages());
+        }
 
-        let mut ranked = Vec::with_capacity(self.total_pages);
+        // Keep only the `count` lowest ranking tuples. BinaryHeap is a max-heap,
+        // so its root is the worst currently retained candidate. This preserves
+        // the v1 ranking semantics with O(count) auxiliary memory instead of
+        // materializing all `total_pages` scores.
+        let mut ranked = BinaryHeap::with_capacity(count);
         for logical_page in 0..self.total_pages {
             let page_u64 = u64::try_from(logical_page).map_err(|_| {
                 Bkv5MatchedDensityError::PageIndexNotRepresentableAsU64 { logical_page }
             })?;
-            ranked.push((splitmix64(self.seed ^ page_u64), logical_page));
+            let candidate = (splitmix64(self.seed ^ page_u64), logical_page);
+            if ranked.len() < count {
+                ranked.push(candidate);
+            } else if ranked.peek().is_some_and(|worst| candidate < *worst) {
+                ranked.pop();
+                ranked.push(candidate);
+            }
         }
-        ranked.sort_unstable();
-        ranked.truncate(count);
 
         let mut selected = ranked
             .into_iter()
@@ -224,6 +236,12 @@ mod tests {
             seed_7.positional_matched_pages(),
             vec![26, 27, 28, 29, 30, 31]
         );
+    }
+
+    #[test]
+    fn full_density_shortcuts_ranking_and_returns_all_pages() {
+        let plan = Bkv5MatchedDensityBaselines::new(4, vec![0, 1, 2, 3], 17).unwrap();
+        assert_eq!(plan.random_matched_pages().unwrap(), vec![0, 1, 2, 3]);
     }
 
     #[test]
