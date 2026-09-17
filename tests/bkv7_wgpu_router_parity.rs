@@ -1,14 +1,44 @@
 #![cfg(feature = "wgpu")]
 
+use std::process::Command;
 use std::sync::mpsc;
 
 use flat_attention::api::boolean_attention_signature::{
     BooleanAttentionSignature, HammingAdmissionRule,
 };
 use flat_attention::api::wgpu_boolean_router::{
-    BooleanKvWgpuParityEvidence, BooleanWgpuRouterPlan, WgpuBooleanRouterPipeline,
-    BOOLEAN_KV_WGPU_PARITY_SCHEMA,
+    BooleanKvWgpuExecutionProvenance, BooleanKvWgpuParityEvidence, BooleanWgpuRouterPlan,
+    WgpuBooleanRouterPipeline, BOOLEAN_KV_WGPU_PARITY_SCHEMA, BOOLEAN_KV_WGPU_RUNTIME_ID,
 };
+use flat_attention::RuntimeDeviceFingerprint;
+
+fn exact_source_revision() -> String {
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .expect("git rev-parse HEAD must execute in the source checkout");
+    assert!(output.status.success(), "git rev-parse HEAD failed");
+    String::from_utf8(output.stdout)
+        .expect("git revision must be UTF-8")
+        .trim()
+        .to_owned()
+}
+
+fn execution_provenance(info: &wgpu::AdapterInfo) -> BooleanKvWgpuExecutionProvenance {
+    BooleanKvWgpuExecutionProvenance::new(
+        exact_source_revision(),
+        BOOLEAN_KV_WGPU_RUNTIME_ID,
+        RuntimeDeviceFingerprint {
+            name: info.name.clone(),
+            backend: format!("{:?}", info.backend),
+            driver: info.driver.clone(),
+            driver_info: info.driver_info.clone(),
+            vendor: info.vendor,
+            device: info.device,
+        },
+    )
+    .expect("exact source/runtime/adapter provenance must validate")
+}
 
 fn u32_bytes(values: &[u32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(values.len() * 4);
@@ -92,6 +122,8 @@ fn actual_wgpu_dispatch_matches_cpu_oracle_before_any_performance_comparison() {
         eprintln!("WGPU adapter unavailable; optional FLAT BKV-4 / KVLab BKV-K7 device parity test skipped");
         return;
     };
+    let adapter_info = adapter.get_info();
+    let execution = execution_provenance(&adapter_info);
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("flat-bkv7-wgpu-parity"),
         required_features: wgpu::Features::empty(),
@@ -147,12 +179,19 @@ fn actual_wgpu_dispatch_matches_cpu_oracle_before_any_performance_comparison() {
     queue.submit(Some(encoder.finish()));
 
     let observed = read_u32(&device, &queue, &admissions, plan.key_count() as usize);
-    let evidence = BooleanKvWgpuParityEvidence::from_readback(&plan, &observed).unwrap();
+    let evidence =
+        BooleanKvWgpuParityEvidence::from_readback(&plan, &observed, execution.clone()).unwrap();
     assert_eq!(evidence.cpu_admitted_blocks(), &[0, 1, 2]);
     assert_eq!(evidence.wgpu_admitted_blocks(), &[0, 1, 2]);
     assert!(evidence.exact_candidate_set_match());
-    evidence.require_exact_match().unwrap();
+    evidence.require_exact_match_for(&execution).unwrap();
     let json = evidence.canonical_json();
     assert!(json.contains(BOOLEAN_KV_WGPU_PARITY_SCHEMA));
     assert!(json.contains("\"exact_candidate_set_match\":true"));
+    assert!(json.contains(&format!(
+        "\"source_revision\":\"{}\"",
+        exact_source_revision()
+    )));
+    assert!(json.contains(&format!("\"adapter_name\":\"{}\"", adapter_info.name)));
+    assert!(json.contains(BOOLEAN_KV_WGPU_RUNTIME_ID));
 }

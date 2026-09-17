@@ -264,7 +264,7 @@ Acceptance:
 
 ### BKV-4 — Portable GPU Boolean search
 
-The first cross-project correctness slice for this stage is the canonical `flat.boolean-kv-wgpu-parity.v1` record (`docs/BKV-K7-WGPU-PARITY.md`), aligned with KVLab BKV-K7. It accepts one actual WGPU admission-buffer readback for the exact CPU-oracle routing plan, retains mismatches as negative evidence, and fail-closes performance comparison unless candidate sets match exactly. Software-Vulkan CI can qualify portable backend correctness only; it is not real-GPU performance evidence.
+The first cross-project correctness slice for this stage is the canonical `flat.boolean-kv-wgpu-parity.v1` record (`docs/BKV-K7-WGPU-PARITY.md`), aligned with KVLab BKV-K7. It accepts one actual WGPU admission-buffer readback for the exact CPU-oracle routing plan, retains mismatches as negative evidence, binds source/WGPU-runtime/adapter/backend/driver provenance, and fail-closes performance comparison unless candidate sets and execution provenance match exactly. Software-Vulkan CI can qualify portable backend correctness only; it is not real-GPU performance evidence.
 
 Deliver:
 
