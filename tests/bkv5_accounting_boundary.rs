@@ -12,7 +12,7 @@ fn signature(byte: u8) -> PackedBooleanSignature {
 }
 
 #[test]
-fn read_accounting_stays_distinct_from_resident_boolean_metadata() {
+fn read_accounting_stays_distinct_from_packed_signature_payload() {
     let mut table = PagedKvTable::new(PagedKvConfig {
         page_size: 4,
         physical_pages: 4,
@@ -31,16 +31,16 @@ fn read_accounting_stays_distinct_from_resident_boolean_metadata() {
         .append(signature(0b0000_0011), Some(signature(0b1111_1100)))
         .expect("page 2 Boolean metadata");
 
-    let resident = cache
+    let packed = cache
         .accounting()
         .expect("representable Boolean accounting");
-    assert_eq!(resident.key_physical_bytes, 24);
-    assert_eq!(resident.value_physical_bytes, 24);
-    assert_eq!(resident.total_physical_bytes, 48);
+    assert_eq!(packed.key_physical_bytes, 24);
+    assert_eq!(packed.value_physical_bytes, 24);
+    assert_eq!(packed.total_physical_bytes, 48);
 
     // The current CPU search examines every key signature before ranking and
-    // applying the result limit. Optional Boolean value signatures are resident
-    // metadata, but they are not read by the Hamming key search.
+    // applying the result limit. Optional Boolean value signatures contribute packed payload storage,
+    // but they are not read by the Hamming key search.
     let selection = build_boolean_indexed_kv_selection(
         &cache,
         &table,
@@ -66,11 +66,12 @@ fn read_accounting_stays_distinct_from_resident_boolean_metadata() {
         Some(16.0)
     );
 
-    // These quantities must not silently collapse into one metric: storage
-    // residency includes the optional Boolean value signatures, while current
-    // routing reads only the key-signature bytes.
+    // These quantities must not silently collapse into one metric: packed
+    // signature payload storage includes the optional Boolean values, while the
+    // current routing search reads only key-signature payload bytes. This is not
+    // a claim about total host/device residency or allocator overhead.
     assert_eq!(
-        resident.total_physical_bytes,
+        packed.total_physical_bytes,
         2 * selection.boolean_key_bytes_read
     );
 }

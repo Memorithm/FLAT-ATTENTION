@@ -23,16 +23,19 @@ accounting quantities, not DRAM, PCIe, cache-line or device-transfer
 measurements.
 
 The accounting boundary is deliberate. `BooleanKvCache::accounting()` reports
-resident packed metadata: key bytes plus any optional Boolean value signatures.
+packed signature payload bytes: key payload plus any optional Boolean value-signature
+payload. This excludes the Rust object/`Vec`/`Option` metadata, allocation capacity,
+alignment and allocator overhead, so it is not a measurement of total host/device
+residency.
 The current CPU Hamming router scans every key signature before ranking and
 applying an optional result limit, so `boolean_key_bytes_read` records the key
-signature bytes inspected by that search and excludes resident value-signature
-bytes. A result limit therefore reduces the numerical survivor set but does not
+signature payload bytes inspected by that search and excludes optional value-signature
+payload bytes. A result limit therefore reduces the numerical survivor set but does not
 pretend that the current full-scan Boolean search read fewer keys. The regression
 `bkv5_accounting_boundary` freezes this distinction. A future indexed search
 that genuinely inspects fewer key signatures must update the implementation,
 metric semantics and qualification evidence together rather than reusing a
-storage-residency number as a read measurement.
+packed-storage payload number as a read measurement.
 
 ## Invariants
 
