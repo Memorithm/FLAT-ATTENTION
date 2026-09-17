@@ -85,6 +85,17 @@ Boolean bytes read, or numerical byte accounting drift from the selection that
 was actually executed. This is provenance hardening only; it adds no latency,
 quality, bandwidth, or promotion claim.
 
+## Declared-target selection quality
+
+BKV-K6 now exposes the research-only `flat.bikv-selection-quality.v1` evidence
+contract through `api::bkv6_selection_quality`. It binds one validated Boolean
+page-selection decision to an independently declared non-empty dense-reference
+target set and records exact target-page recall, false-negative count/rate,
+false-positive count and candidate density as integer fractions. The caller
+owns target construction and any preregistered acceptance threshold; FLAT does
+not infer model quality or a promotion verdict from these counts. See
+[`BKV-K6-SELECTION-QUALITY.md`](BKV-K6-SELECTION-QUALITY.md).
+
 ## Evidence boundary
 
 The public integration test consumes these contracts through the actual
