@@ -76,6 +76,15 @@ KVLab ingestion; it is not cryptographic attestation. The envelope deliberately
 does not contain a physical-DRAM, latency, model-quality or promotion field, so
 a retained routing decision cannot be mistaken for a performance result.
 
+## BKV-K6 measured-evidence binding
+
+The research-only `flat.bikv-selection-binding.v1` envelope binds this exact
+canonical page-selection decision to the canonical BKV-K6 qualification record.
+The binding fails closed if the declared Hamming threshold, token/page counts,
+Boolean bytes read, or numerical byte accounting drift from the selection that
+was actually executed. This is provenance hardening only; it adds no latency,
+quality, bandwidth, or promotion claim.
+
 ## Evidence boundary
 
 The public integration test consumes these contracts through the actual

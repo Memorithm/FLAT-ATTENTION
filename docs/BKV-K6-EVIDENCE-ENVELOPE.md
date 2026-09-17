@@ -71,6 +71,22 @@ A record that retains a host Q mirror while claiming resident-only production sc
 
 The checksum is not a cryptographic authenticity primitive.
 
+## Exact page-selection binding
+
+The measured BKV-K6 envelope now has an additive fail-closed binding layer,
+`flat.bikv-selection-binding.v1`. It embeds the exact canonical
+`flat.boolean-kv-selection.v1` decision together with the canonical BKV-K6
+qualification envelope, then rejects any drift in signature width, live or
+selected token counts, page counts, Boolean bytes read, numerical bytes per
+token, or full/selected/avoided numerical byte accounting.
+
+The WGPU qualification harness constructs this binding from the actual page
+selection used for the measured selected decode. `FLAT_BKV_SELECTION_BINDING_OUT`
+may retain the resulting canonical envelope alongside `FLAT_BKV_EVIDENCE_OUT`.
+Both trailing FNV-1a values are reproducibility/accidental-corruption aids, not
+cryptographic attestation. This closes a provenance gap; it does not establish a
+latency win, physical DRAM avoidance, or model-quality preservation.
+
 ## Non-claims
 
 This milestone does not demonstrate that:

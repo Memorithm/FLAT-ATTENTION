@@ -32,6 +32,8 @@ pub mod benchmark_manifest;
 pub mod research_bkv_evidence;
 #[path = "../src/research_bkv_qualification.rs"]
 pub mod research_bkv_qualification;
+#[path = "../src/research_bkv_selection_binding.rs"]
+pub mod research_bkv_selection_binding;
 
 use benchmark_manifest::{
     BenchmarkEnvironment, BenchmarkManifest, BenchmarkProblem, BenchmarkResult,
@@ -46,6 +48,7 @@ use research_bkv_evidence::{BikvEvidenceGates, BikvEvidenceManifest, BikvEvidenc
 use research_bkv_qualification::{
     BikvAccountingInput, BikvLatencyInput, BikvPromotionDecision, BikvQualificationRecord,
 };
+use research_bkv_selection_binding::BikvSelectionEvidenceBinding;
 use wgpu_boolean_selected_paged_decode::{
     BooleanSelectedDecodePass, BooleanSelectedPagedKvTable, WgpuBooleanSelectedPagedDecodePipeline,
 };
@@ -810,9 +813,17 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     };
     assert_eq!(evidence.promotion_decision().unwrap(), decision);
     let evidence_json = evidence.canonical_json().unwrap();
+    let selection_binding = BikvSelectionEvidenceBinding::new(&candidate, &evidence).unwrap();
+    let selection_binding_json = selection_binding.canonical_json();
     if let Ok(path) = std::env::var("FLAT_BKV_EVIDENCE_OUT") {
         fs::write(&path, format!("{evidence_json}\n")).expect("write BKV evidence envelope");
         println!("evidence_output={path}");
+    }
+
+    if let Ok(path) = std::env::var("FLAT_BKV_SELECTION_BINDING_OUT") {
+        fs::write(&path, format!("{selection_binding_json}\n"))
+            .expect("write BKV selection-binding envelope");
+        println!("selection_binding_output={path}");
     }
 
     println!("schema=bkv-k6-m16-qualification@1");
@@ -866,4 +877,5 @@ fn bkv_k6_m16_same_buffer_qualification_harness() {
     println!("promotion_scope=host-mirrored-query synthetic fixture; not sufficient for resident-only production or BKV-7");
     println!("promotion_decision={decision:?}");
     println!("evidence_json={evidence_json}");
+    println!("selection_binding_json={selection_binding_json}");
 }
