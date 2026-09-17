@@ -10,6 +10,9 @@ use core::fmt;
 /// Cross-unit timing-domain correlation and exact interval-intersection evidence.
 #[path = "research_boolean_overlap_correlation.rs"]
 pub mod correlation;
+/// Per-unit interval/dispatch accounting derived from validated M13B.4 traces.
+#[path = "research_boolean_overlap_metrics.rs"]
+pub mod metrics;
 /// Backend-neutral event/timestamp contract for preregistered M13B.4 evidence.
 #[path = "research_boolean_overlap_trace.rs"]
 pub mod trace;
