@@ -12,6 +12,7 @@ use std::fmt::Write as _;
 use crate::api::boolean_kv_paged_selection::{
     BooleanIndexedKvSelection, BooleanKvSelectionEvidenceError,
 };
+use crate::fingerprint::fnv1a64;
 
 pub const BKV6_SELECTION_QUALITY_SCHEMA: &str = "flat.bikv-selection-quality.v1";
 
@@ -195,6 +196,13 @@ impl Bkv6SelectionQualityEvidence {
             self.mapped_pages,
         )
         .expect("writing to String cannot fail");
+        debug_assert_eq!(payload.pop(), Some('}'));
+        let checksum = fnv1a64(payload.as_bytes());
+        write!(
+            payload,
+            ",\"quality_checksum\":{{\"algorithm\":\"fnv1a64\",\"value\":\"{checksum:016x}\"}}}}"
+        )
+        .expect("writing to String cannot fail");
         payload
     }
 }
@@ -325,6 +333,23 @@ mod tests {
         assert!(json.contains("\"false_negative_pages\":1"));
         assert!(json.contains("\"false_positive_pages\":1"));
         assert!(json.contains("\"candidate_density\":{\"numerator\":2,\"denominator\":3}"));
+        assert!(json.contains("\"quality_checksum\":{\"algorithm\":\"fnv1a64\",\"value\":"));
+    }
+
+    #[test]
+    fn outer_checksum_covers_target_and_derived_metrics() {
+        fn checksum_value(json: &str) -> &str {
+            let marker = "\"quality_checksum\":{\"algorithm\":\"fnv1a64\",\"value\":\"";
+            let start = json.find(marker).unwrap() + marker.len();
+            &json[start..start + 16]
+        }
+
+        let selection = selection();
+        let one_target = Bkv6SelectionQualityEvidence::new(&selection, vec![0]).unwrap();
+        let two_targets = Bkv6SelectionQualityEvidence::new(&selection, vec![0, 1]).unwrap();
+        let one_json = one_target.canonical_json();
+        let two_json = two_targets.canonical_json();
+        assert_ne!(checksum_value(&one_json), checksum_value(&two_json));
     }
 
     #[test]
