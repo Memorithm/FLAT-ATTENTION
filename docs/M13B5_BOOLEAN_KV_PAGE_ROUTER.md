@@ -62,7 +62,7 @@ numerical FLAT remains authoritative.
 ## Canonical page-selection evidence
 
 `BooleanIndexedKvSelection::canonical_evidence_json()` emits the research schema
-`flat.boolean-kv-selection.v1`. It retains the exact logical/physical page IDs,
+`flat.boolean-kv-selection.v1`. BKV-K6 qualification additionally uses the compatible `flat.boolean-kv-selection.v2` evidence surface, which retains the exact Hamming threshold used by the authoritative search alongside the v1 fields. V1 remains available for pre-existing consumers. It retains the exact logical/physical page IDs,
 live-token counts, Hamming/XNOR accounting, exact numerical K+V bytes/token and
 the already-computed Boolean/numerical byte accounting in deterministic field
 order. Evidence export recomputes packed Boolean bytes as

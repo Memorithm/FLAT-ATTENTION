@@ -161,11 +161,12 @@ fn binds_exact_selection_to_qualification_evidence() {
     let binding = BikvSelectionEvidenceBinding::new(&selection, &evidence(24, 6, 8)).unwrap();
     let json = binding.canonical_json();
     assert!(json.contains(BIKV_SELECTION_BINDING_SCHEMA));
-    assert!(json.contains("\"schema\":\"flat.boolean-kv-selection.v1\""));
+    assert!(json.contains("\"schema\":\"flat.boolean-kv-selection.v2\""));
+    assert!(json.contains("\"max_distance\":1"));
     assert!(json.contains("\"binding_checksum\":{\"algorithm\":\"fnv1a64\""));
     assert_eq!(
         binding.selection_json(),
-        selection.canonical_evidence_json().unwrap()
+        selection.canonical_evidence_json_v2().unwrap()
     );
 }
 
@@ -195,6 +196,20 @@ fn rejects_selection_outside_declared_hamming_threshold() {
     let selection = selection();
     let mut qualification = evidence(24, 6, 8);
     qualification.max_distance = 0;
+    assert!(matches!(
+        BikvSelectionEvidenceBinding::new(&selection, &qualification),
+        Err(BikvSelectionBindingError::AccountingMismatch(
+            "max_distance"
+        ))
+    ));
+}
+
+#[test]
+fn rejects_widened_declared_hamming_threshold() {
+    let selection = selection();
+    assert_eq!(selection.max_distance, 1);
+    let mut qualification = evidence(24, 6, 8);
+    qualification.max_distance = 8;
     assert!(matches!(
         BikvSelectionEvidenceBinding::new(&selection, &qualification),
         Err(BikvSelectionBindingError::AccountingMismatch(

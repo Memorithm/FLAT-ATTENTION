@@ -2,7 +2,7 @@
 //!
 //! The aggregate BKV-K6 qualification record is not sufficient provenance for
 //! the exact page decision that produced it. This research-only layer binds the
-//! canonical `flat.boolean-kv-selection.v1` envelope to the canonical BKV-K6
+//! canonical `flat.boolean-kv-selection.v2` envelope to the canonical BKV-K6
 //! qualification envelope and rejects any accounting drift between them.
 //! It changes no runtime routing and carries no performance claim.
 
@@ -78,7 +78,7 @@ impl BikvSelectionEvidenceBinding {
         validate_accounting_binding(selection, qualification)?;
 
         Ok(Self {
-            selection_json: selection.canonical_evidence_json()?,
+            selection_json: selection.canonical_evidence_json_v2()?,
             qualification_json: qualification.canonical_json()?,
         })
     }
@@ -121,11 +121,7 @@ fn validate_accounting_binding(
             "signature_bits",
         ));
     }
-    if selection
-        .selected_pages
-        .iter()
-        .any(|page| page.hamming_distance > qualification.max_distance)
-    {
+    if selection.max_distance != qualification.max_distance {
         return Err(BikvSelectionBindingError::AccountingMismatch(
             "max_distance",
         ));

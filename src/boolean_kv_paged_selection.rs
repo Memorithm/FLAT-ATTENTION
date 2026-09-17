@@ -12,6 +12,8 @@ use crate::paged_kv::{PagedKvError, PagedKvTable};
 /// accounting already computed by the router; it does not claim physical DRAM
 /// traffic, latency, model quality, or a performance improvement.
 pub const BOOLEAN_KV_SELECTION_EVIDENCE_SCHEMA: &str = "flat.boolean-kv-selection.v1";
+/// V2 retains the exact builder Hamming threshold in addition to the v1 fields.
+pub const BOOLEAN_KV_SELECTION_EVIDENCE_SCHEMA_V2: &str = "flat.boolean-kv-selection.v2";
 
 /// Numerical K/V storage geometry used only for exact traffic accounting.
 ///
@@ -61,6 +63,8 @@ pub struct BooleanKvSelectedPage {
 pub struct BooleanIndexedKvSelection {
     pub generation: u64,
     pub signature_bits: usize,
+    /// Exact Hamming threshold passed to the authoritative Boolean page search.
+    pub max_distance: usize,
     pub live_tokens: usize,
     pub mapped_pages: usize,
     pub boolean_pages_scanned: usize,
@@ -115,6 +119,14 @@ impl BooleanIndexedKvSelection {
     pub fn validate_evidence(&self) -> Result<(), BooleanKvSelectionEvidenceError> {
         if self.signature_bits == 0 {
             return Err(BooleanKvSelectionEvidenceError::ZeroSignatureBits);
+        }
+        if self.max_distance > self.signature_bits {
+            return Err(
+                BooleanKvSelectionEvidenceError::MaxDistanceExceedsSignatureBits {
+                    max_distance: self.max_distance,
+                    signature_bits: self.signature_bits,
+                },
+            );
         }
         if self.boolean_pages_scanned != self.mapped_pages {
             return Err(BooleanKvSelectionEvidenceError::ScannedPageCountMismatch {
@@ -235,6 +247,15 @@ impl BooleanIndexedKvSelection {
                     },
                 );
             }
+            if page.hamming_distance > self.max_distance {
+                return Err(
+                    BooleanKvSelectionEvidenceError::SelectedPageExceedsMaxDistance {
+                        logical_page: page.logical_page,
+                        hamming_distance: page.hamming_distance,
+                        max_distance: self.max_distance,
+                    },
+                );
+            }
             if !physical_pages.insert(page.physical_page) {
                 return Err(BooleanKvSelectionEvidenceError::DuplicatePhysicalPage {
                     physical_page: page.physical_page,
@@ -292,12 +313,65 @@ impl BooleanIndexedKvSelection {
         .expect("writing to String cannot fail");
         Ok(payload)
     }
+
+    /// Canonical V2 evidence retaining the exact Hamming threshold used by the
+    /// authoritative Boolean search. V1 remains available for compatibility, but
+    /// BKV-K6 qualification bindings must use V2 so a widened threshold cannot be
+    /// substituted after routing.
+    pub fn canonical_evidence_json_v2(&self) -> Result<String, BooleanKvSelectionEvidenceError> {
+        self.validate_evidence()?;
+        let mut payload = String::with_capacity(544 + self.selected_pages.len() * 128);
+        write!(
+            payload,
+            "{{\"schema\":\"{}\",\"generation\":{},\"signature_bits\":{},\"max_distance\":{},\"live_tokens\":{},\"mapped_pages\":{},\"boolean_pages_scanned\":{},\"boolean_key_bytes_read\":{},\"numerical_kv_bytes_per_token\":{},\"full_numerical_kv_bytes\":{},\"selected_numerical_kv_bytes\":{},\"avoided_numerical_kv_bytes\":{},\"selected_pages\":[",
+            BOOLEAN_KV_SELECTION_EVIDENCE_SCHEMA_V2,
+            self.generation,
+            self.signature_bits,
+            self.max_distance,
+            self.live_tokens,
+            self.mapped_pages,
+            self.boolean_pages_scanned,
+            self.boolean_key_bytes_read,
+            self.numerical_kv_bytes_per_token,
+            self.full_numerical_kv_bytes,
+            self.selected_numerical_kv_bytes,
+            self.avoided_numerical_kv_bytes,
+        )
+        .expect("writing to String cannot fail");
+        for (index, page) in self.selected_pages.iter().enumerate() {
+            if index != 0 {
+                payload.push(',');
+            }
+            write!(
+                payload,
+                "{{\"logical_page\":{},\"physical_page\":{},\"live_tokens\":{},\"hamming_distance\":{},\"xnor_matches\":{}}}",
+                page.logical_page,
+                page.physical_page,
+                page.live_tokens,
+                page.hamming_distance,
+                page.xnor_matches,
+            )
+            .expect("writing to String cannot fail");
+        }
+        payload.push(']');
+        let checksum = fnv1a64(payload.as_bytes());
+        write!(
+            payload,
+            ",\"evidence_checksum\":{{\"algorithm\":\"fnv1a64\",\"value\":\"{checksum:016x}\"}}}}"
+        )
+        .expect("writing to String cannot fail");
+        Ok(payload)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum BooleanKvSelectionEvidenceError {
     ZeroSignatureBits,
+    MaxDistanceExceedsSignatureBits {
+        max_distance: usize,
+        signature_bits: usize,
+    },
     ScannedPageCountMismatch {
         scanned_pages: usize,
         mapped_pages: usize,
@@ -344,6 +418,11 @@ pub enum BooleanKvSelectionEvidenceError {
     SignatureAccountingMismatch {
         logical_page: usize,
     },
+    SelectedPageExceedsMaxDistance {
+        logical_page: usize,
+        hamming_distance: usize,
+        max_distance: usize,
+    },
     DuplicatePhysicalPage {
         physical_page: usize,
     },
@@ -353,6 +432,7 @@ impl fmt::Display for BooleanKvSelectionEvidenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ZeroSignatureBits => write!(f, "Boolean KV selection evidence requires non-zero signature_bits"),
+            Self::MaxDistanceExceedsSignatureBits { max_distance, signature_bits } => write!(f, "Boolean KV selection max Hamming distance {max_distance} exceeds signature width {signature_bits}"),
             Self::ScannedPageCountMismatch { scanned_pages, mapped_pages } => write!(f, "Boolean KV selection scanned {scanned_pages} pages for {mapped_pages} mapped pages"),
             Self::TooManySelectedPages { selected_pages, mapped_pages } => write!(f, "Boolean KV selection retains {selected_pages} pages from only {mapped_pages} mapped pages"),
             Self::EvidenceAccountingOverflow => write!(f, "Boolean KV selection evidence accounting overflow"),
@@ -368,6 +448,7 @@ impl fmt::Display for BooleanKvSelectionEvidenceError {
             Self::LogicalPagesNotStrictlyOrdered => write!(f, "Boolean KV selection logical pages must be strictly increasing"),
             Self::ZeroLiveTokens { logical_page } => write!(f, "Boolean KV selection page {logical_page} cannot retain zero live tokens"),
             Self::SignatureAccountingMismatch { logical_page } => write!(f, "Boolean KV selection page {logical_page} has inconsistent Hamming/XNOR accounting"),
+            Self::SelectedPageExceedsMaxDistance { logical_page, hamming_distance, max_distance } => write!(f, "Boolean KV selection page {logical_page} has Hamming distance {hamming_distance} above retained max distance {max_distance}"),
             Self::DuplicatePhysicalPage { physical_page } => write!(f, "Boolean KV selection repeats physical page {physical_page}"),
         }
     }
@@ -514,6 +595,7 @@ pub fn build_boolean_indexed_kv_selection(
     Ok(BooleanIndexedKvSelection {
         generation: telemetry.generation,
         signature_bits: boolean_cache.signature_bits(),
+        max_distance,
         live_tokens: telemetry.live_tokens,
         mapped_pages: telemetry.mapped_pages,
         boolean_pages_scanned: boolean_cache.len(),
@@ -750,9 +832,50 @@ mod tests {
         let second = plan.canonical_evidence_json().unwrap();
         assert_eq!(first, second);
         assert!(first.contains("\"schema\":\"flat.boolean-kv-selection.v1\""));
+        assert!(!first.contains("\"max_distance\""));
+        let v2 = plan.canonical_evidence_json_v2().unwrap();
+        assert!(v2.contains("\"schema\":\"flat.boolean-kv-selection.v2\""));
+        assert!(v2.contains("\"max_distance\":2"));
         assert!(first.contains("\"logical_page\":1"));
         assert!(first.contains("\"logical_page\":2"));
         assert!(first.contains("\"evidence_checksum\":{\"algorithm\":\"fnv1a64\""));
+    }
+
+    #[test]
+    fn selection_evidence_retains_and_validates_authoritative_hamming_threshold() {
+        let table = table_with_ten_tokens();
+        let cache = cache_with_three_pages();
+        let mut plan = build_boolean_indexed_kv_selection(
+            &cache,
+            &table,
+            &signature(0),
+            2,
+            None,
+            NumericalKvPageGeometry {
+                kv_heads: 2,
+                head_dim: 8,
+                scalar_bytes: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(plan.max_distance, 2);
+
+        plan.max_distance = 9;
+        assert_eq!(
+            plan.validate_evidence(),
+            Err(
+                BooleanKvSelectionEvidenceError::MaxDistanceExceedsSignatureBits {
+                    max_distance: 9,
+                    signature_bits: 8,
+                }
+            )
+        );
+
+        plan.max_distance = 0;
+        assert!(matches!(
+            plan.validate_evidence(),
+            Err(BooleanKvSelectionEvidenceError::SelectedPageExceedsMaxDistance { .. })
+        ));
     }
 
     #[test]

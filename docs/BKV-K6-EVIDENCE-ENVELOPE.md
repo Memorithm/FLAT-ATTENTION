@@ -75,7 +75,7 @@ The checksum is not a cryptographic authenticity primitive.
 
 The measured BKV-K6 envelope now has an additive fail-closed binding layer,
 `flat.bikv-selection-binding.v1`. It embeds the exact canonical
-`flat.boolean-kv-selection.v1` decision together with the canonical BKV-K6
+`flat.boolean-kv-selection.v2` decision (including the exact builder Hamming threshold) together with the canonical BKV-K6
 qualification envelope, then rejects any drift in signature width, live or
 selected token counts, page counts, Boolean bytes read, numerical bytes per
 token, or full/selected/avoided numerical byte accounting.
