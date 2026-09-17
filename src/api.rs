@@ -51,6 +51,14 @@ pub mod bkv5_matched_density_baselines;
 #[path = "bkv6_selection_quality.rs"]
 pub mod bkv6_selection_quality;
 
+/// BKV-5 research-only CPU/GPU cooperation handoff semantics.
+///
+/// This validates one already-computed Boolean selection against first-token
+/// readiness and explicit bounded backpressure. It does not implement a generic
+/// scheduler, queue, GPU submission path, or performance policy.
+#[path = "bkv5_cooperative_selection_handoff.rs"]
+pub mod bkv5_cooperative_selection_handoff;
+
 /// M13B.4 research-only prefill/first-decode readiness contract.
 ///
 /// This validates that numerical K/V and Boolean routing metadata cover the

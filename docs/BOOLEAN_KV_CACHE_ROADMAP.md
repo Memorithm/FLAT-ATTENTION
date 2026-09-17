@@ -281,6 +281,8 @@ Acceptance:
 
 ### BKV-5 — CPU/GPU cooperative pipeline
 
+The first execution-contract slice is now implemented as `api::bkv5_cooperative_selection_handoff` (`docs/BKV-5-COOPERATIVE-SELECTION-HANDOFF.md`). It binds an already-qualified first-decode prefix to one canonical Boolean-indexed numerical-KV selection and makes bounded backpressure explicit as dense fallback. It does **not** own a queue or scheduler and does not demonstrate overlap or acceleration; target-backend traces and end-to-end timings remain required.
+
 Deliver:
 
 - explicit queues/generations for Boolean decisions;
