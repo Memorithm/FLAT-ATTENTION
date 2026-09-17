@@ -62,7 +62,7 @@ numerical FLAT remains authoritative.
 ## Canonical page-selection evidence
 
 `BooleanIndexedKvSelection::canonical_evidence_json()` emits the research schema
-`flat.boolean-kv-selection.v1`. It retains the exact logical/physical page IDs,
+`flat.boolean-kv-selection.v1`. BKV-K6 qualification additionally uses the compatible `flat.boolean-kv-selection.v2` evidence surface, which retains the exact Hamming threshold used by the authoritative search alongside the v1 fields. V1 remains available for pre-existing consumers. It retains the exact logical/physical page IDs,
 live-token counts, Hamming/XNOR accounting, exact numerical K+V bytes/token and
 the already-computed Boolean/numerical byte accounting in deterministic field
 order. Evidence export recomputes packed Boolean bytes as
@@ -75,6 +75,15 @@ The trailing FNV-1a checksum is an accidental-corruption/content-identity aid fo
 KVLab ingestion; it is not cryptographic attestation. The envelope deliberately
 does not contain a physical-DRAM, latency, model-quality or promotion field, so
 a retained routing decision cannot be mistaken for a performance result.
+
+## BKV-K6 measured-evidence binding
+
+The research-only `flat.bikv-selection-binding.v1` envelope binds this exact
+canonical page-selection decision to the canonical BKV-K6 qualification record.
+The binding fails closed if the declared Hamming threshold, token/page counts,
+Boolean bytes read, or numerical byte accounting drift from the selection that
+was actually executed. This is provenance hardening only; it adds no latency,
+quality, bandwidth, or promotion claim.
 
 ## Evidence boundary
 
