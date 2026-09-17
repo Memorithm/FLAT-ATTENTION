@@ -6,14 +6,22 @@
 //! numerical K/V. Compaction and numerical attention remain separate steps.
 
 use core::fmt;
+use std::fmt::Write as _;
 
 use crate::api::boolean_attention_mask::{BooleanAttentionMask, BooleanAttentionMaskError};
 use crate::api::boolean_attention_signature::{
     BooleanAttentionSignature, BooleanAttentionSignatureError, HammingAdmissionRule,
 };
+use crate::fingerprint::fnv1a64;
 use crate::wgpu_internal;
+use crate::RuntimeDeviceFingerprint;
 
 const ROUTER_WORKGROUP_SIZE: u32 = 64;
+
+/// Canonical research-only parity record for FLAT BKV-4 / KVLab BKV-K7.
+pub const BOOLEAN_KV_WGPU_PARITY_SCHEMA: &str = "flat.boolean-kv-wgpu-parity.v1";
+/// Lockfile-bound WGPU crate identity retained in parity execution provenance.
+pub const BOOLEAN_KV_WGPU_RUNTIME_ID: &str = "wgpu/30.0.1";
 
 const BOOLEAN_ROUTER_WGSL: &str = r#"
 struct Params {
@@ -128,6 +136,7 @@ pub struct BooleanWgpuRouterPlan {
     query_words: Vec<u32>,
     key_words: Vec<u32>,
     oracle_mask: BooleanAttentionMask,
+    signature_bits: usize,
     key_count: u32,
     words_per_signature: u32,
     max_distance: u32,
@@ -184,6 +193,7 @@ impl BooleanWgpuRouterPlan {
             query_words,
             key_words,
             oracle_mask: BooleanAttentionMask::from_admissions(&admissions)?,
+            signature_bits: query.bits(),
             key_count,
             words_per_signature,
             max_distance,
@@ -198,6 +208,11 @@ impl BooleanWgpuRouterPlan {
     #[must_use]
     pub fn key_words(&self) -> &[u32] {
         &self.key_words
+    }
+
+    #[must_use]
+    pub const fn signature_bits(&self) -> usize {
+        self.signature_bits
     }
 
     #[must_use]
@@ -240,6 +255,328 @@ impl BooleanWgpuRouterPlan {
     fn admission_bytes(&self) -> Result<u64, WgpuBooleanRouterError> {
         bytes_for_u32(self.key_count as usize)
     }
+}
+
+/// Fail-closed errors for the Boolean-KV WGPU-vs-CPU parity record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BooleanKvWgpuParityError {
+    InvalidSourceRevision,
+    EmptyRuntimeIdentity,
+    AdmissionCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    NonBinaryAdmission {
+        index: usize,
+        value: u32,
+    },
+    CandidateSetMismatch {
+        cpu_admitted_blocks: Vec<usize>,
+        wgpu_admitted_blocks: Vec<usize>,
+    },
+    ExecutionProvenanceMismatch,
+}
+
+impl fmt::Display for BooleanKvWgpuParityError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidSourceRevision => {
+                write!(
+                    f,
+                    "Boolean-KV WGPU source revision must be 40 lowercase hex digits"
+                )
+            }
+            Self::EmptyRuntimeIdentity => {
+                write!(f, "Boolean-KV WGPU runtime identity must not be empty")
+            }
+            Self::AdmissionCountMismatch { expected, actual } => write!(
+                f,
+                "Boolean-KV WGPU readback contains {actual} admission flags, expected {expected}"
+            ),
+            Self::NonBinaryAdmission { index, value } => write!(
+                f,
+                "Boolean-KV WGPU admission flag {index} has non-binary value {value}"
+            ),
+            Self::CandidateSetMismatch {
+                cpu_admitted_blocks,
+                wgpu_admitted_blocks,
+            } => write!(
+                f,
+                "Boolean-KV WGPU candidate set {:?} differs from CPU oracle {:?}",
+                wgpu_admitted_blocks, cpu_admitted_blocks
+            ),
+            Self::ExecutionProvenanceMismatch => write!(
+                f,
+                "Boolean-KV WGPU parity provenance differs from the performance-run provenance"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BooleanKvWgpuParityError {}
+
+/// Source/runtime/device identity of the exact WGPU dispatch that produced parity readback.
+///
+/// This binds candidate-set correctness to the executable revision, WGPU crate
+/// runtime identity and adapter/driver identity. A later timing harness must
+/// supply its own independently captured provenance to
+/// [`BooleanKvWgpuParityEvidence::require_exact_match_for`] before the parity
+/// result can be used as an admissibility gate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BooleanKvWgpuExecutionProvenance {
+    source_revision: String,
+    wgpu_runtime: String,
+    device: RuntimeDeviceFingerprint,
+}
+
+impl BooleanKvWgpuExecutionProvenance {
+    pub fn new(
+        source_revision: impl Into<String>,
+        wgpu_runtime: impl Into<String>,
+        device: RuntimeDeviceFingerprint,
+    ) -> Result<Self, BooleanKvWgpuParityError> {
+        let source_revision = source_revision.into();
+        if source_revision.len() != 40
+            || !source_revision
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err(BooleanKvWgpuParityError::InvalidSourceRevision);
+        }
+        let wgpu_runtime = wgpu_runtime.into();
+        if wgpu_runtime.trim().is_empty() {
+            return Err(BooleanKvWgpuParityError::EmptyRuntimeIdentity);
+        }
+        Ok(Self {
+            source_revision,
+            wgpu_runtime,
+            device,
+        })
+    }
+
+    #[must_use]
+    pub fn source_revision(&self) -> &str {
+        &self.source_revision
+    }
+
+    #[must_use]
+    pub fn wgpu_runtime(&self) -> &str {
+        &self.wgpu_runtime
+    }
+
+    #[must_use]
+    pub const fn device(&self) -> &RuntimeDeviceFingerprint {
+        &self.device
+    }
+}
+
+/// Exact candidate-set parity evidence for one already executed WGPU router plan.
+///
+/// Construction accepts the actual u32 admission-buffer readback from the same
+/// [`BooleanWgpuRouterPlan`] used to encode the device dispatch plus provenance
+/// captured for that dispatch. It fails closed unless every flag is binary. The
+/// complete WGPU candidate set is retained alongside the deterministic CPU
+/// Hamming oracle even when they differ, so a negative parity result cannot
+/// disappear. `require_exact_match_for()` rejects either candidate drift or a
+/// source/runtime/device mismatch before any performance comparison. The record
+/// contains no timing or performance field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BooleanKvWgpuParityEvidence {
+    execution: BooleanKvWgpuExecutionProvenance,
+    signature_bits: usize,
+    words_per_signature: u32,
+    max_distance: u32,
+    key_count: u32,
+    query_words: Vec<u32>,
+    key_words: Vec<u32>,
+    cpu_admitted_blocks: Vec<usize>,
+    wgpu_admitted_blocks: Vec<usize>,
+    exact_candidate_set_match: bool,
+}
+
+impl BooleanKvWgpuParityEvidence {
+    /// Validate WGPU readback against the exact CPU oracle carried by `plan`.
+    pub fn from_readback(
+        plan: &BooleanWgpuRouterPlan,
+        observed_admissions: &[u32],
+        execution: BooleanKvWgpuExecutionProvenance,
+    ) -> Result<Self, BooleanKvWgpuParityError> {
+        let expected = plan.key_count as usize;
+        if observed_admissions.len() != expected {
+            return Err(BooleanKvWgpuParityError::AdmissionCountMismatch {
+                expected,
+                actual: observed_admissions.len(),
+            });
+        }
+        let mut wgpu_admitted_blocks = Vec::new();
+        for (index, &value) in observed_admissions.iter().enumerate() {
+            match value {
+                0 => {}
+                1 => wgpu_admitted_blocks.push(index),
+                _ => return Err(BooleanKvWgpuParityError::NonBinaryAdmission { index, value }),
+            }
+        }
+        let cpu_admitted_blocks = plan.oracle_mask.admitted_blocks();
+        let exact_candidate_set_match = wgpu_admitted_blocks == cpu_admitted_blocks;
+        Ok(Self {
+            execution,
+            signature_bits: plan.signature_bits,
+            words_per_signature: plan.words_per_signature,
+            max_distance: plan.max_distance,
+            key_count: plan.key_count,
+            query_words: plan.query_words.clone(),
+            key_words: plan.key_words.clone(),
+            cpu_admitted_blocks,
+            wgpu_admitted_blocks,
+            exact_candidate_set_match,
+        })
+    }
+
+    #[must_use]
+    pub const fn execution(&self) -> &BooleanKvWgpuExecutionProvenance {
+        &self.execution
+    }
+
+    #[must_use]
+    pub fn cpu_admitted_blocks(&self) -> &[usize] {
+        &self.cpu_admitted_blocks
+    }
+
+    #[must_use]
+    pub fn wgpu_admitted_blocks(&self) -> &[usize] {
+        &self.wgpu_admitted_blocks
+    }
+
+    #[must_use]
+    pub const fn exact_candidate_set_match(&self) -> bool {
+        self.exact_candidate_set_match
+    }
+
+    /// Fail closed before any CPU-vs-WGPU performance comparison.
+    ///
+    /// `performance_execution` must be captured independently by the timing
+    /// harness from the same fields as the parity dispatch. Reusing parity from
+    /// a different commit, WGPU runtime, adapter, backend or driver is rejected.
+    pub fn require_exact_match_for(
+        &self,
+        performance_execution: &BooleanKvWgpuExecutionProvenance,
+    ) -> Result<(), BooleanKvWgpuParityError> {
+        if &self.execution != performance_execution {
+            return Err(BooleanKvWgpuParityError::ExecutionProvenanceMismatch);
+        }
+        if self.exact_candidate_set_match {
+            Ok(())
+        } else {
+            Err(BooleanKvWgpuParityError::CandidateSetMismatch {
+                cpu_admitted_blocks: self.cpu_admitted_blocks.clone(),
+                wgpu_admitted_blocks: self.wgpu_admitted_blocks.clone(),
+            })
+        }
+    }
+
+    /// Canonical compact JSON for cross-project retention.
+    ///
+    /// The trailing FNV-1a checksum detects accidental corruption only. It is
+    /// not cryptographic attestation and must not be used as proof of device
+    /// identity or trustworthy execution.
+    #[must_use]
+    pub fn canonical_json(&self) -> String {
+        let mut payload = String::with_capacity(
+            640 + self.execution.source_revision.len()
+                + self.execution.wgpu_runtime.len()
+                + self.execution.device.canonical_record().len()
+                + (self.query_words.len() + self.key_words.len()) * 12
+                + (self.cpu_admitted_blocks.len() + self.wgpu_admitted_blocks.len()) * 12,
+        );
+        payload.push_str("{\"schema\":\"");
+        payload.push_str(BOOLEAN_KV_WGPU_PARITY_SCHEMA);
+        payload.push_str("\",\"execution\":{\"source_revision\":");
+        write_json_string(&mut payload, &self.execution.source_revision);
+        payload.push_str(",\"wgpu_runtime\":");
+        write_json_string(&mut payload, &self.execution.wgpu_runtime);
+        payload.push_str(",\"adapter_name\":");
+        write_json_string(&mut payload, &self.execution.device.name);
+        payload.push_str(",\"backend\":");
+        write_json_string(&mut payload, &self.execution.device.backend);
+        payload.push_str(",\"driver\":");
+        write_json_string(&mut payload, &self.execution.device.driver);
+        payload.push_str(",\"driver_info\":");
+        write_json_string(&mut payload, &self.execution.device.driver_info);
+        write!(
+            payload,
+            ",\"vendor\":{},\"device\":{}}},\"signature_bits\":{},\"key_count\":{},\"words_per_signature\":{},\"max_distance\":{},\"query_words_u32\":",
+            self.execution.device.vendor,
+            self.execution.device.device,
+            self.signature_bits,
+            self.key_count,
+            self.words_per_signature,
+            self.max_distance,
+        )
+        .expect("writing to String cannot fail");
+        write_u32_array(&mut payload, &self.query_words);
+        payload.push_str(",\"key_words_u32\":");
+        write_u32_array(&mut payload, &self.key_words);
+        payload.push_str(",\"cpu_admitted_blocks\":");
+        write_usize_array(&mut payload, &self.cpu_admitted_blocks);
+        payload.push_str(",\"wgpu_admitted_blocks\":");
+        write_usize_array(&mut payload, &self.wgpu_admitted_blocks);
+        write!(
+            payload,
+            ",\"exact_candidate_set_match\":{}}}",
+            self.exact_candidate_set_match
+        )
+        .expect("writing to String cannot fail");
+        let closing = payload.pop();
+        debug_assert_eq!(closing, Some('}'));
+        let checksum = fnv1a64(payload.as_bytes());
+        write!(
+            payload,
+            ",\"parity_checksum\":{{\"algorithm\":\"fnv1a64\",\"value\":\"{checksum:016x}\"}}}}"
+        )
+        .expect("writing to String cannot fail");
+        payload
+    }
+}
+
+fn write_json_string(output: &mut String, value: &str) {
+    output.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            ch if ch <= '\u{001f}' => {
+                write!(output, "\\u{:04x}", ch as u32).expect("writing to String cannot fail");
+            }
+            ch => output.push(ch),
+        }
+    }
+    output.push('"');
+}
+
+fn write_u32_array(output: &mut String, values: &[u32]) {
+    output.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index != 0 {
+            output.push(',');
+        }
+        write!(output, "{value}").expect("writing to String cannot fail");
+    }
+    output.push(']');
+}
+
+fn write_usize_array(output: &mut String, values: &[usize]) {
+    output.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index != 0 {
+            output.push(',');
+        }
+        write!(output, "{value}").expect("writing to String cannot fail");
+    }
+    output.push(']');
 }
 
 /// Compiled M13B.3 Boolean-only WGPU routing pipeline.
@@ -375,6 +712,22 @@ fn validate_buffer(
 mod tests {
     use super::*;
 
+    fn test_provenance() -> BooleanKvWgpuExecutionProvenance {
+        BooleanKvWgpuExecutionProvenance::new(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            BOOLEAN_KV_WGPU_RUNTIME_ID,
+            RuntimeDeviceFingerprint {
+                name: "test-adapter".into(),
+                backend: "Vulkan".into(),
+                driver: "test-driver".into(),
+                driver_info: "test-driver-info".into(),
+                vendor: 0x1234,
+                device: 0x5678,
+            },
+        )
+        .unwrap()
+    }
+
     #[test]
     fn plan_preserves_cpu_hamming_oracle_and_u64_bytes() {
         let query = BooleanAttentionSignature::new(65, vec![0b1011, 1]).unwrap();
@@ -393,6 +746,93 @@ mod tests {
         assert_eq!(plan.query_words().len() * 4, query.words().len() * 8);
         assert_eq!(plan.oracle_mask().admitted_blocks(), vec![0, 1]);
         assert_eq!(plan.key_words().len(), 12);
+    }
+
+    #[test]
+    fn bkv7_parity_evidence_binds_exact_inputs_and_candidate_set() {
+        let query = BooleanAttentionSignature::new(65, vec![0b1011, 1]).unwrap();
+        let keys = vec![
+            BooleanAttentionSignature::new(65, vec![0b1011, 1]).unwrap(),
+            BooleanAttentionSignature::new(65, vec![0b0011, 1]).unwrap(),
+            BooleanAttentionSignature::new(65, vec![0, 0]).unwrap(),
+        ];
+        let plan =
+            BooleanWgpuRouterPlan::new(&query, &keys, HammingAdmissionRule::new(1, 65).unwrap())
+                .unwrap();
+        let evidence =
+            BooleanKvWgpuParityEvidence::from_readback(&plan, &[1, 1, 0], test_provenance())
+                .unwrap();
+        assert_eq!(evidence.cpu_admitted_blocks(), &[0, 1]);
+        assert_eq!(evidence.wgpu_admitted_blocks(), &[0, 1]);
+        assert!(evidence.exact_candidate_set_match());
+        evidence
+            .require_exact_match_for(&test_provenance())
+            .unwrap();
+        let json = evidence.canonical_json();
+        assert!(json.contains(BOOLEAN_KV_WGPU_PARITY_SCHEMA));
+        assert!(json.contains("\"signature_bits\":65"));
+        assert!(json.contains("\"key_count\":3"));
+        assert!(json.contains("\"cpu_admitted_blocks\":[0,1]"));
+        assert!(json.contains("\"wgpu_admitted_blocks\":[0,1]"));
+        assert!(json.contains("\"exact_candidate_set_match\":true"));
+        assert!(json.contains("\"source_revision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""));
+        assert!(json.contains("\"backend\":\"Vulkan\""));
+        assert!(json.contains("\"driver\":\"test-driver\""));
+        assert!(json.contains("\"wgpu_runtime\":\"wgpu/30.0.1\""));
+        assert!(json.contains("\"parity_checksum\":{\"algorithm\":\"fnv1a64\""));
+    }
+
+    #[test]
+    fn bkv7_parity_rejects_nonbinary_length_and_candidate_drift() {
+        let query = BooleanAttentionSignature::new(8, vec![0]).unwrap();
+        let keys = vec![
+            BooleanAttentionSignature::new(8, vec![0]).unwrap(),
+            BooleanAttentionSignature::new(8, vec![1]).unwrap(),
+        ];
+        let plan =
+            BooleanWgpuRouterPlan::new(&query, &keys, HammingAdmissionRule::new(0, 8).unwrap())
+                .unwrap();
+        assert!(matches!(
+            BooleanKvWgpuParityEvidence::from_readback(&plan, &[1], test_provenance()),
+            Err(BooleanKvWgpuParityError::AdmissionCountMismatch { .. })
+        ));
+        assert!(matches!(
+            BooleanKvWgpuParityEvidence::from_readback(&plan, &[1, 2], test_provenance()),
+            Err(BooleanKvWgpuParityError::NonBinaryAdmission { index: 1, value: 2 })
+        ));
+        let mismatch =
+            BooleanKvWgpuParityEvidence::from_readback(&plan, &[0, 1], test_provenance()).unwrap();
+        assert!(!mismatch.exact_candidate_set_match());
+        assert!(matches!(
+            mismatch.require_exact_match_for(&test_provenance()),
+            Err(BooleanKvWgpuParityError::CandidateSetMismatch { .. })
+        ));
+        assert!(mismatch
+            .canonical_json()
+            .contains("\"exact_candidate_set_match\":false"));
+    }
+
+    #[test]
+    fn parity_gate_rejects_different_execution_provenance() {
+        let query = BooleanAttentionSignature::new(8, vec![0]).unwrap();
+        let keys = vec![BooleanAttentionSignature::new(8, vec![0]).unwrap()];
+        let plan =
+            BooleanWgpuRouterPlan::new(&query, &keys, HammingAdmissionRule::new(0, 8).unwrap())
+                .unwrap();
+        let evidence =
+            BooleanKvWgpuParityEvidence::from_readback(&plan, &[1], test_provenance()).unwrap();
+        let mut different = test_provenance();
+        different.source_revision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
+        assert_eq!(
+            evidence.require_exact_match_for(&different),
+            Err(BooleanKvWgpuParityError::ExecutionProvenanceMismatch)
+        );
+    }
+
+    #[test]
+    fn parity_runtime_identity_matches_lockfile_wgpu_version() {
+        assert!(include_str!("../Cargo.lock").contains("name = \"wgpu\"\nversion = \"30.0.1\""));
+        assert_eq!(BOOLEAN_KV_WGPU_RUNTIME_ID, "wgpu/30.0.1");
     }
 
     #[test]
