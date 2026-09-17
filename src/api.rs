@@ -36,6 +36,13 @@ pub mod boolean_kv;
 #[path = "boolean_kv_paged_selection.rs"]
 pub mod boolean_kv_paged_selection;
 
+/// BKV-K5 selection-only matched-density controls for fair router comparisons.
+///
+/// These controls choose logical page IDs only. They do not execute numerical
+/// attention or infer traffic, latency, quality, residency, or speedup.
+#[path = "bkv5_matched_density_baselines.rs"]
+pub mod bkv5_matched_density_baselines;
+
 /// M13B.4 research-only prefill/first-decode readiness contract.
 ///
 /// This validates that numerical K/V and Boolean routing metadata cover the

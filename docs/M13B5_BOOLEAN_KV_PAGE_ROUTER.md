@@ -46,6 +46,19 @@ and all accounting is representable. Boolean relevance order is never reused
 as sequence order: the numerical handoff is restored to original logical-page
 order.
 
+## Matched-density controls
+
+BKV-K5 now exposes selection-only matched-density controls through
+`api::bkv5_matched_density_baselines`. The random-like control uses the
+versioned `splitmix64-page-ranking-v1` rule and the positional control uses
+`tail-window-v1`; both select exactly the Boolean candidate count. Full/paged
+numerical controls retain every logical page. Shared reference vectors match
+KVLab's BKV-K5 control contract.
+
+These controls select logical page IDs only. They do not turn candidate density
+into measured traffic, latency, quality, residency or speedup, and dense
+numerical FLAT remains authoritative.
+
 ## Evidence boundary
 
 The public integration test consumes these contracts through the actual
