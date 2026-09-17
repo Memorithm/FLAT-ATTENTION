@@ -43,6 +43,14 @@ pub mod boolean_kv_paged_selection;
 #[path = "bkv5_matched_density_baselines.rs"]
 pub mod bkv5_matched_density_baselines;
 
+/// BKV-K6 research-only target-page recall/FNR evidence.
+///
+/// The caller supplies an independently declared dense-reference target set.
+/// This surface records exact selection quality counts but does not define a
+/// quality threshold, infer model quality, or authorize promotion.
+#[path = "bkv6_selection_quality.rs"]
+pub mod bkv6_selection_quality;
+
 /// M13B.4 research-only prefill/first-decode readiness contract.
 ///
 /// This validates that numerical K/V and Boolean routing metadata cover the
