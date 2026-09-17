@@ -58,14 +58,13 @@ These are logical/storage-accounting quantities. They are not automatically DRAM
 
 The current M16 portable paged decode contract represents a contiguous logical KV sequence. Replacing its table with a sparse list of selected pages would implicitly renumber positions unless the numerical consumer also receives explicit original-position metadata.
 
-Therefore this BKV-K5 slice deliberately stops at a portable host handoff. A later sparse-page numerical consumer must preserve original token positions (for RoPE/causal semantics) and qualify its output/LSE against a declared dense target before any runtime promotion.
+Therefore the BKV-K5 contract stops at a portable host handoff. The contract is now exposed through the research-only `flat_attention::api::boolean_kv` and `flat_attention::api::boolean_kv_paged_selection` modules so downstream experiments can consume the same implementation instead of path-importing source files. This exposure is not promotion into `api::v1`, does not change default routing, and grants no performance or quality claim.
 
-## Next qualification
+The existing BKV-K6 sparse-page numerical consumer preserves original token positions for RoPE/causal semantics, but remains a separate research-only qualification surface. Runtime promotion still requires declared dense-target O/LSE parity plus the quality and hardware evidence described below.
 
-The next FLAT slice should consume `BooleanIndexedKvSelection` with one of two explicit mechanisms:
+## Remaining qualification
 
-1. sparse paged decode with original logical-position metadata; or
-2. deterministic survivor compaction that carries original positions alongside compacted K/V.
+BKV-K6 already consumes `BooleanIndexedKvSelection` through sparse paged decode while retaining original logical-position metadata. That correctness path does not by itself qualify the router as an optimization or production default.
 
 Required comparisons remain:
 

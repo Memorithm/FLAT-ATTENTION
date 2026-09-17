@@ -19,6 +19,23 @@ pub mod boolean_attention_signature;
 #[path = "wgpu_boolean_router.rs"]
 pub mod wgpu_boolean_router;
 
+/// M13B.5 research-only Boolean KV page-signature/index contract.
+///
+/// This surface owns compact Boolean metadata and deterministic search only.
+/// Numerical K/V remains authoritative and no performance or quality claim is
+/// implied by exposing the contract.
+#[path = "boolean_kv.rs"]
+pub mod boolean_kv;
+
+/// M13B.5 research-only handoff from Boolean page admission to authoritative
+/// paged numerical K/V.
+///
+/// The returned metadata preserves original logical page identity and reports
+/// exact logical/storage accounting. It does not itself stage K/V or authorize
+/// production routing.
+#[path = "boolean_kv_paged_selection.rs"]
+pub mod boolean_kv_paged_selection;
+
 /// M13B.4 research-only prefill/first-decode readiness contract.
 ///
 /// This validates that numerical K/V and Boolean routing metadata cover the

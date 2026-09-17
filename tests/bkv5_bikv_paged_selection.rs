@@ -1,29 +1,10 @@
 #![forbid(unsafe_code)]
 
-#[path = "../src/boolean_kv.rs"]
-pub mod boolean_kv;
-
-// The research-only selection module currently resolves the BKV contract
-// through `crate::api::boolean_kv`; mirror that namespace here until the
-// contract is deliberately promoted into the public API.
-pub mod api {
-    pub use crate::boolean_kv;
-}
-
-// Reuse the real crate's paged-KV contract rather than path-importing
-// `src/paged_kv.rs`. Under `--features wgpu`, path-importing that source file
-// would recursively compile its WGPU children inside this integration-test
-// crate, where the production crate-root exports are intentionally absent.
-pub mod paged_kv {
-    pub use flat_attention::paged_kv::{PagedKvConfig, PagedKvError, PagedKvTable};
-}
-
-#[path = "../src/boolean_kv_paged_selection.rs"]
-pub mod boolean_kv_paged_selection;
-
-use boolean_kv::{BooleanKvCache, PackedBooleanSignature};
-use boolean_kv_paged_selection::{build_boolean_indexed_kv_selection, NumericalKvPageGeometry};
-use paged_kv::{PagedKvConfig, PagedKvTable};
+use flat_attention::api::boolean_kv::{BooleanKvCache, PackedBooleanSignature};
+use flat_attention::api::boolean_kv_paged_selection::{
+    build_boolean_indexed_kv_selection, NumericalKvPageGeometry,
+};
+use flat_attention::paged_kv::{PagedKvConfig, PagedKvTable};
 
 fn signature(byte: u8) -> PackedBooleanSignature {
     let bits = (0..8).map(|bit| byte & (1 << bit) != 0).collect::<Vec<_>>();
@@ -63,4 +44,9 @@ fn bikv_selection_keeps_numerical_payload_authoritative() {
     assert_eq!(plan.selected_numerical_kv_bytes, 384);
     assert_eq!(plan.avoided_numerical_kv_bytes, 256);
     assert_eq!(plan.boolean_key_bytes_read, 24);
+    assert_eq!(plan.candidate_density(), 2.0 / 3.0);
+    assert_eq!(
+        plan.numerical_bytes_avoided_per_boolean_byte(),
+        Some(256.0 / 24.0)
+    );
 }
