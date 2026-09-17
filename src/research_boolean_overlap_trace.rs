@@ -8,9 +8,12 @@
 //! for a current unit. That requires correlated traces in one timing domain.
 
 use core::fmt;
+use std::fmt::Write as _;
 
 /// Version of the research-only M13B.4 trace schema.
 pub const M13B4_TRACE_SCHEMA_VERSION: u32 = 1;
+/// Canonical machine-readable trace envelope retained by evidence consumers.
+pub const M13B4_TRACE_JSON_SCHEMA: &str = "flat.m13b4-trace.v1";
 
 /// Provenance of timestamps stored in an M13B.4 trace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -176,6 +179,39 @@ impl M13B4Trace {
             })
     }
 
+    /// Serialize one validated trace into the stable research evidence envelope.
+    ///
+    /// Field order and enum spellings are part of `flat.m13b4-trace.v1`. The
+    /// payload contains only observed timestamps and declared provenance; it does
+    /// not infer overlap, concurrency, performance, traffic, or quality.
+    pub fn canonical_json(&self) -> Result<String, M13B4TraceError> {
+        self.validate()?;
+        let mut payload = String::with_capacity(256 + self.events.len() * 80);
+        write!(
+            payload,
+            r#"{{"schema":"{}","timing_source":"{}","scheduling_variant":"{}","scope":"{}","events":["#,
+            M13B4_TRACE_JSON_SCHEMA,
+            timing_source_name(self.timing_source),
+            scheduling_variant_name(self.scheduling_variant),
+            trace_scope_name(self.scope),
+        )
+        .expect("writing to String cannot fail");
+        for (index, event) in self.events.iter().enumerate() {
+            if index != 0 {
+                payload.push(',');
+            }
+            write!(
+                payload,
+                r#"{{"kind":"{}","timestamp_ns":{}}}"#,
+                event_kind_name(event.kind),
+                event.timestamp_ns,
+            )
+            .expect("writing to String cannot fail");
+        }
+        payload.push_str("]}");
+        Ok(payload)
+    }
+
     fn validate_prefill(&self) -> Result<(), M13B4TraceError> {
         let numerical = self.timestamp_ns(M13B4TraceEventKind::NumericalKvCommit)?;
         let boolean = self.timestamp_ns(M13B4TraceEventKind::BooleanSignatureCommit)?;
@@ -260,6 +296,49 @@ impl M13B4Trace {
         }
 
         Ok(())
+    }
+}
+
+fn timing_source_name(value: M13B4TimingSource) -> &'static str {
+    match value {
+        M13B4TimingSource::HostWallClock => "host_wall_clock",
+        M13B4TimingSource::DeviceTimestamp => "device_timestamp",
+    }
+}
+
+fn scheduling_variant_name(value: M13B4SchedulingVariant) -> &'static str {
+    match value {
+        M13B4SchedulingVariant::SerialMatched => "serial_matched",
+        M13B4SchedulingVariant::MultiDispatchOverlapCandidate => "multi_dispatch_overlap_candidate",
+        M13B4SchedulingVariant::SameDispatchFusedCandidate => "same_dispatch_fused_candidate",
+    }
+}
+
+fn trace_scope_name(value: M13B4TraceScope) -> &'static str {
+    match value {
+        M13B4TraceScope::Prefill => "prefill",
+        M13B4TraceScope::FirstDecode => "first_decode",
+        M13B4TraceScope::SteadyStateDecode => "steady_state_decode",
+    }
+}
+
+fn event_kind_name(value: M13B4TraceEventKind) -> &'static str {
+    match value {
+        M13B4TraceEventKind::QueryRepresentationReady => "query_representation_ready",
+        M13B4TraceEventKind::QSignatureStart => "q_signature_start",
+        M13B4TraceEventKind::QSignatureEnd => "q_signature_end",
+        M13B4TraceEventKind::BooleanRoutingStart => "boolean_routing_start",
+        M13B4TraceEventKind::BooleanRoutingEnd => "boolean_routing_end",
+        M13B4TraceEventKind::SurvivorMetadataReady => "survivor_metadata_ready",
+        M13B4TraceEventKind::NumericalKvStagingStart => "numerical_kv_staging_start",
+        M13B4TraceEventKind::NumericalAttentionStart => "numerical_attention_start",
+        M13B4TraceEventKind::NumericalAttentionEnd => "numerical_attention_end",
+        M13B4TraceEventKind::SynchronizationWaitStart => "synchronization_wait_start",
+        M13B4TraceEventKind::SynchronizationWaitEnd => "synchronization_wait_end",
+        M13B4TraceEventKind::OutputReady => "output_ready",
+        M13B4TraceEventKind::NumericalKvCommit => "numerical_kv_commit",
+        M13B4TraceEventKind::BooleanSignatureCommit => "boolean_signature_commit",
+        M13B4TraceEventKind::DecodeVisible => "decode_visible",
     }
 }
 
@@ -541,6 +620,38 @@ mod tests {
         assert!(matches!(
             trace.validate(),
             Err(M13B4TraceError::NonMonotonicTimestamp { .. })
+        ));
+    }
+
+    #[test]
+    fn canonical_json_is_stable_and_machine_readable() {
+        let trace = M13B4Trace {
+            timing_source: M13B4TimingSource::DeviceTimestamp,
+            scheduling_variant: M13B4SchedulingVariant::SerialMatched,
+            scope: M13B4TraceScope::FirstDecode,
+            events: decode_events(false),
+        };
+        let json = trace.canonical_json().unwrap();
+        assert_eq!(
+            json,
+            r#"{"schema":"flat.m13b4-trace.v1","timing_source":"device_timestamp","scheduling_variant":"serial_matched","scope":"first_decode","events":[{"kind":"query_representation_ready","timestamp_ns":10},{"kind":"q_signature_start","timestamp_ns":11},{"kind":"q_signature_end","timestamp_ns":15},{"kind":"boolean_routing_start","timestamp_ns":16},{"kind":"boolean_routing_end","timestamp_ns":20},{"kind":"survivor_metadata_ready","timestamp_ns":21},{"kind":"numerical_kv_staging_start","timestamp_ns":22},{"kind":"numerical_attention_start","timestamp_ns":23},{"kind":"numerical_attention_end","timestamp_ns":30},{"kind":"output_ready","timestamp_ns":31}]}"#
+        );
+    }
+
+    #[test]
+    fn canonical_json_rejects_invalid_trace_instead_of_serializing_it() {
+        let mut trace = M13B4Trace {
+            timing_source: M13B4TimingSource::HostWallClock,
+            scheduling_variant: M13B4SchedulingVariant::SerialMatched,
+            scope: M13B4TraceScope::FirstDecode,
+            events: decode_events(false),
+        };
+        trace.events.pop();
+        assert!(matches!(
+            trace.canonical_json(),
+            Err(M13B4TraceError::MissingEvent {
+                kind: M13B4TraceEventKind::OutputReady
+            })
         ));
     }
 }

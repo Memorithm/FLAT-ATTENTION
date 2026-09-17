@@ -36,3 +36,15 @@ instrumentation deliverable. Real backend traces, first-token versus
 steady-state measurements, dispatch/synchronization evidence, matched serial
 controls, and preregistered hardware qualification remain required before any
 performance interpretation.
+
+## Canonical trace envelope
+
+Validated `M13B4Trace` values now expose `canonical_json()` under the stable
+`flat.m13b4-trace.v1` research schema. The envelope records the timing source,
+scheduling variant, scope and every ordered event/timestamp with fixed enum
+spellings. Invalid traces fail before serialization.
+
+The canonical envelope exists so evidence stores such as KVLab can retain and
+hash exact trace bytes rather than scraping logs or reconstructing enum names.
+It is descriptive evidence only: serialization does not infer cross-unit overlap,
+GPU concurrency, speedup, physical traffic, quality, or first-token improvement.
