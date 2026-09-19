@@ -59,6 +59,14 @@ pub mod bkv6_selection_quality;
 #[path = "bkv5_cooperative_selection_handoff.rs"]
 pub mod bkv5_cooperative_selection_handoff;
 
+/// BKV-5 research-only bounded cooperative timing-trace semantics.
+///
+/// This validates caller-observed monotonic intervals for one qualified handoff
+/// and optional next-Boolean production. It owns no clock, scheduler, queue, or
+/// performance verdict and cannot by itself establish physical overlap.
+#[path = "bkv5_cooperative_trace.rs"]
+pub mod bkv5_cooperative_trace;
+
 /// M13B.4 research-only prefill/first-decode readiness contract.
 ///
 /// This validates that numerical K/V and Boolean routing metadata cover the
