@@ -21,6 +21,15 @@ pub enum CooperativeTraceMode {
     SteadyState,
 }
 
+/// Identity-bound timing for the immediately following Boolean decode decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NextBooleanInterval {
+    pub generation: u64,
+    pub prefix_tokens: usize,
+    pub start_ns: u64,
+    pub finish_ns: u64,
+}
+
 /// Caller-observed monotonic timing in nanoseconds relative to one trace origin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CooperativeTraceTiming {
@@ -28,8 +37,7 @@ pub struct CooperativeTraceTiming {
     pub handoff_qualified_ns: u64,
     pub numerical_start_ns: u64,
     pub numerical_finish_ns: u64,
-    pub next_boolean_start_ns: Option<u64>,
-    pub next_boolean_finish_ns: Option<u64>,
+    pub next_boolean: Option<NextBooleanInterval>,
 }
 
 /// Validated immutable trace bound to one qualified handoff ticket.
@@ -96,25 +104,45 @@ impl CooperativeSelectionTrace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CooperativeTraceError {
+    SteadyStateRequiresQualifiedTicket,
     HandoffBeforeSelectionReady,
     NumericalStartBeforeHandoff,
     NumericalFinishBeforeStart,
-    IncompleteNextBooleanInterval,
+    NextBooleanGenerationMismatch { current: u64, next: u64 },
+    NextBooleanPrefixOverflow,
+    NextBooleanNotAdjacent { expected: usize, observed: usize },
     NextBooleanFinishBeforeStart,
 }
 
 impl fmt::Display for CooperativeTraceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let message = match self {
-            Self::HandoffBeforeSelectionReady => "handoff timestamp precedes selection readiness",
-            Self::NumericalStartBeforeHandoff => "numerical start precedes qualified handoff",
-            Self::NumericalFinishBeforeStart => "numerical finish precedes numerical start",
-            Self::IncompleteNextBooleanInterval => {
-                "next Boolean interval requires start and finish"
+        match self {
+            Self::SteadyStateRequiresQualifiedTicket => write!(
+                f,
+                "steady-state timing requires a separately qualified steady-state handoff ticket"
+            ),
+            Self::HandoffBeforeSelectionReady => {
+                write!(f, "handoff timestamp precedes selection readiness")
             }
-            Self::NextBooleanFinishBeforeStart => "next Boolean finish precedes next Boolean start",
-        };
-        f.write_str(message)
+            Self::NumericalStartBeforeHandoff => {
+                write!(f, "numerical start precedes qualified handoff")
+            }
+            Self::NumericalFinishBeforeStart => {
+                write!(f, "numerical finish precedes numerical start")
+            }
+            Self::NextBooleanGenerationMismatch { current, next } => write!(
+                f,
+                "next Boolean generation {next} does not match current generation {current}"
+            ),
+            Self::NextBooleanPrefixOverflow => write!(f, "next Boolean prefix length overflowed"),
+            Self::NextBooleanNotAdjacent { expected, observed } => write!(
+                f,
+                "next Boolean prefix {observed} is not adjacent; expected {expected}"
+            ),
+            Self::NextBooleanFinishBeforeStart => {
+                write!(f, "next Boolean finish precedes next Boolean start")
+            }
+        }
     }
 }
 
@@ -135,6 +163,9 @@ pub fn qualify_cooperative_trace(
     mode: CooperativeTraceMode,
     timing: CooperativeTraceTiming,
 ) -> Result<CooperativeSelectionTrace, CooperativeTraceError> {
+    if mode == CooperativeTraceMode::SteadyState {
+        return Err(CooperativeTraceError::SteadyStateRequiresQualifiedTicket);
+    }
     if timing.handoff_qualified_ns < timing.selection_ready_ns {
         return Err(CooperativeTraceError::HandoffBeforeSelectionReady);
     }
@@ -145,20 +176,33 @@ pub fn qualify_cooperative_trace(
         return Err(CooperativeTraceError::NumericalFinishBeforeStart);
     }
 
-    let observed_overlap_ns = match (timing.next_boolean_start_ns, timing.next_boolean_finish_ns) {
-        (None, None) => None,
-        (Some(_), None) | (None, Some(_)) => {
-            return Err(CooperativeTraceError::IncompleteNextBooleanInterval)
-        }
-        (Some(start), Some(finish)) => {
-            if finish < start {
+    let observed_overlap_ns = match timing.next_boolean {
+        None => None,
+        Some(next) => {
+            if next.generation != ticket.generation() {
+                return Err(CooperativeTraceError::NextBooleanGenerationMismatch {
+                    current: ticket.generation(),
+                    next: next.generation,
+                });
+            }
+            let expected_prefix = ticket
+                .prefix_tokens()
+                .checked_add(1)
+                .ok_or(CooperativeTraceError::NextBooleanPrefixOverflow)?;
+            if next.prefix_tokens != expected_prefix {
+                return Err(CooperativeTraceError::NextBooleanNotAdjacent {
+                    expected: expected_prefix,
+                    observed: next.prefix_tokens,
+                });
+            }
+            if next.finish_ns < next.start_ns {
                 return Err(CooperativeTraceError::NextBooleanFinishBeforeStart);
             }
             Some(interval_overlap_ns(
                 timing.numerical_start_ns,
                 timing.numerical_finish_ns,
-                start,
-                finish,
+                next.start_ns,
+                next.finish_ns,
             ))
         }
     };
@@ -229,8 +273,12 @@ mod tests {
                 handoff_qualified_ns: 12,
                 numerical_start_ns: 20,
                 numerical_finish_ns: 100,
-                next_boolean_start_ns: Some(40),
-                next_boolean_finish_ns: Some(70),
+                next_boolean: Some(NextBooleanInterval {
+                    generation: 5,
+                    prefix_tokens: 9,
+                    start_ns: 40,
+                    finish_ns: 70,
+                }),
             },
         )
         .unwrap();
@@ -246,14 +294,13 @@ mod tests {
     fn distinguishes_missing_interval_from_zero_overlap() {
         let no_interval = qualify_cooperative_trace(
             ticket(),
-            CooperativeTraceMode::SteadyState,
+            CooperativeTraceMode::FirstToken,
             CooperativeTraceTiming {
                 selection_ready_ns: 1,
                 handoff_qualified_ns: 2,
                 numerical_start_ns: 3,
                 numerical_finish_ns: 4,
-                next_boolean_start_ns: None,
-                next_boolean_finish_ns: None,
+                next_boolean: None,
             },
         )
         .unwrap();
@@ -261,14 +308,18 @@ mod tests {
 
         let disjoint = qualify_cooperative_trace(
             ticket(),
-            CooperativeTraceMode::SteadyState,
+            CooperativeTraceMode::FirstToken,
             CooperativeTraceTiming {
                 selection_ready_ns: 1,
                 handoff_qualified_ns: 2,
                 numerical_start_ns: 10,
                 numerical_finish_ns: 20,
-                next_boolean_start_ns: Some(21),
-                next_boolean_finish_ns: Some(25),
+                next_boolean: Some(NextBooleanInterval {
+                    generation: 5,
+                    prefix_tokens: 9,
+                    start_ns: 21,
+                    finish_ns: 25,
+                }),
             },
         )
         .unwrap();
@@ -276,14 +327,28 @@ mod tests {
     }
 
     #[test]
-    fn rejects_incomplete_or_reversed_timings() {
+    fn rejects_steady_state_until_a_steady_state_ticket_is_qualified() {
+        let timing = CooperativeTraceTiming {
+            selection_ready_ns: 1,
+            handoff_qualified_ns: 2,
+            numerical_start_ns: 3,
+            numerical_finish_ns: 4,
+            next_boolean: None,
+        };
+        assert_eq!(
+            qualify_cooperative_trace(ticket(), CooperativeTraceMode::SteadyState, timing),
+            Err(CooperativeTraceError::SteadyStateRequiresQualifiedTicket)
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_identity_or_reversed_timings() {
         let base = CooperativeTraceTiming {
             selection_ready_ns: 10,
             handoff_qualified_ns: 12,
             numerical_start_ns: 20,
             numerical_finish_ns: 100,
-            next_boolean_start_ns: None,
-            next_boolean_finish_ns: None,
+            next_boolean: None,
         };
         let mut timing = base;
         timing.handoff_qualified_ns = 9;
@@ -307,15 +372,42 @@ mod tests {
         );
 
         let mut timing = base;
-        timing.next_boolean_start_ns = Some(30);
+        timing.next_boolean = Some(NextBooleanInterval {
+            generation: 6,
+            prefix_tokens: 9,
+            start_ns: 30,
+            finish_ns: 40,
+        });
         assert_eq!(
             qualify_cooperative_trace(ticket(), CooperativeTraceMode::FirstToken, timing),
-            Err(CooperativeTraceError::IncompleteNextBooleanInterval)
+            Err(CooperativeTraceError::NextBooleanGenerationMismatch {
+                current: 5,
+                next: 6,
+            })
         );
 
         let mut timing = base;
-        timing.next_boolean_start_ns = Some(50);
-        timing.next_boolean_finish_ns = Some(40);
+        timing.next_boolean = Some(NextBooleanInterval {
+            generation: 5,
+            prefix_tokens: 10,
+            start_ns: 30,
+            finish_ns: 40,
+        });
+        assert_eq!(
+            qualify_cooperative_trace(ticket(), CooperativeTraceMode::FirstToken, timing),
+            Err(CooperativeTraceError::NextBooleanNotAdjacent {
+                expected: 9,
+                observed: 10,
+            })
+        );
+
+        let mut timing = base;
+        timing.next_boolean = Some(NextBooleanInterval {
+            generation: 5,
+            prefix_tokens: 9,
+            start_ns: 50,
+            finish_ns: 40,
+        });
         assert_eq!(
             qualify_cooperative_trace(ticket(), CooperativeTraceMode::FirstToken, timing),
             Err(CooperativeTraceError::NextBooleanFinishBeforeStart)
