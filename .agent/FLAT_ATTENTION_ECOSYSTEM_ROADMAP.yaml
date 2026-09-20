@@ -239,3 +239,26 @@ research_engine_integrated_consumer_2026_09_16:
     - FA7_phase_b_nonsoftmax_gate_unchanged
     - no_new_semantic_default_routing_KV_representation_or_GPU_performance_claim
     - standalone_consumer_does_not_raise_FLAT_or_TDI_MSRV
+
+elasticxxx_bridge_convergence_2026_09_20:
+  status: merged_exact_head_qualified
+  elasticxxx_contract:
+    pull_request: https://github.com/Memorithm/ElasticXxx/pull/202
+    merge_revision: 354cfb372f568338b29a357b0671bf9315097b1d
+    boundary: external_adapter_v1_and_current_package_topology
+  flat_bridge:
+    pull_request: https://github.com/Memorithm/FLAT-ATTENTION/pull/260
+    qualified_head: 832202b221ded89ccce3dcab6ac629bb6a089829
+    merge_revision: 7a5db9127bd9b76f6f4e58a47a371658f0c8f5e5
+    crate: flat-elastic-kernel
+  evidence:
+    - exact_head_ci_green
+    - linux_vulkan_parity_green
+    - windows_d3d12_parity_green
+    - metal_parity_green
+    - codeql_supply_chain_semver_green
+    - local_flat_elastic_kernel_tests_10_of_10_green
+  authority:
+    - FLAT_retains_attention_kernel_and_correctness_semantics
+    - ElasticXxx_retains_generic_capability_selection_and_freshness_semantics
+    - no_performance_hardware_or_model_quality_claim_added
