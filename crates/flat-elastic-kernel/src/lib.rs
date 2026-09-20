@@ -33,7 +33,7 @@ use flat_attention::RuntimeDeviceCapabilities;
 use std::fmt;
 
 /// Exact ElasticXxx revision this adapter was compiled and reviewed against.
-pub const ELASTICXXX_REVISION: &str = "9130a412857335cc5120b013b91552dd0808f9f1";
+pub const ELASTICXXX_REVISION: &str = "6a62519c2f18f0e0ad8428c390c4acb11f909ec4";
 /// Adapter schema. Bump when identity/evidence/capability translation semantics change.
 pub const ADAPTER_SCHEMA_VERSION: u32 = 2;
 /// Version tag attached to latency evidence translated from FLAT M26 records.
