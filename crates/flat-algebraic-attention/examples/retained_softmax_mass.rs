@@ -471,7 +471,7 @@ fn case_metrics(
     let (output_error, lse_error, lse_identity_residual, output_bound_excess) = match sparse {
         None => {
             require(
-                mass.retained_mass() == 0.0,
+                mass.retained_mass().abs() <= f64::EPSILON,
                 "empty sparse selection has non-zero retained mass",
             )?;
             (None, None, None, None)
@@ -704,9 +704,9 @@ mod tests {
     #[test]
     fn nearest_rank_is_deterministic() {
         let values = [0.1, 0.2, 0.3, 0.4, 0.5];
-        assert_eq!(nearest_rank(&values, 10, 100).unwrap(), 0.1);
-        assert_eq!(nearest_rank(&values, 50, 100).unwrap(), 0.3);
-        assert_eq!(nearest_rank(&values, 90, 100).unwrap(), 0.5);
+        assert!((nearest_rank(&values, 10, 100).unwrap() - 0.1).abs() <= f64::EPSILON);
+        assert!((nearest_rank(&values, 50, 100).unwrap() - 0.3).abs() <= f64::EPSILON);
+        assert!((nearest_rank(&values, 90, 100).unwrap() - 0.5).abs() <= f64::EPSILON);
     }
 
     #[test]
