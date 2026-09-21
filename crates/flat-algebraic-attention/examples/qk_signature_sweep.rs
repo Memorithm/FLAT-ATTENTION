@@ -151,10 +151,8 @@ fn dense_order(case: &Case) -> Vec<usize> {
 }
 
 fn to_m13b(vector: &F2Vector) -> Result<BooleanAttentionSignature> {
-    Ok(BooleanAttentionSignature::new(
-        vector.bit_len(),
-        vector.words().to_vec(),
-    )?)
+    BooleanAttentionSignature::new(vector.bit_len(), vector.words().to_vec())
+        .map_err(|error| Box::new(error) as Box<dyn Error>)
 }
 
 fn thresholds(width: usize) -> Result<[usize; 3]> {
@@ -334,11 +332,9 @@ fn run() -> Result<Vec<String>> {
         ));
 
         let thresholds = thresholds(width)?;
-        for index in 0..3 {
-            let aggregate = admissions[index];
+        for (threshold, aggregate) in thresholds.into_iter().zip(admissions) {
             rows.push(format!(
-                "admission,{width},{},{},{},{},{},{},{},{},{},{},NA,NA,NA",
-                thresholds[index],
+                "admission,{width},{threshold},{},{},{},{},{},{},{},{},{},NA,NA,NA",
                 ranking.top1_matches,
                 ranking.top2_hits,
                 ranking.pair_agree,
