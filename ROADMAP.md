@@ -1126,3 +1126,7 @@ FLAT-ATTENTION can be considered 1.0-ready only when all of the following are tr
 - licensing/ownership policy finalized by Memorithm.
 
 Boolean Front-End Attention does not need to beat dense attention on every workload to be valid. If it is enabled in 1.0, it must have a qualified dense fallback, explicit quality semantics, reproducible device evidence and automatic or explicit disablement when it is not beneficial.
+
+# BANC v888 sparse-routing research overlay
+
+The V888-only overlay is maintained in [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). It extends, but does not replace, M13B/MAA: dense FLAT remains the numerical reference; V888-derived admission must be compared against density- and structure-matched controls; sparse streaming-softmax correctness precedes WGPU optimization; and the runtime handoff targets portable NNIS CPU/WGPU contracts rather than NVIDIA products.
