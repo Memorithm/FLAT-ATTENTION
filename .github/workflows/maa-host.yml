@@ -139,6 +139,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-qk-signature-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Norm-aware QK exploratory sweep and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example norm_aware_qk_sweep > "$RUNNER_TEMP/maa-norm-aware-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example norm_aware_qk_sweep > "$RUNNER_TEMP/maa-norm-aware-second.csv"
+          cmp "$RUNNER_TEMP/maa-norm-aware-first.csv" "$RUNNER_TEMP/maa-norm-aware-second.csv"
+          cat "$RUNNER_TEMP/maa-norm-aware-first.csv"
+          {
+            echo '### MAA-13b norm-aware Q/K exploration (not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-norm-aware-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
