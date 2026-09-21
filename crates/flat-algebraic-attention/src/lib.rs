@@ -13,6 +13,7 @@ pub mod f2;
 pub mod holdout;
 mod holdout_eq;
 pub mod max_plus;
+pub mod qk_signature;
 pub mod qualification;
 pub mod readiness;
 pub mod survivor_floor;
