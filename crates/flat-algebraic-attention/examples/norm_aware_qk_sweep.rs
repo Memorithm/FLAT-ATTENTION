@@ -199,11 +199,8 @@ fn to_m13b(vector: &F2Vector) -> Result<BooleanAttentionSignature> {
 }
 
 fn policy_polynomial() -> Result<ZhegalkinPolynomial> {
-    ZhegalkinPolynomial::from_variable_sets(
-        3,
-        vec![vec![0], vec![1, 2], vec![0, 1, 2]],
-    )
-    .map_err(|error| Box::new(error) as Box<dyn Error>)
+    ZhegalkinPolynomial::from_variable_sets(3, vec![vec![0], vec![1, 2], vec![0, 1, 2]])
+        .map_err(|error| Box::new(error) as Box<dyn Error>)
 }
 
 fn policy_verdict(
@@ -212,7 +209,10 @@ fn policy_verdict(
     high_norm: bool,
     polynomial: &ZhegalkinPolynomial,
 ) -> Result<bool> {
-    require(!near || medium, "near Hamming verdict must imply medium verdict")?;
+    require(
+        !near || medium,
+        "near Hamming verdict must imply medium verdict",
+    )?;
 
     let features = F2Vector::from_bools(&[near, medium, high_norm])?;
     let direct = near || (medium && high_norm);
@@ -233,7 +233,10 @@ fn policy_verdict(
 }
 
 fn matched_random_indices(case_id: usize, count: usize) -> Result<Vec<usize>> {
-    require(count <= CANDIDATES, "matched-random count exceeds candidate geometry")?;
+    require(
+        count <= CANDIDATES,
+        "matched-random count exceeds candidate geometry",
+    )?;
     let case_key = u64::try_from(case_id).map_err(|_| "case ID exceeds u64")?;
     let mut priorities = (0..CANDIDATES)
         .map(|candidate_id| {
@@ -384,7 +387,8 @@ fn run() -> Result<Vec<String>> {
         }
 
         require(
-            near.iter().all(|candidate_id| norm_aware.contains(candidate_id)),
+            near.iter()
+                .all(|candidate_id| norm_aware.contains(candidate_id)),
             "near selection is not a subset of norm-aware MAA",
         )?;
         require(
