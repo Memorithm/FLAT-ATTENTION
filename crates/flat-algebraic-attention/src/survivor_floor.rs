@@ -395,8 +395,8 @@ mod tests {
             0b1111,
             &[
                 [false, false, false],
-                [false, true, false],
-                [false, true, false],
+                [false, true, true],
+                [false, true, true],
                 [false, false, false],
             ],
         );
