@@ -607,8 +607,7 @@ fn run() -> Result<Vec<String>> {
             "matched-control cardinality drifted",
         )?;
 
-        let (near_metrics, near_mass) =
-            case_metrics(case, &near, &top2, &dense, &score_values)?;
+        let (near_metrics, near_mass) = case_metrics(case, &near, &top2, &dense, &score_values)?;
         let (medium_metrics, medium_mass) =
             case_metrics(case, &medium, &top2, &dense, &score_values)?;
         let (norm_metrics, norm_mass) =
@@ -716,7 +715,10 @@ mod tests {
             .collect::<Vec<_>>();
         for count in 0..=CANDIDATES {
             assert_eq!(matched_random_indices(17, count).unwrap().len(), count);
-            assert_eq!(mass_oracle_indices(&score_values, count).unwrap().len(), count);
+            assert_eq!(
+                mass_oracle_indices(&score_values, count).unwrap().len(),
+                count
+            );
         }
     }
 
