@@ -195,9 +195,7 @@ mod tests {
         assert!((result.retained_mass() - 1.0).abs() <= f64::EPSILON);
         assert!(result.dropped_mass().abs() <= f64::EPSILON);
         assert!(result.lse_gap().unwrap().abs() <= f64::EPSILON);
-        assert!(
-            (result.selected_lse().unwrap() - result.dense_lse()).abs() <= f64::EPSILON
-        );
+        assert!((result.selected_lse().unwrap() - result.dense_lse()).abs() <= f64::EPSILON);
     }
 
     #[test]
@@ -254,8 +252,6 @@ mod tests {
     #[test]
     fn output_bound_matches_simple_limits() {
         assert!(output_error_bound(1.0, 2.0).unwrap().abs() <= f64::EPSILON);
-        assert!(
-            (output_error_bound(0.75, 2.0).unwrap() - 1.0).abs() <= f64::EPSILON
-        );
+        assert!((output_error_bound(0.75, 2.0).unwrap() - 1.0).abs() <= f64::EPSILON);
     }
 }
