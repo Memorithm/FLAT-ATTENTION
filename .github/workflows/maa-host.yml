@@ -124,6 +124,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-floor-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: QK-signature exploratory sweep and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example qk_signature_sweep > "$RUNNER_TEMP/maa-qk-signature-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example qk_signature_sweep > "$RUNNER_TEMP/maa-qk-signature-second.csv"
+          cmp "$RUNNER_TEMP/maa-qk-signature-first.csv" "$RUNNER_TEMP/maa-qk-signature-second.csv"
+          cat "$RUNNER_TEMP/maa-qk-signature-first.csv"
+          {
+            echo '### MAA-13a Q/K-derived Boolean signature exploration (not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-qk-signature-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
