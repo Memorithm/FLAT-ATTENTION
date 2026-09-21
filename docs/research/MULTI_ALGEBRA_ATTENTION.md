@@ -146,6 +146,9 @@ The original foundation plan was expanded into smaller reviewable slices as the 
 - **MAA-10b**: separate Max-Plus readiness/defer planning from relevance rejection, require exact eventual survivor preservation, and exercise deterministic chain/fork-join/shared-node schedules. See [protocol](MAA_MAX_PLUS_READINESS_PREREGISTRATION.md).
 - **MAA-10c**: require a complete Max-Plus readiness snapshot to reconstruct the exact original semantic survivor list and prove bit-for-bit O/LSE equivalence through the existing FLAT numerical oracle. See [protocol](MAA_MAX_PLUS_NUMERICAL_EQUIVALENCE_PREREGISTRATION.md).
 - **MAA-11a**: freeze policy/source/route/recomposition/predicate/features/tuning-dataset/confirmatory-dataset identity before any confirmatory holdout observation. See [protocol](MAA_HOLDOUT_POLICY_FREEZE_PREREGISTRATION.md).
+- **MAA-11b**: execute the frozen Boolean+F2+Zhegalkin synthetic holdout without retuning. The preserved confirmatory classification is `FRONTIER_REJECT`; this is negative evidence for that exact strict-conjunction policy, not a rejection of all MAA policies.
+- **MAA-12a**: preregister and explore a batch-level survivor floor that may rescue only Boolean-qualified candidates using deterministic F2/Zhegalkin support, while keeping Max-Plus outside semantic rescue and never reusing the MAA-11b holdout for tuning. See [protocol](MAA_SURVIVOR_FLOOR_EXPLORATORY_PREREGISTRATION.md).
+- **MAA-12b**: only if MAA-12a motivates a concrete successor policy, freeze a new policy identity and new tuning/confirmatory dataset identities before any confirmatory observation.
 - **MAA-GPU**: portable WGPU candidates only after host confirmatory evidence justifies a specific GPU hypothesis.
 
 ## Non-goals for the foundation series
