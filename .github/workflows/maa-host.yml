@@ -7,6 +7,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/maa-host.yml'
+      - 'docs/research/MAA*'
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/maa-host.yml'
+      - 'docs/research/MAA*'
   workflow_dispatch:
 
 permissions:
@@ -105,6 +107,21 @@ jobs:
             echo 'Frozen policy source revision: 4030b229a2ff329c1263cad677812d659422b448'
             echo '```csv'
             cat "$RUNNER_TEMP/maa-holdout-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Survivor-floor exploratory sweep and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example survivor_floor_sweep > "$RUNNER_TEMP/maa-floor-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example survivor_floor_sweep > "$RUNNER_TEMP/maa-floor-second.csv"
+          cmp "$RUNNER_TEMP/maa-floor-first.csv" "$RUNNER_TEMP/maa-floor-second.csv"
+          cat "$RUNNER_TEMP/maa-floor-first.csv"
+          {
+            echo '### MAA-12a survivor-floor exploration (exploratory; not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-floor-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
