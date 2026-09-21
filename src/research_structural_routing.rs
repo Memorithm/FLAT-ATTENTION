@@ -438,8 +438,8 @@ fn update_online_attention(
         dot += q[q_base + dim] * k[kv_base + dim];
     }
     let score = dot * scale;
-    let new_max = running_max.max(score);
-    let alpha = if running_max.is_infinite() {
+    let new_max = (*running_max).max(score);
+    let alpha = if (*running_max).is_infinite() {
         0.0
     } else {
         (*running_max - new_max).exp()
@@ -662,6 +662,24 @@ mod tests {
         assert_eq!(sparse.attention, existing);
         assert_eq!(sparse.counters.admitted_pairs, 16);
         assert_eq!(sparse.counters.executed_pairs, 16);
+    }
+
+    #[test]
+    fn causal_all_accept_matches_existing_flat_oracle_bit_for_bit() {
+        let candidates = StructuralCandidateSet::all(shape()).unwrap();
+        let (q, k, v) = tensors();
+        let config = FlatAttentionConfig {
+            causal: true,
+            softmax_scale: None,
+        };
+
+        let existing = forward_reference(&q, &k, &v, shape(), config).unwrap();
+        let sparse =
+            forward_reference_structural_sparse(&q, &k, &v, shape(), config, &candidates).unwrap();
+
+        assert_eq!(sparse.attention, existing);
+        assert_eq!(sparse.counters.admitted_pairs, 16);
+        assert_eq!(sparse.counters.executed_pairs, 10);
     }
 
     #[test]
