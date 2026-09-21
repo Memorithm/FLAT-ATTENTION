@@ -262,3 +262,26 @@ elasticxxx_bridge_convergence_2026_09_20:
     - FLAT_retains_attention_kernel_and_correctness_semantics
     - ElasticXxx_retains_generic_capability_selection_and_freshness_semantics
     - no_performance_hardware_or_model_quality_claim_added
+
+v888_sparse_routing_program:
+  status: active_user_directed_2026_09_21
+  source_scope:
+    connectome: FlyWire_BANC_v888_only
+    raw_dataset_in_repository: false
+  FLAT_role: attention_semantics_and_sparse_structural_admission
+  ordered_bootstrap:
+    - FA_V888_0_frozen_research_contract
+    - FA_V888_1_host_structural_mask_oracle
+    - FA_V888_2_matched_mask_families
+    - FA_V888_3_MAA_structural_admission
+    - FA_V888_4_sparse_streaming_softmax_oracle
+    - FA_V888_5_portable_WGPU_sparse_kernel
+    - FA_V888_6_graph_recurrent_attention_hybrid
+    - FA_V888_7_hub_aware_routing_experiment
+    - FA_V888_8_learned_structural_router
+    - FA_V888_9_NNIS_portable_runtime_handoff
+    - FA_V888_10_SML_GENIUS_comparison_gate
+  required_reference: dense_FLAT_softmax
+  nvidia_dependency_for_new_programme: false
+  runtime_target: NNIS_Native_Neural_Inference_Stack_CPU_WGPU
+  authoritative_main_document: docs/V888_CONNECTOME_BOOTSTRAP.md
