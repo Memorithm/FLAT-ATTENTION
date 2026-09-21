@@ -188,7 +188,10 @@ fn evaluate_width(
 
         let q_f2 = projector.project(&case.q)?;
         let q_signature = to_m13b(&q_f2)?;
-        require(q_signature.words() == q_f2.words(), "Q packed bridge drifted")?;
+        require(
+            q_signature.words() == q_f2.words(),
+            "Q packed bridge drifted",
+        )?;
 
         let mut key_f2 = Vec::with_capacity(CANDIDATES);
         let mut key_signatures = Vec::with_capacity(CANDIDATES);
@@ -197,10 +200,7 @@ fn evaluate_width(
         for (candidate_id, key) in case.keys.iter().enumerate() {
             let f2 = projector.project(key)?;
             let signature = to_m13b(&f2)?;
-            require(
-                signature.words() == f2.words(),
-                "K packed bridge drifted",
-            )?;
+            require(signature.words() == f2.words(), "K packed bridge drifted")?;
             let f2_distance = q_f2.hamming_distance(&f2)?;
             let m13b_distance = q_signature.hamming_distance(&signature)?;
             require(
@@ -354,9 +354,7 @@ fn run() -> Result<Vec<String>> {
         let scale = evaluate_scale_control(width)?;
         rows.push(format!(
             "scale_control,{width},NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,{},{},{}",
-            scale.signature_collisions,
-            scale.strict_exact_orderings,
-            scale.unresolved_hamming_ties,
+            scale.signature_collisions, scale.strict_exact_orderings, scale.unresolved_hamming_ties,
         ));
     }
 
@@ -391,9 +389,15 @@ mod tests {
     fn f2_and_m13b_bridge_is_exact_on_fixed_fixture() {
         let projector = SignedHyperplaneProjector::new(D, 128, PROJECTOR_SEED).unwrap();
         let q = normalize([1.0; D]).unwrap();
-        let k = normalize(std::array::from_fn(|index| {
-            if index % 2 == 0 { 1.0 } else { -1.0 }
-        }))
+        let k = normalize(std::array::from_fn(
+            |index| {
+                if index % 2 == 0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            },
+        ))
         .unwrap();
         let q_f2 = projector.project(&q).unwrap();
         let k_f2 = projector.project(&k).unwrap();
