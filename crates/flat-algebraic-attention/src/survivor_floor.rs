@@ -11,10 +11,7 @@ pub struct SurvivorFloorCandidate<'a> {
 
 impl<'a> SurvivorFloorCandidate<'a> {
     #[must_use]
-    pub const fn new(
-        candidate_index: usize,
-        decision: &'a CandidateQualificationDecision,
-    ) -> Self {
+    pub const fn new(candidate_index: usize, decision: &'a CandidateQualificationDecision) -> Self {
         Self {
             candidate_index,
             decision,
@@ -136,11 +133,11 @@ pub fn apply_survivor_floor(
         }
 
         let decision = candidate.decision;
-        let boolean = decision.boolean().ok_or(
-            SurvivorFloorError::MissingBooleanDecision {
+        let boolean = decision
+            .boolean()
+            .ok_or(SurvivorFloorError::MissingBooleanDecision {
                 candidate_index: candidate.candidate_index,
-            },
-        )?;
+            })?;
 
         if decision.max_plus().is_some() {
             return Err(SurvivorFloorError::MaxPlusDecisionNotSupported {
@@ -166,11 +163,7 @@ pub fn apply_survivor_floor(
         }
 
         let support = u8::from(decision.f2().is_some_and(|value| value.qualified()))
-            + u8::from(
-                decision
-                    .zhegalkin()
-                    .is_some_and(|value| value.qualified()),
-            );
+            + u8::from(decision.zhegalkin().is_some_and(|value| value.qualified()));
         rescue_pool.push(RescueCandidate {
             candidate_index: candidate.candidate_index,
             support,
@@ -197,7 +190,8 @@ pub fn apply_survivor_floor(
     let mut survivor_indices = Vec::with_capacity(strict_survivors + rescued.len());
     let mut rescued_indices = Vec::with_capacity(rescued.len());
     for candidate in candidates {
-        if strict.contains(&candidate.candidate_index) || rescued.contains(&candidate.candidate_index)
+        if strict.contains(&candidate.candidate_index)
+            || rescued.contains(&candidate.candidate_index)
         {
             survivor_indices.push(candidate.candidate_index);
             if rescued.contains(&candidate.candidate_index) {
@@ -223,11 +217,11 @@ mod tests {
         route_attention_needs, AttentionAlgebraNeeds, M13bBooleanRoutingEvidence,
     };
     use crate::f2::{F2AffinePredicate, F2Vector};
+    use crate::max_plus::{MaxPlusSchedule, MaxPlusValue};
     use crate::qualification::{
         qualify_candidate, CandidateQualificationInputs, F2CandidateEvaluation,
         MaxPlusCandidateEvaluation, RecompositionPolicy, ZhegalkinCandidateEvaluation,
     };
-    use crate::max_plus::{MaxPlusSchedule, MaxPlusValue};
     use crate::zhegalkin::ZhegalkinPolynomial;
 
     fn route(mask: u64, blocks: usize) -> crate::cooperation::AlgebraicRoute {
@@ -263,8 +257,7 @@ mod tests {
         let route = route(mask, features.len());
         let f2 =
             F2AffinePredicate::new(F2Vector::from_bools(&[true, false, false]).unwrap(), false);
-        let zhegalkin =
-            ZhegalkinPolynomial::from_variable_sets(3, vec![vec![1, 2]]).unwrap();
+        let zhegalkin = ZhegalkinPolynomial::from_variable_sets(3, vec![vec![1, 2]]).unwrap();
 
         features
             .iter()
@@ -298,7 +291,9 @@ mod tests {
         decisions
             .iter()
             .enumerate()
-            .map(|(candidate_index, decision)| SurvivorFloorCandidate::new(candidate_index, decision))
+            .map(|(candidate_index, decision)| {
+                SurvivorFloorCandidate::new(candidate_index, decision)
+            })
             .collect()
     }
 
@@ -353,7 +348,10 @@ mod tests {
 
         assert_eq!(result.boolean_survivors(), 2);
         assert_eq!(result.target_floor(), 2);
-        assert!(result.survivor_indices().iter().all(|id| [0, 2].contains(id)));
+        assert!(result
+            .survivor_indices()
+            .iter()
+            .all(|id| [0, 2].contains(id)));
     }
 
     #[test]
@@ -468,18 +466,8 @@ mod tests {
                 ..AttentionAlgebraNeeds::default()
             },
             Some(
-                M13bBooleanRoutingEvidence::new(
-                    1,
-                    1,
-                    vec![1],
-                    1,
-                    1,
-                    vec![1],
-                    vec![1],
-                    None,
-                    None,
-                )
-                .unwrap(),
+                M13bBooleanRoutingEvidence::new(1, 1, vec![1], 1, 1, vec![1], vec![1], None, None)
+                    .unwrap(),
             ),
         )
         .unwrap();
