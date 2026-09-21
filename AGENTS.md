@@ -53,3 +53,7 @@ If any required roadmap or applicable overlay cannot be read, fail closed for ma
 Reread the roadmaps and applicable ML/DA-LUC overlays at session start, before selecting a major milestone, after benchmark promotion/rejection or strategy changes, before cross-repository work, and before relevant PR/merge decisions.
 
 Do not merge the off-main roadmap or research overlays themselves into `main` unless the user explicitly requests it.
+
+## Mandatory BANC v888 sparse-routing bootstrap
+
+For BANC v888 structural admission, connectome-derived sparse masks, MAA structural predicates, recurrent/attention hybrids, or SML/NNIS V888 integration, also read [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). The programme is V888-only, raw connectome data remains external, dense FLAT remains the numerical reference, and new implementation work uses portable CPU/WGPU contracts rather than NVIDIA products.
