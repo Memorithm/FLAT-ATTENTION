@@ -10,20 +10,10 @@ const COORD_INDEX_MIX: u64 = 0xbf58_476d_1ce4_e5b9;
 pub enum QkSignatureError {
     ZeroInputDimension,
     ZeroOutputBits,
-    InputDimensionMismatch {
-        expected: usize,
-        actual: usize,
-    },
-    NonFiniteInput {
-        index: usize,
-    },
-    IndexTooLarge {
-        kind: &'static str,
-        index: usize,
-    },
-    ProjectionOverflow {
-        bit_index: usize,
-    },
+    InputDimensionMismatch { expected: usize, actual: usize },
+    NonFiniteInput { index: usize },
+    IndexTooLarge { kind: &'static str, index: usize },
+    ProjectionOverflow { bit_index: usize },
     F2(F2Error),
 }
 
