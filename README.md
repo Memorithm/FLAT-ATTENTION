@@ -255,3 +255,7 @@ for the separate commercial licensing path.
 - Third-party dependency inventory: [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)
 
 Copyright © 2026 Tarek Zekriti.
+
+## BANC v888 sparse-routing research
+
+The V888-only research bootstrap is [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). It treats connectome structure as an external hypothesis source for matched sparse admission masks, MAA structural predicates, sparse streaming-softmax, recurrent/attention hybrids and portable WGPU realization. Dense FLAT attention remains the numerical reference, and no NVIDIA-specific implementation is required by this track.
