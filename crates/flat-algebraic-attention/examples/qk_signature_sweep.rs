@@ -253,15 +253,12 @@ fn evaluate_width(
         }
 
         for (rule_index, rule) in rules.iter().enumerate() {
-            let selected = key_signatures
-                .iter()
-                .enumerate()
-                .filter_map(|(candidate_id, key_signature)| {
-                    rule.admits(&q_signature, key_signature)
-                        .transpose()
-                        .map(|admitted| admitted.then_some(candidate_id))
-                })
-                .collect::<std::result::Result<Vec<_>, _>>()?;
+            let mut selected = Vec::new();
+            for (candidate_id, key_signature) in key_signatures.iter().enumerate() {
+                if rule.admits(&q_signature, key_signature)? {
+                    selected.push(candidate_id);
+                }
+            }
             let top2_hits = selected
                 .iter()
                 .filter(|candidate_id| dense_top2.contains(candidate_id))
@@ -304,7 +301,7 @@ fn evaluate_scale_control(width: usize) -> Result<ScaleAggregate> {
 
         let low_score = dot(&q, &low);
         let high_score = dot(&q, &high);
-        if low_score.total_cmp(&high_score).is_ne() {
+        if low_score.total_cmp(&high_score) != std::cmp::Ordering::Equal {
             aggregate.strict_exact_orderings += 1;
             let low_distance = q_signature.hamming_distance(&low_signature)?;
             let high_distance = q_signature.hamming_distance(&high_signature)?;
