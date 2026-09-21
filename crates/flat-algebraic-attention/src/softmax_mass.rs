@@ -41,24 +41,13 @@ impl RetainedSoftmaxMass {
 #[non_exhaustive]
 pub enum SoftmaxMassError {
     EmptyScores,
-    NonFiniteScore {
-        index: usize,
-    },
-    SelectedIndexOutOfBounds {
-        index: usize,
-        score_count: usize,
-    },
-    DuplicateSelectedIndex {
-        index: usize,
-    },
+    NonFiniteScore { index: usize },
+    SelectedIndexOutOfBounds { index: usize, score_count: usize },
+    DuplicateSelectedIndex { index: usize },
     NonFinitePartition,
     SelectedMassUnderflow,
-    InvalidRetainedMass {
-        value: f64,
-    },
-    InvalidValueBound {
-        value: f64,
-    },
+    InvalidRetainedMass { value: f64 },
+    InvalidValueBound { value: f64 },
 }
 
 impl fmt::Display for SoftmaxMassError {
@@ -73,10 +62,16 @@ impl fmt::Display for SoftmaxMassError {
                 "selected softmax index {index} is outside 0..{score_count}"
             ),
             Self::DuplicateSelectedIndex { index } => {
-                write!(formatter, "selected softmax index {index} occurs more than once")
+                write!(
+                    formatter,
+                    "selected softmax index {index} occurs more than once"
+                )
             }
             Self::NonFinitePartition => {
-                write!(formatter, "softmax partition became non-finite or non-positive")
+                write!(
+                    formatter,
+                    "softmax partition became non-finite or non-positive"
+                )
             }
             Self::SelectedMassUnderflow => write!(
                 formatter,
@@ -174,10 +169,7 @@ pub fn retained_softmax_mass(
     })
 }
 
-pub fn output_error_bound(
-    retained_mass: f64,
-    max_abs_value: f64,
-) -> Result<f64, SoftmaxMassError> {
+pub fn output_error_bound(retained_mass: f64, max_abs_value: f64) -> Result<f64, SoftmaxMassError> {
     if !retained_mass.is_finite() || !(0.0..=1.0).contains(&retained_mass) {
         return Err(SoftmaxMassError::InvalidRetainedMass {
             value: retained_mass,
