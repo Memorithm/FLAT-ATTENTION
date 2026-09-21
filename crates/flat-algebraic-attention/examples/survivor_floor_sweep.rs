@@ -12,9 +12,7 @@ use flat_algebraic_attention::qualification::{
     qualify_candidate, CandidateQualificationDecision, CandidateQualificationInputs,
     F2CandidateEvaluation, RecompositionPolicy, ZhegalkinCandidateEvaluation,
 };
-use flat_algebraic_attention::survivor_floor::{
-    apply_survivor_floor, SurvivorFloorCandidate,
-};
+use flat_algebraic_attention::survivor_floor::{apply_survivor_floor, SurvivorFloorCandidate};
 use flat_algebraic_attention::zhegalkin::ZhegalkinPolynomial;
 use flat_attention::api::boolean_attention_mask::{
     BooleanAttentionMask, BOOLEAN_ATTENTION_MASK_SCHEMA_VERSION,
@@ -220,10 +218,7 @@ fn floor_indices(
         .map(|(candidate_id, decision)| SurvivorFloorCandidate::new(candidate_id, decision))
         .collect::<Vec<_>>();
     let result = apply_survivor_floor(&candidates, floor)?;
-    Ok((
-        result.survivor_indices().to_vec(),
-        result.rescued_count(),
-    ))
+    Ok((result.survivor_indices().to_vec(), result.rescued_count()))
 }
 
 fn dense_top2(case: &Case) -> [usize; 2] {
@@ -334,13 +329,12 @@ fn run() -> Result<Vec<String>> {
         for (arm, floor) in FLOORS.iter().copied().enumerate() {
             let (selected, rescued) = floor_indices(&case_decisions, floor)?;
             require(
-                selected.iter().all(|candidate_id| boolean_ids.contains(candidate_id)),
+                selected
+                    .iter()
+                    .all(|candidate_id| boolean_ids.contains(candidate_id)),
                 "survivor floor resurrected a Boolean rejection",
             )?;
-            floor_aggregates[arm].record(
-                sparse_metrics(case, &selected, &top2, &dense)?,
-                rescued,
-            );
+            floor_aggregates[arm].record(sparse_metrics(case, &selected, &top2, &dense)?, rescued);
         }
     }
 
