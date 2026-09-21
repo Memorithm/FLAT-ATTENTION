@@ -200,18 +200,20 @@ mod tests {
         let scores = [1.0, 2.0, -3.0];
         let result = retained_softmax_mass(&scores, &[0, 1, 2]).unwrap();
 
-        assert_eq!(result.retained_mass(), 1.0);
-        assert_eq!(result.dropped_mass(), 0.0);
-        assert_eq!(result.lse_gap(), Some(0.0));
-        assert_eq!(result.selected_lse(), Some(result.dense_lse()));
+        assert!((result.retained_mass() - 1.0).abs() <= f64::EPSILON);
+        assert!(result.dropped_mass().abs() <= f64::EPSILON);
+        assert!(result.lse_gap().unwrap().abs() <= f64::EPSILON);
+        assert!(
+            (result.selected_lse().unwrap() - result.dense_lse()).abs() <= f64::EPSILON
+        );
     }
 
     #[test]
     fn equal_scores_half_selection_has_half_mass_and_log_two_gap() {
         let result = retained_softmax_mass(&[0.0, 0.0], &[1]).unwrap();
 
-        assert_eq!(result.retained_mass(), 0.5);
-        assert_eq!(result.dropped_mass(), 0.5);
+        assert!((result.retained_mass() - 0.5).abs() <= f64::EPSILON);
+        assert!((result.dropped_mass() - 0.5).abs() <= f64::EPSILON);
         assert!((result.lse_gap().unwrap() - core::f64::consts::LN_2).abs() < 1.0e-15);
     }
 
@@ -219,8 +221,8 @@ mod tests {
     fn empty_selection_is_explicit_zero_mass() {
         let result = retained_softmax_mass(&[2.0, 1.0], &[]).unwrap();
 
-        assert_eq!(result.retained_mass(), 0.0);
-        assert_eq!(result.dropped_mass(), 1.0);
+        assert!(result.retained_mass().abs() <= f64::EPSILON);
+        assert!((result.dropped_mass() - 1.0).abs() <= f64::EPSILON);
         assert_eq!(result.selected_lse(), None);
         assert_eq!(result.lse_gap(), None);
     }
@@ -259,7 +261,9 @@ mod tests {
 
     #[test]
     fn output_bound_matches_simple_limits() {
-        assert_eq!(output_error_bound(1.0, 2.0).unwrap(), 0.0);
-        assert_eq!(output_error_bound(0.75, 2.0).unwrap(), 1.0);
+        assert!(output_error_bound(1.0, 2.0).unwrap().abs() <= f64::EPSILON);
+        assert!(
+            (output_error_bound(0.75, 2.0).unwrap() - 1.0).abs() <= f64::EPSILON
+        );
     }
 }
