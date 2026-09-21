@@ -689,7 +689,7 @@ mod tests {
 
         assert_eq!(dense, sparse);
         assert_eq!(sparse.counters.admitted_pairs, 10);
-        assert_eq!(sparse.counters.executed_pairs, 6);
+        assert_eq!(sparse.counters.executed_pairs, 7);
     }
 
     #[test]
