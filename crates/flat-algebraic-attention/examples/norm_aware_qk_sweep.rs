@@ -116,16 +116,14 @@ fn generated_vector(rng: &mut SplitMix64) -> [f32; D] {
 }
 
 fn l2_norm(vector: &[f32; D]) -> Result<f64> {
-    let squared = vector
-        .iter()
-        .map(|value| {
-            require(value.is_finite(), "generated vector contains a non-finite value")?;
-            let value = f64::from(*value);
-            Ok(value * value)
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .sum::<f64>();
+    let squared = vector.iter().try_fold(0.0f64, |total, value| {
+        require(
+            value.is_finite(),
+            "generated vector contains a non-finite value",
+        )?;
+        let value = f64::from(*value);
+        Ok::<f64, Box<dyn Error>>(total + value * value)
+    })?;
     require(
         squared.is_finite() && squared > 0.0,
         "generated vector has invalid norm",
@@ -151,8 +149,12 @@ fn generate_cases() -> Result<[Case; CASES]> {
 
         for _ in 0..CANDIDATES {
             let direction = normalize(generated_vector(&mut rng))?;
-            let scale_index = (rng.next_u64() & 0b11) as usize;
-            let scale = KEY_SCALES[scale_index];
+            let scale = match rng.next_u64() & 0b11 {
+                0 => KEY_SCALES[0],
+                1 => KEY_SCALES[1],
+                2 => KEY_SCALES[2],
+                _ => KEY_SCALES[3],
+            };
             let k = direction.map(|value| value * scale);
             let v = generated_vector(&mut rng);
             candidates.push(Candidate { k, v });
@@ -197,10 +199,11 @@ fn to_m13b(vector: &F2Vector) -> Result<BooleanAttentionSignature> {
 }
 
 fn policy_polynomial() -> Result<ZhegalkinPolynomial> {
-    Ok(ZhegalkinPolynomial::from_variable_sets(
+    ZhegalkinPolynomial::from_variable_sets(
         3,
         vec![vec![0], vec![1, 2], vec![0, 1, 2]],
-    )?)
+    )
+    .map_err(|error| Box::new(error) as Box<dyn Error>)
 }
 
 fn policy_verdict(
@@ -255,7 +258,7 @@ fn matched_random_indices(case_id: usize, count: usize) -> Result<Vec<usize>> {
 #[must_use]
 const fn mix64(mut value: u64) -> u64 {
     value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d_49bb_1331_11eb);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
     value ^ (value >> 31)
 }
 
