@@ -75,6 +75,14 @@ pub mod bkv5_cooperative_trace;
 #[path = "research_boolean_overlap.rs"]
 pub mod research_boolean_overlap;
 
+/// Research-only structural candidate routing and scalar masked-attention oracles.
+///
+/// FA-V888-1 owns only canonical per-query candidate metadata, explicit causal
+/// intersection, exact host accounting, and dense-masked versus sparse
+/// numerical equivalence. It contains no BANC data and is not part of `v1`.
+#[path = "research_structural_routing.rs"]
+pub mod research_structural_routing;
+
 /// Research-only structured-history attention contract and scalar oracle.
 ///
 /// Kept outside `v1` so the production reusable API and its defaults remain
