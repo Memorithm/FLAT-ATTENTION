@@ -603,8 +603,7 @@ fn run() -> Result<Vec<String>> {
             let balanced_value = near_value
                 || (inner_value && key_norm >= NORM_ONE_THRESHOLD)
                 || (medium_value && key_norm >= NORM_TWO_THRESHOLD);
-            let recall_value =
-                inner_value || (medium_value && key_norm >= NORM_ONE_HALF_THRESHOLD);
+            let recall_value = inner_value || (medium_value && key_norm >= NORM_ONE_HALF_THRESHOLD);
             if strict_value {
                 tiered_strict.push(candidate_id);
             }
