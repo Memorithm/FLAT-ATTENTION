@@ -587,12 +587,7 @@ mod tests {
     fn canonicalizes_rows_and_rejects_duplicates() {
         let candidates = StructuralCandidateSet::from_rows(
             shape(),
-            vec![
-                vec![3, 1],
-                vec![2],
-                vec![3, 0, 2],
-                vec![1, 0],
-            ],
+            vec![vec![3, 1], vec![2], vec![3, 0, 2], vec![1, 0]],
         )
         .unwrap();
         assert_eq!(candidates.row(0).unwrap(), &[1, 3]);
@@ -600,10 +595,7 @@ mod tests {
         assert_eq!(candidates.admitted_count(), 8);
 
         assert!(matches!(
-            StructuralCandidateSet::from_rows(
-                shape(),
-                vec![vec![1, 1], vec![0], vec![0], vec![0]],
-            ),
+            StructuralCandidateSet::from_rows(shape(), vec![vec![1, 1], vec![0], vec![0], vec![0]],),
             Err(StructuralRoutingError::DuplicateKey {
                 row: 0,
                 key_position: 1,
@@ -626,12 +618,7 @@ mod tests {
     fn dense_masked_and_sparse_oracles_are_bit_identical() {
         let candidates = StructuralCandidateSet::from_rows(
             shape(),
-            vec![
-                vec![0, 2],
-                vec![1, 3],
-                vec![0, 1, 3],
-                vec![2, 3],
-            ],
+            vec![vec![0, 2], vec![1, 3], vec![0, 1, 3], vec![2, 3]],
         )
         .unwrap();
         let (q, k, v) = tensors();
@@ -684,12 +671,7 @@ mod tests {
     fn causal_sparse_oracle_matches_dense_masked_oracle() {
         let candidates = StructuralCandidateSet::from_rows(
             shape(),
-            vec![
-                vec![0, 2],
-                vec![0, 1, 3],
-                vec![0, 2, 3],
-                vec![1, 3],
-            ],
+            vec![vec![0, 2], vec![0, 1, 3], vec![0, 2, 3], vec![1, 3]],
         )
         .unwrap();
         let (q, k, v) = tensors();
@@ -710,16 +692,9 @@ mod tests {
 
     #[test]
     fn empty_effective_survivor_is_explicit_error() {
-        let candidates = StructuralCandidateSet::from_rows(
-            shape(),
-            vec![
-                vec![1],
-                vec![0],
-                vec![0],
-                vec![0],
-            ],
-        )
-        .unwrap();
+        let candidates =
+            StructuralCandidateSet::from_rows(shape(), vec![vec![1], vec![0], vec![0], vec![0]])
+                .unwrap();
         let (q, k, v) = tensors();
         let config = FlatAttentionConfig {
             causal: true,
@@ -739,20 +714,14 @@ mod tests {
     #[test]
     fn malformed_geometry_and_keys_fail_closed() {
         assert!(matches!(
-            StructuralCandidateSet::from_rows(
-                shape(),
-                vec![vec![0], vec![0], vec![0]],
-            ),
+            StructuralCandidateSet::from_rows(shape(), vec![vec![0], vec![0], vec![0]],),
             Err(StructuralRoutingError::RowCountMismatch {
                 actual: 3,
                 expected: 4,
             })
         ));
         assert!(matches!(
-            StructuralCandidateSet::from_rows(
-                shape(),
-                vec![vec![4], vec![0], vec![0], vec![0]],
-            ),
+            StructuralCandidateSet::from_rows(shape(), vec![vec![4], vec![0], vec![0], vec![0]],),
             Err(StructuralRoutingError::KeyOutOfRange {
                 row: 0,
                 key_position: 4,
