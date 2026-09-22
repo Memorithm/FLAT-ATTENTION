@@ -10,9 +10,7 @@
 
 use core::fmt;
 
-use crate::{
-    AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
-};
+use crate::{AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput};
 
 /// Version of the research structural-candidate representation.
 pub const STRUCTURAL_CANDIDATE_SCHEMA_VERSION: u32 = 1;
