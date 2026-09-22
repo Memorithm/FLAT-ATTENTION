@@ -255,7 +255,7 @@ fn normalize(mut vector: [f32; D]) -> Result<[f32; D]> {
     Ok(vector)
 }
 
-fn generate_cases() -> Result<[Case; CASES]> {
+fn generate_cases() -> Result<Vec<Case>> {
     let mut rng = SplitMix64::new(DATASET_SEED);
     let mut cases = Vec::with_capacity(CASES);
 
@@ -282,9 +282,7 @@ fn generate_cases() -> Result<[Case; CASES]> {
         cases.push(Case { q, candidates });
     }
 
-    cases
-        .try_into()
-        .map_err(|_| "case array conversion failed".into())
+    Ok(cases)
 }
 
 fn dot(left: &[f32; D], right: &[f32; D]) -> f64 {
