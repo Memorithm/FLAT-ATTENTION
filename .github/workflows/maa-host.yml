@@ -169,6 +169,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-retained-mass-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: MAA-13d mass-aware frontier and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example mass_aware_frontier > "$RUNNER_TEMP/maa-13d-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example mass_aware_frontier > "$RUNNER_TEMP/maa-13d-second.csv"
+          cmp "$RUNNER_TEMP/maa-13d-first.csv" "$RUNNER_TEMP/maa-13d-second.csv"
+          cat "$RUNNER_TEMP/maa-13d-first.csv"
+          {
+            echo '### MAA-13d mass-aware adaptive routing frontier (exploratory; not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-13d-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
