@@ -154,6 +154,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-norm-aware-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retained softmax mass evidence and reproducibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example retained_softmax_mass > "$RUNNER_TEMP/maa-retained-mass-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example retained_softmax_mass > "$RUNNER_TEMP/maa-retained-mass-second.csv"
+          cmp "$RUNNER_TEMP/maa-retained-mass-first.csv" "$RUNNER_TEMP/maa-retained-mass-second.csv"
+          cat "$RUNNER_TEMP/maa-retained-mass-first.csv"
+          {
+            echo '### MAA-13c retained softmax mass evidence (not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-retained-mass-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
