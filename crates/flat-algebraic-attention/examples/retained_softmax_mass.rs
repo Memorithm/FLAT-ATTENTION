@@ -697,7 +697,9 @@ mod tests {
 
     #[test]
     fn generator_is_repeatable() {
-        assert_eq!(generate_cases().unwrap(), generate_cases().unwrap());
+        let first = generate_cases().unwrap();
+        let second = generate_cases().unwrap();
+        assert!(first == second);
     }
 
     #[test]
@@ -742,6 +744,8 @@ mod tests {
 
     #[test]
     fn exploratory_rows_are_byte_repeatable() {
-        assert_eq!(run().unwrap(), run().unwrap());
+        let first = run().unwrap();
+        let second = run().unwrap();
+        assert!(first == second);
     }
 }
