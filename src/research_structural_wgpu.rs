@@ -314,14 +314,6 @@ impl StructuralSparseWgpuPipeline {
         encoder: &mut wgpu::CommandEncoder,
         pass: StructuralSparseWgpuPass<'_>,
     ) -> Result<StructuralSparseWgpuLayout, StructuralSparseWgpuError> {
-        let plan_geometry = StructuralDevicePlan::from_u32_parts(
-            pass.candidates.seq_len,
-            pass.candidates.query_rows,
-            vec![0; pass.candidates.query_rows as usize + 1],
-            Vec::new(),
-        );
-        drop(plan_geometry);
-
         validate_candidate_geometry(pass.shape, pass.candidates)?;
         let tensor_elements = pass.shape.tensor_len()?;
         let query_rows = pass.shape.lse_len()?;
