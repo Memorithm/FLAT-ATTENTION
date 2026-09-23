@@ -88,6 +88,8 @@ Logical candidate reductions are not latency, bandwidth, energy, or memory-traff
 
 ## MAA-14d — portable physical candidate
 
+The physical protocol for the confirmed unchanged 7/8 trigger is frozen in [`MAA_14D_PHYSICAL_PREREGISTRATION.md`](MAA_14D_PHYSICAL_PREREGISTRATION.md). It requires an exact per-key WGPU sparse carrier before any timing claim and separates precomputed sparse-kernel potential from host-routed end-to-end adaptive latency.
+
 Only after MAA-14c host evidence supports a frozen hypothesis:
 
 - construct a portable WGPU candidate;
