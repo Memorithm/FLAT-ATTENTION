@@ -150,52 +150,44 @@ mod tests {
 
     #[test]
     fn endpoint_and_gap_controls_are_exact() {
-        assert!(!StructuralRepairTrigger::NeverRepair
-            .decide(7, 9)
-            .unwrap()
-            .repair);
-        assert!(StructuralRepairTrigger::RepairAnyGap
-            .decide(7, 9)
-            .unwrap()
-            .repair);
-        assert!(!StructuralRepairTrigger::RepairAnyGap
-            .decide(9, 9)
-            .unwrap()
-            .repair);
-        assert!(StructuralRepairTrigger::AlwaysRepair
-            .decide(9, 9)
-            .unwrap()
-            .repair);
+        let never = StructuralRepairTrigger::NeverRepair.decide(7, 9).unwrap();
+        let any_gap = StructuralRepairTrigger::RepairAnyGap.decide(7, 9).unwrap();
+        let no_gap = StructuralRepairTrigger::RepairAnyGap.decide(9, 9).unwrap();
+        let always = StructuralRepairTrigger::AlwaysRepair.decide(9, 9).unwrap();
+
+        assert!(!never.repair);
+        assert!(any_gap.repair);
+        assert!(!no_gap.repair);
+        assert!(always.repair);
     }
 
     #[test]
     fn coverage_boundaries_are_strict() {
-        assert!(!StructuralRepairTrigger::CoverageBelowSevenEighths
+        let seven_boundary = StructuralRepairTrigger::CoverageBelowSevenEighths
             .decide(7, 8)
-            .unwrap()
-            .repair);
-        assert!(StructuralRepairTrigger::CoverageBelowSevenEighths
+            .unwrap();
+        let seven_below = StructuralRepairTrigger::CoverageBelowSevenEighths
             .decide(6, 8)
-            .unwrap()
-            .repair);
-
-        assert!(!StructuralRepairTrigger::CoverageBelowThreeQuarters
+            .unwrap();
+        let three_boundary = StructuralRepairTrigger::CoverageBelowThreeQuarters
             .decide(3, 4)
-            .unwrap()
-            .repair);
-        assert!(StructuralRepairTrigger::CoverageBelowThreeQuarters
+            .unwrap();
+        let three_below = StructuralRepairTrigger::CoverageBelowThreeQuarters
             .decide(2, 4)
-            .unwrap()
-            .repair);
-
-        assert!(!StructuralRepairTrigger::CoverageBelowTwoThirds
+            .unwrap();
+        let two_boundary = StructuralRepairTrigger::CoverageBelowTwoThirds
             .decide(2, 3)
-            .unwrap()
-            .repair);
-        assert!(StructuralRepairTrigger::CoverageBelowTwoThirds
+            .unwrap();
+        let two_below = StructuralRepairTrigger::CoverageBelowTwoThirds
             .decide(1, 3)
-            .unwrap()
-            .repair);
+            .unwrap();
+
+        assert!(!seven_boundary.repair);
+        assert!(seven_below.repair);
+        assert!(!three_boundary.repair);
+        assert!(three_below.repair);
+        assert!(!two_boundary.repair);
+        assert!(two_below.repair);
     }
 
     #[test]
