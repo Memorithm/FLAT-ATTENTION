@@ -73,13 +73,13 @@ impl AdaptiveRepairSchedule {
             });
         }
 
-        for row in 0..base.query_rows() {
+        for (row, row_tiers) in tiers.iter().enumerate() {
             let mut seen = vec![false; base.seq_len()];
             for &key in base.row(row)? {
                 seen[key] = true;
             }
 
-            for (tier_index, tier) in tiers[row].iter().enumerate() {
+            for (tier_index, tier) in row_tiers.iter().enumerate() {
                 if tier.is_empty() {
                     return Err(AdaptiveRepairError::EmptyExpansionTier {
                         row,
@@ -420,11 +420,9 @@ mod tests {
     }
 
     fn schedule() -> AdaptiveRepairSchedule {
-        let base = StructuralCandidateSet::from_rows(
-            shape(),
-            vec![vec![0], vec![1], vec![2], vec![3]],
-        )
-        .unwrap();
+        let base =
+            StructuralCandidateSet::from_rows(shape(), vec![vec![0], vec![1], vec![2], vec![3]])
+                .unwrap();
         AdaptiveRepairSchedule::new(
             shape(),
             base,
@@ -443,7 +441,10 @@ mod tests {
         let schedule = schedule();
         let state = schedule.initial_state();
         assert_eq!(state.levels(), &[0, 0, 0, 0]);
-        assert_eq!(schedule.materialize(&state).unwrap(), schedule.base().clone());
+        assert_eq!(
+            schedule.materialize(&state).unwrap(),
+            schedule.base().clone()
+        );
         assert!(schedule.has_dense_terminal_state());
     }
 
@@ -487,12 +488,7 @@ mod tests {
             AdaptiveRepairSchedule::new(
                 shape(),
                 base.clone(),
-                vec![
-                    vec![vec![0]],
-                    vec![vec![0]],
-                    vec![vec![0]],
-                    vec![vec![0]]
-                ],
+                vec![vec![vec![0]], vec![vec![0]], vec![vec![0]], vec![vec![0]]],
             ),
             Err(AdaptiveRepairError::DuplicateScheduledKey {
                 row: 0,
@@ -505,12 +501,7 @@ mod tests {
             AdaptiveRepairSchedule::new(
                 shape(),
                 base,
-                vec![
-                    vec![vec![4]],
-                    vec![vec![0]],
-                    vec![vec![0]],
-                    vec![vec![0]]
-                ],
+                vec![vec![vec![4]], vec![vec![0]], vec![vec![0]], vec![vec![0]]],
             ),
             Err(AdaptiveRepairError::ScheduledKeyOutOfRange {
                 row: 0,
