@@ -83,6 +83,14 @@ pub mod research_boolean_overlap;
 #[path = "research_structural_routing.rs"]
 pub mod research_structural_routing;
 
+/// MAA-14a research-only monotonic adaptive-repair transport.
+///
+/// This surface widens already-qualified structural candidate sets according to
+/// a frozen per-row schedule. The repair trigger/confidence policy is deliberately
+/// external and no timing or production-routing claim is implied.
+#[path = "research_adaptive_repair.rs"]
+pub mod research_adaptive_repair;
+
 /// Research-only structured-history attention contract and scalar oracle.
 ///
 /// Kept outside `v1` so the production reusable API and its defaults remain
