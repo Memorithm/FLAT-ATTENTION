@@ -6,6 +6,7 @@
 //! to qualify algebraic decision mechanisms before any public API or runtime
 //! routing promotion.
 
+pub mod adaptive_repair;
 pub mod cooperation;
 pub mod evidence;
 pub mod experiment;
