@@ -214,6 +214,22 @@ jobs:
             cat "$RUNNER_TEMP/maa-14b-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: MAA-14c coverage-7/8 confirmatory holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example adaptive_repair_confirmatory > "$RUNNER_TEMP/maa-14c-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example adaptive_repair_confirmatory > "$RUNNER_TEMP/maa-14c-second.csv"
+          cmp "$RUNNER_TEMP/maa-14c-first.csv" "$RUNNER_TEMP/maa-14c-second.csv"
+          cat "$RUNNER_TEMP/maa-14c-first.csv"
+          grep -q "^decision,CONFIRMATORY_" "$RUNNER_TEMP/maa-14c-first.csv"
+          {
+            echo '### MAA-14c coverage-7/8 confirmatory holdout'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-14c-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
