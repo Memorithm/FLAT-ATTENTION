@@ -77,8 +77,34 @@ For every adaptive trigger:
 - dense FLAT reference;
 - never-repair tiered-recall;
 - always-repair hamming-medium;
-- deterministic density-matched random expansion using a separately frozen seed;
+- deterministic density-matched random expansion under the frozen contract below;
 - a non-deployable oracle that repairs a row when the base retained-softmax mass is below 0.90.
+
+### Frozen matched-random expansion contract
+
+The matched-random seed is fixed at `0x4d41_4131_3462_524e`.
+
+For each case and each deployable adaptive trigger, the random control:
+
+1. preserves every key in the tiered-recall base set;
+2. uses the complete dense complement `all_candidate_ids - base` as its sampling universe;
+3. adds exactly `adaptive_final_count - base_count` distinct candidates, so its final cardinality matches that adaptive trigger exactly on the same case;
+4. ranks complement candidates by a deterministic `mix64` priority keyed by the frozen seed, case ID, trigger ID and candidate ID;
+5. breaks equal priorities by ascending candidate ID;
+6. sorts the final candidate IDs into canonical ascending numerical order before FLAT evaluation.
+
+Frozen trigger IDs for the random-control key are:
+
+- `repair_any_gap = 1`;
+- `repair_if_coverage_below_7_8 = 2`;
+- `repair_if_coverage_below_3_4 = 3`;
+- `repair_if_coverage_below_2_3 = 4`.
+
+`never_repair` and `always_repair` are deterministic endpoint controls and do not need separate random counterparts.
+
+Sampling from the full dense complement rather than only `hamming_medium - base` is intentional: when a repair happens, adding the complete medium gap would reproduce the hamming-medium arm exactly and would not be an independent density-matched structural control.
+
+This seed, universe, cardinality rule, trigger-ID mapping, tie break and canonicalization are frozen before any MAA-14b observation.
 
 The non-deployable oracle is diagnostic headroom only. The 0.90 retained-mass threshold is frozen here before observation and is not a real-model quality guarantee.
 
