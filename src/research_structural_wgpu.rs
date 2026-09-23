@@ -562,6 +562,17 @@ pub enum StructuralSparseWgpuError {
         actual_bytes: u64,
         required_bytes: u64,
     },
+    RowStatusCountMismatch {
+        actual: usize,
+        expected: usize,
+    },
+    EmptyEffectiveRow {
+        row: usize,
+    },
+    NonBinaryRowStatus {
+        row: usize,
+        value: u32,
+    },
     StorageBindingTooLarge {
         tensor: &'static str,
         required_bytes: u64,
