@@ -10,9 +10,7 @@ use flat_attention::api::research_structural_wgpu::{
     validate_structural_sparse_row_status, StructuralSparseWgpuError, StructuralSparseWgpuPass,
     StructuralSparseWgpuPipeline,
 };
-use flat_attention::{
-    forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionOutput,
-};
+use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionOutput};
 
 const O_ATOL: f32 = 2.0e-4;
 const O_RTOL: f32 = 2.0e-3;
@@ -184,10 +182,9 @@ fn run_device(
     let q_gpu = input_buffer(&harness.device, &harness.queue, q, "Gate-A2 Q");
     let k_gpu = input_buffer(&harness.device, &harness.queue, k, "Gate-A2 K");
     let v_gpu = input_buffer(&harness.device, &harness.queue, v, "Gate-A2 V");
-    let output = StructuralSparseWgpuPipeline::create_output_buffer(&harness.device, shape)
-        .expect("output");
-    let lse =
-        StructuralSparseWgpuPipeline::create_lse_buffer(&harness.device, shape).expect("lse");
+    let output =
+        StructuralSparseWgpuPipeline::create_output_buffer(&harness.device, shape).expect("output");
+    let lse = StructuralSparseWgpuPipeline::create_lse_buffer(&harness.device, shape).expect("lse");
     let status =
         StructuralSparseWgpuPipeline::create_status_buffer(&harness.device, shape).expect("status");
 
@@ -223,19 +220,9 @@ fn run_device(
             &output,
             layout.tensor_elements,
         ),
-        lse: read_f32(
-            &harness.device,
-            &harness.queue,
-            &lse,
-            layout.query_rows,
-        ),
+        lse: read_f32(&harness.device, &harness.queue, &lse, layout.query_rows),
     };
-    let statuses = read_u32(
-        &harness.device,
-        &harness.queue,
-        &status,
-        layout.query_rows,
-    );
+    let statuses = read_u32(&harness.device, &harness.queue, &status, layout.query_rows);
     let offsets = read_u32(
         &harness.device,
         &harness.queue,
@@ -327,12 +314,23 @@ fn gate_a2_all_accept_reproduces_dense_semantics() {
         softmax_scale: None,
     };
     let dense = forward_reference(&q, &k, &v, shape, config).unwrap();
-    let (actual, status, _, _) =
-        run_device(&harness, shape, &q, &k, &v, &candidates, config);
+    let (actual, status, _, _) = run_device(&harness, shape, &q, &k, &v, &candidates, config);
 
     validate_structural_sparse_row_status(&status, shape.lse_len().unwrap()).unwrap();
-    assert_close("Gate-A2 all O", &actual.output, &dense.output, O_ATOL, O_RTOL);
-    assert_close("Gate-A2 all LSE", &actual.lse, &dense.lse, LSE_ATOL, LSE_RTOL);
+    assert_close(
+        "Gate-A2 all O",
+        &actual.output,
+        &dense.output,
+        O_ATOL,
+        O_RTOL,
+    );
+    assert_close(
+        "Gate-A2 all LSE",
+        &actual.lse,
+        &dense.lse,
+        LSE_ATOL,
+        LSE_RTOL,
+    );
 }
 
 #[test]
@@ -346,11 +344,9 @@ fn gate_a2_empty_effective_row_is_visible_and_rejected() {
         seq_len: 4,
         head_dim: 4,
     };
-    let candidates = StructuralCandidateSet::from_rows(
-        shape,
-        vec![vec![1], vec![0, 1], vec![0, 2], vec![0, 3]],
-    )
-    .unwrap();
+    let candidates =
+        StructuralCandidateSet::from_rows(shape, vec![vec![1], vec![0, 1], vec![0, 2], vec![0, 3]])
+            .unwrap();
     let (q, k, v) = fixture(shape);
     let config = FlatAttentionConfig {
         causal: true,
