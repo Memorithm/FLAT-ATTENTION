@@ -48,7 +48,7 @@ fn harness() -> Option<Harness> {
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("flat-maa14d-gate-a2-test"),
         required_features: wgpu::Features::empty(),
-        required_limits: wgpu::Limits::downlevel_defaults(),
+        required_limits: adapter.limits(),
         ..Default::default()
     }))
     .expect("Gate-A2 request_device");
