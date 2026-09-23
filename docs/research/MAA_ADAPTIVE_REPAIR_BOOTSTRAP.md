@@ -44,6 +44,7 @@ This separation prevents the mechanics from becoming tuned to one favorable sign
 ## MAA-14b — preregister deployable repair signals
 
 The first structural-only protocol is frozen in [`MAA_ADAPTIVE_REPAIR_SIGNAL_PREREGISTRATION.md`](MAA_ADAPTIVE_REPAIR_SIGNAL_PREREGISTRATION.md).
+The first preserved exploratory observation is [`MAA_ADAPTIVE_REPAIR_SIGNAL_OBSERVATION.md`](MAA_ADAPTIVE_REPAIR_SIGNAL_OBSERVATION.md). On that frozen panel, only `coverage_below_7_8` produced a genuine intermediate work/quality point; it may advance unchanged to a fresh confirmatory holdout, while the other thresholds remain preserved negative/endpoint evidence.
 
 Before observing confirmatory evidence, freeze a bounded family of signals that can be computed without dense QK scoring.
 
