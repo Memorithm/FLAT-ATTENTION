@@ -527,23 +527,33 @@ const fn mix64(mut value: u64) -> u64 {
     value ^ (value >> 31)
 }
 
+struct CaseEvaluation<'a> {
+    case: &'a Case,
+    base: &'a [usize],
+    medium: &'a [usize],
+    top2: &'a [usize; 2],
+    dense: &'a FlatAttentionOutput,
+    scores: &'a [f64],
+    diagnostic_positive: bool,
+}
+
 fn record_trigger_arm(
     aggregate: &mut Aggregate,
     trigger: StructuralRepairTrigger,
-    case: &Case,
-    base: &[usize],
-    medium: &[usize],
-    top2: &[usize; 2],
-    dense: &FlatAttentionOutput,
-    scores: &[f64],
-    diagnostic_positive: bool,
+    context: &CaseEvaluation<'_>,
 ) -> Result<()> {
-    let (selection, repaired) = adaptive_selection(trigger, base, medium)?;
+    let (selection, repaired) = adaptive_selection(trigger, context.base, context.medium)?;
     aggregate.record(
-        base.len(),
-        case_metrics(case, selection, top2, dense, scores)?,
+        context.base.len(),
+        case_metrics(
+            context.case,
+            selection,
+            context.top2,
+            context.dense,
+            context.scores,
+        )?,
         repaired,
-        diagnostic_positive,
+        context.diagnostic_positive,
     );
     Ok(())
 }
@@ -552,22 +562,26 @@ fn record_random_arm(
     aggregate: &mut Aggregate,
     trigger: StructuralRepairTrigger,
     case_id: usize,
-    case: &Case,
-    base: &[usize],
-    medium: &[usize],
-    top2: &[usize; 2],
-    dense: &FlatAttentionOutput,
-    scores: &[f64],
-    diagnostic_positive: bool,
+    context: &CaseEvaluation<'_>,
 ) -> Result<()> {
-    let (_, repaired) = adaptive_selection(trigger, base, medium)?;
-    let target_count = if repaired { medium.len() } else { base.len() };
-    let random = matched_random_expansion(case_id, trigger, base, target_count)?;
+    let (_, repaired) = adaptive_selection(trigger, context.base, context.medium)?;
+    let target_count = if repaired {
+        context.medium.len()
+    } else {
+        context.base.len()
+    };
+    let random = matched_random_expansion(case_id, trigger, context.base, target_count)?;
     aggregate.record(
-        base.len(),
-        case_metrics(case, &random, top2, dense, scores)?,
+        context.base.len(),
+        case_metrics(
+            context.case,
+            &random,
+            context.top2,
+            context.dense,
+            context.scores,
+        )?,
         repaired,
-        diagnostic_positive,
+        context.diagnostic_positive,
     );
     Ok(())
 }
@@ -621,33 +635,22 @@ fn run() -> Result<Vec<String>> {
             diagnostic_positive,
         );
 
+        let context = CaseEvaluation {
+            case,
+            base: &base,
+            medium: &medium,
+            top2: &top2,
+            dense: &dense,
+            scores: &score_values,
+            diagnostic_positive,
+        };
+
         for (index, trigger) in trigger_arms.iter().copied().enumerate() {
-            record_trigger_arm(
-                &mut trigger_aggregates[index],
-                trigger,
-                case,
-                &base,
-                &medium,
-                &top2,
-                &dense,
-                &score_values,
-                diagnostic_positive,
-            )?;
+            record_trigger_arm(&mut trigger_aggregates[index], trigger, &context)?;
         }
 
         for (index, trigger) in adaptive_triggers.iter().copied().enumerate() {
-            record_random_arm(
-                &mut random_aggregates[index],
-                trigger,
-                case_id,
-                case,
-                &base,
-                &medium,
-                &top2,
-                &dense,
-                &score_values,
-                diagnostic_positive,
-            )?;
+            record_random_arm(&mut random_aggregates[index], trigger, case_id, &context)?;
         }
 
         let oracle_repair = diagnostic_positive;
