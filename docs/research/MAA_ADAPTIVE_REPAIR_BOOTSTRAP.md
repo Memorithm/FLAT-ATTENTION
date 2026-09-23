@@ -43,6 +43,8 @@ This separation prevents the mechanics from becoming tuned to one favorable sign
 
 ## MAA-14b — preregister deployable repair signals
 
+The first structural-only protocol is frozen in [`MAA_ADAPTIVE_REPAIR_SIGNAL_PREREGISTRATION.md`](MAA_ADAPTIVE_REPAIR_SIGNAL_PREREGISTRATION.md).
+
 Before observing confirmatory evidence, freeze a bounded family of signals that can be computed without dense QK scoring.
 
 Candidate signal families may use only already available sparse-pass or router state, for example:
