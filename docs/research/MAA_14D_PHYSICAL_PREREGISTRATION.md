@@ -39,6 +39,8 @@ Logical candidate-count reduction is an explanatory variable only. It is not phy
 
 ## Gate A — exact WGPU sparse carrier before timing claims
 
+Gate A1 device-layout implementation is documented in [`MAA_14D_GATE_A1_DEVICE_LAYOUT.md`](MAA_14D_GATE_A1_DEVICE_LAYOUT.md). It establishes exact host-to-u32 candidate identity only; shader/device correctness remains a later Gate-A slice.
+
 The repository currently has the authoritative per-key `StructuralCandidateSet` semantics on the host. MAA-14d MUST NOT infer that an existing paged/page-selected WGPU path is equivalent to this per-key carrier.
 
 Before any physical timing result is promotable, a WGPU-compatible numerical carrier MUST be qualified that consumes either:
