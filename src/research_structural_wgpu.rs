@@ -442,6 +442,33 @@ impl StructuralSparseWgpuPipeline {
     }
 }
 
+/// Validate row-status readback before a device result is accepted.
+///
+/// Every query row must have been written exactly once by the shader and must
+/// report one or more effective candidates. Empty rows fail closed rather than
+/// becoming a fabricated zero attention result.
+pub fn validate_structural_sparse_row_status(
+    observed: &[u32],
+    expected_rows: usize,
+) -> Result<(), StructuralSparseWgpuError> {
+    if observed.len() != expected_rows {
+        return Err(StructuralSparseWgpuError::RowStatusCountMismatch {
+            actual: observed.len(),
+            expected: expected_rows,
+        });
+    }
+    for (row, &status) in observed.iter().enumerate() {
+        match status {
+            1 => {}
+            0 => return Err(StructuralSparseWgpuError::EmptyEffectiveRow { row }),
+            value => {
+                return Err(StructuralSparseWgpuError::NonBinaryRowStatus { row, value });
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_shape_plan(
     shape: AttentionShape,
     plan: &StructuralDevicePlan,
