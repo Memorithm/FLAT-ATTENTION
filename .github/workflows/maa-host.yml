@@ -199,6 +199,21 @@ jobs:
             cat "$RUNNER_TEMP/maa-13d-holdout-first.csv"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: MAA-14b structural adaptive-repair signal evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p flat-algebraic-attention --locked --release --example adaptive_repair_signal > "$RUNNER_TEMP/maa-14b-first.csv"
+          cargo run -p flat-algebraic-attention --locked --release --example adaptive_repair_signal > "$RUNNER_TEMP/maa-14b-second.csv"
+          cmp "$RUNNER_TEMP/maa-14b-first.csv" "$RUNNER_TEMP/maa-14b-second.csv"
+          cat "$RUNNER_TEMP/maa-14b-first.csv"
+          {
+            echo '### MAA-14b structural adaptive-repair signal exploration (not performance or confirmatory evidence)'
+            echo "Source revision: $(git rev-parse HEAD)"
+            echo '```csv'
+            cat "$RUNNER_TEMP/maa-14b-first.csv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Strict MAA documentation
         env:
           RUSTDOCFLAGS: -D warnings
