@@ -191,6 +191,36 @@ impl StructuralCandidateSet {
     }
 }
 
+
+/// Build a canonical structural candidate set from a deterministic per-pair
+/// admission predicate.
+///
+/// This is a research carrier for already-qualified routing policies. The
+/// predicate receives the canonical query-row index and key position. It must
+/// not depend on iteration side effects: rows are materialized in increasing
+/// key order, and an empty row remains an explicit numerical-execution error.
+pub fn structural_candidates_from_predicate<F>(
+    shape: AttentionShape,
+    mut admits: F,
+) -> Result<StructuralCandidateSet, StructuralRoutingError>
+where
+    F: FnMut(usize, usize) -> Result<bool, StructuralRoutingError>,
+{
+    validate_shape(shape)?;
+    let query_rows = shape.lse_len()?;
+    let mut rows = Vec::with_capacity(query_rows);
+    for row in 0..query_rows {
+        let mut keys = Vec::new();
+        for key_position in 0..shape.seq_len {
+            if admits(row, key_position)? {
+                keys.push(key_position);
+            }
+        }
+        rows.push(keys);
+    }
+    StructuralCandidateSet::from_rows(shape, rows)
+}
+
 /// Structural-routing accounting emitted by host numerical oracles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StructuralRoutingCounters {
@@ -707,6 +737,38 @@ mod tests {
         ));
         assert!(matches!(
             forward_reference_structural_dense(&q, &k, &v, shape(), config, &candidates),
+            Err(StructuralRoutingError::EmptyEffectiveCandidates { row: 0 })
+        ));
+    }
+
+    #[test]
+    fn predicate_carrier_materializes_exact_canonical_rows() {
+        let candidates = structural_candidates_from_predicate(shape(), |row, key| {
+            Ok((row + key) % 2 == 0)
+        })
+        .unwrap();
+        assert_eq!(candidates.row(0).unwrap(), &[0, 2]);
+        assert_eq!(candidates.row(1).unwrap(), &[1, 3]);
+        assert_eq!(candidates.row(2).unwrap(), &[0, 2]);
+        assert_eq!(candidates.row(3).unwrap(), &[1, 3]);
+        assert_eq!(candidates.admitted_count(), 8);
+    }
+
+    #[test]
+    fn predicate_carrier_preserves_empty_rows_for_fail_closed_execution() {
+        let candidates =
+            structural_candidates_from_predicate(shape(), |row, key| Ok(row != 0 && key == 0))
+                .unwrap();
+        let (q, k, v) = tensors();
+        assert!(matches!(
+            forward_reference_structural_sparse(
+                &q,
+                &k,
+                &v,
+                shape(),
+                FlatAttentionConfig::default(),
+                &candidates,
+            ),
             Err(StructuralRoutingError::EmptyEffectiveCandidates { row: 0 })
         ));
     }
