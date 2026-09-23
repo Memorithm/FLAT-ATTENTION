@@ -191,7 +191,6 @@ impl StructuralCandidateSet {
     }
 }
 
-
 /// Build a canonical structural candidate set from a deterministic per-pair
 /// admission predicate.
 ///
@@ -743,10 +742,9 @@ mod tests {
 
     #[test]
     fn predicate_carrier_materializes_exact_canonical_rows() {
-        let candidates = structural_candidates_from_predicate(shape(), |row, key| {
-            Ok((row + key) % 2 == 0)
-        })
-        .unwrap();
+        let candidates =
+            structural_candidates_from_predicate(shape(), |row, key| Ok((row + key) % 2 == 0))
+                .unwrap();
         assert_eq!(candidates.row(0).unwrap(), &[0, 2]);
         assert_eq!(candidates.row(1).unwrap(), &[1, 3]);
         assert_eq!(candidates.row(2).unwrap(), &[0, 2]);
