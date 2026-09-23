@@ -1130,3 +1130,29 @@ Boolean Front-End Attention does not need to beat dense attention on every workl
 # BANC v888 sparse-routing research overlay
 
 The V888-only overlay is maintained in [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). It extends, but does not replace, M13B/MAA: dense FLAT remains the numerical reference; V888-derived admission must be compared against density- and structure-matched controls; sparse streaming-softmax correctness precedes WGPU optimization; and the runtime handoff targets portable NNIS CPU/WGPU contracts rather than NVIDIA products.
+
+
+# MAA-14 adaptive repair research overlay
+
+MAA-14 is a research-only continuation after the MAA-13d/13e tiered-recall path.
+It does not modify the frozen MAA-13e qualification protocol.
+
+The durable contract is maintained in
+[`docs/research/MAA_ADAPTIVE_REPAIR_BOOTSTRAP.md`](docs/research/MAA_ADAPTIVE_REPAIR_BOOTSTRAP.md).
+
+Ordered progression:
+
+1. **MAA-14a — repair transport**: deterministic per-row monotonic widening of an
+   already-qualified `StructuralCandidateSet`, with explicit state and exact
+   admitted-pair accounting. No residual policy is embedded.
+2. **MAA-14b — repair-signal preregistration**: freeze deployable signal families
+   and thresholds before confirmatory observation. Dense exact-score/retained-mass
+   information is evaluation-only.
+3. **MAA-14c — matched host evidence**: compare initial-only sparse, adaptive
+   repair, deterministic widening, density-matched expansion and dense controls.
+4. **MAA-14d — portable physical candidate**: WGPU work is permitted only after
+   host evidence justifies a frozen hypothesis; report trigger overhead, first-pass
+   latency, final-result latency, quality and physical traffic separately.
+
+Dense FLAT remains the semantic and numerical oracle. Logical candidate-count
+reductions are not performance evidence.
