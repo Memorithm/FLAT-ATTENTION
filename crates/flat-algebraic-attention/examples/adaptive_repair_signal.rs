@@ -350,9 +350,9 @@ fn to_m13b(vector: &F2Vector) -> Result<BooleanAttentionSignature> {
 fn base_and_medium(
     case: &Case,
     projector: &SignedHyperplaneProjector,
-    near_rule: HammingAdmissionRule,
-    inner_rule: HammingAdmissionRule,
-    medium_rule: HammingAdmissionRule,
+    near_rule: &HammingAdmissionRule,
+    inner_rule: &HammingAdmissionRule,
+    medium_rule: &HammingAdmissionRule,
 ) -> Result<(Vec<usize>, Vec<usize>)> {
     let q_signature = to_m13b(&projector.project(&case.q)?)?;
     let mut base = Vec::new();
@@ -610,9 +610,9 @@ fn run() -> Result<Vec<String>> {
         let (base, medium) = base_and_medium(
             case,
             &projector,
-            near_rule,
-            inner_rule,
-            medium_rule,
+            &near_rule,
+            &inner_rule,
+            &medium_rule,
         )?;
         let base_mass = retained_softmax_mass(&score_values, &base)?;
         let diagnostic_positive = base_mass.retained_mass() < DIAGNOSTIC_MASS_THRESHOLD;
