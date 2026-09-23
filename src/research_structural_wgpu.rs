@@ -345,11 +345,11 @@ impl StructuralSparseWgpuPipeline {
             ("LSE", layout.lse_bytes),
             ("row_status", layout.status_bytes),
         ] {
-            if bytes > u64::from(limits.max_storage_buffer_binding_size) {
+            if bytes > limits.max_storage_buffer_binding_size {
                 return Err(StructuralSparseWgpuError::StorageBindingTooLarge {
                     tensor: name,
                     required_bytes: bytes,
-                    maximum_bytes: u64::from(limits.max_storage_buffer_binding_size),
+                    maximum_bytes: limits.max_storage_buffer_binding_size,
                 });
             }
         }
@@ -366,10 +366,10 @@ impl StructuralSparseWgpuPipeline {
             0,
         ];
         let params_bytes = wgpu_internal::encode_u32(&params);
-        if params_bytes.len() as u64 > u64::from(limits.max_uniform_buffer_binding_size) {
+        if params_bytes.len() as u64 > limits.max_uniform_buffer_binding_size {
             return Err(StructuralSparseWgpuError::UniformBindingTooLarge {
                 required_bytes: params_bytes.len() as u64,
-                maximum_bytes: u64::from(limits.max_uniform_buffer_binding_size),
+                maximum_bytes: limits.max_uniform_buffer_binding_size,
             });
         }
         let params_buffer = wgpu_internal::create_uniform_buffer_init(
