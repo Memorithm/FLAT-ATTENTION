@@ -62,7 +62,7 @@ Dense exact-score retained softmax mass from MAA-13c may be used as a non-deploy
 
 ## MAA-14c — matched host evidence
 
-The fresh confirmatory holdout for the unchanged 7/8 structural trigger is frozen in [`MAA_ADAPTIVE_REPAIR_CONFIRMATORY_PREREGISTRATION.md`](MAA_ADAPTIVE_REPAIR_CONFIRMATORY_PREREGISTRATION.md).
+The fresh confirmatory holdout for the unchanged 7/8 structural trigger is frozen in [`MAA_ADAPTIVE_REPAIR_CONFIRMATORY_PREREGISTRATION.md`](MAA_ADAPTIVE_REPAIR_CONFIRMATORY_PREREGISTRATION.md). Its preserved observation is [`MAA_ADAPTIVE_REPAIR_CONFIRMATORY_OBSERVATION.md`](MAA_ADAPTIVE_REPAIR_CONFIRMATORY_OBSERVATION.md): the preregistered decision is `CONFIRMATORY_PASS`, permitting MAA-14d physical qualification without changing the trigger.
 
 Required arms:
 
