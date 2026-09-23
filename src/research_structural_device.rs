@@ -206,11 +206,7 @@ impl StructuralDevicePlan {
             let start = self.offsets[row];
             let end = self.offsets[row + 1];
             if start > end {
-                return Err(StructuralDevicePlanError::DecreasingOffset {
-                    row,
-                    start,
-                    end,
-                });
+                return Err(StructuralDevicePlanError::DecreasingOffset { row, start, end });
             }
             let start = start as usize;
             let end = end as usize;
@@ -243,14 +239,8 @@ impl StructuralDevicePlan {
     }
 }
 
-fn checked_u32(
-    value: usize,
-    field: &'static str,
-) -> Result<u32, StructuralDevicePlanError> {
-    u32::try_from(value).map_err(|_| StructuralDevicePlanError::IndexSpaceExceeded {
-        field,
-        value,
-    })
+fn checked_u32(value: usize, field: &'static str) -> Result<u32, StructuralDevicePlanError> {
+    u32::try_from(value).map_err(|_| StructuralDevicePlanError::IndexSpaceExceeded { field, value })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -385,16 +375,12 @@ mod tests {
 
     #[test]
     fn fingerprint_is_deterministic_and_identity_sensitive() {
-        let a = StructuralCandidateSet::from_rows(
-            shape(),
-            vec![vec![0], vec![1], vec![2], vec![3]],
-        )
-        .unwrap();
-        let b = StructuralCandidateSet::from_rows(
-            shape(),
-            vec![vec![0], vec![1], vec![2], vec![2, 3]],
-        )
-        .unwrap();
+        let a =
+            StructuralCandidateSet::from_rows(shape(), vec![vec![0], vec![1], vec![2], vec![3]])
+                .unwrap();
+        let b =
+            StructuralCandidateSet::from_rows(shape(), vec![vec![0], vec![1], vec![2], vec![2, 3]])
+                .unwrap();
         let a1 = StructuralDevicePlan::from_candidates(&a).unwrap();
         let a2 = StructuralDevicePlan::from_candidates(&a).unwrap();
         let b = StructuralDevicePlan::from_candidates(&b).unwrap();
