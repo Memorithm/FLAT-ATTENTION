@@ -83,6 +83,14 @@ pub mod research_boolean_overlap;
 #[path = "research_structural_routing.rs"]
 pub mod research_structural_routing;
 
+/** MAA-14d Gate-A exact u32 device representation for structural candidates.
+ *
+ * This surface preserves canonical per-query key identity before any WGPU
+ * shader implementation. It is research-only and carries no timing claim.
+ */
+#[path = "research_structural_device.rs"]
+pub mod research_structural_device;
+
 /// MAA-14a research-only monotonic adaptive-repair transport.
 ///
 /// This surface widens already-qualified structural candidate sets according to
