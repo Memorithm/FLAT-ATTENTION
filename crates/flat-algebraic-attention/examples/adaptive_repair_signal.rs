@@ -377,7 +377,8 @@ fn base_and_medium(
     }
 
     require(
-        base.iter().all(|candidate_id| medium.contains(candidate_id)),
+        base.iter()
+            .all(|candidate_id| medium.contains(candidate_id)),
         "tiered-recall base escaped hamming-medium envelope",
     )?;
     Ok((base, medium))
@@ -512,7 +513,8 @@ fn matched_random_expansion(
         "random control cardinality drifted",
     )?;
     require(
-        base.iter().all(|candidate_id| selected.contains(candidate_id)),
+        base.iter()
+            .all(|candidate_id| selected.contains(candidate_id)),
         "random control removed a base candidate",
     )?;
     Ok(selected)
@@ -607,13 +609,8 @@ fn run() -> Result<Vec<String>> {
         let score_values = scores(case)?;
         let top2 = dense_top2(&score_values)?;
         let dense = evaluate(case, &dense_indices)?.ok_or("dense selection cannot be empty")?;
-        let (base, medium) = base_and_medium(
-            case,
-            &projector,
-            &near_rule,
-            &inner_rule,
-            &medium_rule,
-        )?;
+        let (base, medium) =
+            base_and_medium(case, &projector, &near_rule, &inner_rule, &medium_rule)?;
         let base_mass = retained_softmax_mass(&score_values, &base)?;
         let diagnostic_positive = base_mass.retained_mass() < DIAGNOSTIC_MASS_THRESHOLD;
 
@@ -666,10 +663,7 @@ fn run() -> Result<Vec<String>> {
     let mut rows = Vec::new();
     rows.push(format_row("dense", dense_aggregate.finalize()?));
 
-    for (trigger, aggregate) in trigger_arms
-        .into_iter()
-        .zip(trigger_aggregates.into_iter())
-    {
+    for (trigger, aggregate) in trigger_arms.into_iter().zip(trigger_aggregates.into_iter()) {
         rows.push(format_row(trigger.label(), aggregate.finalize()?));
     }
     for (trigger, aggregate) in adaptive_triggers
