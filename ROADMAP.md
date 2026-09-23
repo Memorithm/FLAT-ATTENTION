@@ -1156,3 +1156,20 @@ Ordered progression:
 
 Dense FLAT remains the semantic and numerical oracle. Logical candidate-count
 reductions are not performance evidence.
+
+
+## MAA-14d physical qualification
+
+The unchanged `coverage_below_7_8` repair trigger passed its fresh MAA-14c confirmatory holdout. Physical work is now governed by
+[`docs/research/MAA_14D_PHYSICAL_PREREGISTRATION.md`](docs/research/MAA_14D_PHYSICAL_PREREGISTRATION.md).
+
+Required progression:
+
+1. qualify an exact WGPU sparse numerical carrier for canonical per-key `StructuralCandidateSet` semantics;
+2. retain host routing in the first end-to-end measurement if necessary, but include its route/materialize/upload time;
+3. compare dense, base, precomputed adaptive, end-to-end adaptive, matched-random, full-envelope and all-accept controls on the same adapter;
+4. require exact candidate identity and O/LSE parity before accepting timings;
+5. report p50/p95/p99 from the frozen 5-warmup/50-measurement protocol;
+6. preserve a negative physical result without retuning the confirmed 7/8 trigger.
+
+A precomputed sparse win without an end-to-end adaptive win is kernel-potential evidence only.
