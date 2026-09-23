@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-05"
+last_updated: "2026-09-23"
 repository: Memorithm/FLAT-ATTENTION
 intended_consumer: autonomous_coding_agent
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
@@ -298,6 +298,19 @@ cadence_derived_adaptive_compute_program_2026_09_23:
       dependency is introduced.
   flat_attention_track:
     namespace: MAA_14
+    status: MAA_14c_confirmed_MAA_14d_Gate_A_active
+    evidence:
+      - MAA_14a_monotonic_repair_transport_merged_PR_276
+      - MAA_14b_structural_7_8_exploration_merged_PR_279
+      - MAA_14c_fresh_holdout_CONFIRMATORY_PASS_merged_PR_281
+      - MAA_14c_observation_preserved_PR_282
+      - MAA_14d_physical_protocol_frozen_PR_283
+      - confirmatory_added_candidate_fraction_0_365893146249
+      - confirmatory_retained_mass_gap_recovery_0_371796859735
+    physical_status:
+      - no_MAA_14d_latency_result_yet
+      - no_speedup_bandwidth_energy_or_production_claim
+      - exact_per_key_device_carrier_required_before_timing_promotion
     objective: >-
       Evaluate monotonic adaptive sparse-attention repair: begin from an already
       qualified structural candidate set, execute an exact sparse FLAT pass, and
@@ -311,10 +324,12 @@ cadence_derived_adaptive_compute_program_2026_09_23:
       - exact_score_or_dense_softmax_mass_may_be_used_only_as_non_deployable_oracle_evidence
       - no_latency_bandwidth_energy_or_speed_claim_from_candidate_counts
     sequence:
-      - MAA_14a_deterministic_monotonic_repair_transport
-      - MAA_14b_preregister_deployable_repair_signal_family_and_dense_oracle_controls
-      - MAA_14c_host_matched_evidence_and_negative_controls
-      - MAA_14d_portable_WGPU_candidate_only_after_host_gate
+      - MAA_14a_deterministic_monotonic_repair_transport_complete
+      - MAA_14b_structural_coverage_7_8_candidate_selected_complete
+      - MAA_14c_fresh_confirmatory_holdout_pass_complete
+      - MAA_14d_Gate_A1_exact_u32_device_layout_in_progress_PR_284
+      - MAA_14d_Gate_A2_exact_WGPU_sparse_numerical_carrier
+      - MAA_14d_physical_same_device_measurement_only_after_Gate_A
   sml_genius_track:
     name: Delta_KV
     objective: >-
