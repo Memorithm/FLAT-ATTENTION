@@ -285,3 +285,61 @@ v888_sparse_routing_program:
   nvidia_dependency_for_new_programme: false
   runtime_target: NNIS_Native_Neural_Inference_Stack_CPU_WGPU
   authoritative_main_document: docs/V888_CONNECTOME_BOOTSTRAP.md
+
+
+cadence_derived_adaptive_compute_program_2026_09_23:
+  status: active_research_only
+  hypothesis_source:
+    name: Cadence_patch_architecture
+    role: external_hypothesis_source_not_authority
+    rule: >-
+      Reimplement only independently testable mechanisms that fit Memorithm contracts.
+      No Cadence result is treated as FLAT/SML performance evidence and no source code
+      dependency is introduced.
+  flat_attention_track:
+    namespace: MAA_14
+    objective: >-
+      Evaluate monotonic adaptive sparse-attention repair: begin from an already
+      qualified structural candidate set, execute an exact sparse FLAT pass, and
+      widen only rows that a separately qualified confidence/residual policy marks
+      insufficient.
+    invariants:
+      - MAA_13e_preregistered_physical_protocol_is_not_modified_reinterpreted_or_retuned
+      - dense_FLAT_remains_the_semantic_and_numerical_oracle
+      - repair_can_add_candidates_but_cannot_silently_remove_already_admitted_candidates
+      - residual_or_confidence_policy_is_separate_from_the_repair_transport_mechanism
+      - exact_score_or_dense_softmax_mass_may_be_used_only_as_non_deployable_oracle_evidence
+      - no_latency_bandwidth_energy_or_speed_claim_from_candidate_counts
+    sequence:
+      - MAA_14a_deterministic_monotonic_repair_transport
+      - MAA_14b_preregister_deployable_repair_signal_family_and_dense_oracle_controls
+      - MAA_14c_host_matched_evidence_and_negative_controls
+      - MAA_14d_portable_WGPU_candidate_only_after_host_gate
+  sml_genius_track:
+    name: Delta_KV
+    objective: >-
+      Evaluate bounded rewritable associative memory with deterministic low-bit or
+      fixed-point reference semantics as a complement to SML recurrent state and
+      mapped context, not as a Transformer KV-cache clone.
+    ownership: Memorithm/SML-GENIUS
+    required_comparisons:
+      - existing_bounded_direct_associative_memory
+      - immutable_or_append_only_context_records
+      - matched_capacity_fixed_memory_controls
+    required_metrics:
+      - exact_storage_bits_including_metadata
+      - read_write_operation_counts
+      - overwrite_correction_error
+      - interference_under_overlapping_keys
+      - retained_task_quality
+      - latency_only_when_measured
+  ecosystem_handoffs:
+    Memorithm/Forge:
+      role: search_candidate_topologies_repair_policies_and_memory_hyperparameters
+      constraint: independent_destination_requalification_required
+    Memorithm/ElasticXxx:
+      role: generic_budget_and_resource_policy_for_adaptive_compute
+      constraint: may_bound_compute_memory_or_latency_but_does_not_own_attention_semantics
+    Memorithm/CCOS-Enterprise:
+      role: provenance_separation_for_observed_derived_and_hypothetical_memory
+      constraint: hypothetical_or_imagined_state_must_never_silently_become_observed_evidence
