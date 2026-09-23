@@ -671,7 +671,10 @@ fn run() -> Result<(Vec<String>, bool, f64, f64)> {
     let always = always_aggregate.finalize()?;
     let oracle = oracle_aggregate.finalize()?;
 
-    require(always.added > 0, "confirmatory always-repair added no candidates")?;
+    require(
+        always.added > 0,
+        "confirmatory always-repair added no candidates",
+    )?;
     let added_fraction = candidate.added as f64 / always.added as f64;
     require(
         added_fraction.is_finite(),
@@ -683,8 +686,7 @@ fn run() -> Result<(Vec<String>, bool, f64, f64)> {
         mass_gap.is_finite() && mass_gap > 0.0,
         "confirmatory retained-mass endpoint gap is invalid",
     )?;
-    let mass_recovery =
-        (candidate.retained_mass_mean - base.retained_mass_mean) / mass_gap;
+    let mass_recovery = (candidate.retained_mass_mean - base.retained_mass_mean) / mass_gap;
     require(
         mass_recovery.is_finite(),
         "confirmatory retained-mass recovery is non-finite",
