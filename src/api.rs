@@ -91,6 +91,15 @@ pub mod research_structural_routing;
 #[path = "research_structural_device.rs"]
 pub mod research_structural_device;
 
+/** MAA-14d Gate-A2 correctness-first WGPU sparse structural carrier.
+ *
+ * Consumes the exact Gate-A1 u32 CSR candidate identity. Research-only:
+ * device parity must pass before any timing evidence is admissible.
+ */
+#[cfg(feature = "wgpu")]
+#[path = "research_structural_wgpu.rs"]
+pub mod research_structural_wgpu;
+
 /// MAA-14a research-only monotonic adaptive-repair transport.
 ///
 /// This surface widens already-qualified structural candidate sets according to
