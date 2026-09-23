@@ -526,8 +526,7 @@ fn validate_buffer(
 }
 
 fn checked_u32(value: usize) -> Result<u32, StructuralSparseWgpuError> {
-    wgpu_internal::checked_u32(value)
-        .ok_or(StructuralSparseWgpuError::IndexSpaceExceeded { value })
+    wgpu_internal::checked_u32(value).ok_or(StructuralSparseWgpuError::IndexSpaceExceeded { value })
 }
 
 fn bytes_for_f32(elements: usize) -> Result<u64, StructuralSparseWgpuError> {
@@ -539,7 +538,8 @@ fn bytes_for_u32(elements: usize) -> Result<u64, StructuralSparseWgpuError> {
     let bytes = elements
         .checked_mul(core::mem::size_of::<u32>())
         .ok_or(StructuralSparseWgpuError::IndexSpaceExceeded { value: elements })?;
-    u64::try_from(bytes).map_err(|_| StructuralSparseWgpuError::IndexSpaceExceeded { value: elements })
+    u64::try_from(bytes)
+        .map_err(|_| StructuralSparseWgpuError::IndexSpaceExceeded { value: elements })
 }
 
 #[derive(Debug, Clone, PartialEq)]
