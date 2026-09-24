@@ -631,7 +631,8 @@ mod tests {
     }
 
     fn source(epoch: u64) -> LayerMaterializationIdentity {
-        LayerMaterializationIdentity::new(3, "flat.structural-kv", 1, epoch, shape(), false).unwrap()
+        LayerMaterializationIdentity::new(3, "flat.structural-kv", 1, epoch, shape(), false)
+            .unwrap()
     }
 
     fn destination(epoch: u64) -> LayerReuseRequirement {
@@ -720,15 +721,15 @@ mod tests {
     #[test]
     fn candidate_identity_is_deterministic_and_selection_sensitive() {
         let (set, a) = candidates(5);
-        let b = StructuralCandidateIdentity::from_candidates(3, "tiered-recall", 1, 5, &set)
-            .unwrap();
+        let b =
+            StructuralCandidateIdentity::from_candidates(3, "tiered-recall", 1, 5, &set).unwrap();
         let other = StructuralCandidateSet::from_rows(
             shape(),
             vec![vec![0, 1], vec![1], vec![0, 3], vec![3]],
         )
         .unwrap();
-        let c = StructuralCandidateIdentity::from_candidates(3, "tiered-recall", 1, 5, &other)
-            .unwrap();
+        let c =
+            StructuralCandidateIdentity::from_candidates(3, "tiered-recall", 1, 5, &other).unwrap();
         assert_eq!(a.fingerprint_fnv1a64(), b.fingerprint_fnv1a64());
         assert_ne!(a.fingerprint_fnv1a64(), c.fingerprint_fnv1a64());
     }
