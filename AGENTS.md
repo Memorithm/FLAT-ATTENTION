@@ -57,3 +57,9 @@ Do not merge the off-main roadmap or research overlays themselves into `main` un
 ## Mandatory BANC v888 sparse-routing bootstrap
 
 For BANC v888 structural admission, connectome-derived sparse masks, MAA structural predicates, recurrent/attention hybrids, or SML/NNIS V888 integration, also read [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). The programme is V888-only, raw connectome data remains external, dense FLAT remains the numerical reference, and new implementation work uses portable CPU/WGPU contracts rather than NVIDIA products.
+
+## Mandatory DeepSeek-V4.1 long-context research extension
+
+For cross-layer KV reuse, sparse-index reuse, hierarchical candidate pools, bounded replay interactions, or storage-versus-recompute work, also read the `deepseek_v41_long_context_program_2026_09_24` section of the off-main ecosystem roadmap and the corresponding DeepSeek-V4.1 extension in `ROADMAP.md`.
+
+The reviewed DeepSeek-V4.1-Flash report is an external hypothesis source, not FLAT evidence. Its CSA2 Full/Reindex/Reuse modes, hierarchical indexer, CED, FP4 KV, or bounded-replay results must not be described as implemented or reproduced by FLAT until independently qualified. Existing MAA dense-oracle, preregistration, holdout, exact-candidate identity, and physical-measurement rules remain mandatory.

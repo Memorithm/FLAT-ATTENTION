@@ -1173,3 +1173,40 @@ Required progression:
 6. preserve a negative physical result without retuning the confirmed 7/8 trigger.
 
 A precomputed sparse win without an end-to-end adaptive win is kernel-potential evidence only.
+
+# DeepSeek-V4.1 research extension — 2026-09-24
+
+Research input: DeepSeek-AI, *DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression*. This section records hypotheses to test; it does not import DeepSeek performance, quality, or novelty claims as FLAT evidence.
+
+The report motivates a new MAA sequence around three separable reuse axes: shared global/main KV across layers, reuse or recomputation of sparse-selection indices, and hierarchical restriction of later indexing to a candidate pool produced earlier. FLAT already has deterministic structural candidates, retained-softmax-mass diagnostics, monotonic adaptive repair, and an exact WGPU sparse carrier. The next programme must extend those foundations rather than invent a parallel sparse-attention stack.
+
+## MAA-15 — cross-layer reuse and hierarchical sparse routing
+
+### MAA-15a — host contract and preregistration
+- define explicit `Full`, `Reindex`, and `Reuse` research modes;
+- keep main-KV reuse, indexer-key reuse, and Top-K/candidate reuse independently switchable;
+- bind every reused object to layer, representation, materialization epoch, geometry, and source identity;
+- preserve dense FLAT as the numerical oracle;
+- preregister controls and decision rules before observing confirmatory results.
+
+### MAA-15b — hierarchical candidate-pool qualification
+- first indexing stage may scan the full causally visible search domain;
+- later reindex stages may search only a bounded candidate pool produced by the first stage;
+- compare against exhaustive sparse search, no-reuse sparse routing, and matched-density random pools;
+- report candidate recall, retained softmax mass, O/LSE error, candidate bytes, indexer work, and failure cases separately.
+
+### MAA-15c — exact WGPU carrier
+- extend the already-qualified structural WGPU carrier rather than introducing a second GPU semantics;
+- require exact candidate-buffer identity and host/WGPU parity before any timing;
+- reject hidden dense materialization or unreported host work.
+
+### MAA-15d — physical qualification
+- same-device dense / sparse-no-reuse / index-reuse / KV-reuse / combined-reuse comparisons;
+- include route/materialize/upload/index/attention costs in end-to-end measurements;
+- record p50/p95/p99 latency, resident bytes, transferred bytes where measurable, dispatches, synchronization, and device provenance;
+- no bandwidth or speed claim from logical candidate-count reduction alone.
+
+### MAA-15e — ElasticXxx handoff
+Only after the above gates may FLAT expose versioned resource signals to ElasticXxx. ElasticXxx may choose among already-qualified alternatives, but it does not own attention correctness, candidate semantics, or quality thresholds.
+
+CED and SWA Bounded Replay remain model/runtime-level research inputs, not implicit changes to FLAT's public attention contract.
