@@ -100,6 +100,14 @@ pub mod research_structural_device;
 #[path = "research_structural_wgpu.rs"]
 pub mod research_structural_wgpu;
 
+/// MAA-15a research-only cross-layer reuse identity contract.
+///
+/// Validates explicit Full/Reindex/Reuse requests against source representation,
+/// epoch, geometry, causal domain, and optional candidate identity. It owns no
+/// numerical execution or performance policy.
+#[path = "research_cross_layer_reuse.rs"]
+pub mod research_cross_layer_reuse;
+
 /// MAA-14a research-only monotonic adaptive-repair transport.
 ///
 /// This surface widens already-qualified structural candidate sets according to
