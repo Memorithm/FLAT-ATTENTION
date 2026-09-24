@@ -684,14 +684,14 @@ mod tests {
     #[test]
     fn reuse_requires_exact_source_epoch_and_candidate_policy() {
         let (_, candidate) = candidates(11);
-        let destination = destination(11)
+        let reuse_destination = destination(11)
             .require_reused_candidate_policy("tiered-recall", 1)
             .unwrap();
         let plan = CrossLayerReusePlan::new(
             CrossLayerReuseMode::Reuse,
             CrossLayerReuseAxes::reuse(true),
             Some(source(11)),
-            destination,
+            reuse_destination,
             Some(candidate.clone()),
         )
         .unwrap();
