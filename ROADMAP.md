@@ -1210,3 +1210,8 @@ The report motivates a new MAA sequence around three separable reuse axes: share
 Only after the above gates may FLAT expose versioned resource signals to ElasticXxx. ElasticXxx may choose among already-qualified alternatives, but it does not own attention correctness, candidate semantics, or quality thresholds.
 
 CED and SWA Bounded Replay remain model/runtime-level research inputs, not implicit changes to FLAT's public attention contract.
+
+
+### MAA-15 execution start
+
+- **MAA-15a cross-layer reuse preregistration**: frozen in [`docs/research/MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md`](docs/research/MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md). This host-only first gate separates Full/Reindex/Reuse semantics, explicit source identity, K/V reuse and candidate reuse, with dense/all-accept/matched-random controls before hierarchical-pool or WGPU work.
