@@ -358,3 +358,41 @@ cadence_derived_adaptive_compute_program_2026_09_23:
     Memorithm/CCOS-Enterprise:
       role: provenance_separation_for_observed_derived_and_hypothetical_memory
       constraint: hypothetical_or_imagined_state_must_never_silently_become_observed_evidence
+deepseek_v41_long_context_program_2026_09_24:
+  status: active_research_extension
+  source:
+    title: "DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression"
+    organization: DeepSeek-AI
+    reviewed_on: 2026-09-24
+    evidence_rule: external_report_is_hypothesis_input_not_FLAT_evidence
+  objective: >-
+    Test whether MAA structural sparse routing can be extended with explicit
+    cross-layer reuse and hierarchical candidate restriction while preserving
+    dense FLAT as the numerical oracle and keeping every reuse dimension
+    independently measurable.
+  imported_hypotheses:
+    - CSA2_separates_full_reindex_and_reuse_modes
+    - main_KV_indexer_K_and_TopK_reuse_are_distinct_axes
+    - hierarchical_candidate_pools_can_bound_deeper_reindex_cost
+    - storage_reduction_and_indexing_reduction_must_be_measured_separately
+  ordered_sequence:
+    - MAA_15a_preregister_cross_layer_Full_Reindex_Reuse_host_contract
+    - MAA_15b_qualify_hierarchical_candidate_pool_with_exhaustive_and_matched_random_controls
+    - MAA_15c_materialize_cross_layer_reuse_on_exact_WGPU_carrier
+    - MAA_15d_measure_same_device_end_to_end_latency_traffic_and_memory
+    - MAA_15e_expose_only_qualified_resource_signals_to_ElasticXxx
+  mandatory_controls:
+    - dense_FLAT_oracle
+    - no_reuse_sparse_control
+    - index_only_reuse
+    - KV_only_reuse
+    - combined_reuse
+    - matched_density_random_candidate_pool
+    - all_accept_path
+  invariants:
+    - no_cross_layer_reuse_claim_without_exact_layer_and_representation_identity
+    - no_speed_or_bandwidth_claim_from_candidate_counts
+    - no_hidden_dense_materialization_in_a_sparse_or_reuse_result
+    - no_DeepSeek_benchmark_or_quality_result_transfers_to_FLAT_without_independent_measurement
+    - model_architecture_changes_such_as_CED_are_not_silently_added_to_FLAT_runtime_semantics
+
