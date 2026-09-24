@@ -126,3 +126,13 @@ MAA-15a does not:
 - claim real-model quality;
 - claim cross-layer KV reuse is universally valid;
 - infer speedup from candidate counts or logical byte accounting.
+
+
+## Implementation slice
+
+The first implementation slice is structural only: `api::research_cross_layer_reuse`
+defines validated Full/Reindex/Reuse requests, explicit reuse axes, layer
+materialization identity, destination requirements, and canonical structural
+candidate identity. It performs no attention computation and observes no
+preregistered quality panel. This preserves the pre-observation boundary for
+the later host evidence slice.
