@@ -168,3 +168,8 @@ The first series does not:
 - claim lower latency, higher throughput, lower energy, or lower physical memory traffic;
 - duplicate the M13B Boolean mask/signature contracts;
 - promote any research type into `api::v1`.
+
+
+## MAA-15 cross-layer reuse
+
+The first gate, **MAA-15a cross-layer reuse preregistration**, is frozen in [`MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md`](MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md). It defines explicit Full/Reindex/Reuse research semantics and keeps representation reuse, candidate reuse, quality evidence, and physical performance as separate claims. DeepSeek-V4.1 is a hypothesis source only; MAA-15 is an independent FLAT programme.
