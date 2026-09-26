@@ -9,6 +9,9 @@ default routing. Default dense forward remains the qualified M4 Q4 path
 (`flat_fwd.wgsl`) unless a capability-gated policy selects another qualified
 variant.
 
+`cargo test --test shader_inventory` fails if a `shaders/*.wgsl` file is missing
+from this README, or if this README names a file that is gone.
+
 ## Qualified / default-family dense forward
 
 | File | Role |
