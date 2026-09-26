@@ -43,6 +43,7 @@ with CUDA lock-in; it does not consume CUDA.
    cargo test --test host_oracle_smoke
    cargo test --test shader_inventory
    cargo test --test example_inventory
+   cargo test --test example_manifest
    cargo test --test crate_inventory
    cargo run --example hello_attention # scalar-oracle smoke, no GPU
    cargo deny --all-features check advisories licenses sources
