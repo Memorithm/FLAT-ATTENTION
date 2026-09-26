@@ -5,7 +5,7 @@
 //! contract. The bridge only materializes the current authoritative mapping
 //! metadata as a flat lane plane for planning/evidence.
 
-use elastic_kv::{ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthV1};
+use elastic_core::{ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthV1};
 use flat_attention::paged_kv::PagedKvTable;
 use std::fmt;
 
