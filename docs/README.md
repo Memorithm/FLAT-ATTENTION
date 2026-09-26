@@ -12,6 +12,7 @@ For a high-level orientation of the repository itself (status, layout, licensing
 
 Workspace maps:
 
+- [INVENTORY.md](INVENTORY.md) — consolidated host-only inventory gates and their commands.
 - [CRATES.md](CRATES.md) and [`crates/README.md`](../crates/README.md) — reusable vs candidate vs research crates.
 - [EXAMPLES.md](EXAMPLES.md) and [`examples/README.md`](../examples/README.md) — host-only vs GPU examples.
 - [SHADERS.md](SHADERS.md) and [`shaders/README.md`](../shaders/README.md) — handwritten WGSL inventory and routing status.
