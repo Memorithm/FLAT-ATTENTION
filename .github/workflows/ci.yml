@@ -59,6 +59,7 @@ jobs:
           set -euo pipefail
           cargo test --test shader_inventory
           cargo test --test example_inventory
+          cargo test --test example_manifest
           cargo test --test crate_inventory
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features

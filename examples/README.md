@@ -10,10 +10,12 @@ performance claim.
 |---------|---------|
 | `hello_attention` | Scalar oracle smoke: tiny causal MHA, prints O/LSE. |
 | `io_model` | Analytical K/V staging-load comparison of single-row vs Q4 tiling. |
+| `m27_dispatch_allocation_accounting` | Dispatch / allocation counters. Host arithmetic only. |
 
 ```bash
 cargo run --example hello_attention
 cargo run --example io_model
+cargo run --example m27_dispatch_allocation_accounting
 ```
 
 ## GPU (`--features wgpu`)
@@ -34,7 +36,6 @@ them.
 | `m20_grouped_backward_bench` | M19/M20 grouped backward recomputation bench. |
 | `m20_grouped_backward_host_overhead` | Host overhead around grouped backward. |
 | `m27_cold_warm_pipeline` | Cold vs warm pipeline accounting. |
-| `m27_dispatch_allocation_accounting` | Dispatch / allocation counters. |
 | `m27_resident_decode_sweep` | Resident decode sweep. |
 | `m27_resident_grouped_forward_sweep` | Resident grouped forward sweep. |
 | `m27_resident_vs_host_io` | Resident vs host-transfer timing split. |
