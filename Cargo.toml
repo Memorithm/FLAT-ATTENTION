@@ -48,13 +48,12 @@ required-features = ["wgpu"]
 name = "f16_bench"
 required-features = ["wgpu"]
 
+# Deterministic DA-LUC scalar oracles are intentionally host-only.
 [[example]]
 name = "fdal1_da_luc_oracle_sweep"
-required-features = ["wgpu"]
 
 [[example]]
 name = "fdal2_da_luc_decode_sweep"
-required-features = ["wgpu"]
 
 [[example]]
 name = "m11_decode_bench"
