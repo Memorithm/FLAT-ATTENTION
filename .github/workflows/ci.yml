@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           cargo test --test host_oracle_smoke
           cargo run --example hello_attention
+          cargo run --example io_model
       - name: Host-only inventory gates (no wgpu feature)
         run: |
           set -euo pipefail
