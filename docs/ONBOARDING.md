@@ -9,6 +9,7 @@ It does not require a GPU.
 cargo test --test host_oracle_smoke
 cargo run --example hello_attention
 cargo run --example io_model
+cargo run --example m27_dispatch_allocation_accounting
 ```
 
 `hello_attention` prints a tiny causal MHA result from `forward_reference`.
@@ -19,6 +20,7 @@ Optional host-only inventory gates (no GPU):
 ```bash
 cargo test --test shader_inventory
 cargo test --test example_inventory
+cargo test --test example_manifest
 cargo test --test crate_inventory
 ```
 

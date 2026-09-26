@@ -11,6 +11,8 @@ performance claim.
 | `hello_attention` | Scalar oracle smoke: tiny causal MHA, prints O/LSE. |
 | `io_model` | Analytical K/V staging-load comparison of single-row vs Q4 tiling. |
 | `m27_dispatch_allocation_accounting` | Dispatch / allocation counters. Host arithmetic only. |
+| `fdal1_da_luc_oracle_sweep` | Deterministic scalar research DA-LUC oracle sweep. Not api v1. |
+| `fdal2_da_luc_decode_sweep` | Deterministic scalar research DA-LUC decode sweep. Not api v1. |
 
 ```bash
 cargo run --example hello_attention
@@ -44,8 +46,6 @@ them.
 | `m48_decode_kv_reuse_sweep` | Decode that reuses projected/rotated K. |
 | `m53_asymmetric_vec4_bench` | M53 rectangular vec4 candidate bench. |
 | `m60_q1_direct_ab` | M60 Q1 direct vec4 A/B candidate. |
-| `fdal1_da_luc_oracle_sweep` | Research DA-LUC oracle sweep. Not api v1. |
-| `fdal2_da_luc_decode_sweep` | Research DA-LUC decode sweep. Not api v1. |
 
 ```bash
 cargo run --release --features wgpu --example subgroup_bench

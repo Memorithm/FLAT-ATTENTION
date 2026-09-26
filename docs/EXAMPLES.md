@@ -9,7 +9,9 @@ Start host-only with:
 ```bash
 cargo run --example hello_attention
 cargo run --example io_model
+cargo run --example m27_dispatch_allocation_accounting
 cargo test --test example_inventory
+cargo test --test example_manifest
 ```
 
 GPU examples require `--features wgpu`. A timing example is evidence for the
