@@ -2,6 +2,8 @@
 
 See [`crates/README.md`](../crates/README.md) for the authoritative short map of
 every package under `crates/`.
+`cargo test --test crate_inventory` fails if a `crates/*` package with
+`Cargo.toml` is missing from that README.
 
 Rules of thumb:
 
@@ -9,3 +11,5 @@ Rules of thumb:
 2. Treat `crates/*-candidate`, `*-qualification`, and `flat-semantic*` as
    research or qualification surfaces unless a milestone document promotes them.
 3. EPG crates describe positional geometry identity, not a second attention API.
+4. Inventory presence is documentation, not default routing and not a
+   performance claim.
