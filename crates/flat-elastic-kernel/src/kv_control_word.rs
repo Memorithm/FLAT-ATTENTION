@@ -71,7 +71,9 @@ pub fn current_paged_kv_lossless_width() -> Result<ElasticWordWidthV1, PagedKvEl
 ///
 /// Each logical page contributes exactly two lanes in logical-page order:
 ///
-///     [physical_page, generation][physical_page, generation]...
+/// ```text
+/// [physical_page, generation][physical_page, generation]...
+/// ```
 ///
 /// The width is carried once by the ElasticWord plane. The function does not
 /// mutate FLAT, authorize a representation transition, or claim that W128 is
