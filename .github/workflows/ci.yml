@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           cargo test --test host_oracle_smoke
           cargo run --example hello_attention
+          cargo run --example io_model
       - name: Host-only inventory gates (no wgpu feature)
         run: |
           set -euo pipefail
@@ -85,16 +86,11 @@ jobs:
           toolchain: 1.89.0
       - name: Install software Vulkan device
         run: |
-          # GitHub-hosted images carry third-party apt sources unrelated to this
-          # job. Chrome has appeared as both legacy .list and deb822 .sources
-          # files across runner image revisions; neither is needed for Mesa.
           sudo rm -f \
             /etc/apt/sources.list.d/google-chrome.list \
             /etc/apt/sources.list.d/google-chrome.sources
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
-      # The full workspace matrix on a real (software) Vulkan device; GPU tests
-      # that self-skip without an adapter are mandatory here.
       - name: Execute full workspace CPU-GPU test matrix
         env:
           FLAT_REQUIRE_WGPU: "1"
