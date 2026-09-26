@@ -54,6 +54,12 @@ jobs:
           set -euo pipefail
           cargo test --test host_oracle_smoke
           cargo run --example hello_attention
+      - name: Host-only inventory gates (no wgpu feature)
+        run: |
+          set -euo pipefail
+          cargo test --test shader_inventory
+          cargo test --test example_inventory
+          cargo test --test crate_inventory
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features
       - name: Validate EPG qualification WGSL without a device
