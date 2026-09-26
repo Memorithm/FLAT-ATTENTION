@@ -3,6 +3,8 @@
 This directory holds supporting packages for FLAT-ATTENTION. The reusable public
 contract lives in the root `flat-attention` crate (`src/`, `flat_attention::api::v1`).
 Nothing in `crates/` is a silent replacement for that contract.
+Presence in this table is documentation, not default routing and not a
+performance claim.
 
 ## Production-adjacent / reusable building blocks
 
@@ -30,6 +32,17 @@ are **not** default routing and carry no standalone performance claim.
 The `flat-semantic*` crates describe experimental structured-history / semantic
 control surfaces. They remain outside `api::v1` until an explicit promotion gate
 says otherwise. See `docs/research/` and `docs/SEMANTIC_*`.
+
+| Crate | Role |
+|-------|------|
+| `flat-semantic` | Research facade over the semantic stack. |
+| `flat-semantic-control` | Control-plane types for experimental semantic routing. |
+| `flat-semantic-execution` | Execution surface for experimental semantic plans. |
+| `flat-semantic-mechanism` | Mechanism primitives used by the semantic stack. |
+| `flat-semantic-observability` | Observability records for semantic experiments. |
+| `flat-semantic-plan` | Plan types for experimental semantic work. |
+| `flat-semantic-registry` | Registry of experimental semantic artifacts. |
+| `flat-semantic-selection` | Selection policy for experimental semantic candidates. |
 
 ## Algebraic attention research
 
