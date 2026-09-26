@@ -19,8 +19,7 @@ use flat_attention::paged_kv::{
 use std::fmt;
 
 /// Versioned plane-epoch shadow contract.
-pub const FLAT_ELASTIC_PAGED_KV_PLANE_EPOCH_V2: &str =
-    "flat.elastic-paged-kv-plane-epoch@2.0.0";
+pub const FLAT_ELASTIC_PAGED_KV_PLANE_EPOCH_V2: &str = "flat.elastic-paged-kv-plane-epoch@2.0.0";
 
 /// One lossless semantic lane is required per page: physical-page identity.
 pub const FLAT_ELASTIC_PAGED_KV_REQUIRED_LANES_V2: u8 = 1;
@@ -263,12 +262,11 @@ impl ElasticPagedKvPlaneEpochV2 {
         let logical_page = logical_token / self.config.page_size;
         let offset_in_page = logical_token % self.config.page_size;
         let physical_lane = self.page_word(logical_page)?[0];
-        let physical_page =
-            usize::try_from(physical_lane).map_err(
-                |_| ElasticPagedKvPlaneEpochError::StoredPhysicalPageOutOfRange {
-                    physical_page: physical_lane,
-                },
-            )?;
+        let physical_page = usize::try_from(physical_lane).map_err(|_| {
+            ElasticPagedKvPlaneEpochError::StoredPhysicalPageOutOfRange {
+                physical_page: physical_lane,
+            }
+        })?;
 
         Ok(Some(PagedKvAddress {
             physical_page,
@@ -366,10 +364,7 @@ impl ElasticPagedKvPlaneEpochV2 {
         Ok(true)
     }
 
-    fn push_page_word(
-        &mut self,
-        physical_page: u64,
-    ) -> Result<(), ElasticPagedKvPlaneEpochError> {
+    fn push_page_word(&mut self, physical_page: u64) -> Result<(), ElasticPagedKvPlaneEpochError> {
         let lanes_per_word = usize::from(self.width.lanes());
         let new_len = self
             .lanes
@@ -381,10 +376,7 @@ impl ElasticPagedKvPlaneEpochV2 {
         Ok(())
     }
 
-    fn page_word(
-        &self,
-        logical_page: usize,
-    ) -> Result<&[u64], ElasticPagedKvPlaneEpochError> {
+    fn page_word(&self, logical_page: usize) -> Result<&[u64], ElasticPagedKvPlaneEpochError> {
         let lanes_per_word = usize::from(self.width.lanes());
         let start = logical_page
             .checked_mul(lanes_per_word)
@@ -426,8 +418,7 @@ mod tests {
     }
 
     fn widths() -> [ElasticWordWidthV1; 6] {
-        [64_u16, 128, 256, 512, 1024, 2048]
-            .map(|bits| ElasticWordWidthV1::from_bits(bits).unwrap())
+        [64_u16, 128, 256, 512, 1024, 2048].map(|bits| ElasticWordWidthV1::from_bits(bits).unwrap())
     }
 
     fn assert_equivalent(reference: &PagedKvTable, elastic: &ElasticPagedKvPlaneEpochV2) {
