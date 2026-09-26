@@ -30,6 +30,9 @@ with CUDA lock-in; it does not consume CUDA.
    - a parity test against the scalar oracle,
    - CI coverage in `.github/workflows/ci.yml`.
    Update [`shaders/README.md`](shaders/README.md) when adding a handwritten WGSL file.
+   Update [`examples/README.md`](examples/README.md) and `Cargo.toml` `[[example]]`
+   when adding an example.
+   Update [`crates/README.md`](crates/README.md) when adding a `crates/*` package.
 3. Run the local gates:
 
    ```bash
@@ -37,6 +40,10 @@ with CUDA lock-in; it does not consume CUDA.
    cargo clippy --all-targets --all-features -- -D warnings
    cargo test --all-features          # full matrix; uses a WGPU adapter if present
    cargo test                          # host-only subset (works on any machine)
+   cargo test --test host_oracle_smoke
+   cargo test --test shader_inventory
+   cargo test --test example_inventory
+   cargo test --test crate_inventory
    cargo run --example hello_attention # scalar-oracle smoke, no GPU
    cargo deny --all-features check advisories licenses sources
    ```
