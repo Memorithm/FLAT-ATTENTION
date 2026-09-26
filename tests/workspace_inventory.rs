@@ -10,8 +10,7 @@ fn crates_dir() -> PathBuf {
 
 fn package_name(toml: &str) -> Option<String> {
     let mut in_package = false;
-    for line in toml.lines() {
-        let line = line.trim();
+    for line in toml.lines().map(str::trim) {
         if line == "[package]" {
             in_package = true;
             continue;
@@ -19,11 +18,36 @@ fn package_name(toml: &str) -> Option<String> {
         if in_package && line.starts_with('[') {
             break;
         }
-        if in_package && line.starts_with("name =") {
-            return line.split('"').nth(1).map(str::to_owned);
+        if !in_package {
+            continue;
         }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        if key.trim() != "name" {
+            continue;
+        }
+        let value = value.trim();
+        let quote = value.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+        let rest = &value[quote.len_utf8()..];
+        let end = rest.find(quote)?;
+        return Some(rest[..end].to_owned());
     }
     None
+}
+
+#[test]
+fn package_name_accepts_toml_spacing_and_quote_variants() {
+    for manifest in [
+        "[package]\nname=\"flat-example\"\n",
+        "[package]\nname = 'flat-example'\n",
+        "[package]\nname    =    \"flat-example\" # comment\n",
+    ] {
+        assert_eq!(package_name(manifest).as_deref(), Some("flat-example"));
+    }
 }
 
 #[test]
