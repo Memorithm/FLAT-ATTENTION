@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod contextual;
+pub mod kv_control_epoch_table;
 pub mod kv_control_table;
 pub mod kv_control_word;
 
