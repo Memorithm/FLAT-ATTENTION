@@ -6,6 +6,9 @@ Nothing in `crates/` is a silent replacement for that contract.
 Presence in this table is documentation, not default routing and not a
 performance claim.
 
+`cargo test --test crate_inventory` fails if a package directory with
+`Cargo.toml` is missing from this README.
+
 ## Production-adjacent / reusable building blocks
 
 | Crate | Role |
