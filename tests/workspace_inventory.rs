@@ -9,34 +9,12 @@ fn crates_dir() -> PathBuf {
 }
 
 fn package_name(toml: &str) -> Option<String> {
-    let mut in_package = false;
-    for line in toml.lines().map(str::trim) {
-        if line == "[package]" {
-            in_package = true;
-            continue;
-        }
-        if in_package && line.starts_with('[') {
-            break;
-        }
-        if !in_package {
-            continue;
-        }
-        let Some((key, value)) = line.split_once('=') else {
-            continue;
-        };
-        if key.trim() != "name" {
-            continue;
-        }
-        let value = value.trim();
-        let quote = value.chars().next()?;
-        if quote != '"' && quote != '\'' {
-            return None;
-        }
-        let rest = &value[quote.len_utf8()..];
-        let end = rest.find(quote)?;
-        return Some(rest[..end].to_owned());
-    }
-    None
+    let manifest = toml.parse::<toml::Table>().ok()?;
+    manifest
+        .get("package")?
+        .get("name")?
+        .as_str()
+        .map(str::to_owned)
 }
 
 #[test]
@@ -45,6 +23,7 @@ fn package_name_accepts_toml_spacing_and_quote_variants() {
         "[package]\nname=\"flat-example\"\n",
         "[package]\nname = 'flat-example'\n",
         "[package]\nname    =    \"flat-example\" # comment\n",
+        "[package]\nname = \"flat\\u002dexample\"\n",
     ] {
         assert_eq!(package_name(manifest).as_deref(), Some("flat-example"));
     }
