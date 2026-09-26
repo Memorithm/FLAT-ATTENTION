@@ -533,11 +533,9 @@ mod tests {
             physical_pages: 2,
         };
         let mut reference = PagedKvTable::new(config).unwrap();
-        let mut elastic = ElasticPagedKvTableV1::new(
-            config,
-            ElasticWordWidthV1::from_bits(128).unwrap(),
-        )
-        .unwrap();
+        let mut elastic =
+            ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(128).unwrap())
+                .unwrap();
 
         reference.append(3).unwrap();
         elastic.append(3).unwrap();
