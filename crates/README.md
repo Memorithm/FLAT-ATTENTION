@@ -52,6 +52,10 @@ intended to host qualified Zhegalkin and max-plus oracles before any integration
 with existing M13B Boolean routing. It does not alter default routing or
 `api::v1`. See `docs/research/MULTI_ALGEBRA_ATTENTION.md`.
 
+| Crate | Role |
+|-------|------|
+| `flat-algebraic-attention` | Research-only packed-bit and algebraic attention foundations. |
+
 ## How to treat these crates
 
 - Do not import a candidate crate from SciRust production code unless a

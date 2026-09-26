@@ -1,6 +1,7 @@
-//! Inventory gate: every `crates/*` package directory must be named in
-//! `crates/README.md`. Presence in that table is documentation, not routing.
+//! Inventory gate: every `crates/*` package directory must have its own table
+//! entry in `crates/README.md`. Presence in that table is documentation, not routing.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -34,15 +35,38 @@ fn tracked_crate_dirs() -> Vec<String> {
     names
 }
 
+fn documented_crate_names(readme: &str) -> BTreeSet<&str> {
+    readme
+        .lines()
+        .filter_map(|line| {
+            let mut cells = line.split('|').map(str::trim);
+            let _outside_table = cells.next()?;
+            let crate_cell = cells.next()?;
+            crate_cell.strip_prefix('`')?.strip_suffix('`')
+        })
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 #[test]
-fn every_workspace_crate_is_named_in_crates_readme() {
+fn every_workspace_crate_has_a_complete_readme_table_entry() {
     let readme = crates_readme();
+    let documented = documented_crate_names(&readme);
     let missing: Vec<_> = tracked_crate_dirs()
         .into_iter()
-        .filter(|name| !readme.contains(name.as_str()))
+        .filter(|name| !documented.contains(name.as_str()))
         .collect();
     assert!(
         missing.is_empty(),
-        "crates/* packages missing from crates/README.md: {missing:?}"
+        "crates/* packages missing complete table entries in crates/README.md: {missing:?}"
     );
+}
+
+#[test]
+fn a_longer_crate_name_does_not_document_its_prefix() {
+    let documented = documented_crate_names(
+        "| Crate | Role |\n|---|---|\n| `flat-semantic-control` | control |\n",
+    );
+    assert!(documented.contains("flat-semantic-control"));
+    assert!(!documented.contains("flat-semantic"));
 }
