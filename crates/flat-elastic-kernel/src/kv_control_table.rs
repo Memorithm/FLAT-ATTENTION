@@ -365,13 +365,12 @@ impl ElasticPagedKvTableV1 {
             return Ok(false);
         }
 
-        let capacity = self.config.capacity_tokens()?;
-        for logical_token in 0..capacity {
+        for logical_token in 0..self.live_tokens {
             if self.address(logical_token)? != reference.address(logical_token) {
                 return Ok(false);
             }
         }
-        Ok(true)
+        Ok(self.address(self.live_tokens)? == reference.address(self.live_tokens))
     }
 
     fn push_page_word(
@@ -600,5 +599,19 @@ mod tests {
             plane.as_lanes(),
             &[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,]
         );
+    }
+
+    #[test]
+    fn empty_huge_capacity_verification_is_bounded_by_live_state() {
+        let config = PagedKvConfig {
+            page_size: usize::MAX,
+            physical_pages: 1,
+        };
+        let reference = PagedKvTable::new(config).unwrap();
+        let elastic =
+            ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(128).unwrap())
+                .unwrap();
+
+        assert!(elastic.verify_against(&reference).unwrap());
     }
 }
