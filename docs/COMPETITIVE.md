@@ -71,6 +71,7 @@ measured, not advertised. It does not mean absorbing CUDA.
 Related:
 
 - Numerical policy: [m9-numerical-policy.md](m9-numerical-policy.md)
+- Host maps: [INVENTORY.md](INVENTORY.md), [ONBOARDING.md](ONBOARDING.md)
 - Benchmarks: [M27_BENCHMARK_HARNESS.md](M27_BENCHMARK_HARNESS.md),
   [M28_BASELINE_COMPARISON.md](M28_BASELINE_COMPARISON.md)
 - Portability: [M34_VULKAN_LINUX.md](M34_VULKAN_LINUX.md),
