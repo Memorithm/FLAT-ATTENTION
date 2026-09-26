@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-01"
+last_updated: "2026-09-26"
 repository: Memorithm/FLAT-ATTENTION
 objective: >-
   Raise specialized attention execution maturity to evidence-backed 5/5 and make
@@ -49,6 +49,16 @@ priority_program:
   - id: FML3
     name: KV and long context interoperability
     priority: P0
+    completed_slices:
+      - id: FML3a
+        name: ElasticWord paged-KV metadata projection and shadow semantics
+        status: active_shadow_qualification
+        evidence:
+          - FLAT_PR_312_merge_16fa1bb13c8071a46ab211e9da98d1db510cb015_W128_read_only_projection
+          - FLAT_PR_314_merge_f8d7b52fb200b09dec1c32431626ebc7c1b4c352_flat_shadow_table_reencoding_W128_through_W2048
+          - ElasticXxx_merge_1206b431d6cc05f85e2d16d17d0239d1200650c5_dependency_free_ElasticWord_core
+          - FLAT_PR_315_W64_plane_epoch_shadow_active_not_yet_promoted
+          - no_live_page_table_replacement_or_memory_latency_bandwidth_model_quality_claim
     goals:
       - define_attention_view_contract_compatible_with_SLHAv2_and_TurboQuant_adapters
       - avoid_hard_coding_compressed_KV_codec_semantics
