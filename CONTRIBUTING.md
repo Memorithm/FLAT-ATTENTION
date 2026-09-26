@@ -7,6 +7,7 @@ that keep the project trustworthy.
 New contributors can start with [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
 Product position: [`docs/COMPETITIVE.md`](docs/COMPETITIVE.md) — FLAT competes
 with CUDA lock-in; it does not consume CUDA.
+Host maps: [`docs/INVENTORY.md`](docs/INVENTORY.md).
 
 ## Non-negotiable design rules
 
@@ -45,6 +46,7 @@ with CUDA lock-in; it does not consume CUDA.
    cargo test --test example_inventory
    cargo test --test example_manifest
    cargo test --test crate_inventory
+   cargo test --test workspace_inventory
    cargo run --example hello_attention # scalar-oracle smoke, no GPU
    cargo deny --all-features check advisories licenses sources
    ```
@@ -58,6 +60,7 @@ Maps:
 - Host-only vs GPU examples: [`examples/README.md`](examples/README.md)
 - Workspace crate roles: [`crates/README.md`](crates/README.md)
 - Handwritten WGSL inventory: [`shaders/README.md`](shaders/README.md)
+- Host inventory gates: [`docs/INVENTORY.md`](docs/INVENTORY.md)
 - Versus CUDA lock-in: [`docs/COMPETITIVE.md`](docs/COMPETITIVE.md)
 
 ## Validation discipline
