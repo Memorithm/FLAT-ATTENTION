@@ -396,3 +396,25 @@ deepseek_v41_long_context_program_2026_09_24:
     - no_DeepSeek_benchmark_or_quality_result_transfers_to_FLAT_without_independent_measurement
     - model_architecture_changes_such_as_CED_are_not_silently_added_to_FLAT_runtime_semantics
 
+elastic_word_kv_control_plane_2026_09_26:
+  status: active_shadow_qualification
+  ownership:
+    ElasticXxx: generic_width_lane_and_transition_contract
+    FLAT_ATTENTION: paged_KV_identity_lifecycle_and_attention_semantics
+    KVLab: comparative_experiment_design_and_transition_cost_evidence
+  completed:
+    - FLAT_PR_312_merge_16fa1bb13c8071a46ab211e9da98d1db510cb015_read_only_W128_projection_of_physical_page_plus_generation
+    - FLAT_PR_314_merge_f8d7b52fb200b09dec1c32431626ebc7c1b4c352_full_shadow_table_with_W128_W256_W512_W1024_W2048_reencoding_and_authoritative_PagedKvTable_differential_checks
+    - ElasticXxx_ElasticWord_core_contract_merge_1206b431d6cc05f85e2d16d17d0239d1200650c5
+  active:
+    - FLAT_PR_315_plane_epoch_W64_shadow_moves_generation_to_one_table_epoch_field_and_retains_only_physical_page_per_word
+  invariants:
+    - production_PagedKvTable_remains_authoritative_until_shadow_equivalence_and_promotion_gates_close
+    - width_is_carried_once_per_plane_not_tagged_per_page
+    - W64_is_authorized_only_when_no_identity_or_generation_information_is_truncated
+    - no_memory_latency_bandwidth_TTFT_TPOT_or_speedup_claim_from_structural_layout_alone
+    - every_live_promotion_requires_exact_head_required_CI_green_and_destination_requalification
+  next:
+    - qualify_FLAT_PR_315_bounded_operation_sequence_differential_gate
+    - measure_control_plane_static_and_transition_costs_under_KVLab_EWW
+    - only_then_consider_removing_per_PageEntry_generation_from_production_PagedKvTable
