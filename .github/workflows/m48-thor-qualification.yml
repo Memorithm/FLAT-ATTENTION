@@ -36,6 +36,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Prepare isolated Rust toolchain directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain_dir="$(mktemp -d "$RUNNER_TEMP/flat-m48-toolchain.XXXXXX")"
+          chmod 700 "$toolchain_dir"
+          mkdir -p "$toolchain_dir/cargo-home" "$toolchain_dir/rustup-home"
+          echo "CARGO_HOME=$toolchain_dir/cargo-home" >> "$GITHUB_ENV"
+          echo "RUSTUP_HOME=$toolchain_dir/rustup-home" >> "$GITHUB_ENV"
+          echo "$toolchain_dir/cargo-home/bin" >> "$GITHUB_PATH"
+          echo "FLAT_M48_TOOLCHAIN_DIR=$toolchain_dir" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
@@ -85,10 +98,9 @@ jobs:
           runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-m48-runtime.XXXXXX")"
           build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-m48-build.XXXXXX")"
           chmod 700 "$runtime_dir" "$build_dir"
-          mkdir -p "$runtime_dir/cargo-home" "$runtime_dir/xdg" "$runtime_dir/tmp" "$build_dir/target"
+          mkdir -p "$runtime_dir/xdg" "$runtime_dir/tmp" "$build_dir/target"
           chmod 700 "$runtime_dir/xdg" "$runtime_dir/tmp"
           echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"
-          echo "CARGO_HOME=$runtime_dir/cargo-home" >> "$GITHUB_ENV"
           echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"
           echo "TMPDIR=$runtime_dir/tmp" >> "$GITHUB_ENV"
           echo "FLAT_M48_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
@@ -223,3 +235,4 @@ jobs:
           set -euo pipefail
           [[ -z "${FLAT_M48_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_M48_BUILD_DIR"
           [[ -z "${FLAT_M48_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_M48_RUNTIME_DIR"
+          [[ -z "${FLAT_M48_TOOLCHAIN_DIR:-}" ]] || rm -rf -- "$FLAT_M48_TOOLCHAIN_DIR"
