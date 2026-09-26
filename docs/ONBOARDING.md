@@ -22,7 +22,10 @@ cargo test --test shader_inventory
 cargo test --test example_inventory
 cargo test --test example_manifest
 cargo test --test crate_inventory
+cargo test --test workspace_inventory
 ```
+
+See [`INVENTORY.md`](INVENTORY.md) for the gate map.
 
 ## 2. Read next
 
@@ -37,6 +40,7 @@ cargo test --test crate_inventory
 - Crates: [`CRATES.md`](CRATES.md) and [`crates/README.md`](../crates/README.md)
 - Examples: [`EXAMPLES.md`](EXAMPLES.md) and [`examples/README.md`](../examples/README.md)
 - Shaders: [`SHADERS.md`](SHADERS.md) and [`shaders/README.md`](../shaders/README.md)
+- Host gates: [`INVENTORY.md`](INVENTORY.md)
 
 ## 4. GPU later
 
