@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "Cargo.toml"
       - "src/api.rs"
       - "src/research_da_luc_oracle.rs"
       - "tests/fdal1_da_luc_oracle.rs"
