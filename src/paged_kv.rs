@@ -94,12 +94,6 @@ impl fmt::Display for PagedKvError {
 
 impl std::error::Error for PagedKvError {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PageEntry {
-    physical_page: usize,
-    generation: u64,
-}
-
 /// Vendor-independent logical-to-physical page table for resident KV storage.
 ///
 /// This type owns metadata only. It does not allocate device buffers or perform
@@ -115,7 +109,7 @@ pub struct PagedKvTable {
     config: PagedKvConfig,
     live_tokens: usize,
     generation: u64,
-    logical_pages: Vec<PageEntry>,
+    page_map_words: Vec<u64>,
     next_free_page: usize,
 }
 
@@ -126,7 +120,7 @@ impl PagedKvTable {
             config,
             live_tokens: 0,
             generation: 0,
-            logical_pages: Vec::new(),
+            page_map_words: Vec::new(),
             next_free_page: 0,
         })
     }
