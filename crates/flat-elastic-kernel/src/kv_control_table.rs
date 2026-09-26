@@ -440,10 +440,7 @@ mod tests {
         [128_u16, 256, 512, 1024, 2048].map(|bits| ElasticWordWidthV1::from_bits(bits).unwrap())
     }
 
-    fn assert_equivalent(
-        reference: &PagedKvTable,
-        elastic: &ElasticPagedKvTableV1,
-    ) {
+    fn assert_equivalent(reference: &PagedKvTable, elastic: &ElasticPagedKvTableV1) {
         assert!(elastic.verify_against(reference).unwrap());
         assert_eq!(elastic.len(), reference.len());
         assert_eq!(elastic.generation(), reference.generation());
@@ -497,11 +494,9 @@ mod tests {
         let mut reference = PagedKvTable::new(config).unwrap();
         reference.append(10).unwrap();
 
-        let mut elastic = ElasticPagedKvTableV1::new(
-            config,
-            ElasticWordWidthV1::from_bits(128).unwrap(),
-        )
-        .unwrap();
+        let mut elastic =
+            ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(128).unwrap())
+                .unwrap();
         elastic.append(10).unwrap();
         assert_equivalent(&reference, &elastic);
 
@@ -520,11 +515,8 @@ mod tests {
             page_size: 2,
             physical_pages: 2,
         };
-        let error = ElasticPagedKvTableV1::new(
-            config,
-            ElasticWordWidthV1::from_bits(64).unwrap(),
-        )
-        .unwrap_err();
+        let error = ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(64).unwrap())
+            .unwrap_err();
         assert_eq!(
             error,
             ElasticPagedKvTableError::WidthTooNarrow {
@@ -576,11 +568,9 @@ mod tests {
             page_size: 2,
             physical_pages: 2,
         };
-        let mut elastic = ElasticPagedKvTableV1::new(
-            config,
-            ElasticWordWidthV1::from_bits(256).unwrap(),
-        )
-        .unwrap();
+        let mut elastic =
+            ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(256).unwrap())
+                .unwrap();
         elastic.append(1).unwrap();
 
         elastic.lanes[2] = 0x55;
@@ -600,11 +590,9 @@ mod tests {
             page_size: 1,
             physical_pages: 3,
         };
-        let mut elastic = ElasticPagedKvTableV1::new(
-            config,
-            ElasticWordWidthV1::from_bits(512).unwrap(),
-        )
-        .unwrap();
+        let mut elastic =
+            ElasticPagedKvTableV1::new(config, ElasticWordWidthV1::from_bits(512).unwrap())
+                .unwrap();
         elastic.append(3).unwrap();
 
         let plane = elastic.elastic_plane().unwrap();
@@ -612,11 +600,7 @@ mod tests {
         assert_eq!(plane.word_count(), 3);
         assert_eq!(
             plane.as_lanes(),
-            &[
-                0, 0, 0, 0, 0, 0, 0, 0,
-                1, 0, 0, 0, 0, 0, 0, 0,
-                2, 0, 0, 0, 0, 0, 0, 0,
-            ]
+            &[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,]
         );
     }
 }
