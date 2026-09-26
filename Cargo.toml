@@ -35,11 +35,25 @@ naga = { version = "30.0", features = ["wgsl-in"] }
 name = "hello_attention"
 
 [[example]]
+name = "io_model"
+
+[[example]]
+name = "m27_dispatch_allocation_accounting"
+
+[[example]]
 name = "double_buffer_bench"
 required-features = ["wgpu"]
 
 [[example]]
 name = "f16_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "fdal1_da_luc_oracle_sweep"
+required-features = ["wgpu"]
+
+[[example]]
+name = "fdal2_da_luc_decode_sweep"
 required-features = ["wgpu"]
 
 [[example]]
@@ -88,6 +102,14 @@ required-features = ["wgpu"]
 
 [[example]]
 name = "m53_asymmetric_vec4_bench"
+required-features = ["wgpu"]
+
+[[example]]
+name = "m60_q1_direct_ab"
+required-features = ["wgpu"]
+
+[[example]]
+name = "regression_gate"
 required-features = ["wgpu"]
 
 [[example]]
