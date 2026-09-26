@@ -11,6 +11,7 @@ license-file = "../../LICENSE.md"
 flat-attention = { path = "../.." }
 # Exact reviewed ElasticXxx merge carrying DispatchGrid, recommendation freshness,
 # contextual kernel selection, trusted actuation gating, and the CapabilitySet hardening.
-elastic-core = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "354cfb372f568338b29a357b0671bf9315097b1d", package = "memorithm-elastic-core" }
-elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "354cfb372f568338b29a357b0671bf9315097b1d", package = "memorithm-elastic-eir" }
-elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "354cfb372f568338b29a357b0671bf9315097b1d", package = "elastic-kernel" }
+elastic-core = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "45de2aa3dd5928d9c0188feb95933b354effb342", package = "memorithm-elastic-core" }
+elastic-eir = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "45de2aa3dd5928d9c0188feb95933b354effb342", package = "memorithm-elastic-eir" }
+elastic-kernel = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "45de2aa3dd5928d9c0188feb95933b354effb342", package = "elastic-kernel" }
+elastic-kv = { git = "https://github.com/Memorithm/ElasticXxx.git", rev = "45de2aa3dd5928d9c0188feb95933b354effb342", package = "memorithm-elastic-kv" }

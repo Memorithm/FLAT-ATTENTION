@@ -151,6 +151,19 @@ impl PagedKvTable {
         self.generation
     }
 
+    /// Iterate current logical-page metadata in deterministic logical-page order.
+    ///
+    /// The iterator is allocation-free and exposes only the two authoritative
+    /// fields already carried by the table: physical page identity and table
+    /// generation. Consumers may project this stream into an external
+    /// representation contract without gaining mutation authority over the
+    /// table.
+    pub fn mapped_page_metadata(&self) -> impl ExactSizeIterator<Item = (usize, u64)> + '_ {
+        self.logical_pages
+            .iter()
+            .map(|entry| (entry.physical_page, entry.generation))
+    }
+
     pub fn append(&mut self, tokens: usize) -> Result<(), PagedKvError> {
         if tokens == 0 {
             return Ok(());
@@ -303,6 +316,24 @@ mod tests {
         assert_eq!(table.address(4).unwrap().physical_page, 1);
         assert_eq!(table.address(8).unwrap().physical_page, 2);
         assert_eq!(table.address(9), None);
+    }
+
+    #[test]
+    fn mapped_page_metadata_is_allocation_free_logical_order_surface() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+
+        let observed = table.mapped_page_metadata().collect::<Vec<_>>();
+        assert_eq!(observed, vec![(0, 0), (1, 0), (2, 0)]);
+
+        table.reset().unwrap();
+        table.append(3).unwrap();
+        let observed_after_reset = table.mapped_page_metadata().collect::<Vec<_>>();
+        assert_eq!(observed_after_reset, vec![(0, 1), (1, 1)]);
     }
 
     #[test]

@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod contextual;
+pub mod kv_control_word;
 
 use elastic_core::{BuiltinObjective, ContractId, LogicalResourceId, ObjectiveId};
 use elastic_eir::Fingerprint;
@@ -33,7 +34,7 @@ use flat_attention::RuntimeDeviceCapabilities;
 use std::fmt;
 
 /// Exact ElasticXxx revision this adapter was compiled and reviewed against.
-pub const ELASTICXXX_REVISION: &str = "354cfb372f568338b29a357b0671bf9315097b1d";
+pub const ELASTICXXX_REVISION: &str = "45de2aa3dd5928d9c0188feb95933b354effb342";
 /// Adapter schema. Bump when identity/evidence/capability translation semantics change.
 pub const ADAPTER_SCHEMA_VERSION: u32 = 2;
 /// Version tag attached to latency evidence translated from FLAT M26 records.
