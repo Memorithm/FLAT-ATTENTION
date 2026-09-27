@@ -9,8 +9,43 @@ use elastic_core::{ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthV1};
 use flat_attention::paged_kv::PagedKvTable;
 use std::fmt;
 
-/// Versioned FLAT projection contract for paged-KV control metadata.
+/// Legacy versioned FLAT projection contract for paged-KV control metadata.
 pub const FLAT_PAGED_KV_ELASTIC_WORD_V1: &str = "flat.paged-kv-elastic-word@1.0.0";
+/// Production W64 page-map projection with generation carried once per epoch.
+pub const FLAT_PAGED_KV_ELASTIC_WORD_V2: &str = "flat.paged-kv-elastic-word@2.0.0";
+/// Production page-map width: one physical-page lane per logical page.
+pub const FLAT_PAGED_KV_CONTROL_LANES_V2: u8 = 1;
+
+/// Epoch-scoped production W64 page-map snapshot.
+///
+/// The table generation is carried once for the whole snapshot and is not
+/// duplicated in each logical-page word.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PagedKvElasticWordSnapshotV2 {
+    generation: u64,
+    plane: ElasticWordPlaneV1,
+}
+
+impl PagedKvElasticWordSnapshotV2 {
+    #[must_use]
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    #[must_use]
+    pub const fn plane(&self) -> &ElasticWordPlaneV1 {
+        &self.plane
+    }
+
+    /// Exact payload bytes represented by the W64 page map plus one generation.
+    ///
+    /// This excludes Rust allocation/header overhead and makes no DRAM/cache
+    /// traffic claim.
+    #[must_use]
+    pub fn declared_payload_bytes(&self) -> usize {
+        core::mem::size_of_val(self.plane.as_lanes()) + core::mem::size_of::<u64>()
+    }
+}
 
 /// Current lossless generic width for one FLAT page mapping.
 ///
@@ -67,6 +102,29 @@ pub fn current_paged_kv_lossless_width() -> Result<ElasticWordWidthV1, PagedKvEl
     )?)
 }
 
+/// Project the authoritative production W64 page map without reconstructing
+/// per-page generation metadata.
+///
+/// The returned snapshot binds one table generation to one flat W64 plane:
+///
+/// ```text
+/// generation = eN
+/// plane      = [physical_page][physical_page][physical_page]...
+/// ```
+///
+/// This is read-only projection evidence. FLAT remains the authority for page
+/// lifecycle and mutation.
+pub fn project_paged_kv_page_map_v2(
+    table: &PagedKvTable,
+) -> Result<PagedKvElasticWordSnapshotV2, PagedKvElasticWordError> {
+    let width = ElasticWordWidthV1::from_lanes(FLAT_PAGED_KV_CONTROL_LANES_V2)?;
+    let plane = ElasticWordPlaneV1::new(width, table.mapped_page_lanes().to_vec())?;
+    Ok(PagedKvElasticWordSnapshotV2 {
+        generation: table.generation(),
+        plane,
+    })
+}
+
 /// Project current FLAT page mappings into one contiguous ElasticWord plane.
 ///
 /// Each logical page contributes exactly two lanes in logical-page order:
@@ -110,6 +168,63 @@ pub fn project_paged_kv_control_plane(
 mod tests {
     use super::*;
     use flat_attention::paged_kv::PagedKvConfig;
+
+    #[test]
+    fn production_v2_projection_is_w64_with_epoch_scoped_generation() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+
+        let snapshot = project_paged_kv_page_map_v2(&table).unwrap();
+        assert_eq!(snapshot.generation(), 0);
+        assert_eq!(snapshot.plane().width().bits(), 64);
+        assert_eq!(snapshot.plane().word_count(), 3);
+        assert_eq!(snapshot.plane().as_lanes(), &[0, 1, 2]);
+        assert_eq!(snapshot.declared_payload_bytes(), 4 * 8);
+    }
+
+    #[test]
+    fn production_v2_generation_changes_without_rewriting_page_lanes() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 3,
+        })
+        .unwrap();
+        table.append(3).unwrap();
+        let before = project_paged_kv_page_map_v2(&table).unwrap();
+
+        table.reset().unwrap();
+        table.append(3).unwrap();
+        let after = project_paged_kv_page_map_v2(&table).unwrap();
+
+        assert_eq!(before.plane().as_lanes(), after.plane().as_lanes());
+        assert_eq!(before.generation(), 0);
+        assert_eq!(after.generation(), 1);
+    }
+
+    #[test]
+    fn production_v2_can_expand_through_elasticword_without_changing_page_identity() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 2,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+
+        let snapshot = project_paged_kv_page_map_v2(&table).unwrap();
+        let w512 = ElasticWordWidthV1::from_bits(512).unwrap();
+        let expanded = snapshot
+            .plane()
+            .reference_repack_zero_extended(w512)
+            .unwrap();
+
+        assert_eq!(expanded.word_count(), 2);
+        assert_eq!(expanded.word(0).unwrap(), &[0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(expanded.word(1).unwrap(), &[1, 0, 0, 0, 0, 0, 0, 0]);
+    }
 
     #[test]
     fn projection_is_flat_w128_in_logical_page_order() {
