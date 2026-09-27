@@ -15,6 +15,11 @@ use crate::{FlatAttentionConfig, FlatAttentionError, FLAT_DECODE_PAGED_WGSL, WGS
 
 /// Maximum logical pages carried by the portable M16 uniform block.
 pub const WGSL_PAGED_MAX_LOGICAL_PAGES: usize = 256;
+/// Fixed scalar/header words preceding the page-map array in the WGSL uniform.
+pub const WGSL_PAGED_UNIFORM_HEADER_U32: usize = 12;
+/// Total encoded u32 words in the fixed-size portable page-table uniform.
+pub const WGSL_PAGED_UNIFORM_U32: usize =
+    WGSL_PAGED_UNIFORM_HEADER_U32 + WGSL_PAGED_MAX_LOGICAL_PAGES;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedDecodeLayout {
@@ -220,6 +225,24 @@ impl WgpuPagedKvTable {
         &self.entries
     }
 
+    /// Exact meaningful page-map payload bytes before uniform padding.
+    ///
+    /// This excludes the fixed uniform header and zero-padded unused page slots.
+    #[must_use]
+    pub fn page_map_payload_bytes(&self) -> usize {
+        core::mem::size_of_val(self.entries.as_slice())
+    }
+
+    /// Exact bytes encoded for the fixed-size portable paged-decode uniform.
+    ///
+    /// This includes the twelve header words and all 256 page-map slots,
+    /// including zero padding. It describes encoded uniform bytes only, not
+    /// allocator/device physical residency.
+    #[must_use]
+    pub const fn encoded_uniform_bytes(&self) -> usize {
+        WGSL_PAGED_UNIFORM_U32 * core::mem::size_of::<u32>()
+    }
+
     #[must_use]
     pub fn live_tokens(&self) -> usize {
         self.live_tokens
@@ -388,7 +411,7 @@ impl WgpuPagedDecodePipeline {
         validate_storage_binding_size("O|LSE", layout.combined_bytes, maximum_storage_bytes)?;
 
         let scale = pass.config.resolved_scale(pass.head_dim)?;
-        let mut params = Vec::with_capacity(12 + WGSL_PAGED_MAX_LOGICAL_PAGES);
+        let mut params = Vec::with_capacity(WGSL_PAGED_UNIFORM_U32);
         params.extend_from_slice(&[
             checked_u32(pass.page_table.live_tokens)?,
             checked_u32(pass.page_table.page_size)?,
@@ -404,7 +427,7 @@ impl WgpuPagedDecodePipeline {
             0,
         ]);
         params.extend_from_slice(&pass.page_table.entries);
-        params.resize(12 + WGSL_PAGED_MAX_LOGICAL_PAGES, 0);
+        params.resize(WGSL_PAGED_UNIFORM_U32, 0);
         let params_bytes = encode_u32(&params);
         let params_len = params_bytes.len() as u64;
         let maximum_uniform_bytes = limits.max_uniform_buffer_binding_size;
@@ -557,6 +580,25 @@ mod tests {
         assert_eq!(device.page_size(), 4);
         assert_eq!(device.physical_pages(), 8);
         assert_eq!(device.generation(), 0);
+    }
+
+    #[test]
+    fn device_page_map_payload_and_fixed_uniform_bytes_are_distinct() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 8,
+        })
+        .unwrap();
+        table.append(17).unwrap();
+
+        let device = WgpuPagedKvTable::from_table(&table).unwrap();
+        assert_eq!(device.entries().len(), 5);
+        assert_eq!(device.page_map_payload_bytes(), 5 * 4);
+        assert_eq!(
+            device.encoded_uniform_bytes(),
+            (WGSL_PAGED_UNIFORM_HEADER_U32 + WGSL_PAGED_MAX_LOGICAL_PAGES) * 4
+        );
+        assert_eq!(device.encoded_uniform_bytes(), 1072);
     }
 
     #[test]
