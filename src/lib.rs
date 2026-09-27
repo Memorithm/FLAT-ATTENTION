@@ -247,8 +247,7 @@ mod wgpu_paged_decode;
 pub use wgpu_paged_decode::{
     preflight_packed_u16_page_map, PagedDecodeError, PagedDecodeLayout, PagedDecodePass,
     WgpuPackedPagedKvTable16, WgpuPackedU16Preflight, WgpuPagedDecodePipeline, WgpuPagedKvTable,
-    WGSL_PAGED_U16_MAX_PHYSICAL_PAGES, WGSL_PAGED_U16_PACKED_WORDS,
-    WGSL_PAGED_U16_UNIFORM_U32,
+    WGSL_PAGED_U16_MAX_PHYSICAL_PAGES, WGSL_PAGED_U16_PACKED_WORDS, WGSL_PAGED_U16_UNIFORM_U32,
 };
 
 #[cfg(feature = "wgpu")]
