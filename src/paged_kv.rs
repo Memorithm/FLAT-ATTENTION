@@ -66,6 +66,9 @@ pub enum PagedKvError {
         current_len: usize,
     },
     GenerationOverflow,
+    PhysicalPageIndexOverflow {
+        physical_page: usize,
+    },
 }
 
 impl fmt::Display for PagedKvError {
@@ -88,17 +91,15 @@ impl fmt::Display for PagedKvError {
                 "paged KV truncate target {requested_len} exceeds current length {current_len}"
             ),
             Self::GenerationOverflow => write!(f, "paged KV generation counter overflowed"),
+            Self::PhysicalPageIndexOverflow { physical_page } => write!(
+                f,
+                "paged KV physical page index {physical_page} does not fit the W64 page-map lane"
+            ),
         }
     }
 }
 
 impl std::error::Error for PagedKvError {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PageEntry {
-    physical_page: usize,
-    generation: u64,
-}
 
 /// Vendor-independent logical-to-physical page table for resident KV storage.
 ///
@@ -115,7 +116,8 @@ pub struct PagedKvTable {
     config: PagedKvConfig,
     live_tokens: usize,
     generation: u64,
-    logical_pages: Vec<PageEntry>,
+    // Exact W64 physical-page map. Generation is carried once by the table epoch.
+    logical_pages: Vec<u64>,
     next_free_page: usize,
 }
 
@@ -153,15 +155,27 @@ impl PagedKvTable {
 
     /// Iterate current logical-page metadata in deterministic logical-page order.
     ///
-    /// The iterator is allocation-free and exposes only the two authoritative
-    /// fields already carried by the table: physical page identity and table
-    /// generation. Consumers may project this stream into an external
-    /// representation contract without gaining mutation authority over the
-    /// table.
+    /// The iterator is allocation-free. Physical page identity is carried by
+    /// one W64 lane per mapping; generation is carried once by the table epoch.
+    /// Consumers may project this stream into an external representation
+    /// contract without gaining mutation authority over the table.
     pub fn mapped_page_metadata(&self) -> impl ExactSizeIterator<Item = (usize, u64)> + '_ {
-        self.logical_pages
-            .iter()
-            .map(|entry| (entry.physical_page, entry.generation))
+        self.logical_pages.iter().copied().map(|physical_page| {
+            (
+                Self::physical_page_from_lane(physical_page),
+                self.generation,
+            )
+        })
+    }
+
+    /// Borrow the exact W64 logical-to-physical page-map lanes.
+    ///
+    /// Generation is intentionally not duplicated in this slice. A snapshot
+    /// that needs mapping freshness must pair these lanes with the table
+    /// generation returned by `Self::generation`.
+    #[must_use]
+    pub fn mapped_page_lanes(&self) -> &[u64] {
+        &self.logical_pages
     }
 
     pub fn append(&mut self, tokens: usize) -> Result<(), PagedKvError> {
@@ -185,11 +199,10 @@ impl PagedKvTable {
             // `required_pages <= physical_pages` and the cursor cannot pass the
             // last physical page.
             let physical_page = self.next_free_page;
+            let physical_lane = u64::try_from(physical_page)
+                .map_err(|_| PagedKvError::PhysicalPageIndexOverflow { physical_page })?;
             self.next_free_page = physical_page + 1;
-            self.logical_pages.push(PageEntry {
-                physical_page,
-                generation: self.generation,
-            });
+            self.logical_pages.push(physical_lane);
         }
         self.live_tokens = new_len;
         Ok(())
@@ -223,10 +236,9 @@ impl PagedKvTable {
             new_len.div_ceil(self.config.page_size)
         };
         self.logical_pages.truncate(required_pages);
-        self.next_free_page = self
-            .logical_pages
-            .last()
-            .map_or(0, |entry| entry.physical_page + 1);
+        self.next_free_page = self.logical_pages.last().map_or(0, |physical_page| {
+            Self::physical_page_from_lane(*physical_page) + 1
+        });
         self.live_tokens = new_len;
         Ok(())
     }
@@ -237,14 +249,11 @@ impl PagedKvTable {
         }
         let logical_page = logical_token / self.config.page_size;
         let offset_in_page = logical_token % self.config.page_size;
-        let entry = self.logical_pages.get(logical_page)?;
-        if entry.generation != self.generation {
-            return None;
-        }
+        let physical_page = Self::physical_page_from_lane(*self.logical_pages.get(logical_page)?);
         Some(PagedKvAddress {
-            physical_page: entry.physical_page,
+            physical_page,
             offset_in_page,
-            generation: entry.generation,
+            generation: self.generation,
         })
     }
 
@@ -273,6 +282,11 @@ impl PagedKvTable {
         self.logical_pages.clear();
         self.next_free_page = 0;
         Ok(())
+    }
+
+    fn physical_page_from_lane(physical_page: u64) -> usize {
+        usize::try_from(physical_page)
+            .expect("paged-KV W64 lane was validated from usize before insertion")
     }
 }
 
@@ -334,6 +348,36 @@ mod tests {
         table.append(3).unwrap();
         let observed_after_reset = table.mapped_page_metadata().collect::<Vec<_>>();
         assert_eq!(observed_after_reset, vec![(0, 1), (1, 1)]);
+    }
+
+    #[test]
+    fn production_page_map_is_exact_w64_with_epoch_scoped_generation() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+
+        assert_eq!(table.generation(), 0);
+        assert_eq!(table.mapped_page_lanes(), &[0_u64, 1, 2]);
+        assert_eq!(
+            core::mem::size_of_val(table.mapped_page_lanes()),
+            3 * core::mem::size_of::<u64>()
+        );
+        assert_eq!(
+            table.mapped_page_metadata().collect::<Vec<_>>(),
+            vec![(0, 0), (1, 0), (2, 0)]
+        );
+
+        table.reset().unwrap();
+        table.append(3).unwrap();
+        assert_eq!(table.generation(), 1);
+        assert_eq!(table.mapped_page_lanes(), &[0_u64, 1]);
+        assert_eq!(
+            table.mapped_page_metadata().collect::<Vec<_>>(),
+            vec![(0, 1), (1, 1)]
+        );
     }
 
     #[test]
