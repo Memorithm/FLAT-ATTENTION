@@ -245,7 +245,9 @@ pub use wgpu_decode::{
 mod wgpu_paged_decode;
 #[cfg(feature = "wgpu")]
 pub use wgpu_paged_decode::{
-    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPagedDecodePipeline, WgpuPagedKvTable,
+    PagedDecodeError, PagedDecodeLayout, PagedDecodePass, WgpuPackedPagedKvTable16,
+    WgpuPagedDecodePipeline, WgpuPagedKvTable, WGSL_PAGED_U16_MAX_PHYSICAL_PAGES,
+    WGSL_PAGED_U16_PACKED_WORDS, WGSL_PAGED_U16_UNIFORM_U32,
 };
 
 #[cfg(feature = "wgpu")]
