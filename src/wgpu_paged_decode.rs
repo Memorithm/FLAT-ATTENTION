@@ -536,7 +536,6 @@ fn encode_u32(values: &[u32]) -> Vec<u8> {
     wgpu_internal::encode_u32(values)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
