@@ -402,6 +402,30 @@ impl WgpuPackedPagedKvTable16 {
     pub const fn theoretical_encoded_uniform_bytes(&self) -> usize {
         WGSL_PAGED_U16_UNIFORM_U32 * core::mem::size_of::<u32>()
     }
+
+    /// Materialize the exact fixed-size packed-u16 shadow uniform words.
+    ///
+    /// The production shader does not consume this representation. The first
+    /// four words are derived from this table: live_tokens, page_size,
+    /// physical_pages and mapped_pages. The caller supplies the remaining
+    /// eight decode-specific header words. Packed page-map words start at
+    /// index 12 and unused fixed capacity is zero-padded.
+    pub fn shadow_uniform_words(
+        &self,
+        decode_header_tail: [u32; 8],
+    ) -> Result<Vec<u32>, PagedDecodeError> {
+        let mut words = Vec::with_capacity(WGSL_PAGED_U16_UNIFORM_U32);
+        words.extend_from_slice(&[
+            checked_u32(self.live_tokens)?,
+            checked_u32(self.page_size)?,
+            checked_u32(self.physical_pages)?,
+            checked_u32(self.mapped_pages)?,
+        ]);
+        words.extend_from_slice(&decode_header_tail);
+        words.extend_from_slice(&self.packed_entries);
+        words.resize(WGSL_PAGED_U16_UNIFORM_U32, 0);
+        Ok(words)
+    }
 }
 
 pub struct PagedDecodePass<'a> {
@@ -814,6 +838,50 @@ mod packed_u16_shadow_tests {
         assert_eq!(WGSL_PAGED_UNIFORM_U32 * 4, 1072);
     }
 
+    #[test]
+    fn packed_u16_shadow_uniform_has_exact_header_map_and_zero_padding() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 8,
+        })
+        .unwrap();
+        table.append(17).unwrap();
+
+        let packed = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+        let tail = [64, 8, 2, 0x3f00_0000, 0x447a_0000, 16, 0, 0];
+        let words = packed.shadow_uniform_words(tail).unwrap();
+
+        assert_eq!(words.len(), WGSL_PAGED_U16_UNIFORM_U32);
+        assert_eq!(&words[..4], &[17, 4, 8, 5]);
+        assert_eq!(&words[4..12], &tail);
+        assert_eq!(
+            &words[12..12 + packed.packed_entries().len()],
+            packed.packed_entries()
+        );
+        assert!(words[12 + packed.packed_entries().len()..]
+            .iter()
+            .all(|word| *word == 0));
+        assert_eq!(
+            core::mem::size_of_val(words.as_slice()),
+            packed.theoretical_encoded_uniform_bytes()
+        );
+    }
+
+    #[test]
+    fn packed_u16_shadow_uniform_preserves_odd_page_padding() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: 3,
+        })
+        .unwrap();
+        table.append(3).unwrap();
+
+        let packed = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+        let words = packed.shadow_uniform_words([0; 8]).unwrap();
+        assert_eq!(packed.packed_entries().len(), 2);
+        assert_eq!(words[12], 0 | (1 << 16));
+        assert_eq!(words[13], 2);
+    }
     #[test]
     fn packed_u16_preserves_epoch_generation_outside_page_entries() {
         let mut table = PagedKvTable::new(PagedKvConfig {
