@@ -895,7 +895,10 @@ mod packed_u16_shadow_tests {
         let after_w32 = WgpuPagedKvTable::from_table(&table).unwrap();
         let after_u16 = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
         assert!(after_u16.matches_w32(&after_w32));
-        assert_eq!(before_u16.expanded_entries_u32(), after_u16.expanded_entries_u32());
+        assert_eq!(
+            before_u16.expanded_entries_u32(),
+            after_u16.expanded_entries_u32()
+        );
         assert_ne!(before_u16.generation(), after_u16.generation());
     }
 
