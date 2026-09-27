@@ -58,6 +58,9 @@ pub enum PagedDecodeError {
     IndexSpaceExceeded {
         elements: usize,
     },
+    PhysicalPageIndexExceedsU32 {
+        physical_page: u64,
+    },
     DispatchLimit {
         actual: usize,
         maximum: u32,
@@ -109,6 +112,10 @@ impl fmt::Display for PagedDecodeError {
             Self::IndexSpaceExceeded { elements } => {
                 write!(f, "paged decode exceeds WGPU u32 index space at {elements} elements")
             }
+            Self::PhysicalPageIndexExceedsU32 { physical_page } => write!(
+                f,
+                "paged decode physical page index {physical_page} exceeds WGPU u32 page-table space"
+            ),
             Self::DispatchLimit { actual, maximum } => write!(
                 f,
                 "paged decode requires {actual} workgroups, device maximum is {maximum}"
@@ -169,41 +176,48 @@ pub struct WgpuPagedKvTable {
 
 impl WgpuPagedKvTable {
     pub fn from_table(table: &PagedKvTable) -> Result<Self, PagedDecodeError> {
-        let telemetry = table.telemetry()?;
-        if telemetry.live_tokens == 0 || telemetry.mapped_pages == 0 {
+        let live_tokens = table.len();
+        let page_lanes = table.mapped_page_lanes();
+        if live_tokens == 0 || page_lanes.is_empty() {
             return Err(PagedDecodeError::EmptyTable);
         }
-        if telemetry.mapped_pages > WGSL_PAGED_MAX_LOGICAL_PAGES {
+        if page_lanes.len() > WGSL_PAGED_MAX_LOGICAL_PAGES {
             return Err(PagedDecodeError::TooManyMappedPages {
-                actual: telemetry.mapped_pages,
+                actual: page_lanes.len(),
                 maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
             });
         }
+
         let config = table.config();
-        let mut entries = Vec::with_capacity(telemetry.mapped_pages);
-        for logical_page in 0..telemetry.mapped_pages {
-            let logical_token = logical_page.checked_mul(config.page_size).ok_or(
-                PagedDecodeError::IndexSpaceExceeded {
-                    elements: logical_page,
-                },
-            )?;
-            let address = table
-                .address(logical_token)
-                .ok_or(PagedDecodeError::EmptyTable)?;
-            if address.physical_page >= config.physical_pages {
-                return Err(PagedDecodeError::IndexSpaceExceeded {
-                    elements: address.physical_page,
-                });
+        let _ = checked_u32(config.physical_pages)?;
+        let physical_pages_u64 = u64::try_from(config.physical_pages).map_err(|_| {
+            PagedDecodeError::IndexSpaceExceeded {
+                elements: config.physical_pages,
             }
-            entries.push(checked_u32(address.physical_page)?);
+        })?;
+        let mut entries = Vec::with_capacity(page_lanes.len());
+        for &physical_page in page_lanes {
+            if physical_page >= physical_pages_u64 {
+                return Err(PagedDecodeError::PhysicalPageIndexExceedsU32 { physical_page });
+            }
+            let device_page = u32::try_from(physical_page)
+                .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU32 { physical_page })?;
+            entries.push(device_page);
         }
+
         Ok(Self {
             entries,
-            live_tokens: telemetry.live_tokens,
+            live_tokens,
             page_size: config.page_size,
             physical_pages: config.physical_pages,
-            generation: telemetry.generation,
+            generation: table.generation(),
         })
+    }
+
+    /// Exact W32 device page-map entries packed into the portable uniform.
+    #[must_use]
+    pub fn entries(&self) -> &[u32] {
+        &self.entries
     }
 
     #[must_use]
@@ -520,4 +534,64 @@ fn bytes_for_f32(len: usize) -> Result<u64, PagedDecodeError> {
 
 fn encode_u32(values: &[u32]) -> Vec<u8> {
     wgpu_internal::encode_u32(values)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::paged_kv::PagedKvConfig;
+
+    #[test]
+    fn production_w64_maps_directly_to_w32_device_entries() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 8,
+        })
+        .unwrap();
+        table.append(17).unwrap();
+
+        let device = WgpuPagedKvTable::from_table(&table).unwrap();
+        assert_eq!(table.mapped_page_lanes(), &[0, 1, 2, 3, 4]);
+        assert_eq!(device.entries(), &[0_u32, 1, 2, 3, 4]);
+        assert_eq!(device.live_tokens(), 17);
+        assert_eq!(device.page_size(), 4);
+        assert_eq!(device.physical_pages(), 8);
+        assert_eq!(device.generation(), 0);
+    }
+
+    #[test]
+    fn device_projection_tracks_epoch_generation_without_page_entry_rewrite() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+        let first = WgpuPagedKvTable::from_table(&table).unwrap();
+
+        table.reset().unwrap();
+        table.append(5).unwrap();
+        let second = WgpuPagedKvTable::from_table(&table).unwrap();
+
+        assert_eq!(first.entries(), second.entries());
+        assert_eq!(first.generation(), 0);
+        assert_eq!(second.generation(), 1);
+    }
+
+    #[test]
+    fn device_projection_preserves_truncate_and_reuse_mapping() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 4,
+            physical_pages: 6,
+        })
+        .unwrap();
+        table.append(21).unwrap();
+        table.truncate(5).unwrap();
+        table.append(8).unwrap();
+
+        let device = WgpuPagedKvTable::from_table(&table).unwrap();
+        assert_eq!(device.entries(), &[0_u32, 1, 2, 3]);
+        assert_eq!(device.generation(), table.generation());
+    }
 }
