@@ -20,6 +20,16 @@ pub const WGSL_PAGED_UNIFORM_HEADER_U32: usize = 12;
 /// Total encoded u32 words in the fixed-size portable page-table uniform.
 pub const WGSL_PAGED_UNIFORM_U32: usize =
     WGSL_PAGED_UNIFORM_HEADER_U32 + WGSL_PAGED_MAX_LOGICAL_PAGES;
+/// Maximum physical pages addressable by a packed u16 page index.
+pub const WGSL_PAGED_U16_MAX_PHYSICAL_PAGES: usize = (u16::MAX as usize) + 1;
+/// Two u16 physical-page indices are packed in each u32 word.
+pub const WGSL_PAGED_U16_PER_U32: usize = 2;
+/// Fixed packed page-map words needed for 256 logical pages.
+pub const WGSL_PAGED_U16_PACKED_WORDS: usize =
+    WGSL_PAGED_MAX_LOGICAL_PAGES / WGSL_PAGED_U16_PER_U32;
+/// Theoretical fixed uniform words if the WGSL contract adopts packed u16 pages.
+pub const WGSL_PAGED_U16_UNIFORM_U32: usize =
+    WGSL_PAGED_UNIFORM_HEADER_U32 + WGSL_PAGED_U16_PACKED_WORDS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagedDecodeLayout {
@@ -64,6 +74,9 @@ pub enum PagedDecodeError {
         elements: usize,
     },
     PhysicalPageIndexExceedsU32 {
+        physical_page: u64,
+    },
+    PhysicalPageIndexExceedsU16 {
         physical_page: u64,
     },
     DispatchLimit {
@@ -120,6 +133,10 @@ impl fmt::Display for PagedDecodeError {
             Self::PhysicalPageIndexExceedsU32 { physical_page } => write!(
                 f,
                 "paged decode physical page index {physical_page} exceeds WGPU u32 page-table space"
+            ),
+            Self::PhysicalPageIndexExceedsU16 { physical_page } => write!(
+                f,
+                "paged decode physical page index {physical_page} exceeds packed u16 page-table space"
             ),
             Self::DispatchLimit { actual, maximum } => write!(
                 f,
@@ -263,6 +280,127 @@ impl WgpuPagedKvTable {
     #[must_use]
     pub fn generation(&self) -> u64 {
         self.generation
+    }
+}
+
+
+/// Experimental host-only packed-u16 page-map projection.
+///
+/// This is not consumed by the production WGSL shader. It qualifies the exact
+/// reversible packing contract before any shader/uniform migration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WgpuPackedPagedKvTable16 {
+    packed_entries: Vec<u32>,
+    mapped_pages: usize,
+    live_tokens: usize,
+    page_size: usize,
+    physical_pages: usize,
+    generation: u64,
+}
+
+impl WgpuPackedPagedKvTable16 {
+    /// Build the packed shadow projection from the authoritative host W64 map.
+    pub fn from_table(table: &PagedKvTable) -> Result<Self, PagedDecodeError> {
+        let live_tokens = table.len();
+        let page_lanes = table.mapped_page_lanes();
+        if live_tokens == 0 || page_lanes.is_empty() {
+            return Err(PagedDecodeError::EmptyTable);
+        }
+        if page_lanes.len() > WGSL_PAGED_MAX_LOGICAL_PAGES {
+            return Err(PagedDecodeError::TooManyMappedPages {
+                actual: page_lanes.len(),
+                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+            });
+        }
+
+        let config = table.config();
+        if config.physical_pages > WGSL_PAGED_U16_MAX_PHYSICAL_PAGES {
+            return Err(PagedDecodeError::PhysicalPageIndexExceedsU16 {
+                physical_page: u64::try_from(config.physical_pages - 1)
+                    .unwrap_or(u64::MAX),
+            });
+        }
+
+        let mut packed_entries =
+            Vec::with_capacity(page_lanes.len().div_ceil(WGSL_PAGED_U16_PER_U32));
+        for pair in page_lanes.chunks(WGSL_PAGED_U16_PER_U32) {
+            let low = u16::try_from(pair[0])
+                .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU16 {
+                    physical_page: pair[0],
+                })?;
+            let high = match pair.get(1).copied() {
+                Some(value) => u16::try_from(value)
+                    .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU16 {
+                        physical_page: value,
+                    })?,
+                None => 0,
+            };
+            packed_entries.push(u32::from(low) | (u32::from(high) << 16));
+        }
+
+        Ok(Self {
+            packed_entries,
+            mapped_pages: page_lanes.len(),
+            live_tokens,
+            page_size: config.page_size,
+            physical_pages: config.physical_pages,
+            generation: table.generation(),
+        })
+    }
+
+    /// Packed u32 words, two logical-page indices per word.
+    #[must_use]
+    pub fn packed_entries(&self) -> &[u32] {
+        &self.packed_entries
+    }
+
+    /// Decode one logical-page mapping exactly.
+    #[must_use]
+    pub fn physical_page(&self, logical_page: usize) -> Option<u16> {
+        if logical_page >= self.mapped_pages {
+            return None;
+        }
+        let word = self.packed_entries[logical_page / WGSL_PAGED_U16_PER_U32];
+        let shift = (logical_page % WGSL_PAGED_U16_PER_U32) * 16;
+        Some(((word >> shift) & u32::from(u16::MAX)) as u16)
+    }
+
+    #[must_use]
+    pub const fn mapped_pages(&self) -> usize {
+        self.mapped_pages
+    }
+
+    #[must_use]
+    pub const fn live_tokens(&self) -> usize {
+        self.live_tokens
+    }
+
+    #[must_use]
+    pub const fn page_size(&self) -> usize {
+        self.page_size
+    }
+
+    #[must_use]
+    pub const fn physical_pages(&self) -> usize {
+        self.physical_pages
+    }
+
+    #[must_use]
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Useful packed page-map bytes before fixed-uniform padding.
+    #[must_use]
+    pub fn packed_page_map_bytes(&self) -> usize {
+        core::mem::size_of_val(self.packed_entries.as_slice())
+    }
+
+    /// Theoretical fixed encoded bytes if the portable shader adopts this
+    /// packing while keeping the same twelve-u32 header.
+    #[must_use]
+    pub const fn theoretical_encoded_uniform_bytes(&self) -> usize {
+        WGSL_PAGED_U16_UNIFORM_U32 * core::mem::size_of::<u32>()
     }
 }
 
@@ -634,5 +772,81 @@ mod tests {
         let device = WgpuPagedKvTable::from_table(&table).unwrap();
         assert_eq!(device.entries(), &[0_u32, 1, 2, 3]);
         assert_eq!(device.generation(), table.generation());
+    }
+}
+
+
+#[cfg(test)]
+mod packed_u16_shadow_tests {
+    use super::*;
+    use crate::paged_kv::PagedKvConfig;
+
+    #[test]
+    fn packed_u16_round_trips_even_and_odd_page_counts() {
+        for mapped_pages in [1_usize, 2, 3, 5, 16, 255, 256] {
+            let mut table = PagedKvTable::new(PagedKvConfig {
+                page_size: 1,
+                physical_pages: mapped_pages,
+            })
+            .unwrap();
+            table.append(mapped_pages).unwrap();
+
+            let packed = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+            assert_eq!(packed.mapped_pages(), mapped_pages);
+            assert_eq!(
+                packed.packed_entries().len(),
+                mapped_pages.div_ceil(WGSL_PAGED_U16_PER_U32)
+            );
+            for logical_page in 0..mapped_pages {
+                assert_eq!(
+                    packed.physical_page(logical_page),
+                    Some(u16::try_from(logical_page).unwrap())
+                );
+            }
+            assert_eq!(packed.physical_page(mapped_pages), None);
+        }
+    }
+
+    #[test]
+    fn packed_u16_halves_fixed_page_map_words() {
+        assert_eq!(WGSL_PAGED_U16_PACKED_WORDS, 128);
+        assert_eq!(WGSL_PAGED_U16_UNIFORM_U32, 140);
+        assert_eq!(WGSL_PAGED_U16_UNIFORM_U32 * 4, 560);
+        assert_eq!(WGSL_PAGED_UNIFORM_U32 * 4, 1072);
+    }
+
+    #[test]
+    fn packed_u16_preserves_epoch_generation_outside_page_entries() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 4,
+        })
+        .unwrap();
+        table.append(5).unwrap();
+        let before = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+
+        table.reset().unwrap();
+        table.append(5).unwrap();
+        let after = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+
+        assert_eq!(before.packed_entries(), after.packed_entries());
+        assert_eq!(before.generation(), 0);
+        assert_eq!(after.generation(), 1);
+    }
+
+    #[test]
+    fn physical_page_domain_above_u16_fails_closed() {
+        let table = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: WGSL_PAGED_U16_MAX_PHYSICAL_PAGES + 1,
+        })
+        .unwrap();
+        let mut table = table;
+        table.append(1).unwrap();
+
+        assert!(matches!(
+            WgpuPackedPagedKvTable16::from_table(&table),
+            Err(PagedDecodeError::PhysicalPageIndexExceedsU16 { .. })
+        ));
     }
 }
