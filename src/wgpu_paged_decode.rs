@@ -283,6 +283,74 @@ impl WgpuPagedKvTable {
     }
 }
 
+/// Planning-only eligibility report for the packed-u16 page-map shadow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WgpuPackedU16Preflight {
+    mapped_pages: usize,
+    physical_pages: usize,
+    packed_words: usize,
+}
+
+impl WgpuPackedU16Preflight {
+    #[must_use]
+    pub const fn mapped_pages(self) -> usize {
+        self.mapped_pages
+    }
+
+    #[must_use]
+    pub const fn physical_pages(self) -> usize {
+        self.physical_pages
+    }
+
+    #[must_use]
+    pub const fn packed_words(self) -> usize {
+        self.packed_words
+    }
+}
+
+/// Validate packed-u16 page-map eligibility without allocating packed storage.
+///
+/// This function preserves the same fail-closed ordering used by packed
+/// materialization: non-empty table, portable logical page limit, physical
+/// u16 domain, then individual lane conversion.
+///
+/// # Errors
+///
+/// Returns the exact PagedDecodeError that blocks packed-u16 materialization.
+pub fn preflight_packed_u16_page_map(
+    table: &PagedKvTable,
+) -> Result<WgpuPackedU16Preflight, PagedDecodeError> {
+    let live_tokens = table.len();
+    let page_lanes = table.mapped_page_lanes();
+    if live_tokens == 0 || page_lanes.is_empty() {
+        return Err(PagedDecodeError::EmptyTable);
+    }
+    if page_lanes.len() > WGSL_PAGED_MAX_LOGICAL_PAGES {
+        return Err(PagedDecodeError::TooManyMappedPages {
+            actual: page_lanes.len(),
+            maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+        });
+    }
+
+    let config = table.config();
+    if config.physical_pages > WGSL_PAGED_U16_MAX_PHYSICAL_PAGES {
+        return Err(PagedDecodeError::PhysicalPageIndexExceedsU16 {
+            physical_page: u64::try_from(config.physical_pages - 1).unwrap_or(u64::MAX),
+        });
+    }
+
+    for &physical_page in page_lanes {
+        u16::try_from(physical_page)
+            .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU16 { physical_page })?;
+    }
+
+    Ok(WgpuPackedU16Preflight {
+        mapped_pages: page_lanes.len(),
+        physical_pages: config.physical_pages,
+        packed_words: page_lanes.len().div_ceil(WGSL_PAGED_U16_PER_U32),
+    })
+}
+
 /// Experimental host-only packed-u16 page-map projection.
 ///
 /// This is not consumed by the production WGSL shader. It qualifies the exact
@@ -300,27 +368,12 @@ pub struct WgpuPackedPagedKvTable16 {
 impl WgpuPackedPagedKvTable16 {
     /// Build the packed shadow projection from the authoritative host W64 map.
     pub fn from_table(table: &PagedKvTable) -> Result<Self, PagedDecodeError> {
+        let preflight = preflight_packed_u16_page_map(table)?;
         let live_tokens = table.len();
         let page_lanes = table.mapped_page_lanes();
-        if live_tokens == 0 || page_lanes.is_empty() {
-            return Err(PagedDecodeError::EmptyTable);
-        }
-        if page_lanes.len() > WGSL_PAGED_MAX_LOGICAL_PAGES {
-            return Err(PagedDecodeError::TooManyMappedPages {
-                actual: page_lanes.len(),
-                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
-            });
-        }
-
         let config = table.config();
-        if config.physical_pages > WGSL_PAGED_U16_MAX_PHYSICAL_PAGES {
-            return Err(PagedDecodeError::PhysicalPageIndexExceedsU16 {
-                physical_page: u64::try_from(config.physical_pages - 1).unwrap_or(u64::MAX),
-            });
-        }
 
-        let mut packed_entries =
-            Vec::with_capacity(page_lanes.len().div_ceil(WGSL_PAGED_U16_PER_U32));
+        let mut packed_entries = Vec::with_capacity(preflight.packed_words());
         for pair in page_lanes.chunks(WGSL_PAGED_U16_PER_U32) {
             let low = u16::try_from(pair[0]).map_err(|_| {
                 PagedDecodeError::PhysicalPageIndexExceedsU16 {
@@ -833,6 +886,65 @@ mod packed_u16_shadow_tests {
     use super::*;
     use crate::paged_kv::PagedKvConfig;
 
+    #[test]
+    fn packed_u16_preflight_reports_exact_shape_without_allocation() {
+        for mapped_pages in [1_usize, 2, 3, 5, 16, 255, 256] {
+            let mut table = PagedKvTable::new(PagedKvConfig {
+                page_size: 1,
+                physical_pages: mapped_pages,
+            })
+            .unwrap();
+            table.append(mapped_pages).unwrap();
+
+            let preflight = preflight_packed_u16_page_map(&table).unwrap();
+            assert_eq!(preflight.mapped_pages(), mapped_pages);
+            assert_eq!(preflight.physical_pages(), mapped_pages);
+            assert_eq!(
+                preflight.packed_words(),
+                mapped_pages.div_ceil(WGSL_PAGED_U16_PER_U32)
+            );
+        }
+    }
+
+    #[test]
+    fn packed_u16_preflight_preserves_fail_closed_boundaries() {
+        let empty = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: 1,
+        })
+        .unwrap();
+        assert_eq!(
+            preflight_packed_u16_page_map(&empty),
+            Err(PagedDecodeError::EmptyTable)
+        );
+
+        let mut too_many_logical = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: WGSL_PAGED_MAX_LOGICAL_PAGES + 1,
+        })
+        .unwrap();
+        too_many_logical
+            .append(WGSL_PAGED_MAX_LOGICAL_PAGES + 1)
+            .unwrap();
+        assert_eq!(
+            preflight_packed_u16_page_map(&too_many_logical),
+            Err(PagedDecodeError::TooManyMappedPages {
+                actual: WGSL_PAGED_MAX_LOGICAL_PAGES + 1,
+                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+            })
+        );
+
+        let mut too_wide_physical = PagedKvTable::new(PagedKvConfig {
+            page_size: 1,
+            physical_pages: WGSL_PAGED_U16_MAX_PHYSICAL_PAGES + 1,
+        })
+        .unwrap();
+        too_wide_physical.append(1).unwrap();
+        assert!(matches!(
+            preflight_packed_u16_page_map(&too_wide_physical),
+            Err(PagedDecodeError::PhysicalPageIndexExceedsU16 { .. })
+        ));
+    }
     #[test]
     fn packed_u16_round_trips_even_and_odd_page_counts() {
         for mapped_pages in [1_usize, 2, 3, 5, 16, 255, 256] {
