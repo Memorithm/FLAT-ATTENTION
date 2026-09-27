@@ -396,6 +396,35 @@ impl WgpuPackedPagedKvTable16 {
         core::mem::size_of_val(self.packed_entries.as_slice())
     }
 
+    /// Expand the packed-u16 shadow map to the exact u32 page indices consumed
+    /// by the production W32 shader contract.
+    #[must_use]
+    pub fn expanded_entries_u32(&self) -> Vec<u32> {
+        (0..self.mapped_pages)
+            .map(|logical_page| {
+                u32::from(
+                    self.physical_page(logical_page)
+                        .expect("logical page is within mapped_pages"),
+                )
+            })
+            .collect()
+    }
+
+    /// Verify complete host descriptor parity with the current W32 projection.
+    ///
+    /// This compares logical page identity plus table-level metadata. It does
+    /// not claim shader equivalence because the production WGSL path still
+    /// consumes W32 entries.
+    #[must_use]
+    pub fn matches_w32(&self, w32: &WgpuPagedKvTable) -> bool {
+        self.live_tokens == w32.live_tokens()
+            && self.page_size == w32.page_size()
+            && self.physical_pages == w32.physical_pages()
+            && self.generation == w32.generation()
+            && self.mapped_pages == w32.mapped_pages()
+            && self.expanded_entries_u32() == w32.entries()
+    }
+
     /// Theoretical fixed encoded bytes if the portable shader adopts this
     /// packing while keeping the same twelve-u32 header.
     #[must_use]
@@ -828,6 +857,46 @@ mod packed_u16_shadow_tests {
             }
             assert_eq!(packed.physical_page(mapped_pages), None);
         }
+    }
+
+    #[test]
+    fn packed_u16_shadow_matches_w32_descriptor_across_page_counts() {
+        for mapped_pages in [1_usize, 2, 3, 5, 16, 64, 255, 256] {
+            let mut table = PagedKvTable::new(PagedKvConfig {
+                page_size: 4,
+                physical_pages: mapped_pages,
+            })
+            .unwrap();
+            table.append(mapped_pages * 4).unwrap();
+
+            let w32 = WgpuPagedKvTable::from_table(&table).unwrap();
+            let packed = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+            assert!(packed.matches_w32(&w32));
+            assert_eq!(packed.expanded_entries_u32(), w32.entries());
+        }
+    }
+
+    #[test]
+    fn packed_u16_shadow_matches_w32_after_epoch_reset() {
+        let mut table = PagedKvTable::new(PagedKvConfig {
+            page_size: 2,
+            physical_pages: 8,
+        })
+        .unwrap();
+        table.append(9).unwrap();
+
+        let before_w32 = WgpuPagedKvTable::from_table(&table).unwrap();
+        let before_u16 = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+        assert!(before_u16.matches_w32(&before_w32));
+
+        table.reset().unwrap();
+        table.append(9).unwrap();
+
+        let after_w32 = WgpuPagedKvTable::from_table(&table).unwrap();
+        let after_u16 = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
+        assert!(after_u16.matches_w32(&after_w32));
+        assert_eq!(before_u16.expanded_entries_u32(), after_u16.expanded_entries_u32());
+        assert_ne!(before_u16.generation(), after_u16.generation());
     }
 
     #[test]
