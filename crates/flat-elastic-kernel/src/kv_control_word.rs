@@ -43,7 +43,7 @@ impl PagedKvElasticWordSnapshotV2 {
     /// traffic claim.
     #[must_use]
     pub fn declared_payload_bytes(&self) -> usize {
-        self.plane.as_lanes().len() * core::mem::size_of::<u64>() + core::mem::size_of::<u64>()
+        core::mem::size_of_val(self.plane.as_lanes()) + core::mem::size_of::<u64>()
     }
 }
 
