@@ -283,7 +283,6 @@ impl WgpuPagedKvTable {
     }
 }
 
-
 /// Experimental host-only packed-u16 page-map projection.
 ///
 /// This is not consumed by the production WGSL shader. It qualifies the exact
@@ -316,23 +315,24 @@ impl WgpuPackedPagedKvTable16 {
         let config = table.config();
         if config.physical_pages > WGSL_PAGED_U16_MAX_PHYSICAL_PAGES {
             return Err(PagedDecodeError::PhysicalPageIndexExceedsU16 {
-                physical_page: u64::try_from(config.physical_pages - 1)
-                    .unwrap_or(u64::MAX),
+                physical_page: u64::try_from(config.physical_pages - 1).unwrap_or(u64::MAX),
             });
         }
 
         let mut packed_entries =
             Vec::with_capacity(page_lanes.len().div_ceil(WGSL_PAGED_U16_PER_U32));
         for pair in page_lanes.chunks(WGSL_PAGED_U16_PER_U32) {
-            let low = u16::try_from(pair[0])
-                .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU16 {
+            let low = u16::try_from(pair[0]).map_err(|_| {
+                PagedDecodeError::PhysicalPageIndexExceedsU16 {
                     physical_page: pair[0],
-                })?;
+                }
+            })?;
             let high = match pair.get(1).copied() {
-                Some(value) => u16::try_from(value)
-                    .map_err(|_| PagedDecodeError::PhysicalPageIndexExceedsU16 {
+                Some(value) => u16::try_from(value).map_err(|_| {
+                    PagedDecodeError::PhysicalPageIndexExceedsU16 {
                         physical_page: value,
-                    })?,
+                    }
+                })?,
                 None => 0,
             };
             packed_entries.push(u32::from(low) | (u32::from(high) << 16));
@@ -774,7 +774,6 @@ mod tests {
         assert_eq!(device.generation(), table.generation());
     }
 }
-
 
 #[cfg(test)]
 mod packed_u16_shadow_tests {
