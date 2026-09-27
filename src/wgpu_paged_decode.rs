@@ -879,7 +879,7 @@ mod packed_u16_shadow_tests {
         let packed = WgpuPackedPagedKvTable16::from_table(&table).unwrap();
         let words = packed.shadow_uniform_words([0; 8]).unwrap();
         assert_eq!(packed.packed_entries().len(), 2);
-        assert_eq!(words[12], 0 | (1 << 16));
+        assert_eq!(words[12], 1 << 16);
         assert_eq!(words[13], 2);
     }
     #[test]
