@@ -28,6 +28,8 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
       CARGO_INCREMENTAL: "0"
+      RUSTUP_HOME: ${{ runner.temp }}/flat-m53-rustup
+      CARGO_HOME: ${{ runner.temp }}/flat-m53-cargo
       SCIRUST_THOR_GPU_LOCK: /dev/nvidia0
       FLAT_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
       FLAT_THOR_IDLE_SETTLE_SECONDS: "300"
