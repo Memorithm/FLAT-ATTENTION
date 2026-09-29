@@ -1,7 +1,8 @@
 use flat_attention::{
-    FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_ROPE_WGSL, FLAT_FWD_GROUPED_WGSL,
-    FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL, FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL,
-    FLAT_FWD_PROJECTION_ROPE_WGSL, FLAT_FWD_SINGLE_WGSL, FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
+    FLAT_DECODE_PAGED_U16_SHADOW_WGSL, FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_ROPE_WGSL,
+    FLAT_FWD_GROUPED_WGSL, FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+    FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL, FLAT_FWD_PROJECTION_ROPE_WGSL, FLAT_FWD_SINGLE_WGSL,
+    FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
 };
 use naga::valid::{Capabilities, ShaderStages, SubgroupOperationSet, ValidationFlags, Validator};
 
@@ -94,4 +95,12 @@ fn subgroup_q4_shader_parses_and_validates() {
 #[test]
 fn qualified_single_row_shader_parses_and_validates() {
     validate_shader("single-row", FLAT_FWD_SINGLE_WGSL);
+}
+
+#[test]
+fn packed_u16_paged_decode_shadow_parses_and_validates() {
+    validate_shader(
+        "paged decode packed-u16 shadow",
+        FLAT_DECODE_PAGED_U16_SHADOW_WGSL,
+    );
 }
