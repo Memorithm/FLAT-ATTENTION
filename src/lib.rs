@@ -131,6 +131,9 @@ pub const FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL: &str =
 pub const FLAT_DECODE_RESIDENT_WGSL: &str = include_str!("../shaders/flat_decode_resident.wgsl");
 /// M16 q_len=1 decode kernel over paged resident K/V storage.
 pub const FLAT_DECODE_PAGED_WGSL: &str = include_str!("../shaders/flat_decode_paged.wgsl");
+/// Packed-u16 M16 shadow shader. Not wired to the production pipeline.
+pub const FLAT_DECODE_PAGED_U16_SHADOW_WGSL: &str =
+    include_str!("../shaders/flat_decode_paged_u16_shadow.wgsl");
 /// M18 portable correctness-first backward recomputation kernel.
 pub const FLAT_BACKWARD_RECOMPUTE_WGSL: &str =
     include_str!("../shaders/flat_backward_recompute.wgsl");
