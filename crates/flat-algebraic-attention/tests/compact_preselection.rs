@@ -1,8 +1,8 @@
 use flat_algebraic_attention::compact_preselection::{compact_preselect, CompactPreselectionError};
 use flat_algebraic_attention::softmax_mass::retained_softmax_mass;
 use flat_attention::api::research_structural_routing::{
-    forward_reference_structural_dense, forward_reference_structural_sparse, StructuralCandidateSet,
-    StructuralRoutingError,
+    forward_reference_structural_dense, forward_reference_structural_sparse,
+    StructuralCandidateSet, StructuralRoutingError,
 };
 use flat_attention::{forward_reference, AttentionShape, FlatAttentionConfig, FlatAttentionError};
 
@@ -78,7 +78,10 @@ fn all_accept_preserves_dense_output_and_lse() {
             forward_reference_structural_sparse(&q, &k, &v, s, cfg, &screen.candidates).unwrap();
         let dense = forward_reference(&q, &k, &v, s, cfg).unwrap();
         assert_eq!(sparse.attention, dense);
-        assert_eq!(sparse.counters.executed_pairs, screen.counters.selected_pairs);
+        assert_eq!(
+            sparse.counters.executed_pairs,
+            screen.counters.selected_pairs
+        );
     }
 }
 
@@ -310,10 +313,7 @@ fn emit_frozen_quality_panel() {
         let mut k = Vec::new();
         let mut v = Vec::new();
         for key in 0..5 {
-            k.extend_from_slice(&[
-                key as f32,
-                if adverse && key == 0 { 20.0 } else { 0.0 },
-            ]);
+            k.extend_from_slice(&[key as f32, if adverse && key == 0 { 20.0 } else { 0.0 }]);
             v.extend_from_slice(&[key as f32, 4.0 - key as f32]);
         }
         let dense = forward_reference(&q, &k, &v, s, config(false)).unwrap();
@@ -337,9 +337,7 @@ fn emit_frozen_quality_panel() {
         ];
         let scores: Vec<f64> = k
             .chunks_exact(2)
-            .map(|key| {
-                f64::from(q[0]) * f64::from(key[0]) + f64::from(q[1]) * f64::from(key[1])
-            })
+            .map(|key| f64::from(q[0]) * f64::from(key[0]) + f64::from(q[1]) * f64::from(key[1]))
             .collect();
         for (arm, candidates) in arms {
             let selected = candidates.row(4).unwrap();
