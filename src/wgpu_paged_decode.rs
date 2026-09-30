@@ -836,10 +836,7 @@ impl WgpuPackedU16PagedDecodeShadowPipeline {
         }
 
         let layout = Self::layout(pass.q_heads, pass.head_dim)?;
-        let physical_rows = checked_mul(
-            pass.page_table.physical_pages,
-            pass.page_table.page_size,
-        )?;
+        let physical_rows = checked_mul(pass.page_table.physical_pages, pass.page_table.page_size)?;
         let kv_width = checked_mul(pass.kv_heads, pass.head_dim)?;
         let kv_elements = checked_mul(physical_rows, kv_width)?;
         let kv_bytes = bytes_for_f32(kv_elements)?;
