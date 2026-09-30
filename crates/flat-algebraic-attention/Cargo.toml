@@ -7,5 +7,5 @@ publish = false
 description = "Research-only multi-algebra attention control primitives for FLAT-ATTENTION"
 license-file = "../../LICENSE.md"
 
-[dev-dependencies]
+[dependencies]
 flat-attention = { path = "../..", default-features = false }
