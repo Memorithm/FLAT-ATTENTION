@@ -43,15 +43,9 @@ pub enum CompactPreselectionError {
     Attention(FlatAttentionError),
     Routing(StructuralRoutingError),
     EmptyProjection,
-    CoordinateOutOfRange {
-        coordinate: usize,
-        head_dim: usize,
-    },
+    CoordinateOutOfRange { coordinate: usize, head_dim: usize },
     CoordinatesNotStrictlyIncreasing,
-    NonFiniteScore {
-        row: usize,
-        key_position: usize,
-    },
+    NonFiniteScore { row: usize, key_position: usize },
     AccountingOverflow,
 }
 
