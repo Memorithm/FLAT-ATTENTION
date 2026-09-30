@@ -6,7 +6,7 @@ use flat_attention::{
     WgpuPackedU16PagedDecodeShadowPipeline, FLAT_DECODE_PAGED_U16_SHADOW_WGSL,
 };
 
-fn device() -> Option<wgpu::Device> {
+fn device() -> Option<(wgpu::Device, wgpu::Queue)> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
     let adapter = match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
@@ -32,7 +32,7 @@ fn device() -> Option<wgpu::Device> {
         required_limits,
         ..Default::default()
     })) {
-        Ok((device, _queue)) => Some(device),
+        Ok((device, queue)) => Some((device, queue)),
         Err(error) if std::env::var_os("FLAT_REQUIRE_WGPU").is_none() => {
             eprintln!("WGPU device unavailable; packed-u16 shadow device test skipped: {error}");
             None
@@ -43,7 +43,7 @@ fn device() -> Option<wgpu::Device> {
 
 #[test]
 fn packed_u16_shadow_pipeline_compiles_on_selected_backend() {
-    let Some(device) = device() else {
+    let Some((device, _queue)) = device() else {
         return;
     };
 
@@ -72,7 +72,7 @@ fn packed_u16_shadow_pipeline_compiles_on_selected_backend() {
 
 #[test]
 fn packed_u16_shadow_pipeline_encodes_minimal_valid_dispatch() {
-    let Some(device) = device() else {
+    let Some((device, _queue)) = device() else {
         return;
     };
 
