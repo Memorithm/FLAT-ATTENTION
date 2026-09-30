@@ -11,7 +11,10 @@ use super::wgpu_internal;
 use core::fmt;
 
 use crate::paged_kv::{PagedKvError, PagedKvTable};
-use crate::{FlatAttentionConfig, FlatAttentionError, FLAT_DECODE_PAGED_WGSL, WGSL_MAX_HEAD_DIM};
+use crate::{
+    FlatAttentionConfig, FlatAttentionError, FLAT_DECODE_PAGED_U16_SHADOW_WGSL,
+    FLAT_DECODE_PAGED_WGSL, WGSL_MAX_HEAD_DIM,
+};
 
 /// Maximum logical pages carried by the portable M16 uniform block.
 pub const WGSL_PAGED_MAX_LOGICAL_PAGES: usize = 256;
@@ -726,6 +729,203 @@ impl WgpuPagedDecodePipeline {
     }
 }
 
+/// Research-only packed-u16 decode pass.
+///
+/// This mirrors the production paged-decode pass but binds the packed-u16
+/// shadow page table. It exists only to qualify execution before routing.
+pub struct PackedU16PagedDecodePass<'a> {
+    pub q: &'a wgpu::Buffer,
+    pub k: &'a wgpu::Buffer,
+    pub v: &'a wgpu::Buffer,
+    pub page_table: &'a WgpuPackedPagedKvTable16,
+    pub out_and_lse: &'a wgpu::Buffer,
+    pub q_heads: usize,
+    pub kv_heads: usize,
+    pub head_dim: usize,
+    pub config: FlatAttentionConfig,
+    pub theta: f32,
+    pub q_rope_position: usize,
+    pub q_causal_position: usize,
+}
+
+/// Research-only executable packed-u16 shadow pipeline.
+///
+/// Production decode continues to use WgpuPagedDecodePipeline. This type
+/// qualifies complete binding, uniform materialization and dispatch semantics
+/// for the packed-u16 WGSL shadow without changing routing.
+pub struct WgpuPackedU16PagedDecodeShadowPipeline {
+    pipeline: wgpu::ComputePipeline,
+}
+
+impl fmt::Debug for WgpuPackedU16PagedDecodeShadowPipeline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WgpuPackedU16PagedDecodeShadowPipeline")
+            .finish_non_exhaustive()
+    }
+}
+
+impl WgpuPackedU16PagedDecodeShadowPipeline {
+    pub fn new(device: &wgpu::Device) -> Result<Self, PagedDecodeError> {
+        let pipeline = wgpu_internal::create_pipeline(
+            device,
+            FLAT_DECODE_PAGED_U16_SHADOW_WGSL,
+            "flat-m16-paged-u16-shadow",
+            "flat_attention_decode_paged_u16_shadow",
+        )
+        .map_err(PagedDecodeError::PipelineValidation)?;
+        Ok(Self { pipeline })
+    }
+
+    pub fn layout(q_heads: usize, head_dim: usize) -> Result<PagedDecodeLayout, PagedDecodeError> {
+        WgpuPagedDecodePipeline::layout(q_heads, head_dim)
+    }
+
+    pub fn create_output_buffer(
+        &self,
+        device: &wgpu::Device,
+        q_heads: usize,
+        head_dim: usize,
+    ) -> Result<wgpu::Buffer, PagedDecodeError> {
+        let layout = Self::layout(q_heads, head_dim)?;
+        Ok(device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("flat-m16-paged-u16-shadow-o-lse"),
+            size: layout.combined_bytes,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        }))
+    }
+
+    pub fn encode(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        pass: PackedU16PagedDecodePass<'_>,
+    ) -> Result<PagedDecodeLayout, PagedDecodeError> {
+        if pass.page_table.live_tokens == 0 || pass.page_table.packed_entries.is_empty() {
+            return Err(PagedDecodeError::EmptyTable);
+        }
+        if pass.page_table.mapped_pages > WGSL_PAGED_MAX_LOGICAL_PAGES {
+            return Err(PagedDecodeError::TooManyMappedPages {
+                actual: pass.page_table.mapped_pages,
+                maximum: WGSL_PAGED_MAX_LOGICAL_PAGES,
+            });
+        }
+
+        validate_geometry(pass.q_heads, pass.kv_heads, pass.head_dim)?;
+        if !pass.theta.is_finite() || pass.theta <= 0.0 {
+            return Err(PagedDecodeError::InvalidTheta(pass.theta));
+        }
+        if pass.config.causal
+            && pass
+                .q_causal_position
+                .checked_add(1)
+                .ok_or(FlatAttentionError::PositionOverflow)?
+                < pass.page_table.live_tokens
+        {
+            return Err(PagedDecodeError::CausalVisibilityMismatch {
+                query_position: pass.q_causal_position,
+                kv_len: pass.page_table.live_tokens,
+            });
+        }
+
+        let covered_tokens = checked_mul(pass.page_table.mapped_pages, pass.page_table.page_size)?;
+        if covered_tokens < pass.page_table.live_tokens {
+            return Err(PagedDecodeError::IndexSpaceExceeded {
+                elements: pass.page_table.live_tokens,
+            });
+        }
+
+        let layout = Self::layout(pass.q_heads, pass.head_dim)?;
+        let physical_rows = checked_mul(
+            pass.page_table.physical_pages,
+            pass.page_table.page_size,
+        )?;
+        let kv_width = checked_mul(pass.kv_heads, pass.head_dim)?;
+        let kv_elements = checked_mul(physical_rows, kv_width)?;
+        let kv_bytes = bytes_for_f32(kv_elements)?;
+        validate_buffer("Q", pass.q, layout.q_bytes)?;
+        validate_buffer("K", pass.k, kv_bytes)?;
+        validate_buffer("V", pass.v, kv_bytes)?;
+        validate_buffer("O|LSE", pass.out_and_lse, layout.combined_bytes)?;
+
+        let limits = device.limits();
+        if pass.q_heads > limits.max_compute_workgroups_per_dimension as usize {
+            return Err(PagedDecodeError::DispatchLimit {
+                actual: pass.q_heads,
+                maximum: limits.max_compute_workgroups_per_dimension,
+            });
+        }
+        let maximum_storage_bytes = limits.max_storage_buffer_binding_size;
+        validate_storage_binding_size("Q", layout.q_bytes, maximum_storage_bytes)?;
+        validate_storage_binding_size("K", kv_bytes, maximum_storage_bytes)?;
+        validate_storage_binding_size("V", kv_bytes, maximum_storage_bytes)?;
+        validate_storage_binding_size("O|LSE", layout.combined_bytes, maximum_storage_bytes)?;
+
+        let scale = pass.config.resolved_scale(pass.head_dim)?;
+        let params = pass.page_table.shadow_uniform_words([
+            checked_u32(pass.head_dim)?,
+            checked_u32(pass.q_heads)?,
+            checked_u32(pass.kv_heads)?,
+            scale.to_bits(),
+            pass.theta.to_bits(),
+            checked_u32(pass.q_rope_position)?,
+            0,
+            0,
+        ])?;
+        let params_bytes = encode_u32(&params);
+        let params_len = params_bytes.len() as u64;
+        let maximum_uniform_bytes = limits.max_uniform_buffer_binding_size;
+        if params_len > maximum_uniform_bytes {
+            return Err(PagedDecodeError::UniformBindingTooLarge {
+                required_bytes: params_len,
+                maximum_bytes: maximum_uniform_bytes,
+            });
+        }
+
+        let params_buffer = wgpu_internal::create_uniform_buffer_init(
+            device,
+            "flat-m16-paged-u16-shadow-params",
+            &params_bytes,
+        );
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("flat-m16-paged-u16-shadow-bind-group"),
+            layout: &self.pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: storage_binding(pass.q, layout.q_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: storage_binding(pass.k, kv_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: storage_binding(pass.v, kv_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: storage_binding(pass.out_and_lse, layout.combined_bytes),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: params_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("flat-m16-paged-u16-shadow"),
+            timestamp_writes: None,
+        });
+        compute_pass.set_pipeline(&self.pipeline);
+        compute_pass.set_bind_group(0, &bind_group, &[]);
+        compute_pass.dispatch_workgroups(checked_u32(pass.q_heads)?, 1, 1);
+        drop(compute_pass);
+        Ok(layout)
+    }
+}
 fn validate_geometry(
     q_heads: usize,
     kv_heads: usize,
