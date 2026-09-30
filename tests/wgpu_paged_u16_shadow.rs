@@ -70,7 +70,6 @@ fn packed_u16_shadow_pipeline_compiles_on_selected_backend() {
     drop(pipeline);
 }
 
-
 #[test]
 fn packed_u16_shadow_pipeline_encodes_minimal_valid_dispatch() {
     let Some(device) = device() else {
