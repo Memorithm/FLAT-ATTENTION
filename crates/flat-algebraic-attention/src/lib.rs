@@ -5,8 +5,12 @@
 //! This crate is intentionally outside `flat_attention::api::v1`. Its role is
 //! to qualify algebraic decision mechanisms before any public API or runtime
 //! routing promotion.
+//!
+//! Compact screening bootstrap and research gates are documented in
+//! `docs/research/COMPACT_PRESELECTION_BOOTSTRAP.md` and the companion roadmap.
 
 pub mod adaptive_repair;
+pub mod compact_preselection;
 pub mod cooperation;
 pub mod evidence;
 pub mod experiment;
