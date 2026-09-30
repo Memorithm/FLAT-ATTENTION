@@ -13,8 +13,12 @@ fn bounded_heap_matches_exhaustive_ranking_across_shapes_and_budgets() {
                 head_dim: d,
             };
             let len = shape.tensor_len().unwrap();
-            let q: Vec<f32> = (0..len).map(|i| ((i * 7 % 11) as f32 - 5.0) / 8.0).collect();
-            let k: Vec<f32> = (0..len).map(|i| ((i * 3 % 13) as f32 - 6.0) / 8.0).collect();
+            let q: Vec<f32> = (0..len)
+                .map(|i| ((i * 7 % 11) as f32 - 5.0) / 8.0)
+                .collect();
+            let k: Vec<f32> = (0..len)
+                .map(|i| ((i * 3 % 13) as f32 - 6.0) / 8.0)
+                .collect();
             let coordinates: Vec<usize> = (0..d).step_by(2).collect();
             for causal in [false, true] {
                 let config = FlatAttentionConfig {
@@ -23,8 +27,8 @@ fn bounded_heap_matches_exhaustive_ranking_across_shapes_and_budgets() {
                 };
                 let scale = f64::from(config.resolved_scale(d).unwrap());
                 for budget in [0, 1, 2, n.saturating_sub(1), n, n + 3] {
-                    let actual = compact_preselect(&q, &k, shape, config, &coordinates, budget)
-                        .unwrap();
+                    let actual =
+                        compact_preselect(&q, &k, shape, config, &coordinates, budget).unwrap();
                     let mut evaluated_pairs = 0usize;
                     for row in 0..shape.lse_len().unwrap() {
                         let eligible = if causal { row % n + 1 } else { n };
@@ -41,9 +45,7 @@ fn bounded_heap_matches_exhaustive_ranking_across_shapes_and_budgets() {
                                 (key_position, sum * scale)
                             })
                             .collect();
-                        scored.sort_by(|a, b| {
-                            b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-                        });
+                        scored.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
                         scored.truncate(budget.min(eligible));
                         let mut expected: Vec<usize> = scored.iter().map(|entry| entry.0).collect();
                         expected.sort_unstable();
