@@ -63,3 +63,17 @@ For BANC v888 structural admission, connectome-derived sparse masks, MAA structu
 For cross-layer KV reuse, sparse-index reuse, hierarchical candidate pools, bounded replay interactions, or storage-versus-recompute work, also read the `deepseek_v41_long_context_program_2026_09_24` section of the off-main ecosystem roadmap and the corresponding DeepSeek-V4.1 extension in `ROADMAP.md`.
 
 The reviewed DeepSeek-V4.1-Flash report is an external hypothesis source, not FLAT evidence. Its CSA2 Full/Reindex/Reuse modes, hierarchical indexer, CED, FP4 KV, or bounded-replay results must not be described as implemented or reproduced by FLAT until independently qualified. Existing MAA dense-oracle, preregistration, holdout, exact-candidate identity, and physical-measurement rules remain mandatory.
+
+## Mandatory compact-preselection research bootstrap
+
+For compact-key screening before full-dimensional survivor scoring, read
+[`docs/research/COMPACT_PRESELECTION_BOOTSTRAP.md`](docs/research/COMPACT_PRESELECTION_BOOTSTRAP.md)
+and [`docs/research/COMPACT_PRESELECTION_ROADMAP.md`](docs/research/COMPACT_PRESELECTION_ROADMAP.md).
+
+CPS-1 is a coordinate-subspace ablation baseline feeding existing structural
+online-softmax oracles, not a CSA2 reproduction or a learned projection. Keep
+original numerical K/V authoritative, apply causal eligibility before ranking,
+retain the dominant-key-drop negative control, and report projected payload
+separately from total memory and physical traffic. KVLab, SLHAv2, ElasticXxx and
+SciRust handoffs require their own destination review and qualification; the
+synthetic panel does not authorize a default-route change.
