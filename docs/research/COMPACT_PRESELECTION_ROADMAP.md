@@ -50,3 +50,45 @@ SciRust is a possible destination for genuinely reusable checked selection/reduc
 ## Exit conditions
 
 A useful synthetic example is not promotion. Require an independently reproducible gain on a declared systems objective, quality within a frozen budget, all preparation/routing/repair overhead included, exact source/environment identity, and destination requalification before changing a runtime default.
+
+## CPS-TVCL — causal-domain layout study
+
+This parallel study tests whether compact-selection metadata benefits from
+changing traversal order without changing selection semantics.
+
+### CPS-TVCL-0 — index oracle
+
+Implement/query a scalar reference for the three bijections over
+`N(N+1)/2` causal pairs. Exhaustive small-N tests must prove no duplicates,
+no omissions and exact inverse mapping.
+
+### CPS-TVCL-1 — matched host comparison
+
+Freeze one CPS candidate population and compare:
+
+- existing query-major order;
+- distance-major order;
+- key-major order;
+- deterministic matched random permutation.
+
+Candidate IDs, selected density and numerical survivor work must be identical;
+only representation/traversal may differ.
+
+### CPS-TVCL-2 — structured-policy interaction
+
+Evaluate age/window predicates, Boolean page/block admission and per-key
+retention reductions against the same layouts. Separate policy benefit from
+layout benefit through factorial controls.
+
+### CPS-TVCL-3 — portable device carrier
+
+Only after host evidence freezes a candidate, bind that exact layout to the
+qualified structural WGPU carrier. Require byte-for-byte candidate identity and
+O/LSE parity before timing.
+
+### CPS-TVCL-4 — decision gate
+
+Promote no layout unless same-device end-to-end measurements show a reproducible
+benefit for a declared workload after all conversion/materialization overhead.
+Retain null or negative results and preserve the existing layout as fallback.
+
