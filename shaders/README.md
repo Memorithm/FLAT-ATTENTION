@@ -56,5 +56,6 @@ from this README, or if this README names a file that is gone.
 | `flat_decode_paged_u16_shadow.wgsl` | Packed-u16 paged-decode shader shadow. Naga-qualified only; not wired to production routing. |
 | `flat_da_luc_decode.wgsl` | DA-LUC research decode candidate. Not `api::v1`. No default routing. |
 | `flat_pvp_scalar.wgsl` | PVP-F1 scalar-u32 subset-zeta butterfly reference. Research-only; one stage per dispatch, no default routing. |
+| `flat_pvp_vec4.wgsl` | PVP-F2 vec4<u32> 128-gate physical projection candidate. Research-only; one stage per dispatch, no default routing. |
 
 See [`docs/SHADERS.md`](../docs/SHADERS.md) and [`docs/m9-numerical-policy.md`](../docs/m9-numerical-policy.md).
