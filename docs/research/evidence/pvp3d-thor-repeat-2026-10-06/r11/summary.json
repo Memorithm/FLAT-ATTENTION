@@ -1,0 +1,184 @@
+{
+  "schema": "flat.pvp3d-thor-repeatability/v1",
+  "protocol": "R11_ten_functional_diagnostic_repetitions",
+  "preregistration_commit": "e6697a8f4d9d6a5e5d64fbc5cd204331eef94511",
+  "source_revision": "ddb6f0144821dfa29d268601e7087e5001278e52",
+  "device": "NVIDIA Tegra NVIDIA Thor",
+  "backend": "Vulkan",
+  "driver": "580.00",
+  "blocks": 2,
+  "invocations": 10,
+  "complete_exact_invocations": 9,
+  "oracle_failures": [
+    {
+      "block": 2,
+      "invocation": 1,
+      "stage": "pre",
+      "k": 262144,
+      "g": 128,
+      "candidate": "Vec4",
+      "mismatch_words": 16320,
+      "first_index_actual_expected": [
+        [
+          0,
+          2037321785,
+          3549435859
+        ],
+        [
+          1,
+          4133997613,
+          4230607782
+        ],
+        [
+          2,
+          4088336476,
+          2314666888
+        ],
+        [
+          3,
+          624396622,
+          1497423403
+        ],
+        [
+          4,
+          1473923937,
+          3248907674
+        ],
+        [
+          5,
+          3363496826,
+          2947629328
+        ],
+        [
+          6,
+          380159856,
+          1978882553
+        ],
+        [
+          7,
+          3332295219,
+          3343033727
+        ]
+      ]
+    }
+  ],
+  "diagnostic_raw_samples": 13410,
+  "measured_rows": 447,
+  "skipped_rows": 165,
+  "ANF_checks": 192,
+  "rejected_measurement_observations": 1,
+  "accepted_confirmation_rows": 0,
+  "gain_confirmation": "rejected_full_state_oracle_failure_and_incomplete_occupancy",
+  "performance_claim": "none",
+  "promotion": "none",
+  "prior_correctness_failures_resolved": false,
+  "occupancy_counts": {
+    "admission:observation=observed": 10,
+    "after_anf:observation=observed": 2,
+    "measuring:observation=observed": 19,
+    "post_measurement:observation=observed": 10,
+    "measuring:observation=rejected_unknown": 1
+  },
+  "runs": [
+    {
+      "block": 1,
+      "invocation": 1,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "6a17bcdd98f4893d1fc772f205c9cb38f14c05fbd93fdf75142ccbce51114b5b"
+    },
+    {
+      "block": 1,
+      "invocation": 2,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "d23b81d0e119f4ce2253966b798aa3babf2c706a92dd3d28fa62f941f8216d1a"
+    },
+    {
+      "block": 1,
+      "invocation": 3,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "c0aa810f44f13e266a5cafd606466149e8697fb608aa3e5b0fb0d8e7d8371fee"
+    },
+    {
+      "block": 1,
+      "invocation": 4,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "b9ad7e30bede3c58eef2fa3a4256440f7a3045240db9fa7aa20478708e4f792f"
+    },
+    {
+      "block": 1,
+      "invocation": 5,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "1cf473f6c79f079cb9b6c5919c541bce1075a465f067a7e54cabd9765d2e7dd0"
+    },
+    {
+      "block": 2,
+      "invocation": 1,
+      "complete_exact_oracle": false,
+      "measured_rows": 42,
+      "skipped_rows": 3,
+      "raw_samples": 1260,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "d5c05f7c26c75dbf69511d1b6a58f42b63f0ab189c636a8232b73b0374dfa494"
+    },
+    {
+      "block": 2,
+      "invocation": 2,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "e22e335978d08c4331515a1dfcb0bf751e5d2a982846e1f2241c23dcc52137a8"
+    },
+    {
+      "block": 2,
+      "invocation": 3,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "a3bbdb7bc9b4249c0b9c37e0e860baf63f88da6f44897147e82d589d6ffeeb13"
+    },
+    {
+      "block": 2,
+      "invocation": 4,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "93b5b966204b3fe6bc838c7943d30863c2c22748eaa37c3e890e031970ebbd9f"
+    },
+    {
+      "block": 2,
+      "invocation": 5,
+      "complete_exact_oracle": true,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "timing_admitted_for_confirmation": false,
+      "log_sha256": "cf8eecaa358a2eaca3bea75f01f75d76187fa9d9206075185b76f5fe14977ce0"
+    }
+  ]
+}

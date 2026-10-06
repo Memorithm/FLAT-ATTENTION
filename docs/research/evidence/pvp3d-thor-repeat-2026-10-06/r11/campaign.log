@@ -1,0 +1,16 @@
+Running as unit: remoteops-pvp-r11-4tzr4edd-b1.service; invocation ID: 4de0ffe2dac14ca1becc1d22112ed980
+Finished with result: success
+Main processes terminated with: code=exited/status=0
+Service runtime: 51.102s
+CPU time consumed: 9.272s
+Memory peak: 93.5M
+Memory swap peak: 0B
+reservation_released_exit=0
+Running as unit: remoteops-pvp-r11-4tzr4edd-b2.service; invocation ID: ad05febad80b4c6c8e8adf0f2b05eafa
+Finished with result: success
+Main processes terminated with: code=exited/status=0
+Service runtime: 21.467s
+CPU time consumed: 9.225s
+Memory peak: 71.8M
+Memory swap peak: 0B
+reservation_released_exit=0

@@ -1,0 +1,10 @@
+{
+  "benchmark": {
+    "path": "target/release/examples/pvp3d_three_candidate_bench",
+    "sha256": "531740ef18ab2ff447ea6c022f25f89ae897b649029e5d36238a5f0105a89a2f"
+  },
+  "anf": {
+    "path": "target/release/deps/pvp_anf_bank-e9c9f854ae8c2b92",
+    "sha256": "b1990d680c6e214eef0170e5a830a55c2630a000bad1b5cee42cae902a85b3e9"
+  }
+}

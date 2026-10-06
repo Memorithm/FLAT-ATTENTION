@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+root=/var/tmp/remoteops-pvp-r9.juexk7tu
+date -u --iso-8601=ns > "$root/campaign-start.txt"
+for block in 1 2; do
+  mkdir -p "$root/block-$block"
+  scope="remoteops-pvp-r9-${root##*.}-b$block"
+  systemd-run --unit="$scope" --wait --property=RuntimeMaxSec=25m --property=TimeoutStopSec=120s --property="StandardOutput=append:$root/block-$block/control.log" --property="StandardError=append:$root/block-$block/control.log" /bin/bash "$root/control.sh" "$root" "$block"
+  grep -Fx 'reservation_released_exit=0' "$root/block-$block/control.log"
+  flock -n /dev/nvidia0 -c true
+done
+date -u --iso-8601=ns > "$root/campaign-complete.txt"

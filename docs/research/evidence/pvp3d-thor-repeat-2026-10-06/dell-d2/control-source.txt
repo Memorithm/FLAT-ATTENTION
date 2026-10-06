@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+root=/var/tmp/remoteops-pvp-dell-d2.Ue67WZ8r
+out="$root/capture"
+mkdir -p "$out/xdg"
+test "$(hostname)" = debian
+test "$(uname -m)" = x86_64
+cd "$root/source"
+test "$(git rev-parse HEAD)" = ddb6f0144821dfa29d268601e7087e5001278e52
+test -z "$(git status --porcelain)"
+printf '%s\n' '531740ef18ab2ff447ea6c022f25f89ae897b649029e5d36238a5f0105a89a2f  target/release/examples/pvp3d_three_candidate_bench' 'b1990d680c6e214eef0170e5a830a55c2630a000bad1b5cee42cae902a85b3e9  target/release/deps/pvp_anf_bank-e9c9f854ae8c2b92' | sha256sum -c - > "$out/identity-before.txt"
+exec 9<>/dev/nvidia0
+flock -n -x 9
+if flock -n /dev/nvidia0 -c true 9>&-; then exit 1; fi
+date -u --iso-8601=ns > "$out/reserved-at.txt"
+trap 'result=$?; date -u --iso-8601=ns > "$out/released-at.txt"; printf "lease_exit=%s\n" "$result" >> "$out/control.log"; exit "$result"' EXIT
+export XDG_RUNTIME_DIR="$out/xdg" WGPU_BACKEND=vulkan FLAT_REQUIRE_WGPU=1 FLAT_SOURCE_REVISION=ddb6f0144821dfa29d268601e7087e5001278e52
+probe=/var/tmp/remoteops-pvp-dell-observer/source/target/debug/remoteops-device-users
+test "$(sha256sum "$probe" | cut -d ' ' -f1)" = b0bb9662863324e244cfec3e6807acc7c33a1ad0097d79ab7856830b9b8cc775
+snapshot() {
+ printf '%s\n' "$(date -u --iso-8601=ns)" >> "$out/occupancy-times.txt"
+ result=0; "$probe" --details /dev/nvidia0 /dev/dri/renderD128 9>&- > "$out/occupancy-current.json" || result=$?
+ cat "$out/occupancy-current.json" >> "$out/occupancy.jsonl"
+ test "$result" = 0 || test "$result" = 2
+}
+snapshot
+printf 'performance_admission=none_shared_or_unknown_functional_diagnostic_only\nservices_stopped=none\n' >> "$out/control.log"
+anf_result=0
+target/release/deps/pvp_anf_bank-e9c9f854ae8c2b92 --nocapture > "$out/anf-bank.log" 2>&1 || anf_result=$?
+printf 'anf_exit=%s\n' "$anf_result" >> "$out/control.log"
+for invocation in 1 2 3; do
+ d="$out/run-$invocation"; mkdir "$d"
+ date -u --iso-8601=ns > "$d/start-at.txt"
+ timeout 1200s target/release/examples/pvp3d_three_candidate_bench --measure > "$d/pvp3d.log" 2>&1 &
+ job=$!
+ while kill -0 "$job" 2>/dev/null; do snapshot; sleep 1; done
+ result=0;wait "$job" || result=$?
+ printf 'run_%s_exit=%s\n' "$invocation" "$result" >> "$out/control.log"
+ grep -F 'PVP3d ' "$d/pvp3d.log" >> "$out/control.log" || true
+ date -u --iso-8601=ns > "$d/complete-at.txt"
+ snapshot
+done
+printf '%s\n' '531740ef18ab2ff447ea6c022f25f89ae897b649029e5d36238a5f0105a89a2f  target/release/examples/pvp3d_three_candidate_bench' 'b1990d680c6e214eef0170e5a830a55c2630a000bad1b5cee42cae902a85b3e9  target/release/deps/pvp_anf_bank-e9c9f854ae8c2b92' | sha256sum -c - > "$out/identity-after.txt"
+echo diagnostic_complete=3_processes_no_gain_confirmation >> "$out/control.log"

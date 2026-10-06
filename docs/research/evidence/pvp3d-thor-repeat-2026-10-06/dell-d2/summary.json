@@ -1,0 +1,50 @@
+{
+  "protocol": "Dell_D2_three_functional_diagnostic_runs",
+  "preregistration_commit": "2449d2a080d5e964bec0e43a351f98aa6f59408d",
+  "source_revision": "ddb6f0144821dfa29d268601e7087e5001278e52",
+  "device": "Dell PowerEdge T430",
+  "architecture": "x86_64",
+  "compiler": "Rust 1.89.0",
+  "adapter": "NVIDIA GeForce RTX 4060",
+  "backend": "Vulkan",
+  "driver": "595.45.04",
+  "invocations": 3,
+  "ANF_checks": 96,
+  "measured_rows": 135,
+  "skipped_rows": 54,
+  "raw_samples": 4050,
+  "all_oracles_exact": true,
+  "performance_admission": "none_shared_device_users",
+  "services_stopped": [],
+  "performance_claim": "none",
+  "promotion": "none",
+  "runs": [
+    {
+      "invocation": 1,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "exact_pre_and_post_oracles": true
+    },
+    {
+      "invocation": 2,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "exact_pre_and_post_oracles": true
+    },
+    {
+      "invocation": 3,
+      "measured_rows": 45,
+      "skipped_rows": 18,
+      "raw_samples": 1350,
+      "exact_pre_and_post_oracles": true
+    }
+  ],
+  "observer": {
+    "source_revision": "7cc8203ea9c69349fe19198efe8d04784165d8bc",
+    "supporting_workspace_revision": "a6c6c6c2e7ba082a957902d0aab18ba01c0672a5",
+    "materialization": "same_pinned_workspace_subset_as_Thor_rebuilt_for_x86_64",
+    "binary_sha256": "b0bb9662863324e244cfec3e6807acc7c33a1ad0097d79ab7856830b9b8cc775"
+  }
+}

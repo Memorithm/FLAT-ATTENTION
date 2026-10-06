@@ -3,10 +3,7 @@
 use std::sync::mpsc;
 #[test]
 fn completed_uploads_and_reused_size_readbacks_preserve_every_word() {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::VULKAN,
-        ..wgpu::InstanceDescriptor::new_without_display_handle()
-    });
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
         force_fallback_adapter: false,
@@ -16,9 +13,9 @@ fn completed_uploads_and_reused_size_readbacks_preserve_every_word() {
     let Ok(adapter) = adapter else {
         assert!(
             std::env::var_os("FLAT_REQUIRE_WGPU").is_none(),
-            "required Vulkan adapter unavailable"
+            "required WGPU adapter unavailable"
         );
-        eprintln!("No Vulkan adapter; transfer test not executed");
+        eprintln!("No WGPU adapter; transfer test not executed");
         return;
     };
     let info = adapter.get_info();

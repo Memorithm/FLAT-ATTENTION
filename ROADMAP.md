@@ -1265,6 +1265,12 @@ retains 15 measured three-candidate panels, six limit-rejected panels and
 physical ANF correctness checks. External admission review and repeatability
 remain open; this capture does not promote a runtime selection policy.
 
+[Repeated Thor execution and native Dell diagnosis](docs/research/PVP3D_THOR_REPETITIONS_AND_DELL_2026_10_07.md)
+are now retained. The requested ten-process Thor battery passed 9/10 full-state
+oracles; one process returned 16320 wrong words. All gains remain unconfirmed.
+The three native Dell RTX 4060 tests passed, with shared-device observations
+and no performance admission. Earlier failed campaigns remain archived.
+
 ## PVP-F4 — subgroup/double-buffer candidates
 
 - [ ] subgroup operations capability-gated with deterministic fallback;

@@ -1,0 +1,8 @@
+performance_admission=none_shared_or_unknown_functional_diagnostic_only
+services_stopped=none
+anf_exit=0
+run_1_exit=0
+run_2_exit=0
+run_3_exit=0
+diagnostic_complete=3_processes_no_gain_confirmation
+lease_exit=0
