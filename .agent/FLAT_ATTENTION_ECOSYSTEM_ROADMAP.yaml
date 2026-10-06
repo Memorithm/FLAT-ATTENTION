@@ -788,7 +788,10 @@ PVP_physical_reservation_capture_2026_10_06:
   status: operator_capture_retained_external_admission_review_and_repeatability_open
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_pull_request: 342
-  evidence_head: c08507ae7357eef5ff7da2f62ee8025dccc46dd4
+  evidence_head: f38df177dbb82331f03f0a85b3eab022e4581f3e
+  evidence_merge_sha: a718feba78518fde7cba19a40399b48948a5922e
+  evidence_status: merged
+  evidence_exact_head_CI: {rust: success, wgpu_device: success, cargo_deny: success, analyze: success, CodeQL: success}
   execution_source: 50c0230cc645bd44f1520e2c7194878a4b13009c
   protocol: docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md
   report: docs/research/PVP3D_PHYSICAL_THOR_OPERATOR_CAPTURE_2026_10_06.md
@@ -816,6 +819,9 @@ PVP_physical_reservation_capture_2026_10_06:
   physical_ANF:
     cases: 24
     candidate_checks: 96
+    executable_sha256: 4458f8e245476cb5ec65ace1b8ab57f09bc7a9e4e137a4e70328b9652987adfa
+    executable_hash_observation: after_capture_before_any_further_build
+    matching_executables_in_fresh_target: 1
     kernels: [scalar_u32, vec4, fused2, tile8]
     truth_and_coefficient_recovery: exact
   unchanged_PVP3d:
