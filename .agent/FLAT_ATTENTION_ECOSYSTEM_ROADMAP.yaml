@@ -451,7 +451,7 @@ pascal_vector_projection_program_2026_10_06:
     PVP_FLAT0_FLAT1:
       status: implementation_PR_open_exact_head_CI_pending
       pull_request: 334
-      exact_head: eb97cc21b1dad7678d53a1c621af244688362d77
+      exact_head: 146cf9de8619860cb7191cedb440c2b3c52f2346
       scope:
         - portable_u32_projection_of_pvp_bitplanes_v1
         - exact_storage_padding_and_contract_identity
