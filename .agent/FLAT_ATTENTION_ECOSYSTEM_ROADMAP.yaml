@@ -488,6 +488,41 @@ pascal_vector_projection_program_2026_10_06:
         - no_autotuning
         - no_performance_claim
       promotion: qualified_for_stage_fusion_candidates
+    PVP_FLAT3A_FUSED2:
+      status: frozen_correctness_slice_not_opened
+      prerequisite:
+        pull_request: 335
+        merge_sha: b91ed691ee6b4ea62b11309b36b052d8c266ea5e
+      candidate:
+        name: first_two_stages_register_fused_vec4
+        semantics:
+          - same_PVP_vec4_physical_layout
+          - same_subset_zeta_stage_order
+          - one_invocation_owns_four_addresses_and_one_128_gate_vector
+          - fuse_stride_1_and_stride_2_in_registers
+          - remaining_stages_reuse_qualified_PVP2_vec4_stage_kernel_from_stride_4
+          - K_less_than_4_uses_qualified_standard_vec4_path
+      required_qualification:
+        - deterministic_host_fused2_vs_full_vec4_reference_bit_exact
+        - WGSL_Naga_validation
+        - actual_WGPU_readback_exact_parity
+        - canonical_padding_preserved
+        - Vulkan_lavapipe_green
+        - Metal_green
+        - Direct3D12_green
+      accounting:
+        - retain_exact_logical_XOR_count
+        - report_vec4_updates
+        - report_logical_dispatch_count_separately
+        - expected_dispatch_reduction_is_structural_not_a_latency_claim
+      exclusions:
+        - no_workgroup_shared_memory
+        - no_subgroup
+        - no_double_buffer
+        - no_autotuning
+        - no_default_routing_change
+        - no_performance_claim
+      promotion: blocked_until_exact_head_CI_and_device_parity_are_green
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
