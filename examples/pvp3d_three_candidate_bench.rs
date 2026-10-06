@@ -136,6 +136,10 @@ impl Harness {
             .flat_map(|word| word.to_le_bytes())
             .collect();
         self.queue.write_buffer(&source, 0, &encoded);
+        // Make initial upload completion explicit before a resident reset.
+        // This fence stays outside every warmup and measured wall interval.
+        self.queue.submit(None);
+        self.wait();
         drop(encoded);
         let states: [wgpu::Buffer; 3] = std::array::from_fn(|_| {
             self.device.create_buffer(&wgpu::BufferDescriptor {
