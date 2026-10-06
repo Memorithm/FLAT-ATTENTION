@@ -77,3 +77,10 @@ retain the dominant-key-drop negative control, and report projected payload
 separately from total memory and physical traffic. KVLab, SLHAv2, ElasticXxx and
 SciRust handoffs require their own destination review and qualification; the
 synthetic panel does not authorize a default-route change.
+
+
+## Mandatory SML/PVP hardware projection bootstrap
+
+For Pascal/subset-zeta, massive ANF-bank, bitplane-transpose, Boolean-butterfly or SML hardware-projection work, read [`docs/research/PASCAL_VECTOR_PROJECTION_BOOTSTRAP.md`](docs/research/PASCAL_VECTOR_PROJECTION_BOOTSTRAP.md) and the current off-main ecosystem roadmap.
+
+For this programme the target path is CPU/WGPU/open-GPU. The installed GPU driver is the only vendor-specific software layer admitted; CUDA, NVRTC, cuDNN, TensorRT/TensorRT-LLM, NVML, CUTLASS and vendor SDK bridges are not required dependencies. FLAT owns GPU kernel realization/qualification, not SML model semantics, and must not become a mandatory runtime dependency of the final SML model.
