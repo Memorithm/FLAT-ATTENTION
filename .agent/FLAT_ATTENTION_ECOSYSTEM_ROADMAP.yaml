@@ -1,7 +1,7 @@
 schema_version: 1
 kind: flat_attention_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-10-06"
+last_updated: "2026-10-07"
 repository: Memorithm/FLAT-ATTENTION
 intended_consumer: autonomous_coding_agent
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
@@ -845,3 +845,67 @@ PVP_physical_reservation_capture_2026_10_06:
     - no_universal_winner_default_route_autotuning_or_model_quality_promotion
     - slower_neutral_and_limit_rejected_panels_retained
     - frozen_PVP3b_not_run_or_modified
+
+PVP_repetition_diagnosis_2026_10_07:
+  status: ten_Thor_diagnostic_processes_completed_gain_confirmation_rejected
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_pull_request: 343
+  evidence_exact_head: 3595eab7bc914204aab9494f7bc466badba17a7d
+  evidence_status: awaiting_exact_head_CI
+  report: docs/research/PVP3D_THOR_REPETITIONS_AND_DELL_2026_10_07.md
+  artifacts: docs/research/evidence/pvp3d-thor-repeat-2026-10-06/
+  repeated_execution_source: ddb6f0144821dfa29d268601e7087e5001278e52
+  Thor_R11:
+    protocol_commit: e6697a8f4d9d6a5e5d64fbc5cd204331eef94511
+    independently_released_reservations: 2
+    fresh_processes: 10
+    complete_exact_processes: 9
+    failure: {block: 2, invocation: 1, K: 262144, G: 128, candidate: vec4, mismatched_u32_words: 16320}
+    diagnostic_raw_samples: 13410
+    ANF_candidate_checks: 192
+    rejected_measuring_observations: 1
+    accepted_confirmation_rows: 0
+    gain_confirmation: rejected
+    services_restored_original_policies: true
+    guards_trace_instances_and_device_lock_released: true
+  Thor_R8: {fresh_processes: 3, complete_exact_processes: 3, raw_samples: 4050, ANF_candidate_checks: 96}
+  Dell_D2:
+    device: Dell_PowerEdge_T430_x86_64_RTX_4060
+    backend: Vulkan
+    driver: "595.45.04"
+    native_compiler: Rust_1_89_0
+    fresh_processes: 3
+    complete_exact_processes: 3
+    raw_diagnostic_samples: 4050
+    ANF_candidate_checks: 96
+    admission: none_shared_device_users_functional_diagnosis_only
+    services_stopped: false
+    cooperative_device_lock_released: true
+  retained_history:
+    - R1_R2_R9_R10_occupancy_rejections_remain_invalid_not_replaced
+    - R3_R4_R5_R6_R7_large_width_exact_failures_retained_with_lossless_delta_reconstruction
+    - D1_shader_free_copy_fault_retained_without_exclusive_admission
+    - R3_and_R9_setup_defects_and_R8_stale_completion_marker_erratum_retained
+    - ineffective_upload_fence_and_buffer_retention_hypotheses_reverted_in_final_benchmark
+  RemoteOps_observer:
+    detailed_v2_PR: 268
+    detailed_v2_head: 7cc8203ea9c69349fe19198efe8d04784165d8bc
+    detailed_v2_merge: 550a4e3dc0c0497b6e171c067ce9455410540381
+    bounded_indexed_aggregation_PR: 269
+    bounded_indexed_aggregation_head: 5cce03a99a7c25779116d3fb20df2e7a5aa8fcaa
+    bounded_indexed_aggregation_merge: 25e7f6ca458f37527f541a7d53e9aceaa818ac79
+    both_exact_head_CI: success
+    capture_observer_source: PR268_unchanged_mid_measurement
+    partial_observations_remain_partial: true
+    idle_and_exclusivity_capabilities: false
+  remaining_gates:
+    - isolate_upload_copy_execution_mapping_or_lifetime_fault_without_asserting_driver_root_cause
+    - complete_controlled_device_observation_and_independent_admission_review
+    - new_prospectively_frozen_exact_repeatability_campaign
+    - SML_model_aligned_study_and_destination_internalization_requalification
+  promotion: none
+  boundary:
+    - no_SML_model_quality_default_route_runtime_selection_or_autotuning_claim
+    - no_pooling_of_Thor_and_Dell_timings_or_discarding_failed_processes
+    - final_SML_self_sufficiency_and_separate_SML_HARNESS_unchanged
+    - driver_only_vendor_layer_Rust_CPU_WGPU_open_backend_policy_preserved
