@@ -59,7 +59,10 @@ impl fmt::Display for FlatPvpError {
         match self {
             Self::ZeroAddresses => write!(f, "FLAT PVP requires at least one address"),
             Self::AddressesNotPowerOfTwo { addresses } => {
-                write!(f, "FLAT PVP address count {addresses} is not a power of two")
+                write!(
+                    f,
+                    "FLAT PVP address count {addresses} is not a power of two"
+                )
             }
             Self::ZeroGates => write!(f, "FLAT PVP requires at least one gate"),
             Self::ArithmeticOverflow => write!(f, "FLAT PVP size computation overflowed"),
@@ -71,7 +74,10 @@ impl fmt::Display for FlatPvpError {
                 "FLAT PVP storage has {actual_words} u32 words, expected {expected_words}"
             ),
             Self::NonZeroPadding { major_index } => {
-                write!(f, "FLAT PVP canonical padding is non-zero at major index {major_index}")
+                write!(
+                    f,
+                    "FLAT PVP canonical padding is non-zero at major index {major_index}"
+                )
             }
             Self::IndexSpaceExceeded { value } => {
                 write!(f, "FLAT PVP value {value} exceeds WGSL u32 index space")
@@ -224,10 +230,7 @@ impl FlatPvpU32BitplanesV1 {
         }
     }
 
-    pub fn from_words(
-        layout: FlatPvpU32LayoutV1,
-        words: Vec<u32>,
-    ) -> Result<Self, FlatPvpError> {
+    pub fn from_words(layout: FlatPvpU32LayoutV1, words: Vec<u32>) -> Result<Self, FlatPvpError> {
         if words.len() != layout.storage_words() {
             return Err(FlatPvpError::StorageLengthMismatch {
                 expected_words: layout.storage_words(),
@@ -369,8 +372,7 @@ pub fn pvp_direct_subset_oracle_u32(
             let mut parity = false;
             let mut submask = address;
             loop {
-                parity ^=
-                    gate_major[gate_base + submask / 64] & (1_u64 << (submask % 64)) != 0;
+                parity ^= gate_major[gate_base + submask / 64] & (1_u64 << (submask % 64)) != 0;
                 if submask == 0 {
                     break;
                 }
