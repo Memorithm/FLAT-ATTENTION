@@ -85,11 +85,13 @@ ecosystem_interfaces:
     desired_contract:
       - explicit_KV_view_layout_and_quality_contract
       - no_direct_dependency_on_SLHA_internal_tile_details_without_versioned_adapter
-  Memorithm/NVIDIA-Native-Inference-Stack:
-    relationship: model_runtime_and_possible_native_NVIDIA_execution_partner
+  Memorithm/NNIS:
+    relationship: portable_native_neural_inference_runtime_partner_with_legacy_NVIDIA_specific_reference_paths
     status: planned_not_assumed
     desired_contract:
-      - NNIS_may_host_or_call_qualified_attention_execution_through_explicit_adapter
+      - NNIS_may_host_or_call_qualified_FLAT_or_PVP_execution_through_explicit_CPU_WGPU_portable_adapters
+      - new_cross_repository_paths_must_not_require_NVIDIA_software_above_the_installed_GPU_driver
+      - legacy_NNIS_CUDA_NVRTC_paths_are_not_authoritative_for_portable_FLAT_or_PVP_claims
       - do_not_merge_general_NNIS_runtime_ownership_into_FLAT_ATTENTION
   Memorithm/forge:
     relationship: optional_candidate_search_engine
@@ -153,7 +155,7 @@ roadmap:
       - SciRust_tensor_integration
       - ElasticXxx_candidate_and_plan_bridge
       - SLHAv2_KV_view_adapter
-      - NNIS_runtime_adapter
+      - NNIS_portable_CPU_WGPU_runtime_adapter
       - SciRust_Verify_evidence_envelope
       - Hub_component_contract
   - id: FA6
