@@ -9,7 +9,7 @@ for block in range(1,3):
  assert states.count("ActiveState=active")==4 and states.count("SubState=running")==4
  assert states.count("RefuseManualStart=no")==4 and states.count("Restart=on-failure")==3 and states.count("Restart=no")==1
  obs=[json.loads(l) for l in (b/"occupancy.jsonl").read_text().splitlines()]
- tags=(b/"occupancy-times.txt").read_text().splitlines()
+ tags=(b/"occupancy-times.tsv").read_text().splitlines()
  decisions=(b/"occupancy-decisions.txt").read_text().splitlines()
  assert len(obs)==len(tags)
  accepted_observations=0
@@ -29,7 +29,7 @@ for block in range(1,3):
      owner[e["child_pid"]]=owner.get(e["pid"],False) and not exited.get(e["pid"],False)
      exited[e["child_pid"]]=False
     else: exited[e["pid"]]=True
-   scope="/system.slice/"+pathlib.Path((b/"trace-instance-path.txt").read_text().strip()).name+".service"
+   scope=f"/system.slice/remoteops-pvp-r11-{root.name.split('.')[-1]}-b{block}.service"
    gaps=o["gaps"]
    accepted=bool(gaps) and sum(g["count"] for g in gaps)==o["unreadable_entries"] and all(
     (g["stage"]=="fd_metadata" and g["process_identity_verified"] and g["cgroup_v2"]==scope) or

@@ -1,0 +1,2 @@
+{"campaign":"r8","archived_timestamp_filename":"occupancy-times.txt","scope_identity":"saved_trace_instance_basename","summary_reproduced_exactly":true}
+{"campaign":"r11","archived_timestamp_filename":"occupancy-times.txt","scope_identity":"saved_trace_instance_basename","summary_reproduced_exactly":true}

@@ -160,6 +160,11 @@ test validates every copied word with explicit upload completion and bounded
 The final test discovers the platform's WGPU backend; CI validates the exact
 final source independently.
 
+The archived R8/R11 replay analyzers use the retained occupancy-times.txt and
+recorded trace-instance identity, so replay works from an arbitrary archive
+location. Both reproduced the captured JSON summaries exactly. Original host
+analysis sources are retained separately as audit text.
+
 Next qualification gate: isolate the failing transfer/execution/readback stage
 under a minimal large-width reproducer and obtain complete controlled
 observations, then rerun a new prospectively frozen battery. SML keeps model

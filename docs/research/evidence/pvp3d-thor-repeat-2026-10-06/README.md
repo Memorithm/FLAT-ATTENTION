@@ -16,3 +16,13 @@ The original logs stay on Thor and their full hashes/byte counts are retained.
 R11's native compact output retains exact mismatch count and first eight tuples.
 The R8 stale five-process completion marker and R3/R9 setup defects are explained
 in the report; original controller/log bytes remain unchanged.
+
+Replay from this archive directory (no live GPU or /proc access required):
+
+```sh
+python3 r8/analyze-source.txt r8
+python3 r11/analyze-source.txt r11
+```
+
+Both reproduce the captured summary JSON exactly. The original host-oriented
+sources are retained as analyze-host-source.txt, separately from replay sources.
