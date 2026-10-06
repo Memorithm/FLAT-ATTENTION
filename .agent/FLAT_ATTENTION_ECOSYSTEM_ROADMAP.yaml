@@ -470,7 +470,7 @@ pascal_vector_projection_program_2026_10_06:
     PVP_FLAT2_VEC4:
       status: implementation_PR_open_exact_head_CI_pending
       pull_request: 335
-      exact_head: f1aeb022a3c8f15b491c4bbcf426e1a4032fe8f2
+      exact_head: 78f4cf73620d3adf589956c136ff1038ef82cac8
       prerequisite:
         pull_request: 334
         merge_sha: 004f378dcaf89b289d3d675db6085a7db70bbee3
