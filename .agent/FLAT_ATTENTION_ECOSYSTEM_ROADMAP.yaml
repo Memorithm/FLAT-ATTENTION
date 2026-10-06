@@ -467,6 +467,24 @@ pascal_vector_projection_program_2026_10_06:
         - autotuning_deferred
         - no_performance_claim
       promotion: qualified_reference_for_vec4_and_stage_fusion_candidates
+    PVP_FLAT2_VEC4:
+      status: implementation_starting_from_qualified_scalar_reference
+      prerequisite:
+        pull_request: 334
+        merge_sha: 004f378dcaf89b289d3d675db6085a7db70bbee3
+      scope:
+        - physical_layout_K_by_ceil_G_over_128_vec4_u32
+        - exact_host_projection_from_same_gate_major_logical_source
+        - vec4_XOR_one_vector_per_invocation
+        - one_butterfly_stage_per_dispatch
+        - actual_WGPU_readback_exact_parity
+      exclusions:
+        - no_stage_fusion
+        - no_subgroup
+        - no_double_buffer
+        - no_autotuning
+        - no_performance_claim
+      promotion: blocked
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
