@@ -1243,6 +1243,13 @@ The execution target is a regular address-major bitplane matrix, not explicit la
 
 ## PVP-F3 — stage fusion and workgroup tiling
 
+- [x] frozen explicit ANF-bank semantic qualification corpus and direct monomial oracle;
+- [x] add mandatory WGPU qualification of all four existing realizations on the
+  24-case ANF corpus, including coefficient recovery and complete padding checks.
+
+See [`docs/research/PVP_ANF_BANK_QUALIFICATION_PROTOCOL.md`](docs/research/PVP_ANF_BANK_QUALIFICATION_PROTOCOL.md).
+This functional qualification does not replace the later model-aligned study.
+
 - [x] correctness-qualified fused2 register prefix and tile8 workgroup prefix (PRs #336 and #339);
 - [x] explicit tile8 workgroup-storage/barrier budget: 8 invocations, 128 bytes;
 - [ ] compare one-stage, multi-stage and global-pass controls.

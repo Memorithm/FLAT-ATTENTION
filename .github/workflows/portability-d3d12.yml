@@ -68,3 +68,7 @@ jobs:
             Write-Output "::error title=M35 D3D12 test failure::$tail"
             exit $exitCode
           }
+      - name: Explicit ANF-bank semantics on D3D12 WARP
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --locked --features wgpu --test pvp_anf_bank -- --nocapture --test-threads=1
