@@ -527,9 +527,16 @@ pascal_vector_projection_program_2026_10_06:
         - no_performance_claim
       promotion: correctness_qualified_timing_still_blocked
     PVP_FLAT3B_FUSED2_BENCH:
-      status: implementation_PR_open_exact_head_CI_pending
+      status: merged_benchmark_surface_first_physical_attempt_deferred_gpu_busy
       pull_request: 337
-      exact_head: 14d645455a9582c0c842cd98b46d9cdc912980cb
+      merge_sha: 26690c7c467db24ae5fc3bebe235c1f0310f4f2a
+      first_physical_attempt:
+        workflow_run: 37513743739
+        job: 112441232837
+        verdict: deferred_gpu_busy
+        accepted_measurement_rows: 0
+        performance_claim: none
+      retry_observation_pr: 338
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_exact_head_correctness_green_before_timing
