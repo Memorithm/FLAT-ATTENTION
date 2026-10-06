@@ -61,3 +61,31 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 ```
 
 Required repository CI must pass on the exact final PR head before merge. The workflow log is the execution evidence; this document alone is not a test result.
+
+## Tri-View Causal Lattice (TVCL) extension
+
+TVCL is an optional layout experiment for the same causal pair domain consumed
+by compact preselection. It does not alter CPS selector scores, dense reference
+semantics, K/V authority or the frozen negative controls.
+
+For `0 <= j <= i < N`, the three candidate storage/traversal orders are
+query-major, distance-major (`d=i-j`) and key-major. All must enumerate the
+same eligible pair set exactly. The first gate is a deterministic scalar Rust
+bijection oracle; only after parity may the layout be applied to bitpacked
+candidate metadata.
+
+Mandatory controls and boundaries:
+
+- existing CPS layout/order;
+- deterministic matched random permutation;
+- exact same candidate set and density;
+- exact same numerical survivor scoring;
+- causal eligibility applied before any ranking or layout transform;
+- no 50% memory claim against fused FLAT from triangular counting;
+- logical contiguity is not physical bandwidth or latency evidence;
+- physical WGPU timing is allowed only after exact host/device candidate identity.
+
+TVCL is expected to be most informative for distance/age-banded admission and
+per-key retention scans. That expectation is a hypothesis to falsify, not a
+runtime policy.
+

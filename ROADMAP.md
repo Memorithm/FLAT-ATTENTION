@@ -1268,3 +1268,63 @@ The execution target is a regular address-major bitplane matrix, not explicit la
 - [ ] FLAT is never required for final SML model sufficiency.
 
 PVP evidence cannot change default attention routing or establish attention replacement/model quality by itself.
+
+
+# TVCL research overlay — Tri-View Causal Lattice layout
+
+Status: research-only layout/preregistration track added 2026-10-05. This track
+does not change the stable attention API, dense numerical oracle, softmax
+semantics or default routing.
+
+For the causal domain `0 <= j <= i < N`, TVCL treats the same
+`N(N+1)/2` eligible query/key pairs as one logical set with three bijective
+traversal orders:
+
+```text
+query-major:    kq = i(i+1)/2 + j
+distance-major: d = i-j
+                kd = d*N - d(d-1)/2 + j
+key-major:      kk = j*N - j(j-1)/2 + (i-j)
+```
+
+These are address/order transforms, not new attention weights and not evidence
+that a geometrical "rotation" is faster. Pascal/binomial coefficients are not
+used as attention values.
+
+## TVCL gates
+
+1. **TVCL-0 — scalar bijection oracle**
+   - prove exhaustive small-N coverage, uniqueness and round-trip coordinate
+     recovery for all three layouts;
+   - require identical causal eligibility and candidate identity.
+2. **TVCL-1 — host packed traversal**
+   - compare query-, distance- and key-major traversal for existing Boolean/
+     structural candidate metadata;
+   - include a deterministic matched random permutation control so locality is
+     not confused with selection quality.
+3. **TVCL-2 — compact-preselection composition**
+   - compose only with already-defined CPS/BIKV candidate semantics;
+   - numerical K/V and dense FLAT remain authoritative for admitted keys;
+   - report selector work, materialization bytes and survivor numerical work
+     separately.
+4. **TVCL-3 — exact portable carrier**
+   - materialize one frozen layout on the existing exact WGPU structural carrier;
+   - exact host/WGPU candidate identity and O/LSE parity precede timing.
+5. **TVCL-4 — physical qualification**
+   - same-device query-major/distance-major/key-major comparisons;
+   - record p50/p95/p99, dispatches, synchronization, bytes transferred when
+     measured, and resident metadata bytes;
+   - end-to-end result includes route/materialize/upload/attention costs.
+
+### Evidence boundary
+
+A packed triangular representation may use roughly half the logical slots of an
+explicit square causal relation matrix, but FLAT fused paths already forbid
+materialized `N x N` score/probability storage. Therefore TVCL may not claim a
+50% FLAT memory reduction merely from triangular counting. A benefit must be
+demonstrated against the actual qualified fused/structural baseline.
+
+Distance-major traversal is a natural candidate for age/window/relative-distance
+metadata; key-major is a candidate for per-key retention/reduction; query-major
+remains the ordinary causal query traversal. These are hypotheses about access
+locality only. No layout is promoted without measured evidence.
