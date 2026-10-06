@@ -29,11 +29,7 @@ fn u32_bytes(values: &[u32]) -> Vec<u8> {
     bytes
 }
 
-fn storage_buffer(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    values: &[u32],
-) -> wgpu::Buffer {
+fn storage_buffer(device: &wgpu::Device, queue: &wgpu::Queue, values: &[u32]) -> wgpu::Buffer {
     let bytes = u32_bytes(values);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("flat-pvp-scalar-state"),
