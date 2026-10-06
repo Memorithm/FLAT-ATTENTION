@@ -576,6 +576,12 @@
       "original_path": "source-revision.txt",
       "bytes": 41,
       "sha256": "94dbedf135837009c9595d95788c4c56d7eb153f976182c12fca231b98233078"
+    },
+    {
+      "archive_path": "final-restoration-inspection.json",
+      "original_path": "final-restoration-inspection.json",
+      "bytes": 3260,
+      "sha256": "a6fc86748ff97a5e29a593b9620011412dcc2a684c178c72805e0f3887f48081"
     }
   ]
 }

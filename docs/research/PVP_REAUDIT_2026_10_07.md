@@ -268,7 +268,11 @@ and subsequent hypotheses remain separate experiments. A missing adapter,
 unsupported geometry or failed oracle must be explicit, never silently
 shrunk or replaced with CPU performance evidence.
 
-## Next evidence gates
+## Evidence gates defined before the controls below
+
+This was the initial investigation sequence. The paired-readback diagnostic
+and full-grid control are now completed and reported in the following sections;
+broader stress, prepared-plan timing and model-aligned evidence remain open.
 
 1. Run the untimed phase diagnostic, retaining both mapping modes and all
    failures; preserve the unchanged historical reproduction separately.
@@ -493,13 +497,18 @@ from the validated host constructors or equivalent caller validation.
 
 The full-grid controller records reservation release with exit zero. Its
 restoration snapshot and the final independent inspection at
-2026-10-06 23:14:15.407955610 UTC confirm all four services active, original
+2026-10-06 23:21:28.306112 UTC confirm all four services active, original
 Restart policies restored, RefuseManualStart=no, temporary restoration timers
 and trace instances removed, and the cooperative lock available. The shared
 historical benchmark executable was restored to its original SHA256
 `7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414`;
 the binaries actually executed in this follow-up remain immutable in its
 separate build directory.
+
+The [independent inspection receipt](evidence/pvp-readback-full-grid-2026-10-07/final-restoration-inspection.json)
+retains these exact service, controller, timer, guard, trace, lock and historical
+binary observations. The [inspection source](evidence/pvp-readback-full-grid-2026-10-07/post-inspection-source.txt)
+performs read-only host checks; saving its receipt creates no GPU qualification.
 
 The observation asymmetry and explicit-transition control justify further
 investigation of native transfer/readback visibility. They do not prove the

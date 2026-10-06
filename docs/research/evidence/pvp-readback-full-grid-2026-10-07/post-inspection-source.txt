@@ -1,0 +1,24 @@
+import datetime, hashlib, json, pathlib, subprocess
+root=pathlib.Path("/var/tmp/remoteops-pvp-audit-full.jyalp5pb")
+def run(args):
+ p=subprocess.run(args,text=True,capture_output=True,timeout=15)
+ return {"command":args,"exit":p.returncode,"stdout":p.stdout,"stderr":p.stderr}
+scopes=["remoteops-pvp-audit-2ayxqncf-b1","remoteops-pvp-audit-full-jyalp5pb-b1"]
+units=["memorithm-clm.service","memorithm-clm-encoder.service","memorithm-viggle-lan.service","rustdesk.service"]
+receipt={
+ "schema":"pvp-post-campaign-restoration-inspection/v1",
+ "observed_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
+ "scope":"read_only_post_campaign_inspection_no_performance_admission",
+ "services":run(["systemctl","show",*units,"--property=Id,ActiveState,SubState,RefuseManualStart,Restart"]),
+ "controllers":[run(["systemctl","show",scope+".service","--property=Id,ActiveState,SubState,Result,ExecMainStatus"]) for scope in scopes],
+ "restoration_timers":[run(["systemctl","show",scope+"-restore.timer","--property=Id,LoadState,ActiveState,SubState"]) for scope in scopes],
+ "runtime_guard_files":[str(p) for p in pathlib.Path("/run/systemd/system").glob("*.service.d/90-remoteops-pvp-audit*.conf")],
+ "trace_instances":[{"path":"/sys/kernel/tracing/instances/"+scope,"exists":pathlib.Path("/sys/kernel/tracing/instances",scope).exists()} for scope in scopes],
+ "cooperative_lock_probe":run(["flock","-n","/dev/nvidia0","-c","true"])
+}
+old=pathlib.Path("/var/tmp/remoteops-pvp-r8-build.c15g0q5t/source/target/release/examples/pvp3d_three_candidate_bench")
+receipt["historical_binary"]={"path":str(old),"sha256":hashlib.sha256(old.read_bytes()).hexdigest(),"expected_sha256":"7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414"}
+content=json.dumps(receipt,indent=2)+"\n"
+(root/"final-restoration-inspection.json").write_text(content)
+print(content,end="")
+print("INSPECTION_SHA256="+hashlib.sha256(content.encode()).hexdigest())

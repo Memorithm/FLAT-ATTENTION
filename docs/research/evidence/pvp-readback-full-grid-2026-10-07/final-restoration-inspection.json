@@ -1,0 +1,95 @@
+{
+  "schema": "pvp-post-campaign-restoration-inspection/v1",
+  "observed_at_utc": "2026-10-06T23:21:28.306112+00:00",
+  "scope": "read_only_post_campaign_inspection_no_performance_admission",
+  "services": {
+    "command": [
+      "systemctl",
+      "show",
+      "memorithm-clm.service",
+      "memorithm-clm-encoder.service",
+      "memorithm-viggle-lan.service",
+      "rustdesk.service",
+      "--property=Id,ActiveState,SubState,RefuseManualStart,Restart"
+    ],
+    "exit": 0,
+    "stdout": "Restart=on-failure\nId=memorithm-clm.service\nActiveState=active\nSubState=running\nRefuseManualStart=no\n\nRestart=on-failure\nId=memorithm-clm-encoder.service\nActiveState=active\nSubState=running\nRefuseManualStart=no\n\nRestart=on-failure\nId=memorithm-viggle-lan.service\nActiveState=active\nSubState=running\nRefuseManualStart=no\n\nRestart=no\nId=rustdesk.service\nActiveState=active\nSubState=running\nRefuseManualStart=no\n",
+    "stderr": ""
+  },
+  "controllers": [
+    {
+      "command": [
+        "systemctl",
+        "show",
+        "remoteops-pvp-audit-2ayxqncf-b1.service",
+        "--property=Id,ActiveState,SubState,Result,ExecMainStatus"
+      ],
+      "exit": 0,
+      "stdout": "Result=success\nExecMainStatus=0\nId=remoteops-pvp-audit-2ayxqncf-b1.service\nActiveState=inactive\nSubState=dead\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "systemctl",
+        "show",
+        "remoteops-pvp-audit-full-jyalp5pb-b1.service",
+        "--property=Id,ActiveState,SubState,Result,ExecMainStatus"
+      ],
+      "exit": 0,
+      "stdout": "Result=success\nExecMainStatus=0\nId=remoteops-pvp-audit-full-jyalp5pb-b1.service\nActiveState=inactive\nSubState=dead\n",
+      "stderr": ""
+    }
+  ],
+  "restoration_timers": [
+    {
+      "command": [
+        "systemctl",
+        "show",
+        "remoteops-pvp-audit-2ayxqncf-b1-restore.timer",
+        "--property=Id,LoadState,ActiveState,SubState"
+      ],
+      "exit": 0,
+      "stdout": "Id=remoteops-pvp-audit-2ayxqncf-b1-restore.timer\nLoadState=not-found\nActiveState=inactive\nSubState=dead\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "systemctl",
+        "show",
+        "remoteops-pvp-audit-full-jyalp5pb-b1-restore.timer",
+        "--property=Id,LoadState,ActiveState,SubState"
+      ],
+      "exit": 0,
+      "stdout": "Id=remoteops-pvp-audit-full-jyalp5pb-b1-restore.timer\nLoadState=not-found\nActiveState=inactive\nSubState=dead\n",
+      "stderr": ""
+    }
+  ],
+  "runtime_guard_files": [],
+  "trace_instances": [
+    {
+      "path": "/sys/kernel/tracing/instances/remoteops-pvp-audit-2ayxqncf-b1",
+      "exists": false
+    },
+    {
+      "path": "/sys/kernel/tracing/instances/remoteops-pvp-audit-full-jyalp5pb-b1",
+      "exists": false
+    }
+  ],
+  "cooperative_lock_probe": {
+    "command": [
+      "flock",
+      "-n",
+      "/dev/nvidia0",
+      "-c",
+      "true"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "historical_binary": {
+    "path": "/var/tmp/remoteops-pvp-r8-build.c15g0q5t/source/target/release/examples/pvp3d_three_candidate_bench",
+    "sha256": "7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414",
+    "expected_sha256": "7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414"
+  }
+}

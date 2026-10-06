@@ -1279,6 +1279,13 @@ tests automatic versus explicit native map transitions; a separate
 [full-grid control](docs/research/PVP_READBACK_FULL_GRID_PROTOCOL.md) is frozen
 without upgrading diagnostic timings to qualified gains.
 
+The paired diagnostic fails in three automatic processes and passes in three
+explicit-transition processes. The separate explicit full-grid control then
+passes ten of ten pre/post oracles; occupancy-unknown observations remain
+unknown and accepted performance rows remain zero. The packed candidate passes
+39 direct-ANF cases and inverse recovery on software Vulkan and native Thor,
+with K up to 2048; its speed and larger geometries remain unqualified.
+
 A separate [packed-address candidate](docs/research/PVP_PACKED_ADDRESS_CANDIDATE.md)
 places 128 addresses of one gate in each vec4 and fuses up to seven low-address
 stages in local values. Its immutable prepared plan, independent ANF truth and
