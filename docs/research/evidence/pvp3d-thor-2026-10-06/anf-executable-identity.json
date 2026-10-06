@@ -1,0 +1,12 @@
+{
+  "schema": "flat.pvp-anf-executable-observation/v1",
+  "source_revision": "50c0230cc645bd44f1520e2c7194878a4b13009c",
+  "checkout": "fresh_isolated_clone_target_created_by_captured_build",
+  "matching_executables": 1,
+  "path": "target/release/deps/pvp_anf_bank-f2f5ea0ec5889510",
+  "sha256": "4458f8e245476cb5ec65ace1b8ab57f09bc7a9e4e137a4e70328b9652987adfa",
+  "mtime_ns": 1791322374312892400,
+  "hash_observation": "after_capture_before_any_further_build",
+  "build_command": "FLAT_SOURCE_REVISION=50c0230cc645bd44f1520e2c7194878a4b13009c CARGO_BUILD_JOBS=4 cargo +1.89.0 test --locked --release --features wgpu --test pvp_anf_bank --no-run"
+}
+

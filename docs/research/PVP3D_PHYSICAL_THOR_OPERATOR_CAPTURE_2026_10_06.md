@@ -20,6 +20,14 @@ Full candidate readback passed the CPU oracle before and after each panel.
 The separate explicit-ANF suite passed all 24 banks across four kernels:
 96 exact candidate comparisons plus coefficient recovery on this physical GPU.
 
+The ANF test was built with `cargo +1.89.0 test --locked --release --features
+wgpu --test pvp_anf_bank --no-run` in this freshly cloned isolated checkout.
+Its target directory contained exactly one matching executable, whose filename
+agrees with the retained compiler output. The supplemental executable identity
+records its SHA-256 observed after capture, before any further build. This
+establishes the actual single-build context; the historical controller's
+`find | head` is not a safe selection rule for a reused target directory.
+
 ## Reservation, monitoring and restoration
 
 The operator held `/dev/nvidia0` with `flock` and verified independent contention.
@@ -86,6 +94,8 @@ promotion. The frozen PVP3b experiment was not run or modified.
 
 - [Raw PVP3d rows and samples](evidence/pvp3d-thor-2026-10-06/pvp3d.log).
 - [Physical ANF qualification](evidence/pvp3d-thor-2026-10-06/anf-bank.log).
+- [ANF executable inventory and identity](evidence/pvp3d-thor-2026-10-06/anf-executable-identity.json)
+  and [captured compiler output](evidence/pvp3d-thor-2026-10-06/build.log).
 - [Artifact SHA-256 inventory](evidence/pvp3d-thor-2026-10-06/manifest.json).
 - [Parsed descriptive summary](evidence/pvp3d-thor-2026-10-06/summary.json).
 - Reservation snapshots, lifecycle controller, service states, occupancy and
