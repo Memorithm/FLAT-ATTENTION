@@ -529,7 +529,7 @@ pascal_vector_projection_program_2026_10_06:
     PVP_FLAT3B_FUSED2_BENCH:
       status: implementation_PR_open_exact_head_CI_pending
       pull_request: 337
-      exact_head: 2711e79cf3af10236d3e14fc1907afa70a772d06
+      exact_head: 14d645455a9582c0c842cd98b46d9cdc912980cb
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_exact_head_correctness_green_before_timing
