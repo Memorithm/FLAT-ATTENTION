@@ -447,6 +447,25 @@ pascal_vector_projection_program_2026_10_06:
     - FLAT_does_not_own_SML_model_semantics_or_ANF_bank_meaning
     - FLAT_does_not_become_a_mandatory_runtime_dependency_of_the_final_SML_model
     - FLAT_may_export_or_help_qualify_a_minimal_versioned_kernel_layout_contract_that_SML_can_later_internalize
+  implementation_state:
+    PVP_FLAT0_FLAT1:
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 334
+      exact_head: eb97cc21b1dad7678d53a1c621af244688362d77
+      scope:
+        - portable_u32_projection_of_pvp_bitplanes_v1
+        - exact_storage_padding_and_contract_identity
+        - independent_host_direct_submask_oracle
+        - scalar_u32_host_subset_zeta
+        - scalar_u32_WGSL_one_stage_per_dispatch
+        - actual_WGPU_readback_exact_parity_on_multiple_geometries
+      exclusions:
+        - vec4_deferred
+        - stage_fusion_deferred
+        - subgroup_deferred
+        - autotuning_deferred
+        - no_performance_claim
+      promotion: blocked_until_required_exact_head_CI_is_green
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
