@@ -407,6 +407,22 @@ impl WgpuPvpVec4Pipeline {
         state: &wgpu::Buffer,
         layout: FlatPvpVec4LayoutV1,
     ) -> Result<(), FlatPvpVec4Error> {
+        self.encode_stages_from_stride(device, encoder, state, layout, 1)
+    }
+
+    /// Encode the qualified PVP2 stage kernel starting at one power-of-two stride.
+    ///
+    /// This crate-visible entry point exists so correctness-gated research
+    /// candidates can fuse an exact prefix of stages and delegate the remaining
+    /// suffix to the already-qualified PVP2 implementation.
+    pub(crate) fn encode_stages_from_stride(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        state: &wgpu::Buffer,
+        layout: FlatPvpVec4LayoutV1,
+        start_stride: u32,
+    ) -> Result<(), FlatPvpVec4Error> {
         let required = layout.storage_bytes()?;
         if state.size() < required {
             return Err(FlatPvpVec4Error::BufferTooSmall {
@@ -424,6 +440,11 @@ impl WgpuPvpVec4Pipeline {
                 value: layout.vectors_per_address(),
             }
         })?;
+        if start_stride == 0 || !start_stride.is_power_of_two() || start_stride > addresses {
+            return Err(FlatPvpVec4Error::IndexSpaceExceeded {
+                value: start_stride as usize,
+            });
+        }
         let pair_count = addresses / 2;
         let invocations = pair_count
             .checked_mul(vectors_per_address)
@@ -437,7 +458,7 @@ impl WgpuPvpVec4Pipeline {
             });
         }
 
-        let mut stride = 1_u32;
+        let mut stride = start_stride;
         while stride < addresses {
             let params = crate::wgpu_internal::encode_u32(&[
                 addresses,
