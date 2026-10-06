@@ -16,20 +16,29 @@ pub const FLAT_PVP_VEC4_WGSL: &str = include_str!("../shaders/flat_pvp_vec4.wgsl
 #[non_exhaustive]
 pub enum FlatPvpVec4Error {
     ZeroAddresses,
-    AddressesNotPowerOfTwo { addresses: usize },
+    AddressesNotPowerOfTwo {
+        addresses: usize,
+    },
     ZeroGates,
     ArithmeticOverflow,
     StorageLengthMismatch {
         expected_words: usize,
         actual_words: usize,
     },
-    NonZeroPadding { major_index: usize },
-    IndexSpaceExceeded { value: usize },
+    NonZeroPadding {
+        major_index: usize,
+    },
+    IndexSpaceExceeded {
+        value: usize,
+    },
     BufferTooSmall {
         required_bytes: u64,
         actual_bytes: u64,
     },
-    DispatchLimit { required: u32, maximum: u32 },
+    DispatchLimit {
+        required: u32,
+        maximum: u32,
+    },
     Pipeline(String),
 }
 
@@ -38,7 +47,10 @@ impl fmt::Display for FlatPvpVec4Error {
         match self {
             Self::ZeroAddresses => write!(f, "FLAT PVP vec4 requires at least one address"),
             Self::AddressesNotPowerOfTwo { addresses } => {
-                write!(f, "FLAT PVP vec4 address count {addresses} is not a power of two")
+                write!(
+                    f,
+                    "FLAT PVP vec4 address count {addresses} is not a power of two"
+                )
             }
             Self::ZeroGates => write!(f, "FLAT PVP vec4 requires at least one gate"),
             Self::ArithmeticOverflow => write!(f, "FLAT PVP vec4 size computation overflowed"),
@@ -50,10 +62,16 @@ impl fmt::Display for FlatPvpVec4Error {
                 "FLAT PVP vec4 storage has {actual_words} words, expected {expected_words}"
             ),
             Self::NonZeroPadding { major_index } => {
-                write!(f, "FLAT PVP vec4 major index {major_index} has non-zero padding")
+                write!(
+                    f,
+                    "FLAT PVP vec4 major index {major_index} has non-zero padding"
+                )
             }
             Self::IndexSpaceExceeded { value } => {
-                write!(f, "FLAT PVP vec4 value {value} exceeds WGSL u32 index space")
+                write!(
+                    f,
+                    "FLAT PVP vec4 value {value} exceeds WGSL u32 index space"
+                )
             }
             Self::BufferTooSmall {
                 required_bytes,
@@ -295,7 +313,9 @@ impl FlatPvpVec4BitplanesV1 {
             if tail != 0 {
                 let mask = !((1_u32 << tail) - 1);
                 if self.words[base + live_words - 1] & mask != 0 {
-                    return Err(FlatPvpVec4Error::NonZeroPadding { major_index: address });
+                    return Err(FlatPvpVec4Error::NonZeroPadding {
+                        major_index: address,
+                    });
                 }
             }
             for word in live_words..row_words {
@@ -392,16 +412,16 @@ impl WgpuPvpVec4Pipeline {
                 actual_bytes: state.size(),
             });
         }
-        let addresses =
-            u32::try_from(layout.addresses()).map_err(|_| FlatPvpVec4Error::IndexSpaceExceeded {
+        let addresses = u32::try_from(layout.addresses()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
                 value: layout.addresses(),
-            })?;
-        let vectors_per_address =
-            u32::try_from(layout.vectors_per_address()).map_err(|_| {
-                FlatPvpVec4Error::IndexSpaceExceeded {
-                    value: layout.vectors_per_address(),
-                }
-            })?;
+            }
+        })?;
+        let vectors_per_address = u32::try_from(layout.vectors_per_address()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
+                value: layout.vectors_per_address(),
+            }
+        })?;
         let pair_count = addresses / 2;
         let invocations = pair_count
             .checked_mul(vectors_per_address)
@@ -523,6 +543,8 @@ mod tests {
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::empty(),
         );
-        validator.validate(&module).expect("PVP vec4 WGSL validates");
+        validator
+            .validate(&module)
+            .expect("PVP vec4 WGSL validates");
     }
 }
