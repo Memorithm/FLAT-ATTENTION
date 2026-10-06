@@ -173,7 +173,7 @@ mod bench {
         let limits = harness.device.limits();
 
         let rejected = state_bytes_u64 > limits.max_buffer_size
-            || state_bytes_u64 > u64::from(limits.max_storage_buffer_binding_size)
+            || state_bytes_u64 > limits.max_storage_buffer_binding_size
             || vec4_workgroups > u64::from(limits.max_compute_workgroups_per_dimension)
             || fused_workgroups > u64::from(limits.max_compute_workgroups_per_dimension);
 
