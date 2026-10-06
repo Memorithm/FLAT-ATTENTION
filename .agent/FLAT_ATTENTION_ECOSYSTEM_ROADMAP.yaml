@@ -917,7 +917,9 @@ PVP_readback_reaudit_2026_10_07:
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_pull_request: 344
   evidence_exact_head: b000b487235fcd135f7c8b6e057f43aaa863c024
-  evidence_status: pending_exact_head_CI
+  evidence_status: merged_exact_head_CI_success
+  evidence_merge_sha: 2e984b86bc9e2f2939203f71c26bd139c47ac628
+  evidence_exact_head_CI: {completed: 20, successful: 20, workflows: 16}
   report: docs/research/PVP_REAUDIT_2026_10_07.md
   paired_readback:
     source: f913d53748edd40ebcb696395aad6a8b9a61893e
@@ -946,7 +948,7 @@ PVP_readback_reaudit_2026_10_07:
     accepted_performance_rows: 0
     every_intermediate_timed_state_verified: false
   packed_address_candidate:
-    schema: pvp_gate_major_address_vec4_v1
+    schema: flat.pvp-gate-major-address-packed-vec4/v1
     carrier: 128_addresses_of_one_ANF_gate_per_vec4_u32
     low_address_stages_in_local_values: up_to_7
     physical_register_allocation: unmeasured
