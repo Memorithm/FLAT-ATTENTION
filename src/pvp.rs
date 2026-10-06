@@ -205,6 +205,7 @@ impl FlatPvpU32LayoutV1 {
             .ok_or(FlatPvpError::ArithmeticOverflow)
     }
 
+    #[cfg(feature = "wgpu")]
     fn storage_bytes(self) -> Result<u64, FlatPvpError> {
         let bytes = self
             .storage_words
