@@ -103,6 +103,8 @@ pub mod paged_kv;
 pub mod pvp;
 /// Research-only 128-bit vec4-u32 PVP physical projection candidate.
 pub mod pvp_vec4;
+/// Research-only two-stage register-fusion PVP correctness candidate.
+pub mod pvp_fused2;
 
 /// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
