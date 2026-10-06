@@ -15,8 +15,6 @@ use flat_attention::pvp_vec4::{
 use protocol::{candidate_order, checksum, percentile_ns, Candidate, Limits};
 
 struct Harness {
-    readbacks: std::cell::RefCell<Vec<wgpu::Buffer>>,
-    resident_buffers: std::cell::RefCell<Vec<wgpu::Buffer>>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     vec4: WgpuPvpVec4Pipeline,
@@ -97,9 +95,6 @@ impl Harness {
             .collect();
         drop(mapped);
         staging.unmap();
-        // Retain completed readbacks across geometries so a newly mapped
-        // allocation cannot alias a released previous oracle-readback buffer.
-        self.readbacks.borrow_mut().push(staging);
         words
     }
 
@@ -141,10 +136,6 @@ impl Harness {
             .flat_map(|word| word.to_le_bytes())
             .collect();
         self.queue.write_buffer(&source, 0, &encoded);
-        // Make initial upload completion explicit before a resident reset.
-        // This fence stays outside every warmup and measured wall interval.
-        self.queue.submit(None);
-        self.wait();
         drop(encoded);
         let states: [wgpu::Buffer; 3] = std::array::from_fn(|_| {
             self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -161,10 +152,13 @@ impl Harness {
             let state = &states[candidate as usize];
             self.reset(&source, state, bytes);
             self.dispatch(candidate, state, layout);
-            assert_eq!(
-                self.read(state, bytes),
+            assert_state(
+                &self.read(state, bytes),
                 expected.words(),
-                "PVP3d pre-timing oracle mismatch K={k} G={g} candidate={candidate:?}"
+                k,
+                g,
+                candidate,
+                "pre",
             );
         }
         let warmups = if smoke { 1 } else { 5 };
@@ -192,10 +186,13 @@ impl Harness {
         // Validate the state produced by the last measured invocation, without
         // resetting it or running a replacement correctness dispatch.
         for candidate in Candidate::ALL {
-            assert_eq!(
-                self.read(&states[candidate as usize], bytes),
+            assert_state(
+                &self.read(&states[candidate as usize], bytes),
                 expected.words(),
-                "PVP3d post-timing oracle mismatch K={k} G={g} candidate={candidate:?}"
+                k,
+                g,
+                candidate,
+                "post",
             );
         }
         let input_checksum = checksum(initial.words());
@@ -210,11 +207,28 @@ impl Harness {
                 println!("sample,{k},{g},{},{iteration},{value}", candidate.name());
             }
         }
-        // Keep source/state allocation identities across geometry changes.
-        let mut retained = self.resident_buffers.borrow_mut();
-        retained.push(source);
-        retained.extend(states);
     }
+}
+
+// Preserve exact whole-state equality while bounding failure output. The old
+// assert_eq! printed two million-word vectors, obscuring the failed geometry.
+fn assert_state(
+    actual: &[u32],
+    expected: &[u32],
+    k: usize,
+    g: usize,
+    candidate: Candidate,
+    phase: &str,
+) {
+    assert_eq!(actual.len(), expected.len(), "PVP3d oracle length mismatch");
+    let mismatches = actual
+        .iter()
+        .zip(expected)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b);
+    let count = mismatches.clone().count();
+    let first: Vec<_> = mismatches.take(8).map(|(i, (a, b))| (i, *a, *b)).collect();
+    assert!(count == 0, "PVP3d {phase}-timing oracle mismatch K={k} G={g} candidate={candidate:?} mismatched_words={count} first_index_actual_expected={first:?}");
 }
 
 fn fixture(layout: FlatPvpVec4LayoutV1) -> FlatPvpVec4BitplanesV1 {
@@ -309,8 +323,6 @@ fn main() {
     }))
     .expect("PVP3d request_device failed");
     let harness = Harness {
-        readbacks: Default::default(),
-        resident_buffers: Default::default(),
         vec4: WgpuPvpVec4Pipeline::new(&device).expect("PVP2 pipeline"),
         fused2: WgpuPvpFused2Pipeline::new(&device).expect("PVP3a pipeline"),
         tile8: WgpuPvpTile8Pipeline::new(&device).expect("PVP3c pipeline"),
@@ -329,23 +341,5 @@ fn main() {
             }
         }
     }
-    let readbacks = harness.readbacks.borrow();
-    println!("retained_readbacks={}", readbacks.len());
-    println!(
-        "retained_readback_payload_bytes={}",
-        readbacks.iter().map(wgpu::Buffer::size).sum::<u64>()
-    );
-    println!(
-        "retained_readback_scope=oracle_buffers_excluded_from_four_state_payload_not_total_memory"
-    );
-    let resident = harness.resident_buffers.borrow();
-    println!("retained_resident_buffers={}", resident.len());
-    println!(
-        "retained_resident_payload_bytes={}",
-        resident.iter().map(wgpu::Buffer::size).sum::<u64>()
-    );
-    println!(
-        "retained_resident_scope=all_admitted_geometries_source_plus_three_states_not_total_memory"
-    );
     println!("qualification_status=complete");
 }
