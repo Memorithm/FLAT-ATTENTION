@@ -911,3 +911,71 @@ PVP_repetition_diagnosis_2026_10_07:
     - no_pooling_of_Thor_and_Dell_timings_or_discarding_failed_processes
     - final_SML_self_sufficiency_and_separate_SML_HARNESS_unchanged
     - driver_only_vendor_layer_Rust_CPU_WGPU_open_backend_policy_preserved
+
+PVP_readback_reaudit_2026_10_07:
+  status: correctness_controls_complete_packed_candidate_functional_speed_unqualified
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_pull_request: 344
+  evidence_exact_head: b000b487235fcd135f7c8b6e057f43aaa863c024
+  evidence_status: pending_exact_head_CI
+  report: docs/research/PVP_REAUDIT_2026_10_07.md
+  paired_readback:
+    source: f913d53748edd40ebcb696395aad6a8b9a61893e
+    protocol_commit: 0b7563abcd93878ada12b716878fd26315089cf2
+    controller_commit: 29df571ff9b2ebb7ec33ff28f108de650a6b116c
+    fresh_processes: 6
+    comparisons_per_process: 504
+    automatic: {processes: 3, exact_processes: 0, disagreeing_observations: 178}
+    explicit_MAP_READ: {processes: 3, exact_processes: 3}
+    all_second_readbacks_match_oracle: true
+    disagreed_phases: {source_without_compute: 20, reset: 64, transformed: 94}
+    root_cause: unresolved
+    upstream_issue_9306_causality: unproven
+    performance_admission: none
+  full_grid_control:
+    source: 2fc5ad2ca4f5c27e2b1fdbb0ed328e6820e273af
+    controller_commit: a3be4b8ddc2cb0462117f763965415b83824989d
+    mode: measure_map_transition
+    fresh_processes: 10
+    complete_exact_pre_post_processes: 10
+    raw_samples: 13500
+    measured_rows: 450
+    capability_rejected_rows: 180
+    all_percentiles_independently_recomputed: true
+    unknown_observation_runs: [1, 2, 5]
+    accepted_performance_rows: 0
+    every_intermediate_timed_state_verified: false
+  packed_address_candidate:
+    schema: pvp_gate_major_address_vec4_v1
+    carrier: 128_addresses_of_one_ANF_gate_per_vec4_u32
+    low_address_stages_in_local_values: up_to_7
+    physical_register_allocation: unmeasured
+    immutable_prepared_uniforms_and_bind_groups: true
+    direct_ANF_cases: 39
+    inverse_checks: 39
+    padding: exact_for_validated_inputs
+    software_Vulkan: exact
+    native_Thor_Vulkan: exact
+    largest_K_in_GPU_corpus: 2048
+    native_latency_measurement: none
+    caller_buffer_padding_validation: caller_owned
+  restoration:
+    all_four_services_and_original_policies_restored: true
+    guards_timers_trace_instances_removed: true
+    cooperative_reservations_released: true
+    historical_benchmark_binary_restored_exact_SHA256: true
+    independent_receipt: docs/research/evidence/pvp-readback-full-grid-2026-10-07/final-restoration-inspection.json
+  remaining_gates:
+    - large_geometry_packed_exact_stress_with_identical_explicit_readback_controls
+    - independently_reviewed_device_observation_and_performance_admission
+    - prospectively_frozen_prepared_control_and_candidate_comparison
+    - separate_resident_wall_GPU_timestamps_and_conversion_preparation_transfer_costs
+    - declared_SML_ANF_reference_and_model_aligned_study
+    - SML_destination_internalization_requalification
+  promotion: none
+  boundaries:
+    - preserve_historical_failures_unknown_observations_and_raw_regressions
+    - no_driver_root_cause_universal_speed_default_route_autotuning_or_model_quality_claim
+    - only_installed_driver_is_vendor_specific_Rust_CPU_WGPU_open_backend_target
+    - FLAT_SciRust_NNIS_are_optional_partners_final_SML_model_self_sufficient
+    - future_SML_HARNESS_remains_separate
