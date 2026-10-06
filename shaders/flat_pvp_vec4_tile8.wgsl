@@ -18,15 +18,8 @@ fn pvp_subset_zeta_tile8(
     let linear_group = workgroup_id.x;
     let vector_index = linear_group % params.vectors_per_address;
     let tile_index = linear_group / params.vectors_per_address;
-    if (tile_index >= params.tile_count) {
-        return;
-    }
-
     let lane = local_id.x;
     let address = tile_index * 8u + lane;
-    if (address >= params.addresses) {
-        return;
-    }
 
     let state_index = address * params.vectors_per_address + vector_index;
     var value = state_vectors[state_index];
