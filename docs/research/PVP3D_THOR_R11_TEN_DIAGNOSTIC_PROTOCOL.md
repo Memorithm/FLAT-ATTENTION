@@ -1,0 +1,9 @@
+# Thor R11 — complete ten-process diagnostic battery
+
+Frozen prospectively after R9 and R10 were aborted by unknown process-scan gaps. R10 failed despite avoiding auxiliary shell/SSH commands on Thor during measurement. Those campaigns remain invalid and retained.
+
+The user's requested battery must execute exactly ten fresh processes, in two independently acquired/released five-process reservations, with the same pinned source ddb6f0144821dfa29d268601e7087e5001278e52 and benchmark hash 7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414. Pause/restore the same four services, prearm independent watchdogs, run ANF before each block, preserve the frozen geometry/order/warmup/repetition/oracle rules.
+
+Changed diagnostic control: an unknown/foreign occupancy observation during a process is retained and explicitly invalidates performance admission; it does not terminate that functional diagnostic process or prevent the remaining requested tests. Oracle failures also remain retained and do not get replaced. Admission failures before the lease or restoration failures still abort. Record all ten exits, complete/failed oracle status, all snapshots and their unchanged partial/unknown classification.
+
+For ten complete exact processes with accepted occupancy throughout, descriptive per-panel rule would require at least 9/10 p50 reductions >=5 percent and each reservation-block median reduction >=5 percent. If even one measuring-phase snapshot is unknown/foreign, the entire battery is excluded from gain confirmation. Report timing panels as unqualified diagnostics only. A successful exact battery cannot erase earlier intermittent correctness failures. No p-value/CI, production robustness, model/default/runtime/autotuning promotion. Do not pool with earlier campaigns or Dell.
