@@ -113,6 +113,10 @@ name = "pvp3b_fused2_bench"
 required-features = ["wgpu"]
 
 [[example]]
+name = "pvp3d_three_candidate_bench"
+required-features = ["wgpu"]
+
+[[example]]
 name = "regression_gate"
 required-features = ["wgpu"]
 

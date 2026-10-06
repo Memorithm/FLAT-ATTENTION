@@ -100,6 +100,21 @@ jobs:
           FLAT_REQUIRE_WGPU: "1"
           FLAT_REGRESSION_GATE_ITERATIONS: "9"
         run: cargo run --release --features wgpu --example regression_gate
+      - name: PVP3d software correctness and protocol smoke
+        timeout-minutes: 5
+        env:
+          FLAT_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FLAT_SOURCE_REVISION"
+          output="$(mktemp)"
+          cargo run --locked --release --features wgpu \
+            --example pvp3d_three_candidate_bench -- --smoke | tee "$output"
+          grep -Fx 'hardware_measurement_eligible=false' "$output"
+          grep -Fx 'qualification_status=complete' "$output"
+          grep -Fx 'performance_claim=none' "$output"
+          test "$(awk -F, '$1 == "smoke" && $7 == 1 && $8 == 1 && $15 == "none" {n++} END {print n+0}' "$output")" -eq 15
+          test "$(awk -F, '$1 == "sample" {n++} END {print n+0}' "$output")" -eq 15
       - name: Smoke EPG Q4 benchmark protocol on software Vulkan
         timeout-minutes: 5
         env:
