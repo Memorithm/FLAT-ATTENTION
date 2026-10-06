@@ -58,5 +58,6 @@ from this README, or if this README names a file that is gone.
 | `flat_pvp_scalar.wgsl` | PVP-F1 scalar-u32 subset-zeta butterfly reference. Research-only; one stage per dispatch, no default routing. |
 | `flat_pvp_vec4.wgsl` | PVP-F2 vec4<u32> 128-gate physical projection candidate. Research-only; one stage per dispatch, no default routing. |
 | `flat_pvp_vec4_fused2.wgsl` | PVP3a two-stage register-fused vec4-u32 correctness candidate. Research-only; no default routing or performance claim. |
+| `flat_pvp_vec4_tile8.wgsl` | PVP3c tile8 workgroup-fused vec4-u32 correctness candidate. Research-only; three local stages, no subgroup/double-buffer/performance claim. |
 
 See [`docs/SHADERS.md`](../docs/SHADERS.md) and [`docs/m9-numerical-policy.md`](../docs/m9-numerical-policy.md).
