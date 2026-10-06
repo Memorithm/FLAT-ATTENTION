@@ -468,9 +468,10 @@ pascal_vector_projection_program_2026_10_06:
         - no_performance_claim
       promotion: qualified_reference_for_vec4_and_stage_fusion_candidates
     PVP_FLAT2_VEC4:
-      status: implementation_PR_open_exact_head_CI_pending
+      status: merged_qualified_vec4_WGPU_reference
       pull_request: 335
       exact_head: b70168b97fc18a6af7002dbca6ee385c47fafa33
+      merge_sha: b91ed691ee6b4ea62b11309b36b052d8c266ea5e
       prerequisite:
         pull_request: 334
         merge_sha: 004f378dcaf89b289d3d675db6085a7db70bbee3
@@ -486,7 +487,7 @@ pascal_vector_projection_program_2026_10_06:
         - no_double_buffer
         - no_autotuning
         - no_performance_claim
-      promotion: blocked
+      promotion: qualified_for_stage_fusion_candidates
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
