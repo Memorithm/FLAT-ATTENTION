@@ -599,7 +599,9 @@ pascal_vector_projection_program_2026_10_06:
         - treating_lavapipe_or_WARP_timing_as_physical_GPU_evidence
         - retuning_geometry_after_observing_confirmatory_results
     PVP_FLAT3C_TILE8:
-      status: preregistered_correctness_slice
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 339
+      exact_head: 54d18a5f13ca1a68484c29d29897fd6c135c42c8
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_merged_qualified
