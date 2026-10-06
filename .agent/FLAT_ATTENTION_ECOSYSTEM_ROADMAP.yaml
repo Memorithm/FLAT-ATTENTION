@@ -491,7 +491,7 @@ pascal_vector_projection_program_2026_10_06:
     PVP_FLAT3A_FUSED2:
       status: implementation_PR_open_exact_head_CI_pending
       pull_request: 336
-      exact_head: 8b4d0cbe3aeb8baaba9d15538b9c3827f06f040f
+      exact_head: c3983d69ccc1fd36c60d4960977801453be7f755
       prerequisite:
         pull_request: 335
         merge_sha: b91ed691ee6b4ea62b11309b36b052d8c266ea5e
