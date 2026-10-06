@@ -1,0 +1,28 @@
+Running timer as unit: remoteops-pvp-r11-4tzr4edd-b1-restore.timer
+Will run service as unit: remoteops-pvp-r11-4tzr4edd-b1-restore.service
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+run_1_exit=0
+qualification_status=complete
+run_1_oracle=pass
+run_1=complete
+run_2_exit=0
+qualification_status=complete
+run_2_oracle=pass
+run_2=complete
+run_3_exit=0
+qualification_status=complete
+run_3_oracle=pass
+run_3=complete
+run_4_exit=0
+qualification_status=complete
+run_4_oracle=pass
+run_4=complete
+run_5_exit=0
+qualification_status=complete
+run_5_oracle=pass
+run_5=complete
+target/release/examples/pvp3d_three_candidate_bench: OK
+target/release/deps/pvp_anf_bank-f2f5ea0ec5889510: OK
+diagnostic_complete=5_invocations_no_gain_confirmation
+reservation_released_exit=0

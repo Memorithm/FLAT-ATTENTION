@@ -152,10 +152,13 @@ impl Harness {
             let state = &states[candidate as usize];
             self.reset(&source, state, bytes);
             self.dispatch(candidate, state, layout);
-            assert_eq!(
-                self.read(state, bytes),
+            assert_state(
+                &self.read(state, bytes),
                 expected.words(),
-                "PVP3d pre-timing oracle mismatch K={k} G={g} candidate={candidate:?}"
+                k,
+                g,
+                candidate,
+                "pre",
             );
         }
         let warmups = if smoke { 1 } else { 5 };
@@ -183,10 +186,13 @@ impl Harness {
         // Validate the state produced by the last measured invocation, without
         // resetting it or running a replacement correctness dispatch.
         for candidate in Candidate::ALL {
-            assert_eq!(
-                self.read(&states[candidate as usize], bytes),
+            assert_state(
+                &self.read(&states[candidate as usize], bytes),
                 expected.words(),
-                "PVP3d post-timing oracle mismatch K={k} G={g} candidate={candidate:?}"
+                k,
+                g,
+                candidate,
+                "post",
             );
         }
         let input_checksum = checksum(initial.words());
@@ -202,6 +208,27 @@ impl Harness {
             }
         }
     }
+}
+
+// Preserve exact whole-state equality while bounding failure output. The old
+// assert_eq! printed two million-word vectors, obscuring the failed geometry.
+fn assert_state(
+    actual: &[u32],
+    expected: &[u32],
+    k: usize,
+    g: usize,
+    candidate: Candidate,
+    phase: &str,
+) {
+    assert_eq!(actual.len(), expected.len(), "PVP3d oracle length mismatch");
+    let mismatches = actual
+        .iter()
+        .zip(expected)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b);
+    let count = mismatches.clone().count();
+    let first: Vec<_> = mismatches.take(8).map(|(i, (a, b))| (i, *a, *b)).collect();
+    assert!(count == 0, "PVP3d {phase}-timing oracle mismatch K={k} G={g} candidate={candidate:?} mismatched_words={count} first_index_actual_expected={first:?}");
 }
 
 fn fixture(layout: FlatPvpVec4LayoutV1) -> FlatPvpVec4BitplanesV1 {

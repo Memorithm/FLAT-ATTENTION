@@ -1,0 +1,72 @@
+import json,sys,pathlib,re
+def capture_trace(trace,controller):
+    trace=pathlib.Path(trace)
+    stats={}
+    for f in sorted((trace/"per_cpu").glob("cpu*/stats")):
+        items={}
+        for line in f.read_text().splitlines():
+            k,v=line.split(":",1); items[k]=v.strip()
+        assert all(items[k]=="0" for k in ["overrun","commit overrun","dropped events"]), "kernel_trace_loss"
+        stats[f.parent.name]=items
+    assert stats,"missing_trace_stats"
+    with (trace/"trace").open() as f: text=f.read(16*1024*1024+1)
+    assert len(text)<=16*1024*1024,"oversized_trace"
+    events=[]
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"): continue
+        m=re.search(r"(\d+)\.(\d+): sched_process_(fork|exit): (.*)$",line)
+        assert m,"unknown_trace_record"
+        sec,frac,kind,payload=m.groups()
+        ns=int(sec)*1000000000+int((frac+"000000000")[:9])
+        pid=int(re.search(r"\bpid=(\d+)",payload).group(1))
+        event={"time_ns":ns,"event":kind,"pid":pid}
+        if kind=="fork": event["child_pid"]=int(re.search(r"\bchild_pid=(\d+)",payload).group(1))
+        events.append(event)
+    assert all(events[i]["time_ns"]<=events[i+1]["time_ns"] for i in range(len(events)-1)),"trace_not_chronological"
+    return {"schema":"remoteops.kernel-process-lifecycle/v1","controller_pid":controller,"trace_clock":(trace/"trace_clock").read_text().strip(),"events":events,"cpu_stats":stats}
+def exited_owned_pids(record):
+    owner={record["controller_pid"]:True}; exited={}
+    for e in record["events"]:
+        if e["event"]=="fork":
+            child=e["child_pid"]
+            owner[child]=owner.get(e["pid"],False) and not exited.get(e["pid"],False)
+            exited[child]=False
+        else: exited[e["pid"]]=True
+    return {pid for pid,owned in owner.items() if owned and exited.get(pid,False)}
+if sys.argv[1]=="--capture":
+    b=pathlib.Path(sys.argv[2]); trace=sys.argv[3]
+    p=capture_trace(trace,int((b/"controller-pid.txt").read_text()))
+    (b/"kernel-lifecycle.json").write_text(json.dumps(p,indent=2)+"\n")
+    sys.exit(0)
+b=pathlib.Path(sys.argv[1]).parent
+record=json.load(open(sys.argv[1])); scope=sys.argv[2]; owned="/system.slice/"+scope+".service"
+index=len((b/"occupancy-times.tsv").read_text().splitlines())
+def reject(reason,code=2):
+    print("admission_rejected="+reason,file=sys.stderr); sys.exit(code)
+try: trace=capture_trace((b/"trace-instance-path.txt").read_text().strip(),int((b/"controller-pid.txt").read_text()))
+except Exception as e: reject(str(e),1)
+with (b/"trace-stats.jsonl").open("a") as f:
+    f.write(json.dumps({"sample":index,"cpu_stats":trace["cpu_stats"]})+"\n")
+if record.get("schema")!="remoteops.device-users/v2": reject("schema")
+if record["scan_limit_reached"] or record["gap_details_truncated"]: reject("truncated")
+for user in record["users"]:
+    try: lines=(pathlib.Path("/proc")/str(user["pid"])/"cgroup").read_text().splitlines()
+    except OSError: reject("unknown_visible_user")
+    if "0::"+owned not in lines: reject("foreign_visible_user",1)
+gaps=record["gaps"]
+if record["status"]=="observed":
+    if record["unreadable_entries"]!=0 or gaps: reject("inconsistent_observed")
+    print("observation=observed")
+elif record["status"]=="partial":
+    (b/f"trace-decision-{index:04}.json").write_text(json.dumps(trace,indent=2)+"\n")
+    if not gaps or sum(g["count"] for g in gaps)!=record["unreadable_entries"]: reject("unattributed_partial")
+    exited=exited_owned_pids(trace); churn=0; gone=0
+    for gap in gaps:
+        if not (isinstance(gap["pid"],int) and gap["pid"]>0 and gap["count"]>0): reject("gap_identity")
+        if gap["stage"]=="fd_metadata" and gap["process_identity_verified"] is True and gap["cgroup_v2"]==owned:
+            churn+=gap["count"]
+        elif gap["stage"]=="fd_directory" and gap["process_identity_verified"] is False and gap["cgroup_v2"] is None and gap["pid"] in exited:
+            gone+=gap["count"]
+        else: reject("unknown_or_foreign_gap")
+    print("observation=partial_owned_churn_or_exit,count="+str(record["unreadable_entries"])+",fd_churn="+str(churn)+",exited="+str(gone))
+else: reject("status")

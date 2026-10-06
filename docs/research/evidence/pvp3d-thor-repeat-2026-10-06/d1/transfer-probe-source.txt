@@ -1,0 +1,30 @@
+use std::sync::mpsc;
+fn main(){
+ let instance=wgpu::Instance::new(wgpu::InstanceDescriptor{backends:wgpu::Backends::VULKAN,..wgpu::InstanceDescriptor::new_without_display_handle()});
+ let adapter=pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions{power_preference:wgpu::PowerPreference::HighPerformance,force_fallback_adapter:false,compatible_surface:None,apply_limit_buckets:false})).unwrap();
+ let info=adapter.get_info();assert!(matches!(info.device_type,wgpu::DeviceType::IntegratedGpu|wgpu::DeviceType::DiscreteGpu));
+ println!("adapter={},backend={:?},driver={}",info.name,info.backend,info.driver_info);
+ let (device,queue)=pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor{required_limits:adapter.limits(),..Default::default()})).unwrap();
+ let words=1usize<<20;let bytes=(words*4) as u64;
+ for flush in [false,true] {for policy in ["drop","reuse","retain"] {
+  let mut retained=Vec::new();let mut reusable=None;let mut failures=0;let mut first=None;
+  for round in 0..30u32 {
+   let expected:Vec<u32>=(0..words as u32).map(|i|i.wrapping_mul(0x9e3779b9).rotate_left(round%32)^(0xa5a5a5a5u32.wrapping_add(round))).collect();
+   let encoded:Vec<u8>=expected.iter().flat_map(|x|x.to_le_bytes()).collect();
+   let source=device.create_buffer(&wgpu::BufferDescriptor{label:Some("diagnostic-source"),size:bytes,usage:wgpu::BufferUsages::COPY_SRC|wgpu::BufferUsages::COPY_DST,mapped_at_creation:false});
+   queue.write_buffer(&source,0,&encoded);
+   if flush {queue.submit(None);device.poll(wgpu::PollType::wait_indefinitely()).unwrap();}
+   let staging=reusable.take().unwrap_or_else(||device.create_buffer(&wgpu::BufferDescriptor{label:Some("diagnostic-readback"),size:bytes,usage:wgpu::BufferUsages::COPY_DST|wgpu::BufferUsages::MAP_READ,mapped_at_creation:false}));
+   let mut encoder=device.create_command_encoder(&Default::default());encoder.copy_buffer_to_buffer(&source,0,&staging,0,bytes);queue.submit(Some(encoder.finish()));
+   let slice=staging.slice(..);let(tx,rx)=mpsc::channel();slice.map_async(wgpu::MapMode::Read,move|r|{tx.send(r).unwrap();});device.poll(wgpu::PollType::wait_indefinitely()).unwrap();rx.recv().unwrap().unwrap();
+   let mapped=slice.get_mapped_range().unwrap();
+   let mut wrong=0;let mut first_word=None;
+   for (i,b) in mapped.chunks_exact(4).enumerate(){let actual=u32::from_le_bytes(b.try_into().unwrap());if actual!=expected[i] {wrong+=1;if first_word.is_none(){first_word=Some((i,actual,expected[i]));}}}
+   if wrong!=0 {failures+=1;if first.is_none(){first=Some((round,wrong,first_word));}}
+   drop(mapped);staging.unmap();
+   if policy=="reuse"{reusable=Some(staging);}else if policy=="retain"{retained.push(staging);}
+  }
+  println!("transfer_result,flush={flush},policy={policy},rounds=30,failed_rounds={failures},first={first:?}");
+ }}
+ println!("diagnostic_complete=true");println!("performance_claim=none");
+}

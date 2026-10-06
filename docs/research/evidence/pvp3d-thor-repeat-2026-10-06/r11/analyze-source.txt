@@ -1,0 +1,84 @@
+import json,pathlib,collections,statistics,hashlib,sys
+root=pathlib.Path(sys.argv[1]); cases=[]; skips=None; checksums={}; runs=[]; ownership=[]; rejected_measurement_observations=0
+for block in range(1,3):
+ b=root/f"block-{block}"
+ assert "reservation_released_exit=0" in (b/"control.log").read_text()
+ assert "diagnostic_complete=5_invocations_no_gain_confirmation" in (b/"control.log").read_text()
+ assert "PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96" in (b/"anf-bank.log").read_text()
+ states=(b/"restored-services.txt").read_text()
+ assert states.count("ActiveState=active")==4 and states.count("SubState=running")==4
+ assert states.count("RefuseManualStart=no")==4 and states.count("Restart=on-failure")==3 and states.count("Restart=no")==1
+ obs=[json.loads(l) for l in (b/"occupancy.jsonl").read_text().splitlines()]
+ tags=(b/"occupancy-times.txt").read_text().splitlines()
+ decisions=(b/"occupancy-decisions.txt").read_text().splitlines()
+ assert len(obs)==len(tags)
+ accepted_observations=0
+ for index,(o,t) in enumerate(zip(obs,tags),1):
+  phase=t.split("\t")[0]
+  accepted=True
+  if o["status"]=="observed":
+   assert o["unreadable_entries"]==0 and not o["gaps"]
+   d="observation=observed"
+  else:
+   snapshot=json.loads((b/f"trace-decision-{index:04}.json").read_text())
+   assert snapshot["controller_pid"]==int((b/"controller-pid.txt").read_text())
+   assert all(all(v[k]=="0" for k in ["overrun","commit overrun","dropped events"]) for v in snapshot["cpu_stats"].values())
+   owner={snapshot["controller_pid"]:True}; exited={}
+   for e in snapshot["events"]:
+    if e["event"]=="fork":
+     owner[e["child_pid"]]=owner.get(e["pid"],False) and not exited.get(e["pid"],False)
+     exited[e["child_pid"]]=False
+    else: exited[e["pid"]]=True
+   scope="/system.slice/"+pathlib.Path((b/"trace-instance-path.txt").read_text().strip()).name+".service"
+   gaps=o["gaps"]
+   accepted=bool(gaps) and sum(g["count"] for g in gaps)==o["unreadable_entries"] and all(
+    (g["stage"]=="fd_metadata" and g["process_identity_verified"] and g["cgroup_v2"]==scope) or
+    (g["stage"]=="fd_directory" and not g["process_identity_verified"] and g["cgroup_v2"] is None and owner.get(g["pid"],False) and exited.get(g["pid"],False))
+    for g in gaps)
+   d="observation=partial_owned_churn_or_exit" if accepted else "observation=rejected_unknown"
+  if phase=="measuring":
+   if not accepted or o["scan_limit_reached"] or o["gap_details_truncated"]: rejected_measurement_observations+=1
+  if accepted:
+   assert not o["scan_limit_reached"] and not o["gap_details_truncated"]
+   assert decisions[accepted_observations].startswith(d)
+   accepted_observations+=1
+  ownership.append({"block":block,"phase":phase,"status":o["status"],"decision":d})
+ assert accepted_observations==len(decisions)
+ traces=[json.loads(l) for l in (b/"trace-stats.jsonl").read_text().splitlines()]
+ assert len(traces)==len(obs)
+ assert all(all(all(v[k]=="0" for k in ["overrun","commit overrun","dropped events"]) for v in t["cpu_stats"].values()) for t in traces)
+import re,ast
+failures=[];runs=[];total_samples=0;total_rows=0;total_skips=0
+for block in [1,2]:
+ b=root/f"block-{block}";ctl=(b/"control.log").read_text()
+ for invocation in range(1,6):
+  log=b/f"run-{invocation}"/"pvp3d.log";text=log.read_text()
+  assert "source_revision=ddb6f0144821dfa29d268601e7087e5001278e52" in text
+  assert "adapter=NVIDIA Tegra NVIDIA Thor" in text and "backend=Vulkan" in text
+  rows={};samples=collections.defaultdict(dict);skipped=0
+  for line in text.splitlines():
+   p=line.split(",")
+   if p[0]=="measured":rows[tuple(p[1:4])]=p
+   elif p[0]=="sample":
+    key=tuple(p[1:4]);idx=int(p[4]);assert idx not in samples[key];samples[key][idx]=int(p[5])
+   elif p[0]=="skipped_limit":skipped+=1
+  assert set(rows)==set(samples)
+  for key,p in rows.items():
+   assert len(p)==15 and p[6:8]==["5","30"]
+   ss=samples[key];assert set(ss)==set(range(30)) and all(v>0 for v in ss.values())
+   ordered=sorted(ss.values());assert [int(p[9]),int(p[10])]==[ordered[14],ordered[28]]
+  complete="qualification_status=complete" in text
+  failure=re.search(r"PVP3d (pre|post)-timing oracle mismatch K=(\d+) G=(\d+) candidate=(\w+) mismatched_words=(\d+) first_index_actual_expected=(\[[^\n]+\])",text)
+  if complete:
+   assert f"run_{invocation}_exit=0" in ctl and len(rows)==45 and skipped==18
+   assert failure is None
+  else:
+   assert f"run_{invocation}_exit=101" in ctl and failure
+   phase,k,g,c,n,first=failure.groups()
+   failures.append({"block":block,"invocation":invocation,"stage":phase,"k":int(k),"g":int(g),"candidate":c,"mismatch_words":int(n),"first_index_actual_expected":ast.literal_eval(first)})
+  count=sum(len(v) for v in samples.values());total_samples+=count;total_rows+=len(rows);total_skips+=skipped
+  runs.append({"block":block,"invocation":invocation,"complete_exact_oracle":complete,"measured_rows":len(rows),"skipped_rows":skipped,"raw_samples":count,"timing_admitted_for_confirmation":False,"log_sha256":hashlib.sha256(log.read_bytes()).hexdigest()})
+assert len(runs)==10
+summary={"schema":"flat.pvp3d-thor-repeatability/v1","protocol":"R11_ten_functional_diagnostic_repetitions","preregistration_commit":(root/"preregistration-commit.txt").read_text().strip(),"source_revision":"ddb6f0144821dfa29d268601e7087e5001278e52","device":"NVIDIA Tegra NVIDIA Thor","backend":"Vulkan","driver":"580.00","blocks":2,"invocations":10,"complete_exact_invocations":sum(r["complete_exact_oracle"] for r in runs),"oracle_failures":failures,"diagnostic_raw_samples":total_samples,"measured_rows":total_rows,"skipped_rows":total_skips,"ANF_checks":192,"rejected_measurement_observations":rejected_measurement_observations,"accepted_confirmation_rows":0,"gain_confirmation":"rejected_full_state_oracle_failure_and_incomplete_occupancy","performance_claim":"none","promotion":"none","prior_correctness_failures_resolved":False,"occupancy_counts":dict(collections.Counter(x["phase"]+":"+x["decision"].split(",")[0] for x in ownership)),"runs":runs}
+(root/"summary.json").write_text(json.dumps(summary,indent=2)+"\n")
+print(json.dumps({k:v for k,v in summary.items() if k!="runs"}))

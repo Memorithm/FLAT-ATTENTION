@@ -1,0 +1,102 @@
+import json,pathlib,collections,statistics,hashlib,sys
+root=pathlib.Path(sys.argv[1]); cases=[]; skips=None; checksums={}; runs=[]; ownership=[]
+for block in range(1,4):
+ b=root/f"block-{block}"
+ assert "reservation_released_exit=0" in (b/"control.log").read_text()
+ assert "block_complete=5_invocations" in (b/"control.log").read_text()
+ assert "PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96" in (b/"anf-bank.log").read_text()
+ assert "PVP_TRANSFER_COMPLETE,rounds=40,words_per_round=1048576,all_words_exact=true" in (b/"transfer-regression.log").read_text()
+ states=(b/"restored-services.txt").read_text()
+ assert states.count("ActiveState=active")==4 and states.count("SubState=running")==4
+ assert states.count("RefuseManualStart=no")==4 and states.count("Restart=on-failure")==3 and states.count("Restart=no")==1
+ obs=[json.loads(l) for l in (b/"occupancy.jsonl").read_text().splitlines()]
+ tags=(b/"occupancy-times.tsv").read_text().splitlines()
+ decisions=(b/"occupancy-decisions.txt").read_text().splitlines()
+ assert len(obs)==len(tags)
+ accepted_observations=0
+ for index,(o,t) in enumerate(zip(obs,tags),1):
+  phase=t.split("\t")[0]
+  accepted=True
+  if o["status"]=="observed":
+   assert o["unreadable_entries"]==0 and not o["gaps"]
+   d="observation=observed"
+  else:
+   snapshot=json.loads((b/f"trace-decision-{index:04}.json").read_text())
+   assert snapshot["controller_pid"]==int((b/"controller-pid.txt").read_text())
+   assert all(all(v[k]=="0" for k in ["overrun","commit overrun","dropped events"]) for v in snapshot["cpu_stats"].values())
+   owner={snapshot["controller_pid"]:True}; exited={}
+   for e in snapshot["events"]:
+    if e["event"]=="fork":
+     owner[e["child_pid"]]=owner.get(e["pid"],False) and not exited.get(e["pid"],False)
+     exited[e["child_pid"]]=False
+    else: exited[e["pid"]]=True
+   scope=f"/system.slice/remoteops-pvp-r6-{root.name.split('.')[-1]}-b{block}.service"
+   gaps=o["gaps"]
+   accepted=bool(gaps) and sum(g["count"] for g in gaps)==o["unreadable_entries"] and all(
+    (g["stage"]=="fd_metadata" and g["process_identity_verified"] and g["cgroup_v2"]==scope) or
+    (g["stage"]=="fd_directory" and not g["process_identity_verified"] and g["cgroup_v2"] is None and owner.get(g["pid"],False) and exited.get(g["pid"],False))
+    for g in gaps)
+   d="observation=partial_owned_churn_or_exit" if accepted else "observation=rejected_unknown"
+  if phase=="measuring":
+   assert accepted and not o["scan_limit_reached"] and not o["gap_details_truncated"]
+  if accepted:
+   assert not o["scan_limit_reached"] and not o["gap_details_truncated"]
+   assert decisions[accepted_observations].startswith(d)
+   accepted_observations+=1
+  ownership.append({"block":block,"phase":phase,"status":o["status"],"decision":d})
+ assert accepted_observations==len(decisions)
+ traces=[json.loads(l) for l in (b/"trace-stats.jsonl").read_text().splitlines()]
+ assert len(traces)==len(obs)
+ assert all(all(all(v[k]=="0" for k in ["overrun","commit overrun","dropped events"]) for v in t["cpu_stats"].values()) for t in traces)
+ for invocation in range(1,6):
+  log=b/f"run-{invocation}"/"pvp3d.log"; text=log.read_text()
+  for marker in ["source_revision=7adae9ae79f7c96e606a05abec95b7b9aee1c196","adapter=NVIDIA Tegra NVIDIA Thor","backend=Vulkan","hardware_measurement_eligible=true","qualification_status=complete","performance_claim=none","candidate_order=ABC_ACB_BAC_BCA_CAB_CBA","retained_readbacks=90","retained_readback_payload_bytes=100491264"]:
+   assert marker in text,(log,marker)
+  rows={}; samples=collections.defaultdict(dict); rejected={}
+  for line in text.splitlines():
+   p=line.split(",")
+   if p[0]=="measured":
+    key=(int(p[1]),int(p[2]),p[3]); assert key not in rows
+    assert len(p)==15 and p[6:8]==["5","30"] and p[14]=="none"
+    rows[key]=p
+   elif p[0]=="sample":
+    key=(int(p[1]),int(p[2]),p[3]); idx=int(p[4])
+    assert idx not in samples[key]; samples[key][idx]=int(p[5])
+   elif p[0]=="skipped_limit":
+    key=(int(p[1]),int(p[2]),p[3]); assert key not in rejected; rejected[key]=p[13]
+  assert len(rows)+len(rejected)==63
+  assert len(rows)==45 and len(rejected)==18
+  assert set(samples)==set(rows)
+  for key,p in rows.items():
+   ss=samples[key]; assert set(ss)==set(range(30))
+   assert all(v>0 for v in ss.values())
+   ordered=sorted(ss.values()); assert [int(p[9]),int(p[10])]==[ordered[14],ordered[28]]
+   cohort=key[:2]
+   checksum=tuple(p[11:13])
+   if cohort in checksums: assert checksum==checksums[cohort]
+   checksums[cohort]=checksum
+  if skips is None: skips=rejected
+  else: assert skips==rejected
+  geoms=sorted({k[:2] for k in rows})
+  assert len(geoms)==15
+  for kg in geoms:
+   assert {k[2] for k in rows if k[:2]==kg}=={"vec4","fused2","tile8"}
+   p50={c:int(rows[(*kg,c)][9]) for c in ["vec4","fused2","tile8"]}
+   p95={c:int(rows[(*kg,c)][10]) for c in ["vec4","fused2","tile8"]}
+   cases.append({"block":block,"invocation":invocation,"k":kg[0],"g":kg[1],"p50_ns":p50,"p95_ns":p95})
+  for kg in {k[:2] for k in rejected}:
+   assert {k[2] for k in rejected if k[:2]==kg}=={"vec4","fused2","tile8"}
+  runs.append({"block":block,"invocation":invocation,"measured_rows":len(rows),"skipped_rows":len(rejected),"raw_samples":sum(len(v) for v in samples.values())})
+panels=[]
+for kg in sorted({(r["k"],r["g"]) for r in cases}):
+ cohort=[r for r in cases if (r["k"],r["g"])==kg]
+ assert len(cohort)==15
+ for candidate in ["fused2","tile8"]:
+  reductions=[1-r["p50_ns"][candidate]/r["p50_ns"]["vec4"] for r in cohort]
+  wins=sum(r["p50_ns"][candidate]*100<=r["p50_ns"]["vec4"]*95 for r in cohort)
+  block_medians=[statistics.median([1-r["p50_ns"][candidate]/r["p50_ns"]["vec4"] for r in cohort if r["block"]==b]) for b in range(1,4)]
+  accepted=wins>=14 and all(v>=.05 for v in block_medians)
+  panels.append({"k":kg[0],"g":kg[1],"candidate":candidate,"reductions":reductions,"median_reduction":statistics.median(reductions),"min_reduction":min(reductions),"max_reduction":max(reductions),"block_median_reductions":block_medians,"runs_at_least_5_percent":wins,"repeatable_by_frozen_rule":accepted,"p50_ns_median":{c:statistics.median(r["p50_ns"][c] for r in cohort) for c in ["vec4",candidate]},"p95_ns_median":{c:statistics.median(r["p95_ns"][c] for r in cohort) for c in ["vec4",candidate]}})
+summary={"schema":"flat.pvp3d-thor-repeatability/v1","protocol":"R6","preregistration_commit":(root/"preregistration-commit.txt").read_text().strip(),"source_revision":"7adae9ae79f7c96e606a05abec95b7b9aee1c196","device":"NVIDIA Tegra NVIDIA Thor","backend":"Vulkan","driver":"580.00","blocks":3,"invocations":len(runs),"raw_samples":sum(r["raw_samples"] for r in runs),"measured_rows":sum(r["measured_rows"] for r in runs),"skipped_rows":sum(r["skipped_rows"] for r in runs),"ANF_checks":288,"transfer_word_checks":125829120,"decision":"descriptive_fixed_rule_not_statistical_significance","promotion":"none","runs":runs,"panels":panels,"occupancy_counts":dict(collections.Counter((x["phase"]+":"+x["decision"].split(",")[0]) for x in ownership))}
+(root/"summary.json").write_text(json.dumps(summary,indent=2)+"\n")
+print(json.dumps({"invocations":len(runs),"raw_samples":summary["raw_samples"],"accepted":sum(p["repeatable_by_frozen_rule"] for p in panels),"decisions":len(panels),"occupancy":summary["occupancy_counts"]}))

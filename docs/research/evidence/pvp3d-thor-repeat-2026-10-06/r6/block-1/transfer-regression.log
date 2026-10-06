@@ -1,0 +1,8 @@
+
+running 1 test
+PVP_TRANSFER_ADAPTER,name=NVIDIA Tegra NVIDIA Thor,backend=Vulkan,driver=580.00
+PVP_TRANSFER_COMPLETE,rounds=40,words_per_round=1048576,all_words_exact=true,performance_claim=none
+test completed_uploads_and_reused_size_readbacks_preserve_every_word ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+

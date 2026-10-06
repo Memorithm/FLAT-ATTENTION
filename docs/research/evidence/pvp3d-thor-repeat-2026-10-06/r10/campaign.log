@@ -1,0 +1,7 @@
+Running as unit: remoteops-pvp-r10-78z6lqu2-b1.service; invocation ID: e17d4cafc1c44fd5aa8605302abdd767
+Finished with result: exit-code
+Main processes terminated with: code=exited/status=1
+Service runtime: 16.371s
+CPU time consumed: 5.810s
+Memory peak: 104.3M
+Memory swap peak: 0B

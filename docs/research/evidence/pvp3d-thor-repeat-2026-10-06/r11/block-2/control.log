@@ -1,0 +1,30 @@
+Running timer as unit: remoteops-pvp-r11-4tzr4edd-b2-restore.timer
+Will run service as unit: remoteops-pvp-r11-4tzr4edd-b2-restore.service
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+admission_rejected=unknown_or_foreign_gap
+performance_admission_rejected=unknown_or_foreign_device_users_run_1
+run_1_exit=101
+PVP3d pre-timing oracle mismatch K=262144 G=128 candidate=Vec4 mismatched_words=16320 first_index_actual_expected=[(0, 2037321785, 3549435859), (1, 4133997613, 4230607782), (2, 4088336476, 2314666888), (3, 624396622, 1497423403), (4, 1473923937, 3248907674), (5, 3363496826, 2947629328), (6, 380159856, 1978882553), (7, 3332295219, 3343033727)]
+run_1_oracle=failed_no_performance_admission
+run_1=complete
+run_2_exit=0
+qualification_status=complete
+run_2_oracle=pass
+run_2=complete
+run_3_exit=0
+qualification_status=complete
+run_3_oracle=pass
+run_3=complete
+run_4_exit=0
+qualification_status=complete
+run_4_oracle=pass
+run_4=complete
+run_5_exit=0
+qualification_status=complete
+run_5_oracle=pass
+run_5=complete
+target/release/examples/pvp3d_three_candidate_bench: OK
+target/release/deps/pvp_anf_bank-f2f5ea0ec5889510: OK
+diagnostic_complete=5_invocations_no_gain_confirmation
+reservation_released_exit=0

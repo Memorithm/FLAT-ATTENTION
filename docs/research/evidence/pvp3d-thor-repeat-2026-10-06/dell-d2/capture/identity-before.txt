@@ -1,0 +1,2 @@
+target/release/examples/pvp3d_three_candidate_bench: Réussi
+target/release/deps/pvp_anf_bank-e9c9f854ae8c2b92: Réussi

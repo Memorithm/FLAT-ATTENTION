@@ -1,0 +1,9 @@
+previous_matches_left=false
+current_matches_right=true
+left_vs_current_mismatch_words=160
+words=1048576
+mismatch_first=[2976, 2977, 2978, 2979, 2980, 2981, 2982, 2983, 2984, 2985, 2986, 2987, 2988, 2989, 2990, 2991]
+mismatch_last=[21008, 21009, 21010, 21011, 21012, 21013, 21014, 21015, 21016, 21017, 21018, 21019, 21020, 21021, 21022, 21023]
+prefix_matching_previous=0
+wrong_words_matching_previous=160
+mismatch_ranges=[(2976, 3007), (3168, 3199), (3328, 3359), (6464, 6495), (20992, 21023)]

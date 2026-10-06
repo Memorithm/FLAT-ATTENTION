@@ -1,0 +1,1831 @@
+{
+  "schema": "remoteops.kernel-process-lifecycle/v1",
+  "controller_pid": 2475811,
+  "trace_clock": "local [global] counter uptime perf mono mono_raw boot tai",
+  "events": [
+    {
+      "time_ns": 2603733293161000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476120
+    },
+    {
+      "time_ns": 2603733295072000,
+      "event": "exit",
+      "pid": 2476120
+    },
+    {
+      "time_ns": 2603733295569000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476121
+    },
+    {
+      "time_ns": 2603733296656000,
+      "event": "exit",
+      "pid": 2476121
+    },
+    {
+      "time_ns": 2603733296879000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476122
+    },
+    {
+      "time_ns": 2603733298517000,
+      "event": "exit",
+      "pid": 2476122
+    },
+    {
+      "time_ns": 2603733298827000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476123
+    },
+    {
+      "time_ns": 2603733334133000,
+      "event": "exit",
+      "pid": 2476123
+    },
+    {
+      "time_ns": 2603733334375000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476124
+    },
+    {
+      "time_ns": 2603733335581000,
+      "event": "exit",
+      "pid": 2476124
+    },
+    {
+      "time_ns": 2603733335780000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476125
+    },
+    {
+      "time_ns": 2603733395235000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476126
+    },
+    {
+      "time_ns": 2603733414562000,
+      "event": "exit",
+      "pid": 2476125
+    },
+    {
+      "time_ns": 2603733415135000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476127
+    },
+    {
+      "time_ns": 2603733434898000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476128
+    },
+    {
+      "time_ns": 2603733434935000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476129
+    },
+    {
+      "time_ns": 2603733434966000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476130
+    },
+    {
+      "time_ns": 2603733435052000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476131
+    },
+    {
+      "time_ns": 2603733435185000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476132
+    },
+    {
+      "time_ns": 2603733435245000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476133
+    },
+    {
+      "time_ns": 2603733435299000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476134
+    },
+    {
+      "time_ns": 2603733435330000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476135
+    },
+    {
+      "time_ns": 2603733435400000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476136
+    },
+    {
+      "time_ns": 2603733435438000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476137
+    },
+    {
+      "time_ns": 2603733435694000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476138
+    },
+    {
+      "time_ns": 2603733435771000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476139
+    },
+    {
+      "time_ns": 2603733435847000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476140
+    },
+    {
+      "time_ns": 2603733435871000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476141
+    },
+    {
+      "time_ns": 2603733526350000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476142
+    },
+    {
+      "time_ns": 2603733526376000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476143
+    },
+    {
+      "time_ns": 2603733526399000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476144
+    },
+    {
+      "time_ns": 2603733526435000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476145
+    },
+    {
+      "time_ns": 2603733526455000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476146
+    },
+    {
+      "time_ns": 2603733526472000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476147
+    },
+    {
+      "time_ns": 2603733526493000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476148
+    },
+    {
+      "time_ns": 2603733526522000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476149
+    },
+    {
+      "time_ns": 2603733526561000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476150
+    },
+    {
+      "time_ns": 2603733526624000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476151
+    },
+    {
+      "time_ns": 2603733526689000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476152
+    },
+    {
+      "time_ns": 2603733526751000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476153
+    },
+    {
+      "time_ns": 2603733526921000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476154
+    },
+    {
+      "time_ns": 2603733526970000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476155
+    },
+    {
+      "time_ns": 2603733527053000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476156
+    },
+    {
+      "time_ns": 2603733563531000,
+      "event": "exit",
+      "pid": 2476156
+    },
+    {
+      "time_ns": 2603733563650000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476157
+    },
+    {
+      "time_ns": 2603733587725000,
+      "event": "fork",
+      "pid": 2269627,
+      "child_pid": 2476158
+    },
+    {
+      "time_ns": 2603733590234000,
+      "event": "exit",
+      "pid": 2476158
+    },
+    {
+      "time_ns": 2603733591850000,
+      "event": "exit",
+      "pid": 2476157
+    },
+    {
+      "time_ns": 2603733591929000,
+      "event": "fork",
+      "pid": 2476126,
+      "child_pid": 2476159
+    },
+    {
+      "time_ns": 2603733604440000,
+      "event": "exit",
+      "pid": 2476159
+    },
+    {
+      "time_ns": 2603733606554000,
+      "event": "exit",
+      "pid": 2476128
+    },
+    {
+      "time_ns": 2603733606559000,
+      "event": "exit",
+      "pid": 2476141
+    },
+    {
+      "time_ns": 2603733606648000,
+      "event": "exit",
+      "pid": 2476140
+    },
+    {
+      "time_ns": 2603733606687000,
+      "event": "exit",
+      "pid": 2476135
+    },
+    {
+      "time_ns": 2603733606687000,
+      "event": "exit",
+      "pid": 2476139
+    },
+    {
+      "time_ns": 2603733606705000,
+      "event": "exit",
+      "pid": 2476129
+    },
+    {
+      "time_ns": 2603733606707000,
+      "event": "exit",
+      "pid": 2476131
+    },
+    {
+      "time_ns": 2603733606707000,
+      "event": "exit",
+      "pid": 2476134
+    },
+    {
+      "time_ns": 2603733606709000,
+      "event": "exit",
+      "pid": 2476132
+    },
+    {
+      "time_ns": 2603733606710000,
+      "event": "exit",
+      "pid": 2476138
+    },
+    {
+      "time_ns": 2603733606711000,
+      "event": "exit",
+      "pid": 2476133
+    },
+    {
+      "time_ns": 2603733606721000,
+      "event": "exit",
+      "pid": 2476137
+    },
+    {
+      "time_ns": 2603733606724000,
+      "event": "exit",
+      "pid": 2476130
+    },
+    {
+      "time_ns": 2603733606832000,
+      "event": "exit",
+      "pid": 2476136
+    },
+    {
+      "time_ns": 2603733607017000,
+      "event": "exit",
+      "pid": 2476143
+    },
+    {
+      "time_ns": 2603733607018000,
+      "event": "exit",
+      "pid": 2476144
+    },
+    {
+      "time_ns": 2603733607019000,
+      "event": "exit",
+      "pid": 2476146
+    },
+    {
+      "time_ns": 2603733607020000,
+      "event": "exit",
+      "pid": 2476145
+    },
+    {
+      "time_ns": 2603733607021000,
+      "event": "exit",
+      "pid": 2476147
+    },
+    {
+      "time_ns": 2603733607021000,
+      "event": "exit",
+      "pid": 2476142
+    },
+    {
+      "time_ns": 2603733607021000,
+      "event": "exit",
+      "pid": 2476149
+    },
+    {
+      "time_ns": 2603733607022000,
+      "event": "exit",
+      "pid": 2476150
+    },
+    {
+      "time_ns": 2603733607023000,
+      "event": "exit",
+      "pid": 2476151
+    },
+    {
+      "time_ns": 2603733607024000,
+      "event": "exit",
+      "pid": 2476152
+    },
+    {
+      "time_ns": 2603733607025000,
+      "event": "exit",
+      "pid": 2476148
+    },
+    {
+      "time_ns": 2603733607031000,
+      "event": "exit",
+      "pid": 2476154
+    },
+    {
+      "time_ns": 2603733607042000,
+      "event": "exit",
+      "pid": 2476153
+    },
+    {
+      "time_ns": 2603733607070000,
+      "event": "exit",
+      "pid": 2476155
+    },
+    {
+      "time_ns": 2603733608844000,
+      "event": "exit",
+      "pid": 2476126
+    },
+    {
+      "time_ns": 2603733609711000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476160
+    },
+    {
+      "time_ns": 2603733610428000,
+      "event": "exit",
+      "pid": 2476160
+    },
+    {
+      "time_ns": 2603733781667000,
+      "event": "fork",
+      "pid": 1382678,
+      "child_pid": 2476161
+    },
+    {
+      "time_ns": 2603734416647000,
+      "event": "exit",
+      "pid": 2476127
+    },
+    {
+      "time_ns": 2603734417141000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476162
+    },
+    {
+      "time_ns": 2603734418666000,
+      "event": "exit",
+      "pid": 2476162
+    },
+    {
+      "time_ns": 2603734418860000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476163
+    },
+    {
+      "time_ns": 2603734420149000,
+      "event": "exit",
+      "pid": 2476163
+    },
+    {
+      "time_ns": 2603734420416000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476164
+    },
+    {
+      "time_ns": 2603734463047000,
+      "event": "exit",
+      "pid": 2476164
+    },
+    {
+      "time_ns": 2603734463544000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476165
+    },
+    {
+      "time_ns": 2603734465925000,
+      "event": "exit",
+      "pid": 2476165
+    },
+    {
+      "time_ns": 2603734466224000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476166
+    },
+    {
+      "time_ns": 2603734563790000,
+      "event": "exit",
+      "pid": 2476166
+    },
+    {
+      "time_ns": 2603734564255000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476167
+    },
+    {
+      "time_ns": 2603734647700000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476168
+    },
+    {
+      "time_ns": 2603734673048000,
+      "event": "fork",
+      "pid": 2476168,
+      "child_pid": 2476169
+    },
+    {
+      "time_ns": 2603734673136000,
+      "event": "fork",
+      "pid": 2476168,
+      "child_pid": 2476170
+    },
+    {
+      "time_ns": 2603734675839000,
+      "event": "exit",
+      "pid": 2476170
+    },
+    {
+      "time_ns": 2603735248005000,
+      "event": "exit",
+      "pid": 2432643
+    },
+    {
+      "time_ns": 2603735566303000,
+      "event": "exit",
+      "pid": 2476167
+    },
+    {
+      "time_ns": 2603735567106000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476171
+    },
+    {
+      "time_ns": 2603735569438000,
+      "event": "exit",
+      "pid": 2476171
+    },
+    {
+      "time_ns": 2603735569748000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476172
+    },
+    {
+      "time_ns": 2603735571706000,
+      "event": "exit",
+      "pid": 2476172
+    },
+    {
+      "time_ns": 2603735572106000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476173
+    },
+    {
+      "time_ns": 2603735623208000,
+      "event": "exit",
+      "pid": 2476173
+    },
+    {
+      "time_ns": 2603735623921000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476174
+    },
+    {
+      "time_ns": 2603735625633000,
+      "event": "exit",
+      "pid": 2476174
+    },
+    {
+      "time_ns": 2603735625871000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476175
+    },
+    {
+      "time_ns": 2603735675156000,
+      "event": "exit",
+      "pid": 2476169
+    },
+    {
+      "time_ns": 2603735675910000,
+      "event": "exit",
+      "pid": 2476168
+    },
+    {
+      "time_ns": 2603735677690000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476176
+    },
+    {
+      "time_ns": 2603735678354000,
+      "event": "exit",
+      "pid": 2476176
+    },
+    {
+      "time_ns": 2603735732882000,
+      "event": "exit",
+      "pid": 2476175
+    },
+    {
+      "time_ns": 2603735733896000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476177
+    },
+    {
+      "time_ns": 2603736736342000,
+      "event": "exit",
+      "pid": 2476177
+    },
+    {
+      "time_ns": 2603736737161000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476178
+    },
+    {
+      "time_ns": 2603736739032000,
+      "event": "exit",
+      "pid": 2476178
+    },
+    {
+      "time_ns": 2603736739317000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476179
+    },
+    {
+      "time_ns": 2603736741879000,
+      "event": "exit",
+      "pid": 2476179
+    },
+    {
+      "time_ns": 2603736742227000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476180
+    },
+    {
+      "time_ns": 2603736792438000,
+      "event": "exit",
+      "pid": 2476180
+    },
+    {
+      "time_ns": 2603736792839000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476181
+    },
+    {
+      "time_ns": 2603736794717000,
+      "event": "exit",
+      "pid": 2476181
+    },
+    {
+      "time_ns": 2603736794990000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476182
+    },
+    {
+      "time_ns": 2603736872499000,
+      "event": "exit",
+      "pid": 2476182
+    },
+    {
+      "time_ns": 2603736872849000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476183
+    },
+    {
+      "time_ns": 2603737875323000,
+      "event": "exit",
+      "pid": 2476183
+    },
+    {
+      "time_ns": 2603737876126000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476184
+    },
+    {
+      "time_ns": 2603737878009000,
+      "event": "exit",
+      "pid": 2476184
+    },
+    {
+      "time_ns": 2603737878263000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476185
+    },
+    {
+      "time_ns": 2603737880518000,
+      "event": "exit",
+      "pid": 2476185
+    },
+    {
+      "time_ns": 2603737880858000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476186
+    },
+    {
+      "time_ns": 2603737933116000,
+      "event": "exit",
+      "pid": 2476186
+    },
+    {
+      "time_ns": 2603737933653000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476187
+    },
+    {
+      "time_ns": 2603737935992000,
+      "event": "exit",
+      "pid": 2476187
+    },
+    {
+      "time_ns": 2603737936363000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476188
+    },
+    {
+      "time_ns": 2603738019308000,
+      "event": "exit",
+      "pid": 2476188
+    },
+    {
+      "time_ns": 2603738019692000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476189
+    },
+    {
+      "time_ns": 2603738161713000,
+      "event": "exit",
+      "pid": 2453505
+    },
+    {
+      "time_ns": 2603738648844000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476190
+    },
+    {
+      "time_ns": 2603738688881000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476191
+    },
+    {
+      "time_ns": 2603738688938000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476192
+    },
+    {
+      "time_ns": 2603738689003000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476193
+    },
+    {
+      "time_ns": 2603738689088000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476194
+    },
+    {
+      "time_ns": 2603738689145000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476195
+    },
+    {
+      "time_ns": 2603738689190000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476196
+    },
+    {
+      "time_ns": 2603738689231000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476197
+    },
+    {
+      "time_ns": 2603738689344000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476198
+    },
+    {
+      "time_ns": 2603738689387000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476199
+    },
+    {
+      "time_ns": 2603738689451000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476200
+    },
+    {
+      "time_ns": 2603738689841000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476201
+    },
+    {
+      "time_ns": 2603738690065000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476202
+    },
+    {
+      "time_ns": 2603738690207000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476203
+    },
+    {
+      "time_ns": 2603738690249000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476204
+    },
+    {
+      "time_ns": 2603738783158000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476205
+    },
+    {
+      "time_ns": 2603738783200000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476206
+    },
+    {
+      "time_ns": 2603738783310000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476207
+    },
+    {
+      "time_ns": 2603738783356000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476208
+    },
+    {
+      "time_ns": 2603738783393000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476209
+    },
+    {
+      "time_ns": 2603738783481000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476210
+    },
+    {
+      "time_ns": 2603738783575000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476211
+    },
+    {
+      "time_ns": 2603738783649000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476212
+    },
+    {
+      "time_ns": 2603738783685000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476213
+    },
+    {
+      "time_ns": 2603738783750000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476214
+    },
+    {
+      "time_ns": 2603738783828000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476215
+    },
+    {
+      "time_ns": 2603738783876000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476216
+    },
+    {
+      "time_ns": 2603738784018000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476217
+    },
+    {
+      "time_ns": 2603738784317000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476218
+    },
+    {
+      "time_ns": 2603738784485000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476219
+    },
+    {
+      "time_ns": 2603738835525000,
+      "event": "exit",
+      "pid": 2476219
+    },
+    {
+      "time_ns": 2603738835887000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476220
+    },
+    {
+      "time_ns": 2603738870627000,
+      "event": "fork",
+      "pid": 2443245,
+      "child_pid": 2476221
+    },
+    {
+      "time_ns": 2603738873813000,
+      "event": "exit",
+      "pid": 2476221
+    },
+    {
+      "time_ns": 2603738876384000,
+      "event": "exit",
+      "pid": 2476220
+    },
+    {
+      "time_ns": 2603738876544000,
+      "event": "fork",
+      "pid": 2476190,
+      "child_pid": 2476222
+    },
+    {
+      "time_ns": 2603738894773000,
+      "event": "exit",
+      "pid": 2476222
+    },
+    {
+      "time_ns": 2603738897789000,
+      "event": "exit",
+      "pid": 2476197
+    },
+    {
+      "time_ns": 2603738898029000,
+      "event": "exit",
+      "pid": 2476193
+    },
+    {
+      "time_ns": 2603738898030000,
+      "event": "exit",
+      "pid": 2476191
+    },
+    {
+      "time_ns": 2603738898089000,
+      "event": "exit",
+      "pid": 2476196
+    },
+    {
+      "time_ns": 2603738898091000,
+      "event": "exit",
+      "pid": 2476203
+    },
+    {
+      "time_ns": 2603738898092000,
+      "event": "exit",
+      "pid": 2476204
+    },
+    {
+      "time_ns": 2603738898103000,
+      "event": "exit",
+      "pid": 2476199
+    },
+    {
+      "time_ns": 2603738898104000,
+      "event": "exit",
+      "pid": 2476194
+    },
+    {
+      "time_ns": 2603738898108000,
+      "event": "exit",
+      "pid": 2476192
+    },
+    {
+      "time_ns": 2603738898117000,
+      "event": "exit",
+      "pid": 2476198
+    },
+    {
+      "time_ns": 2603738898364000,
+      "event": "exit",
+      "pid": 2476200
+    },
+    {
+      "time_ns": 2603738898365000,
+      "event": "exit",
+      "pid": 2476195
+    },
+    {
+      "time_ns": 2603738898391000,
+      "event": "exit",
+      "pid": 2476202
+    },
+    {
+      "time_ns": 2603738898420000,
+      "event": "exit",
+      "pid": 2476201
+    },
+    {
+      "time_ns": 2603738898721000,
+      "event": "exit",
+      "pid": 2476206
+    },
+    {
+      "time_ns": 2603738898721000,
+      "event": "exit",
+      "pid": 2476209
+    },
+    {
+      "time_ns": 2603738898722000,
+      "event": "exit",
+      "pid": 2476213
+    },
+    {
+      "time_ns": 2603738898727000,
+      "event": "exit",
+      "pid": 2476208
+    },
+    {
+      "time_ns": 2603738898729000,
+      "event": "exit",
+      "pid": 2476207
+    },
+    {
+      "time_ns": 2603738898729000,
+      "event": "exit",
+      "pid": 2476210
+    },
+    {
+      "time_ns": 2603738898731000,
+      "event": "exit",
+      "pid": 2476212
+    },
+    {
+      "time_ns": 2603738898735000,
+      "event": "exit",
+      "pid": 2476205
+    },
+    {
+      "time_ns": 2603738898736000,
+      "event": "exit",
+      "pid": 2476215
+    },
+    {
+      "time_ns": 2603738898748000,
+      "event": "exit",
+      "pid": 2476211
+    },
+    {
+      "time_ns": 2603738898754000,
+      "event": "exit",
+      "pid": 2476214
+    },
+    {
+      "time_ns": 2603738898754000,
+      "event": "exit",
+      "pid": 2476218
+    },
+    {
+      "time_ns": 2603738898770000,
+      "event": "exit",
+      "pid": 2476217
+    },
+    {
+      "time_ns": 2603738898832000,
+      "event": "exit",
+      "pid": 2476216
+    },
+    {
+      "time_ns": 2603738901596000,
+      "event": "exit",
+      "pid": 2476190
+    },
+    {
+      "time_ns": 2603738903295000,
+      "event": "fork",
+      "pid": 1,
+      "child_pid": 2476223
+    },
+    {
+      "time_ns": 2603738904477000,
+      "event": "exit",
+      "pid": 2476223
+    },
+    {
+      "time_ns": 2603739022736000,
+      "event": "exit",
+      "pid": 2476189
+    },
+    {
+      "time_ns": 2603739023771000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476224
+    },
+    {
+      "time_ns": 2603739027279000,
+      "event": "fork",
+      "pid": 2476224,
+      "child_pid": 2476225
+    },
+    {
+      "time_ns": 2603739027328000,
+      "event": "fork",
+      "pid": 2476224,
+      "child_pid": 2476226
+    },
+    {
+      "time_ns": 2603739027382000,
+      "event": "fork",
+      "pid": 2476224,
+      "child_pid": 2476227
+    },
+    {
+      "time_ns": 2603739027886000,
+      "event": "exit",
+      "pid": 2476226
+    },
+    {
+      "time_ns": 2603739099154000,
+      "event": "exit",
+      "pid": 2476225
+    },
+    {
+      "time_ns": 2603739464284000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476228
+    },
+    {
+      "time_ns": 2603739592655000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476229
+    },
+    {
+      "time_ns": 2603739636832000,
+      "event": "fork",
+      "pid": 2476227,
+      "child_pid": 2476230
+    },
+    {
+      "time_ns": 2603739636858000,
+      "event": "fork",
+      "pid": 2476227,
+      "child_pid": 2476231
+    },
+    {
+      "time_ns": 2603739640081000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476232
+    },
+    {
+      "time_ns": 2603739648428000,
+      "event": "fork",
+      "pid": 2476227,
+      "child_pid": 2476233
+    },
+    {
+      "time_ns": 2603739648474000,
+      "event": "fork",
+      "pid": 2476227,
+      "child_pid": 2476234
+    },
+    {
+      "time_ns": 2603739653985000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476235
+    },
+    {
+      "time_ns": 2603739695012000,
+      "event": "fork",
+      "pid": 2476227,
+      "child_pid": 2476236
+    },
+    {
+      "time_ns": 2603739787533000,
+      "event": "exit",
+      "pid": 2475714
+    },
+    {
+      "time_ns": 2603739877998000,
+      "event": "exit",
+      "pid": 2476236
+    },
+    {
+      "time_ns": 2603739878623000,
+      "event": "exit",
+      "pid": 2476234
+    },
+    {
+      "time_ns": 2603739878666000,
+      "event": "exit",
+      "pid": 2476231
+    },
+    {
+      "time_ns": 2603739882404000,
+      "event": "exit",
+      "pid": 2476232
+    },
+    {
+      "time_ns": 2603739884029000,
+      "event": "exit",
+      "pid": 2476233
+    },
+    {
+      "time_ns": 2603739893959000,
+      "event": "exit",
+      "pid": 2476235
+    },
+    {
+      "time_ns": 2603739910181000,
+      "event": "exit",
+      "pid": 2476229
+    },
+    {
+      "time_ns": 2603739912184000,
+      "event": "exit",
+      "pid": 2476230
+    },
+    {
+      "time_ns": 2603739928452000,
+      "event": "exit",
+      "pid": 2476228
+    },
+    {
+      "time_ns": 2603739946766000,
+      "event": "exit",
+      "pid": 2476227
+    },
+    {
+      "time_ns": 2603739955905000,
+      "event": "exit",
+      "pid": 2476224
+    },
+    {
+      "time_ns": 2603739956349000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476237
+    },
+    {
+      "time_ns": 2603739958166000,
+      "event": "exit",
+      "pid": 2476237
+    },
+    {
+      "time_ns": 2603739958458000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476238
+    },
+    {
+      "time_ns": 2603739960021000,
+      "event": "exit",
+      "pid": 2476238
+    },
+    {
+      "time_ns": 2603739960231000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476239
+    },
+    {
+      "time_ns": 2603739961451000,
+      "event": "exit",
+      "pid": 2476239
+    },
+    {
+      "time_ns": 2603739961712000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476240
+    },
+    {
+      "time_ns": 2603739995096000,
+      "event": "exit",
+      "pid": 2476240
+    },
+    {
+      "time_ns": 2603739995327000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476241
+    },
+    {
+      "time_ns": 2603739996752000,
+      "event": "exit",
+      "pid": 2476241
+    },
+    {
+      "time_ns": 2603739996925000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476242
+    },
+    {
+      "time_ns": 2603740069993000,
+      "event": "exit",
+      "pid": 2476242
+    },
+    {
+      "time_ns": 2603740070327000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476243
+    },
+    {
+      "time_ns": 2603740071795000,
+      "event": "exit",
+      "pid": 2476243
+    },
+    {
+      "time_ns": 2603740071973000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476244
+    },
+    {
+      "time_ns": 2603740073622000,
+      "event": "exit",
+      "pid": 2476244
+    },
+    {
+      "time_ns": 2603740073758000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476245
+    },
+    {
+      "time_ns": 2603740074862000,
+      "event": "exit",
+      "pid": 2476245
+    },
+    {
+      "time_ns": 2603740075014000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476246
+    },
+    {
+      "time_ns": 2603740076586000,
+      "event": "exit",
+      "pid": 2476246
+    },
+    {
+      "time_ns": 2603740076719000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476247
+    },
+    {
+      "time_ns": 2603740077060000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476248
+    },
+    {
+      "time_ns": 2603740077915000,
+      "event": "fork",
+      "pid": 2476247,
+      "child_pid": 2476249
+    },
+    {
+      "time_ns": 2603740078665000,
+      "event": "exit",
+      "pid": 2476248
+    },
+    {
+      "time_ns": 2603740078862000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476250
+    },
+    {
+      "time_ns": 2603740080525000,
+      "event": "exit",
+      "pid": 2476250
+    },
+    {
+      "time_ns": 2603740080740000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476251
+    },
+    {
+      "time_ns": 2603740114231000,
+      "event": "exit",
+      "pid": 2476251
+    },
+    {
+      "time_ns": 2603740114490000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476252
+    },
+    {
+      "time_ns": 2603740115879000,
+      "event": "exit",
+      "pid": 2476252
+    },
+    {
+      "time_ns": 2603740116070000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476253
+    },
+    {
+      "time_ns": 2603740134816000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476254
+    },
+    {
+      "time_ns": 2603740203603000,
+      "event": "exit",
+      "pid": 2476253
+    },
+    {
+      "time_ns": 2603740207142000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476255
+    },
+    {
+      "time_ns": 2603740219415000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476256
+    },
+    {
+      "time_ns": 2603740280673000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476257
+    },
+    {
+      "time_ns": 2603740324559000,
+      "event": "fork",
+      "pid": 2476249,
+      "child_pid": 2476258
+    },
+    {
+      "time_ns": 2603740324587000,
+      "event": "fork",
+      "pid": 2476249,
+      "child_pid": 2476259
+    },
+    {
+      "time_ns": 2603740326892000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476260
+    },
+    {
+      "time_ns": 2603740334698000,
+      "event": "fork",
+      "pid": 2476249,
+      "child_pid": 2476261
+    },
+    {
+      "time_ns": 2603740334755000,
+      "event": "fork",
+      "pid": 2476249,
+      "child_pid": 2476262
+    },
+    {
+      "time_ns": 2603740339801000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476263
+    },
+    {
+      "time_ns": 2603740380075000,
+      "event": "fork",
+      "pid": 2476249,
+      "child_pid": 2476264
+    },
+    {
+      "time_ns": 2603741208864000,
+      "event": "exit",
+      "pid": 2476255
+    },
+    {
+      "time_ns": 2603741209502000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476265
+    },
+    {
+      "time_ns": 2603741210862000,
+      "event": "exit",
+      "pid": 2476265
+    },
+    {
+      "time_ns": 2603741211110000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476266
+    },
+    {
+      "time_ns": 2603741212798000,
+      "event": "exit",
+      "pid": 2476266
+    },
+    {
+      "time_ns": 2603741213069000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476267
+    },
+    {
+      "time_ns": 2603741247331000,
+      "event": "exit",
+      "pid": 2476267
+    },
+    {
+      "time_ns": 2603741247591000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476268
+    },
+    {
+      "time_ns": 2603741249135000,
+      "event": "exit",
+      "pid": 2476268
+    },
+    {
+      "time_ns": 2603741249332000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476269
+    },
+    {
+      "time_ns": 2603741328925000,
+      "event": "exit",
+      "pid": 2476269
+    },
+    {
+      "time_ns": 2603741329140000,
+      "event": "fork",
+      "pid": 2475811,
+      "child_pid": 2476270
+    },
+    {
+      "time_ns": 2603741670073000,
+      "event": "exit",
+      "pid": 2476264
+    },
+    {
+      "time_ns": 2603741670714000,
+      "event": "exit",
+      "pid": 2476262
+    },
+    {
+      "time_ns": 2603741670952000,
+      "event": "exit",
+      "pid": 2476259
+    },
+    {
+      "time_ns": 2603741679431000,
+      "event": "exit",
+      "pid": 2476260
+    },
+    {
+      "time_ns": 2603741683280000,
+      "event": "exit",
+      "pid": 2476261
+    },
+    {
+      "time_ns": 2603741721300000,
+      "event": "exit",
+      "pid": 2476263
+    },
+    {
+      "time_ns": 2603741767083000,
+      "event": "exit",
+      "pid": 2476257
+    },
+    {
+      "time_ns": 2603741769554000,
+      "event": "exit",
+      "pid": 2476258
+    },
+    {
+      "time_ns": 2603741813390000,
+      "event": "exit",
+      "pid": 2476254
+    },
+    {
+      "time_ns": 2603741872628000,
+      "event": "exit",
+      "pid": 2476256
+    },
+    {
+      "time_ns": 2603741914465000,
+      "event": "exit",
+      "pid": 2476249
+    },
+    {
+      "time_ns": 2603741914901000,
+      "event": "exit",
+      "pid": 2476247
+    },
+    {
+      "time_ns": 2603741939327000,
+      "event": "fork",
+      "pid": 2,
+      "child_pid": 2476271
+    },
+    {
+      "time_ns": 2603742172677000,
+      "event": "exit",
+      "pid": 2454204
+    },
+    {
+      "time_ns": 2603742330855000,
+      "event": "exit",
+      "pid": 2476270
+    }
+  ],
+  "cpu_stats": {
+    "cpu0": {
+      "entries": "8",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "328",
+      "oldest event ts": "2603733.606721",
+      "now ts": "2603742.363706",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu1": {
+      "entries": "10",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "472",
+      "oldest event ts": "2603733.606687",
+      "now ts": "2603742.363747",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu10": {
+      "entries": "41",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "2004",
+      "oldest event ts": "2603733.606648",
+      "now ts": "2603742.363770",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu11": {
+      "entries": "16",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "704",
+      "oldest event ts": "2603733.606559",
+      "now ts": "2603742.363790",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu12": {
+      "entries": "20",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "888",
+      "oldest event ts": "2603733.606711",
+      "now ts": "2603742.363810",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu13": {
+      "entries": "13",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "548",
+      "oldest event ts": "2603733.587725",
+      "now ts": "2603742.363827",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu2": {
+      "entries": "35",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "1788",
+      "oldest event ts": "2603733.293161",
+      "now ts": "2603742.363845",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu3": {
+      "entries": "29",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "1340",
+      "oldest event ts": "2603733.395235",
+      "now ts": "2603742.363863",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu4": {
+      "entries": "12",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "496",
+      "oldest event ts": "2603733.606687",
+      "now ts": "2603742.363881",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu5": {
+      "entries": "16",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "640",
+      "oldest event ts": "2603733.295072",
+      "now ts": "2603742.363898",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu6": {
+      "entries": "13",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "532",
+      "oldest event ts": "2603733.298517",
+      "now ts": "2603742.363922",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu7": {
+      "entries": "67",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "3372",
+      "oldest event ts": "2603733.334133",
+      "now ts": "2603742.363939",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu8": {
+      "entries": "15",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "628",
+      "oldest event ts": "2603733.563531",
+      "now ts": "2603742.363957",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu9": {
+      "entries": "11",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "436",
+      "oldest event ts": "2603733.590234",
+      "now ts": "2603742.363974",
+      "dropped events": "0",
+      "read events": "0"
+    }
+  }
+}

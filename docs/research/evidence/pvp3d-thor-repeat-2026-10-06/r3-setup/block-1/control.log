@@ -1,0 +1,12 @@
+Running timer as unit: remoteops-pvp-r3-580od3xs-b1-restore.timer
+Will run service as unit: remoteops-pvp-r3-580od3xs-b1-restore.service
+admission_rejected=invalid literal for int() with base 10: '$\n'
+Traceback (most recent call last):
+  File "/var/tmp/remoteops-pvp-r3.580od3xs/check-users.py", line 38, in <module>
+    p=capture_trace(trace,int((b/"controller-pid.txt").read_text()))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: '$\n'
+Job for memorithm-clm-encoder.service failed.
+See "systemctl status memorithm-clm-encoder.service" and "journalctl -xeu memorithm-clm-encoder.service" for details.
+A dependency job for memorithm-clm.service failed. See 'journalctl -xe' for details.
+reservation_released_exit=1

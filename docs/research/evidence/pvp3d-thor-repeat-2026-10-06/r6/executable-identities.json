@@ -1,0 +1,19 @@
+{
+  "source_revision": "7adae9ae79f7c96e606a05abec95b7b9aee1c196",
+  "compiler": "Rust_1_89_0",
+  "clean_source": true,
+  "executables": {
+    "benchmark": {
+      "path": "target/release/examples/pvp3d_three_candidate_bench",
+      "sha256": "e562ce36fa533f91e7406a0ddbe3d6b4234c2e8e9602031c4fc88804d99523ce"
+    },
+    "pvp_anf_bank": {
+      "path": "target/release/deps/pvp_anf_bank-f2f5ea0ec5889510",
+      "sha256": "4458f8e245476cb5ec65ace1b8ab57f09bc7a9e4e137a4e70328b9652987adfa"
+    },
+    "pvp_transfer_reuse": {
+      "path": "target/release/deps/pvp_transfer_reuse-4cb73b2978d78789",
+      "sha256": "59b1287f9012b20b5acc38a772f3d8ebba983f5860a66ab1b78d441531b63f08"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+Running timer as unit: remoteops-pvp-r8-8cowuf59-b1-restore.timer
+Will run service as unit: remoteops-pvp-r8-8cowuf59-b1-restore.service
+admission_rejected=unknown_or_foreign_gap
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+run_1_exit=0
+qualification_status=complete
+run_1_oracle=pass
+run_1=complete
+run_2_exit=0
+admission_rejected=unknown_or_foreign_gap
+qualification_status=complete
+run_2_oracle=pass
+run_2=complete
+run_3_exit=0
+qualification_status=complete
+run_3_oracle=pass
+run_3=complete
+target/release/examples/pvp3d_three_candidate_bench: OK
+target/release/deps/pvp_anf_bank-f2f5ea0ec5889510: OK
+block_complete=5_invocations
+reservation_released_exit=0
