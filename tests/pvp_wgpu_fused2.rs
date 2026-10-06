@@ -13,8 +13,7 @@ fn fixture(layout: FlatPvpVec4LayoutV1) -> FlatPvpVec4BitplanesV1 {
     for gate in 0..layout.gates() {
         for address in 0..layout.addresses() {
             if ((gate * 41 + address * 17 + (gate ^ address)) % 31) < 15 {
-                gate_major[gate * words_per_gate + address / 64] |=
-                    1_u64 << (address % 64);
+                gate_major[gate * words_per_gate + address / 64] |= 1_u64 << (address % 64);
             }
         }
     }
