@@ -1215,3 +1215,56 @@ CED and SWA Bounded Replay remain model/runtime-level research inputs, not impli
 ### MAA-15 execution start
 
 - **MAA-15a cross-layer reuse preregistration**: frozen in [`docs/research/MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md`](docs/research/MAA_15A_CROSS_LAYER_REUSE_PREREGISTRATION.md). This host-only first gate separates Full/Reindex/Reuse semantics, explicit source identity, K/V reuse and candidate reuse, with dense/all-accept/matched-random controls before hierarchical-pool or WGPU work.
+
+
+# PHASE E-C — Pascal Vector Projection — SML HARDWARE RESEARCH
+
+This research phase is separate from dense attention semantics and M13B Boolean admission. The source semantics are owned by SML-GENIUS and described in `docs/research/PASCAL_VECTOR_PROJECTION_BOOTSTRAP.md`.
+
+The execution target is a regular address-major bitplane matrix, not explicit lattice graph traversal. The portable GPU candidate uses contiguous `u32/vec4<u32>` storage and staged XOR butterflies. New PVP work is vendor-neutral: only the installed GPU driver may be vendor-specific; CUDA/NVRTC/cuDNN/TensorRT/TensorRT-LLM/NVML/CUTLASS/vendor SDKs are excluded as required dependencies.
+
+## PVP-F0 — layout/oracle adapter
+
+- [ ] consume a versioned address-major gate-bitplane contract from the shared/SML side;
+- [ ] exact host differential against SML/SciRust scalar oracle;
+- [ ] checked dimensions, alignment, storage and dispatch accounting.
+
+## PVP-F1 — portable WGSL reference
+
+- [ ] scalar `u32` XOR butterfly;
+- [ ] exact full-state parity with host oracle;
+- [ ] resident-buffer path with no hidden readback.
+
+## PVP-F2 — vector-register projection
+
+- [ ] `vec4<u32>` transactions so one vector carries 128 gate bits for one address;
+- [ ] scalar tail/fallback where geometry requires it;
+- [ ] benchmark vectorization independently from algorithm changes.
+
+## PVP-F3 — stage fusion and workgroup tiling
+
+- [ ] fuse consecutive butterfly stages only when dependencies remain local to the tile;
+- [ ] explicit workgroup-storage/barrier budget;
+- [ ] compare one-stage, multi-stage and global-pass controls.
+
+## PVP-F4 — subgroup/double-buffer candidates
+
+- [ ] subgroup operations capability-gated with deterministic fallback;
+- [ ] double buffering as a candidate, never assumed beneficial;
+- [ ] no subgroup-width assumption.
+
+## PVP-F5 — Kernel IR and autotuning
+
+- [ ] add a PVP/Boolean-butterfly kernel family rather than abusing `DenseQ4Forward`;
+- [ ] deterministic candidate set over vector width, tile geometry, fused-stage count, workgroup size, staging and subgroup policy;
+- [ ] correctness gate before timing;
+- [ ] real-device manifests keyed by exact commit/device/driver/backend/problem identity.
+
+## PVP-F6 — SML/NNIS handoff
+
+- [ ] export only qualified minimal layout/kernel contracts;
+- [ ] NNIS may consume the WGPU path as an optional portable runtime carrier;
+- [ ] SML requalifies and may internalize the winning realization;
+- [ ] FLAT is never required for final SML model sufficiency.
+
+PVP evidence cannot change default attention routing or establish attention replacement/model quality by itself.
