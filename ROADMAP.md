@@ -1243,9 +1243,15 @@ The execution target is a regular address-major bitplane matrix, not explicit la
 
 ## PVP-F3 — stage fusion and workgroup tiling
 
-- [ ] fuse consecutive butterfly stages only when dependencies remain local to the tile;
-- [ ] explicit workgroup-storage/barrier budget;
+- [x] correctness-qualified fused2 register prefix and tile8 workgroup prefix (PRs #336 and #339);
+- [x] explicit tile8 workgroup-storage/barrier budget: 8 invocations, 128 bytes;
 - [ ] compare one-stage, multi-stage and global-pass controls.
+
+The separate three-candidate measurement protocol is frozen in
+[`docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md`](docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md).
+PVP3d does not change the frozen PVP3b experiment. Software smoke is correctness
+evidence; physical measurements require exclusive RemoteOps admission and do
+not authorize a default route or SML model claim.
 
 ## PVP-F4 — subgroup/double-buffer candidates
 
