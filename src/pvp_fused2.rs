@@ -97,9 +97,7 @@ pub fn pvp_subset_zeta_fused2_host(
     Ok((value, accounting(layout)?))
 }
 
-fn accounting(
-    layout: FlatPvpVec4LayoutV1,
-) -> Result<FlatPvpFused2AccountingV1, FlatPvpVec4Error> {
+fn accounting(layout: FlatPvpVec4LayoutV1) -> Result<FlatPvpFused2AccountingV1, FlatPvpVec4Error> {
     let pairs = (layout.addresses() / 2) as u128 * u128::from(layout.stages());
     let baseline_logical_dispatches = layout.stages();
     let logical_dispatches = if layout.stages() >= 2 {
@@ -159,8 +157,7 @@ impl WgpuPvpFused2Pipeline {
             .storage_u32_words()
             .checked_mul(core::mem::size_of::<u32>())
             .ok_or(FlatPvpVec4Error::ArithmeticOverflow)?;
-        let required =
-            u64::try_from(required).map_err(|_| FlatPvpVec4Error::ArithmeticOverflow)?;
+        let required = u64::try_from(required).map_err(|_| FlatPvpVec4Error::ArithmeticOverflow)?;
         if state.size() < required {
             return Err(FlatPvpVec4Error::BufferTooSmall {
                 required_bytes: required,
@@ -168,16 +165,16 @@ impl WgpuPvpFused2Pipeline {
             });
         }
 
-        let addresses =
-            u32::try_from(layout.addresses()).map_err(|_| FlatPvpVec4Error::IndexSpaceExceeded {
+        let addresses = u32::try_from(layout.addresses()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
                 value: layout.addresses(),
-            })?;
-        let vectors_per_address =
-            u32::try_from(layout.vectors_per_address()).map_err(|_| {
-                FlatPvpVec4Error::IndexSpaceExceeded {
-                    value: layout.vectors_per_address(),
-                }
-            })?;
+            }
+        })?;
+        let vectors_per_address = u32::try_from(layout.vectors_per_address()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
+                value: layout.vectors_per_address(),
+            }
+        })?;
         let block_count = addresses / 4;
         let invocations = block_count
             .checked_mul(vectors_per_address)
@@ -191,12 +188,8 @@ impl WgpuPvpFused2Pipeline {
             });
         }
 
-        let params = crate::wgpu_internal::encode_u32(&[
-            addresses,
-            vectors_per_address,
-            block_count,
-            0,
-        ]);
+        let params =
+            crate::wgpu_internal::encode_u32(&[addresses, vectors_per_address, block_count, 0]);
         let uniform = crate::wgpu_internal::create_uniform_buffer_init(
             device,
             "flat-pvp-fused2-params",
@@ -243,8 +236,7 @@ mod tests {
         for gate in 0..layout.gates() {
             for address in 0..layout.addresses() {
                 if ((gate * 37 + address * 13 + (gate ^ address)) % 29) < 14 {
-                    gate_major[gate * words_per_gate + address / 64] |=
-                        1_u64 << (address % 64);
+                    gate_major[gate * words_per_gate + address / 64] |= 1_u64 << (address % 64);
                 }
             }
         }
@@ -282,8 +274,8 @@ mod tests {
 
     #[test]
     fn fused2_wgsl_parses_and_validates() {
-        let module = naga::front::wgsl::parse_str(FLAT_PVP_FUSED2_WGSL)
-            .expect("PVP fused2 WGSL parses");
+        let module =
+            naga::front::wgsl::parse_str(FLAT_PVP_FUSED2_WGSL).expect("PVP fused2 WGSL parses");
         let mut validator = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::empty(),
