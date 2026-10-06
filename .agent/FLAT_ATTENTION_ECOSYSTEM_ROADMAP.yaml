@@ -783,3 +783,59 @@ vendor_neutral_PVP_device_users_observation_2026_10_06:
     - no_vendor_runtime_dependency_introduced
     - existing_FLAT_PVP3b_vendor_tool_dependency_is_not_driver_only_qualification
   next: qualify_a_separate_vendor_neutral_RemoteOps_exclusive_device_admission_and_contamination_path_before_physical_PVP_timing
+
+PVP_physical_reservation_capture_2026_10_06:
+  status: operator_capture_retained_external_admission_review_and_repeatability_open
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_pull_request: 342
+  evidence_head: c08507ae7357eef5ff7da2f62ee8025dccc46dd4
+  execution_source: 50c0230cc645bd44f1520e2c7194878a4b13009c
+  protocol: docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md
+  report: docs/research/PVP3D_PHYSICAL_THOR_OPERATOR_CAPTURE_2026_10_06.md
+  artifacts: docs/research/evidence/pvp3d-thor-2026-10-06/
+  reservation:
+    user_authorization: explicit_reserve_GPUs_2026_10_06
+    target: Thor
+    start_utc: "2026-10-06T21:34:50Z"
+    complete_and_restore_utc: "2026-10-06T21:35:34Z"
+    source_clean_git_checkout: true
+    compiler: Rust_1_89_0_LLVM_20_1_7_aarch64
+    benchmark_sha256: f4b7f2a4e3d31147c80c2cb724a981c48f6c402002dbb4bd036f2d6a93083d81
+    adapter: NVIDIA_Tegra_NVIDIA_Thor_Vulkan_driver_580_00
+    mechanism:
+      - independently_contending_cooperative_flock_on_dev_nvidia0
+      - paused_CLM_encoder_and_Viggle_services
+      - temporary_runtime_manual_start_refusal_and_Restart_no
+      - prearmed_independent_30_minute_restore_timer
+      - sampled_visible_device_users_required_to_belong_to_qualification_cgroup
+    services_restored: true
+    original_restart_policy_restored: true
+    manual_start_guards_removed: true
+    device_lock_released: true
+    qualification_unit_exit: 0
+  physical_ANF:
+    cases: 24
+    candidate_checks: 96
+    kernels: [scalar_u32, vec4, fused2, tile8]
+    truth_and_coefficient_recovery: exact
+  unchanged_PVP3d:
+    measured_complete_geometries: 15
+    measured_candidate_rows: 45
+    common_limit_rejected_geometries: 6
+    rejected_candidate_rows: 18
+    raw_samples: 1350
+    warmups_per_arm: 5
+    repetitions_per_arm: 30
+    candidate_order: balanced_six_permutations
+    before_and_after_full_CPU_oracle: exact
+    all_p50_p95_independently_recomputed: true
+    partial_snapshots_outside_measurement_retained: 2
+    partial_snapshots_admitted_during_measurement: 0
+    first_attempt: ANF_passed_post_ANF_partial_scan_services_restored_no_timing_began
+  boundary:
+    - single_device_resident_wall_capture_not_kernel_only_or_model_throughput
+    - cooperative_lock_and_sampled_observation_not_hostile_process_GPU_fencing
+    - external_admission_method_review_and_repeatability_remain_open
+    - no_universal_winner_default_route_autotuning_or_model_quality_promotion
+    - slower_neutral_and_limit_rejected_panels_retained
+    - frozen_PVP3b_not_run_or_modified
