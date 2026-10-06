@@ -536,6 +536,12 @@ pascal_vector_projection_program_2026_10_06:
         verdict: deferred_gpu_busy
         accepted_measurement_rows: 0
         performance_claim: none
+      second_physical_attempt:
+        workflow_run: 37516378555
+        job: 112450203293
+        verdict: deferred_gpu_busy
+        accepted_measurement_rows: 0
+        performance_claim: none
       retry_observation_pr: 338
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
@@ -592,6 +598,49 @@ pascal_vector_projection_program_2026_10_06:
         - treating_one_fewer_dispatch_as_a_speedup_without_timing
         - treating_lavapipe_or_WARP_timing_as_physical_GPU_evidence
         - retuning_geometry_after_observing_confirmatory_results
+    PVP_FLAT3C_TILE8:
+      status: preregistered_correctness_slice
+      prerequisite:
+        - PVP_FLAT2_VEC4_merged_qualified
+        - PVP_FLAT3A_FUSED2_merged_qualified
+      candidate:
+        name: tile8_workgroup_fusion
+        physical_layout: unchanged_PVP2_vec4_u32
+        workgroup_size: 8
+        workgroup_storage: 8_vec4_u32_values
+        mapping:
+          - one_workgroup_owns_one_eight_address_tile_and_one_128_gate_vector
+          - local_invocation_id_selects_address_offset_0_through_7
+          - workgroup_id_linearizes_tile_index_and_vector_index
+        fused_stages:
+          - stride_1
+          - stride_2
+          - stride_4
+        suffix:
+          - qualified_PVP2_vec4_kernel_from_stride_8
+        fallback:
+          - K_less_than_8_uses_qualified_PVP2_vec4_path
+      required_qualification:
+        - deterministic_host_tile8_vs_full_PVP2_vec4_bit_exact
+        - WGSL_Naga_validation
+        - actual_WGPU_readback_exact_parity
+        - canonical_padding_preserved
+        - Vulkan_lavapipe_green
+        - Metal_green
+        - Direct3D12_green
+        - Thor_green
+      accounting:
+        - exact_logical_XOR_count_unchanged
+        - exact_vec4_update_count
+        - logical_dispatch_count_separate
+        - workgroup_storage_bytes_explicit
+      exclusions:
+        - no_subgroup
+        - no_double_buffer
+        - no_autotuning
+        - no_performance_claim
+        - no_default_routing_change
+      promotion: blocked_until_exact_head_CI_and_device_parity_are_green
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
