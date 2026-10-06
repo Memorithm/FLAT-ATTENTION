@@ -436,3 +436,44 @@ ax_kernel_task_program:
     - task_success_is_not_kernel_correctness
     - optimized_paths_remain_bound_to_independent_reference_validation
     - hardware_performance_claims_are_environment_scoped
+pascal_vector_projection_program_2026_10_06:
+  status: active_research_only
+  role: portable_GPU_projection_and_kernel_qualification_for_SML_Pascal_ANF_banks
+  boundary:
+    - FLAT_does_not_own_SML_model_semantics_or_ANF_bank_meaning
+    - FLAT_does_not_become_a_mandatory_runtime_dependency_of_the_final_SML_model
+    - FLAT_may_export_or_help_qualify_a_minimal_versioned_kernel_layout_contract_that_SML_can_later_internalize
+  hardware_policy:
+    - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
+    - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
+    - installed_GPU_driver_is_the_only_vendor_specific_software_layer_allowed_for_the_new_PVP_path
+    - existing_legacy_or_reference_vendor_paths_elsewhere_do_not_authorize_their_use_for_PVP
+  input_semantics:
+    owner: Memorithm/SML-GENIUS
+    candidate_layout: address_major_gate_bitplanes
+    portable_gpu_unit: vec4_u32_128_gate_bits
+    transform: staged_subset_zeta_Pascal_butterfly
+  reuse:
+    - Kernel_IR_problem_config_capability_and_candidate_generation_patterns
+    - vec4_memory_transactions
+    - subgroup_capability_gating
+    - workgroup_tiling
+    - double_buffer_candidates
+    - real_device_benchmark_manifests
+    - correctness_before_timing_autotuning
+    - M13B_Boolean_front_end_resident_metadata_and_before_staging_routing_patterns
+  ordered_sequence:
+    - PVP_FLAT0_host_layout_contract_and_independent_oracle_adapter
+    - PVP_FLAT1_scalar_WGSL_u32_reference
+    - PVP_FLAT2_vec4_u32_bitplane_butterfly
+    - PVP_FLAT3_multi_stage_workgroup_fusion
+    - PVP_FLAT4_subgroup_and_double_buffer_candidate_matrix
+    - PVP_FLAT5_device_capability_filter_and_autotuning
+    - PVP_FLAT6_optional_NNIS_portable_runtime_handoff
+    - PVP_FLAT7_SML_requalification_and_minimal_contract_export
+  forbid:
+    - representing_the_subset_lattice_as_pointer_graph_nodes_for_the_hot_path
+    - claiming_tensor_core_equivalence_from_bitwise_work
+    - converting_logical_operation_counts_into_GPU_bandwidth_or_speed_claims
+    - changing_default_attention_routing_from_PVP_evidence_alone
+
