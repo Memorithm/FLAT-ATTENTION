@@ -1,7 +1,7 @@
-//! PVP-F2 vec4<u32> physical projection and WGPU reference.
+//! PVP-F2 vec4-u32 physical projection and WGPU reference.
 //!
 //! Logical ordering is unchanged from pvp-bitplanes/v1. The physical row is
-//! padded to 128-bit groups so each WGPU storage element is one vec4<u32>.
+//! padded to 128-bit groups so each WGPU storage element is one vec4-u32 value.
 //! This module changes representation width only; butterfly stage order and
 //! Boolean semantics are identical to the scalar-u32 PVP reference.
 
