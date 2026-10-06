@@ -527,7 +527,9 @@ pascal_vector_projection_program_2026_10_06:
         - no_performance_claim
       promotion: correctness_qualified_timing_still_blocked
     PVP_FLAT3B_FUSED2_BENCH:
-      status: preregistered_not_executed
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 337
+      exact_head: faa8dcf9a69580dbeb4ec025f98849c3c4c498a9
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_exact_head_correctness_green_before_timing
