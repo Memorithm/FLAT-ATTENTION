@@ -1,0 +1,265 @@
+{
+  "schema": "flat.pvp3d-operator-capture/v1",
+  "source_revision": "50c0230cc645bd44f1520e2c7194878a4b13009c",
+  "source_protocol": "docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md",
+  "compiler": "Rust 1.89.0 LLVM 20.1.7 aarch64-unknown-linux-gnu",
+  "benchmark_sha256": "f4b7f2a4e3d31147c80c2cb724a981c48f6c402002dbb4bd036f2d6a93083d81",
+  "adapter": "NVIDIA Tegra NVIDIA Thor",
+  "backend": "Vulkan",
+  "driver": "580.00",
+  "reservation_start_utc": "2026-10-06T21:34:50Z",
+  "completed_utc": "2026-10-06T21:35:34Z",
+  "services_restored": true,
+  "measured_rows": 45,
+  "skipped_rows": 18,
+  "raw_samples": 1350,
+  "anf_cases": 24,
+  "anf_candidate_checks": 96,
+  "admission": "operator_controlled_cooperative_lock_and_paused_services_with_periodic_visible_proc_checks",
+  "first_attempt": "ANF passed; post-ANF partial observation; no timing began; services restored",
+  "snapshot_partial_policy": "no partial observation admitted during measured execution; incomplete observations before/after timing may be retried",
+  "scope": "single_device_resident_wall_latency_not_kernel_only",
+  "promotion": "none; external admission review and repeatability remain open",
+  "panels": [
+    {
+      "k": 256,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 289425,
+        "fused2": 260731,
+        "tile8": 235286
+      },
+      "p95_ns": {
+        "vec4": 662850,
+        "fused2": 652221,
+        "tile8": 627638
+      },
+      "vec4_over_fused2": 1.1100521226858333,
+      "vec4_over_tile8": 1.23009868840475
+    },
+    {
+      "k": 256,
+      "g": 512,
+      "p50_ns": {
+        "vec4": 269203,
+        "fused2": 245685,
+        "tile8": 216222
+      },
+      "p95_ns": {
+        "vec4": 339731,
+        "fused2": 312342,
+        "tile8": 243906
+      },
+      "vec4_over_fused2": 1.0957241996865905,
+      "vec4_over_tile8": 1.2450305704322409
+    },
+    {
+      "k": 256,
+      "g": 2048,
+      "p50_ns": {
+        "vec4": 300221,
+        "fused2": 280360,
+        "tile8": 251721
+      },
+      "p95_ns": {
+        "vec4": 671951,
+        "fused2": 348944,
+        "tile8": 271619
+      },
+      "vec4_over_fused2": 1.070841061492367,
+      "vec4_over_tile8": 1.1926736346987339
+    },
+    {
+      "k": 1024,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 288508,
+        "fused2": 265120,
+        "tile8": 236360
+      },
+      "p95_ns": {
+        "vec4": 335240,
+        "fused2": 285574,
+        "tile8": 263573
+      },
+      "vec4_over_fused2": 1.0882166566083282,
+      "vec4_over_tile8": 1.2206295481468945
+    },
+    {
+      "k": 1024,
+      "g": 512,
+      "p50_ns": {
+        "vec4": 289814,
+        "fused2": 266508,
+        "tile8": 245536
+      },
+      "p95_ns": {
+        "vec4": 967006,
+        "fused2": 690396,
+        "tile8": 958534
+      },
+      "vec4_over_fused2": 1.0874495324718207,
+      "vec4_over_tile8": 1.1803320083409357
+    },
+    {
+      "k": 1024,
+      "g": 2048,
+      "p50_ns": {
+        "vec4": 866489,
+        "fused2": 845876,
+        "tile8": 831480
+      },
+      "p95_ns": {
+        "vec4": 1085627,
+        "fused2": 1047339,
+        "tile8": 1064525
+      },
+      "vec4_over_fused2": 1.0243688200161727,
+      "vec4_over_tile8": 1.042104440275172
+    },
+    {
+      "k": 4096,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 822063,
+        "fused2": 791405,
+        "tile8": 757683
+      },
+      "p95_ns": {
+        "vec4": 862182,
+        "fused2": 831841,
+        "tile8": 809165
+      },
+      "vec4_over_fused2": 1.0387386988962668,
+      "vec4_over_tile8": 1.084969571707429
+    },
+    {
+      "k": 4096,
+      "g": 512,
+      "p50_ns": {
+        "vec4": 672962,
+        "fused2": 474971,
+        "tile8": 458813
+      },
+      "p95_ns": {
+        "vec4": 708072,
+        "fused2": 488360,
+        "tile8": 495220
+      },
+      "vec4_over_fused2": 1.4168486075992008,
+      "vec4_over_tile8": 1.4667457112156805
+    },
+    {
+      "k": 4096,
+      "g": 2048,
+      "p50_ns": {
+        "vec4": 306045,
+        "fused2": 296675,
+        "tile8": 281527
+      },
+      "p95_ns": {
+        "vec4": 689026,
+        "fused2": 511239,
+        "tile8": 481406
+      },
+      "vec4_over_fused2": 1.031583382489256,
+      "vec4_over_tile8": 1.087089337789981
+    },
+    {
+      "k": 16384,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 677295,
+        "fused2": 666970,
+        "tile8": 497165
+      },
+      "p95_ns": {
+        "vec4": 709739,
+        "fused2": 681517,
+        "tile8": 682970
+      },
+      "vec4_over_fused2": 1.0154804563923414,
+      "vec4_over_tile8": 1.3623143222069132
+    },
+    {
+      "k": 16384,
+      "g": 512,
+      "p50_ns": {
+        "vec4": 707581,
+        "fused2": 700988,
+        "tile8": 704942
+      },
+      "p95_ns": {
+        "vec4": 723701,
+        "fused2": 743322,
+        "tile8": 712443
+      },
+      "vec4_over_fused2": 1.0094052965243343,
+      "vec4_over_tile8": 1.0037435703930253
+    },
+    {
+      "k": 16384,
+      "g": 2048,
+      "p50_ns": {
+        "vec4": 526322,
+        "fused2": 496701,
+        "tile8": 526054
+      },
+      "p95_ns": {
+        "vec4": 567480,
+        "fused2": 550803,
+        "tile8": 569962
+      },
+      "vec4_over_fused2": 1.0596354748631471,
+      "vec4_over_tile8": 1.0005094534021222
+    },
+    {
+      "k": 65536,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 526443,
+        "fused2": 458971,
+        "tile8": 440508
+      },
+      "p95_ns": {
+        "vec4": 597239,
+        "fused2": 583119,
+        "tile8": 516731
+      },
+      "vec4_over_fused2": 1.1470071093816385,
+      "vec4_over_tile8": 1.1950815876215641
+    },
+    {
+      "k": 65536,
+      "g": 512,
+      "p50_ns": {
+        "vec4": 479657,
+        "fused2": 465545,
+        "tile8": 483805
+      },
+      "p95_ns": {
+        "vec4": 553127,
+        "fused2": 537905,
+        "tile8": 580462
+      },
+      "vec4_over_fused2": 1.0303128591221042,
+      "vec4_over_tile8": 0.9914262977852647
+    },
+    {
+      "k": 262144,
+      "g": 128,
+      "p50_ns": {
+        "vec4": 636804,
+        "fused2": 622007,
+        "tile8": 638877
+      },
+      "p95_ns": {
+        "vec4": 676156,
+        "fused2": 654360,
+        "tile8": 678868
+      },
+      "vec4_over_fused2": 1.0237891213442936,
+      "vec4_over_tile8": 0.9967552439671487
+    }
+  ]
+}

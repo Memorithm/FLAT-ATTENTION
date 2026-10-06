@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu
+lease_dir=/var/tmp/remoteops-pvp-reservation.f1plhF
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service; do
+  rm -f "/run/systemd/system/$unit.d/90-remoteops-pvp-f1plhF.conf"
+done
+systemctl daemon-reload
+systemctl start memorithm-clm-encoder.service
+systemctl start memorithm-clm.service
+systemctl start memorithm-viggle-lan.service
+date -u > "$lease_dir/restored-at.txt"
+systemctl show memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service --property=Id,ActiveState,SubState,RefuseManualStart,Restart > "$lease_dir/restored-services.txt"
