@@ -557,15 +557,19 @@ pascal_vector_projection_program_2026_10_06:
         measured_repetitions: 30
         rotating_candidate_order: true
         separate_pipeline_creation_from_warm_runtime: true
-        report_end_to_end_submit_wait_readback_and_GPU_timestamp_when_supported: true
+        primary_timing_scope: resident_encode_plus_queue_submit_plus_device_wait
+        state_reset: completed_before_each_timed_sample_and_excluded_from_timing
+        readback: exact_correctness_gate_before_timing_and_excluded_from_primary_timing
+        gpu_timestamp: separate_diagnostic_series_when_supported_never_mixed_into_primary_wall_samples
       evidence_classes:
         software_Vulkan_lavapipe: correctness_only
         Direct3D12_WARP: correctness_only
         real_device_WGPU: eligible_for_device_specific_performance_evidence
       report:
-        - median_ns
-        - p95_ns
+        - resident_wall_median_ns
+        - resident_wall_p95_ns
         - candidate_wins
+        - GPU_timestamp_median_ns_when_supported
         - logical_dispatch_count
         - exact_state_bytes
         - adapter_backend_driver_identity
