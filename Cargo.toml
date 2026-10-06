@@ -109,6 +109,10 @@ name = "m60_q1_direct_ab"
 required-features = ["wgpu"]
 
 [[example]]
+name = "pvp3b_fused2_bench"
+required-features = ["wgpu"]
+
+[[example]]
 name = "regression_gate"
 required-features = ["wgpu"]
 
