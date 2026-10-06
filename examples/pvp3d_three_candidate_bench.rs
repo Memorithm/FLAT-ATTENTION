@@ -15,6 +15,7 @@ use flat_attention::pvp_vec4::{
 use protocol::{candidate_order, checksum, percentile_ns, Candidate, Limits};
 
 struct Harness {
+    readbacks: std::cell::RefCell<Vec<wgpu::Buffer>>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     vec4: WgpuPvpVec4Pipeline,
@@ -95,6 +96,9 @@ impl Harness {
             .collect();
         drop(mapped);
         staging.unmap();
+        // Retain completed readbacks across geometries so a newly mapped
+        // allocation cannot alias a released previous oracle-readback buffer.
+        self.readbacks.borrow_mut().push(staging);
         words
     }
 
@@ -300,6 +304,7 @@ fn main() {
     }))
     .expect("PVP3d request_device failed");
     let harness = Harness {
+        readbacks: Default::default(),
         vec4: WgpuPvpVec4Pipeline::new(&device).expect("PVP2 pipeline"),
         fused2: WgpuPvpFused2Pipeline::new(&device).expect("PVP3a pipeline"),
         tile8: WgpuPvpTile8Pipeline::new(&device).expect("PVP3c pipeline"),
@@ -318,5 +323,14 @@ fn main() {
             }
         }
     }
+    let readbacks = harness.readbacks.borrow();
+    println!("retained_readbacks={}", readbacks.len());
+    println!(
+        "retained_readback_payload_bytes={}",
+        readbacks.iter().map(wgpu::Buffer::size).sum::<u64>()
+    );
+    println!(
+        "retained_readback_scope=oracle_buffers_excluded_from_four_state_payload_not_total_memory"
+    );
     println!("qualification_status=complete");
 }
