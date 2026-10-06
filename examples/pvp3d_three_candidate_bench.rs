@@ -16,6 +16,7 @@ use protocol::{candidate_order, checksum, percentile_ns, Candidate, Limits};
 
 struct Harness {
     readbacks: std::cell::RefCell<Vec<wgpu::Buffer>>,
+    resident_buffers: std::cell::RefCell<Vec<wgpu::Buffer>>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     vec4: WgpuPvpVec4Pipeline,
@@ -209,6 +210,10 @@ impl Harness {
                 println!("sample,{k},{g},{},{iteration},{value}", candidate.name());
             }
         }
+        // Keep source/state allocation identities across geometry changes.
+        let mut retained = self.resident_buffers.borrow_mut();
+        retained.push(source);
+        retained.extend(states);
     }
 }
 
@@ -305,6 +310,7 @@ fn main() {
     .expect("PVP3d request_device failed");
     let harness = Harness {
         readbacks: Default::default(),
+        resident_buffers: Default::default(),
         vec4: WgpuPvpVec4Pipeline::new(&device).expect("PVP2 pipeline"),
         fused2: WgpuPvpFused2Pipeline::new(&device).expect("PVP3a pipeline"),
         tile8: WgpuPvpTile8Pipeline::new(&device).expect("PVP3c pipeline"),
@@ -331,6 +337,15 @@ fn main() {
     );
     println!(
         "retained_readback_scope=oracle_buffers_excluded_from_four_state_payload_not_total_memory"
+    );
+    let resident = harness.resident_buffers.borrow();
+    println!("retained_resident_buffers={}", resident.len());
+    println!(
+        "retained_resident_payload_bytes={}",
+        resident.iter().map(wgpu::Buffer::size).sum::<u64>()
+    );
+    println!(
+        "retained_resident_scope=all_admitted_geometries_source_plus_three_states_not_total_memory"
     );
     println!("qualification_status=complete");
 }
