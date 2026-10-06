@@ -2,6 +2,8 @@ name: FLAT PVP3b Thor qualification
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - "src/pvp_vec4.rs"
