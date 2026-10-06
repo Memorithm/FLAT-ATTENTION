@@ -738,3 +738,48 @@ pascal_vector_projection_program_2026_10_06:
     - converting_logical_operation_counts_into_GPU_bandwidth_or_speed_claims
     - changing_default_attention_routing_from_PVP_evidence_alone
 
+vendor_neutral_PVP_device_users_observation_2026_10_06:
+  status: merged_diagnostic_groundwork_physical_measurement_deferred
+  pull_request: 261
+  exact_head: a6c6c6c2e7ba082a957902d0aab18ba01c0672a5
+  merge_sha: c8de57e3dc266224a1a2e059f85da6103c40a638
+  exact_head_CI: {run_id: 37531402653, rust_contract: success, thor_capability_probe: success}
+  contract: remoteops.device-users/v1
+  command: remoteops-device-users
+  source: Memorithm/RemoteOps
+  implementation:
+    - Rust_std_only_no_device_open_no_vendor_API_no_subprocess
+    - visible_Linux_proc_descriptor_metadata_matching_character_device_rdev
+    - unique_sorted_PID_device_pairs
+    - unreadable_or_disappeared_entries_and_work_limits_remain_partial
+    - idle_and_exclusivity_claims_always_false
+  Thor_diagnostic:
+    host: tarek
+    architecture: aarch64_unknown_linux_gnu
+    compiler: Rust_1_89_0_LLVM_20_1_7
+    retained_record_last_write_utc: "2026-10-06T21:06:34.774734512Z"
+    materialization: pinned_Rust_workspace_subset_not_full_git_checkout
+    source_bundle_sha256: d3a8c6e7094b72b13de68fd1dec5cdae020dfc39743971c336206af6113b0b9f
+    module_sha256: 50af8e92f435eb6a69b42e5be6555e45aa486940929965da0bb84421c2d56bd0
+    CLI_source_sha256: e6a37c018005b4c7aaf10b361b1ea7e11627f4520911e1029acec7120a8652f5
+    binary_sha256: 614d1ebdcbfad91c11f87dc6fd2bfb24e1ea37c49a50f76f87951923d78730da
+    paths: [/dev/nvidia0, /dev/dri/renderD128]
+    raw_devices: [49920, 57984]
+    visible_device_user_PIDs: [813077, 813658, 814980, 3179378]
+    PID_device_pairs: 7
+    processes_scanned: 476
+    descriptors_inspected: 6340
+    unreadable_entries: 0
+    scan_limit_reached: false
+    diagnostic_exit: 0
+  physical_PVP_measurement:
+    verdict: deferred_visible_device_users
+    accepted_timing_rows: 0
+    performance_claim: none
+    services_stopped: false
+  boundary:
+    - device_descriptor_presence_is_not_GPU_compute_activity
+    - no_exclusivity_idle_capacity_or_model_quality_claim
+    - no_vendor_runtime_dependency_introduced
+    - existing_FLAT_PVP3b_vendor_tool_dependency_is_not_driver_only_qualification
+  next: qualify_a_separate_vendor_neutral_RemoteOps_exclusive_device_admission_and_contamination_path_before_physical_PVP_timing
