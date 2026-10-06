@@ -70,7 +70,9 @@ fn read_u32(
     });
     let _ = device.poll(wgpu::PollType::wait_indefinitely());
     receiver.recv().unwrap().unwrap();
-    let mapped = slice.get_mapped_range().expect("valid PVP vec4 readback range");
+    let mapped = slice
+        .get_mapped_range()
+        .expect("valid PVP vec4 readback range");
     let values = mapped
         .chunks_exact(4)
         .map(|chunk| u32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
