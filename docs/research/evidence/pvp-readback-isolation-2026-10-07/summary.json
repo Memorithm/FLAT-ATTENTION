@@ -1,0 +1,65 @@
+{
+  "source_revision": "f913d53748edd40ebcb696395aad6a8b9a61893e",
+  "protocol_revision": "0b7563abcd93878ada12b716878fd26315089cf2",
+  "controller_revision": "29df571ff9b2ebb7ec33ff28f108de650a6b116c",
+  "binary_sha256": "ae21676eed86e25c919dd7171aed7188feff65e5e5a024fc3a0a5418cbb7774c",
+  "comparisons_per_process": 504,
+  "paired_observations_per_process": 168,
+  "runs": [
+    {
+      "run": 1,
+      "mode": "automatic",
+      "exit": 1,
+      "failed_comparisons": 2,
+      "disagreeing_observations": 1
+    },
+    {
+      "run": 2,
+      "mode": "explicit",
+      "exit": 0,
+      "failed_comparisons": 0,
+      "disagreeing_observations": 0
+    },
+    {
+      "run": 3,
+      "mode": "automatic",
+      "exit": 1,
+      "failed_comparisons": 210,
+      "disagreeing_observations": 105
+    },
+    {
+      "run": 4,
+      "mode": "explicit",
+      "exit": 0,
+      "failed_comparisons": 0,
+      "disagreeing_observations": 0
+    },
+    {
+      "run": 5,
+      "mode": "automatic",
+      "exit": 1,
+      "failed_comparisons": 144,
+      "disagreeing_observations": 72
+    },
+    {
+      "run": 6,
+      "mode": "explicit",
+      "exit": 0,
+      "failed_comparisons": 0,
+      "disagreeing_observations": 0
+    }
+  ],
+  "all_B_oracle_comparisons_pass": true,
+  "automatic_disagreements_by_phase": {
+    "source_no_compute": 20,
+    "reset": 64,
+    "transformed": 94
+  },
+  "performance_admitted": false,
+  "root_cause_proven": false,
+  "unknown_observation_runs": [
+    3,
+    5,
+    6
+  ]
+}

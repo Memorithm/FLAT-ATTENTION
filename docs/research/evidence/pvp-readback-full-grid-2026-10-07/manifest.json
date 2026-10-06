@@ -1,0 +1,587 @@
+{
+  "schema": "pvp-host-evidence-manifest/v1",
+  "files": [
+    {
+      "archive_path": "binary-path.txt",
+      "original_path": "binary-path.txt",
+      "bytes": 77,
+      "sha256": "b5072b8b1d032afd83c9f1a35961584a6d8e1a4c168862a8db14245249f7c25d"
+    },
+    {
+      "archive_path": "binary-sha256.txt",
+      "original_path": "binary-sha256.txt",
+      "bytes": 65,
+      "sha256": "4fe01feae30d09a266b2713768c257e865414070de034de3a06716a808af68cb"
+    },
+    {
+      "archive_path": "block-1/completed-at.txt",
+      "original_path": "block-1/completed-at.txt",
+      "bytes": 36,
+      "sha256": "5d6eb0a1273fddd8885d53c5403a95e385ee5e1bd2f4a347bd549e3457694566"
+    },
+    {
+      "archive_path": "block-1/control.log",
+      "original_path": "block-1/control.log",
+      "bytes": 712,
+      "sha256": "226d412d1bc9253d081a713750efd552dddef48dfb483316f926f07a55b69a5b"
+    },
+    {
+      "archive_path": "block-1/controller-pid.txt",
+      "original_path": "block-1/controller-pid.txt",
+      "bytes": 8,
+      "sha256": "0dbb56057d91c6ffad1c25c866abf6c0ecc90e3dfa123693bbe429d0d0a99377"
+    },
+    {
+      "archive_path": "block-1/identity-after.txt",
+      "original_path": "block-1/identity-after.txt",
+      "bytes": 143,
+      "sha256": "a5d990a314f9b82dc4585009ad092a94f926e78670577df0240a5a7b82f97fc8"
+    },
+    {
+      "archive_path": "block-1/identity-before.txt",
+      "original_path": "block-1/identity-before.txt",
+      "bytes": 81,
+      "sha256": "7ba14836fb0f99b4549204c8ceecf64b6969e91661cb24f384846430cc13267e"
+    },
+    {
+      "archive_path": "block-1/kernel-lifecycle.json",
+      "original_path": "block-1/kernel-lifecycle.json",
+      "bytes": 386994,
+      "sha256": "3472a0fa94c60a33b70ed4b5d6fed35a749a857afd010202b4c217520fdbe0d5"
+    },
+    {
+      "archive_path": "block-1/observer-identity.txt",
+      "original_path": "block-1/observer-identity.txt",
+      "bytes": 145,
+      "sha256": "1a7470fbb32f672dbe2b106bae39074ef5b3081e3b188f483549da0d9289e9ef"
+    },
+    {
+      "archive_path": "block-1/occupancy-current.json",
+      "original_path": "block-1/occupancy-current.json",
+      "bytes": 446,
+      "sha256": "dcad9bb1acacd47098ced7253b47cb2a30c00192f59b95849bc43311fec1396d"
+    },
+    {
+      "archive_path": "block-1/occupancy-decisions.txt",
+      "original_path": "block-1/occupancy-decisions.txt",
+      "bytes": 714,
+      "sha256": "f31bca643df5a32f6e1a82bcd576231e71da949a4183fc24d4cd2166caee24d8"
+    },
+    {
+      "archive_path": "block-1/occupancy-times.txt",
+      "original_path": "block-1/occupancy-times.tsv",
+      "bytes": 2008,
+      "sha256": "b7b88aa70433d484ffb55a4b6950b34d5571d804a6571bf7ee5c1658e340b87d"
+    },
+    {
+      "archive_path": "block-1/occupancy.jsonl",
+      "original_path": "block-1/occupancy.jsonl",
+      "bytes": 20972,
+      "sha256": "3f16923342f45e5df5fe6795843890fff3db08ca883ba7b46e0e8166e57b9268"
+    },
+    {
+      "archive_path": "block-1/original-services.txt",
+      "original_path": "block-1/original-services.txt",
+      "bytes": 461,
+      "sha256": "58f5b36f8e8893ead5299c2a21219cc93ffc5a042baee3d0c4a2132c0d570318"
+    },
+    {
+      "archive_path": "block-1/packed-anf.log",
+      "original_path": "block-1/packed-anf.log",
+      "bytes": 4385,
+      "sha256": "210363b4f60d28251910b54798caab9c08caec60bf31c75e65929d51a93e0bb8"
+    },
+    {
+      "archive_path": "block-1/packed-identity.txt",
+      "original_path": "block-1/packed-identity.txt",
+      "bytes": 131,
+      "sha256": "d584b536913d26dad12beea9ed71c11a3fba47ae2c26ae63793dfe7eefd9a73e"
+    },
+    {
+      "archive_path": "block-1/reserved-at.txt",
+      "original_path": "block-1/reserved-at.txt",
+      "bytes": 36,
+      "sha256": "ffdf69f541aee2d79df15804ad83c5ea1fc34b229f36e3868dd6642955ec357f"
+    },
+    {
+      "archive_path": "block-1/restored-at.txt",
+      "original_path": "block-1/restored-at.txt",
+      "bytes": 36,
+      "sha256": "cc6b6fdf3385bd8562e4fb709b41090fc7586a09728ec49464cd7a15dcb8f3b3"
+    },
+    {
+      "archive_path": "block-1/restored-services.txt",
+      "original_path": "block-1/restored-services.txt",
+      "bytes": 409,
+      "sha256": "57678d2c133159a66673ee3db265c1b1d44c1c99f0ee69bc8e809e7885499e64"
+    },
+    {
+      "archive_path": "block-1/run-1/complete-at.txt",
+      "original_path": "block-1/run-1/complete-at.txt",
+      "bytes": 36,
+      "sha256": "ea2232afcbb54ca535335cb08cebb5865ac2332765fd50d3efad24be7974d5f8"
+    },
+    {
+      "archive_path": "block-1/run-1/load-after.txt",
+      "original_path": "block-1/run-1/load-after.txt",
+      "bytes": 30,
+      "sha256": "7b55f593320f673242701e85bbf707997b68e884eb9e724777b5001b1125608a"
+    },
+    {
+      "archive_path": "block-1/run-1/load-before.txt",
+      "original_path": "block-1/run-1/load-before.txt",
+      "bytes": 30,
+      "sha256": "379059f226a87d2a4f69fb1b34f247efadcbcfcc9f3cd8c1647cb4b4a73d9359"
+    },
+    {
+      "archive_path": "block-1/run-1/mode.txt",
+      "original_path": "block-1/run-1/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-1/pvp3d.log",
+      "original_path": "block-1/run-1/pvp3d.log",
+      "bytes": 50892,
+      "sha256": "953b9452f1f01a094fdd2f890daaea219df7a34b60716caf6fed2e60f1169080"
+    },
+    {
+      "archive_path": "block-1/run-1/start-at.txt",
+      "original_path": "block-1/run-1/start-at.txt",
+      "bytes": 36,
+      "sha256": "a3954b798eec2a719e32ef6250b0f43aac663e5e9a75f31452968c14396d70df"
+    },
+    {
+      "archive_path": "block-1/run-10/complete-at.txt",
+      "original_path": "block-1/run-10/complete-at.txt",
+      "bytes": 36,
+      "sha256": "c2b7fdfed8df97cfac31572db085654b0c38dd88937c9bd38e204ae8199e7e3b"
+    },
+    {
+      "archive_path": "block-1/run-10/load-after.txt",
+      "original_path": "block-1/run-10/load-after.txt",
+      "bytes": 30,
+      "sha256": "421db08d2b3a1827b6b411e176b72cff5d281ab00e29015f78fd0b5557f21182"
+    },
+    {
+      "archive_path": "block-1/run-10/load-before.txt",
+      "original_path": "block-1/run-10/load-before.txt",
+      "bytes": 30,
+      "sha256": "b92c232474aff3a55d82211531ab1f17b4961e5601ffb5376174ce1021193b89"
+    },
+    {
+      "archive_path": "block-1/run-10/mode.txt",
+      "original_path": "block-1/run-10/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-10/pvp3d.log",
+      "original_path": "block-1/run-10/pvp3d.log",
+      "bytes": 50854,
+      "sha256": "5f968141b6ed02c713d7569065c76691c07ca1b138915c45ec8358002d915852"
+    },
+    {
+      "archive_path": "block-1/run-10/start-at.txt",
+      "original_path": "block-1/run-10/start-at.txt",
+      "bytes": 36,
+      "sha256": "9e489fe7decd01ef2dad92030e46988cc56084e05726609a5b98a456b28bdedf"
+    },
+    {
+      "archive_path": "block-1/run-2/complete-at.txt",
+      "original_path": "block-1/run-2/complete-at.txt",
+      "bytes": 36,
+      "sha256": "558b0327fcb71e70ffba01e14a92f66fa14343b0378b2eca0dd51dc4f5587673"
+    },
+    {
+      "archive_path": "block-1/run-2/load-after.txt",
+      "original_path": "block-1/run-2/load-after.txt",
+      "bytes": 30,
+      "sha256": "840d86e27825186700a32d938697a2dde2f0e12e8dbddfecf8f0bc8fcbd56ac4"
+    },
+    {
+      "archive_path": "block-1/run-2/load-before.txt",
+      "original_path": "block-1/run-2/load-before.txt",
+      "bytes": 30,
+      "sha256": "9265b11ad1c3906c4fbcad098c9d515e4f4d33794e61abd610b3ebd674312afb"
+    },
+    {
+      "archive_path": "block-1/run-2/mode.txt",
+      "original_path": "block-1/run-2/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-2/pvp3d.log",
+      "original_path": "block-1/run-2/pvp3d.log",
+      "bytes": 50831,
+      "sha256": "05d705364250af4ef8fdfb10e5c531e0f9b165a671b272e49f4641ded6d60177"
+    },
+    {
+      "archive_path": "block-1/run-2/start-at.txt",
+      "original_path": "block-1/run-2/start-at.txt",
+      "bytes": 36,
+      "sha256": "443db4334cb01e034cc87a804501ad3182c49a8600fae74a513f0907b0756a96"
+    },
+    {
+      "archive_path": "block-1/run-3/complete-at.txt",
+      "original_path": "block-1/run-3/complete-at.txt",
+      "bytes": 36,
+      "sha256": "bc045a15c103db345b3bd0d8e6812f0dfaafc1c45a9b7c2722988311084ce4f4"
+    },
+    {
+      "archive_path": "block-1/run-3/load-after.txt",
+      "original_path": "block-1/run-3/load-after.txt",
+      "bytes": 30,
+      "sha256": "f584975ecd1698cdcf7adcc8ddc27b4b4cfeaa814b1cb051fd706b726d5188d3"
+    },
+    {
+      "archive_path": "block-1/run-3/load-before.txt",
+      "original_path": "block-1/run-3/load-before.txt",
+      "bytes": 30,
+      "sha256": "945dbba2963fda7b032e4c6558e19fad73acdc91b81ccbff9f993de51acc9d6f"
+    },
+    {
+      "archive_path": "block-1/run-3/mode.txt",
+      "original_path": "block-1/run-3/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-3/pvp3d.log",
+      "original_path": "block-1/run-3/pvp3d.log",
+      "bytes": 50875,
+      "sha256": "2b11dd07bf462e3ee1aa52aeb59720566b6f6182f7ab016737d8c9068001335e"
+    },
+    {
+      "archive_path": "block-1/run-3/start-at.txt",
+      "original_path": "block-1/run-3/start-at.txt",
+      "bytes": 36,
+      "sha256": "e2261aa5f6d3d61511beed018c18bd6ebb77590719c41e7316c69f43fb1884c8"
+    },
+    {
+      "archive_path": "block-1/run-4/complete-at.txt",
+      "original_path": "block-1/run-4/complete-at.txt",
+      "bytes": 36,
+      "sha256": "0a1613ff09fa33af4fcf3e412d30f7d1efedb756a160057d49df2e4acc22e084"
+    },
+    {
+      "archive_path": "block-1/run-4/load-after.txt",
+      "original_path": "block-1/run-4/load-after.txt",
+      "bytes": 30,
+      "sha256": "4b74706d6dc60c16a139359df2a5d8eab85ec61c293e0d39e04ec1ac6b9c87eb"
+    },
+    {
+      "archive_path": "block-1/run-4/load-before.txt",
+      "original_path": "block-1/run-4/load-before.txt",
+      "bytes": 30,
+      "sha256": "d1b15252e1073cb37675e0a69238381db79538a67a070fcb775bd1c894efa97f"
+    },
+    {
+      "archive_path": "block-1/run-4/mode.txt",
+      "original_path": "block-1/run-4/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-4/pvp3d.log",
+      "original_path": "block-1/run-4/pvp3d.log",
+      "bytes": 50918,
+      "sha256": "b81870ef7d0ad50d47f2b08d829987239e7cf21844f61a12bc4e7d438a5be966"
+    },
+    {
+      "archive_path": "block-1/run-4/start-at.txt",
+      "original_path": "block-1/run-4/start-at.txt",
+      "bytes": 36,
+      "sha256": "fd665f33f0065b466d6b2a452be96cb912c9fc7c645d96591fb6f5abfbab162a"
+    },
+    {
+      "archive_path": "block-1/run-5/complete-at.txt",
+      "original_path": "block-1/run-5/complete-at.txt",
+      "bytes": 36,
+      "sha256": "fe7abd63c776ed07369d1ead4ba631558cd69691ee409e5ce6429798a42c04b5"
+    },
+    {
+      "archive_path": "block-1/run-5/load-after.txt",
+      "original_path": "block-1/run-5/load-after.txt",
+      "bytes": 30,
+      "sha256": "ae54b7325aff5649901fa074a9efd61393b4ff2d1fdb93e70d50290e5f094733"
+    },
+    {
+      "archive_path": "block-1/run-5/load-before.txt",
+      "original_path": "block-1/run-5/load-before.txt",
+      "bytes": 30,
+      "sha256": "de809c0dcc28d47c053d25804035503eb067187a4f8a4b7523ad32369ffa3b12"
+    },
+    {
+      "archive_path": "block-1/run-5/mode.txt",
+      "original_path": "block-1/run-5/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-5/pvp3d.log",
+      "original_path": "block-1/run-5/pvp3d.log",
+      "bytes": 50980,
+      "sha256": "60082544e667cc838c462e1a1b3b20bc4aad8c68dcdea60685f90aebbcaa616e"
+    },
+    {
+      "archive_path": "block-1/run-5/start-at.txt",
+      "original_path": "block-1/run-5/start-at.txt",
+      "bytes": 36,
+      "sha256": "4d38799958ad9b673392efd5164ec360190f1a70def3bc4bfd85028459cfbb0f"
+    },
+    {
+      "archive_path": "block-1/run-6/complete-at.txt",
+      "original_path": "block-1/run-6/complete-at.txt",
+      "bytes": 36,
+      "sha256": "e63c01af55e8bbe73da6a0dfa4b5564c288a196564bbedca3b559794188477ad"
+    },
+    {
+      "archive_path": "block-1/run-6/load-after.txt",
+      "original_path": "block-1/run-6/load-after.txt",
+      "bytes": 30,
+      "sha256": "939b1c83e10c1fa7d54f03b38f0dcd1b8f3855cc99bc7a21a0c2ddad9f44d1ce"
+    },
+    {
+      "archive_path": "block-1/run-6/load-before.txt",
+      "original_path": "block-1/run-6/load-before.txt",
+      "bytes": 30,
+      "sha256": "daaaa2b2599a1e913b1c74de36fce16b77708ebb7e182950eeb3cb204655b5e2"
+    },
+    {
+      "archive_path": "block-1/run-6/mode.txt",
+      "original_path": "block-1/run-6/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-6/pvp3d.log",
+      "original_path": "block-1/run-6/pvp3d.log",
+      "bytes": 50877,
+      "sha256": "adc9101b282e725cd6368365dabd0a4b79e6aac4b8be367cd0a6fc9416f94244"
+    },
+    {
+      "archive_path": "block-1/run-6/start-at.txt",
+      "original_path": "block-1/run-6/start-at.txt",
+      "bytes": 36,
+      "sha256": "85c5c02cc1bb8289ca3f7ef98d54c84969618bcd261007b5a93a45922c9a7052"
+    },
+    {
+      "archive_path": "block-1/run-7/complete-at.txt",
+      "original_path": "block-1/run-7/complete-at.txt",
+      "bytes": 36,
+      "sha256": "e5f161a490702db0fb67bab16d0158d1c9f7890aaa5e9c18f60301421bb4e741"
+    },
+    {
+      "archive_path": "block-1/run-7/load-after.txt",
+      "original_path": "block-1/run-7/load-after.txt",
+      "bytes": 30,
+      "sha256": "2fadf12b5ed9caa7e3bffb0121545d6e22eedec8052dcdb86d657f61e58f4574"
+    },
+    {
+      "archive_path": "block-1/run-7/load-before.txt",
+      "original_path": "block-1/run-7/load-before.txt",
+      "bytes": 30,
+      "sha256": "47b0b18f4472c2252fbe504e483cf9fe9546f477fc69334159f54232ad99536c"
+    },
+    {
+      "archive_path": "block-1/run-7/mode.txt",
+      "original_path": "block-1/run-7/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-7/pvp3d.log",
+      "original_path": "block-1/run-7/pvp3d.log",
+      "bytes": 50958,
+      "sha256": "f537d1405569e435ac74bcf706eed4ebf404781226b38c22f3606607b1673169"
+    },
+    {
+      "archive_path": "block-1/run-7/start-at.txt",
+      "original_path": "block-1/run-7/start-at.txt",
+      "bytes": 36,
+      "sha256": "1ed5ac5ee1d87b070ba503cc9df3e2e560a40a727de43df8b67939f5260ea137"
+    },
+    {
+      "archive_path": "block-1/run-8/complete-at.txt",
+      "original_path": "block-1/run-8/complete-at.txt",
+      "bytes": 36,
+      "sha256": "b2db8fa7a719e472c7ad444acd2cedfbee47ac13c03034b6d6710686fff2f753"
+    },
+    {
+      "archive_path": "block-1/run-8/load-after.txt",
+      "original_path": "block-1/run-8/load-after.txt",
+      "bytes": 30,
+      "sha256": "208251d683f1f20cf5337e9c6db3459433927ec2ca70ac685caf4851f31d9729"
+    },
+    {
+      "archive_path": "block-1/run-8/load-before.txt",
+      "original_path": "block-1/run-8/load-before.txt",
+      "bytes": 30,
+      "sha256": "bcf038c0459b393974c4b7cae1dded64fe673623a2a1c5820da3170ffeec37bb"
+    },
+    {
+      "archive_path": "block-1/run-8/mode.txt",
+      "original_path": "block-1/run-8/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-8/pvp3d.log",
+      "original_path": "block-1/run-8/pvp3d.log",
+      "bytes": 50976,
+      "sha256": "4c9914382763e0e63eaa55b38113d9c7f1b2956f70e7897aa559307aeebd4fd1"
+    },
+    {
+      "archive_path": "block-1/run-8/start-at.txt",
+      "original_path": "block-1/run-8/start-at.txt",
+      "bytes": 36,
+      "sha256": "c944c1196abd97f53bd7ff50bb439c4fa8a450256fd2f95875c1fc751dc07b39"
+    },
+    {
+      "archive_path": "block-1/run-9/complete-at.txt",
+      "original_path": "block-1/run-9/complete-at.txt",
+      "bytes": 36,
+      "sha256": "a26c91936f16a703c6b124a9a26382f8d71a22ca072423fd37f0c0627954206f"
+    },
+    {
+      "archive_path": "block-1/run-9/load-after.txt",
+      "original_path": "block-1/run-9/load-after.txt",
+      "bytes": 30,
+      "sha256": "672cd94fc577c4d5b4023db40840fb32a4187504699e3c01bbd46612701dc5cf"
+    },
+    {
+      "archive_path": "block-1/run-9/load-before.txt",
+      "original_path": "block-1/run-9/load-before.txt",
+      "bytes": 30,
+      "sha256": "1a8eeb9c8b20b5957116d5adc76786ac592ed5ae1ea26de6234e6b614af54593"
+    },
+    {
+      "archive_path": "block-1/run-9/mode.txt",
+      "original_path": "block-1/run-9/mode.txt",
+      "bytes": 25,
+      "sha256": "6af8de923bad8492199e7d51e90a0cc7e26289e18ce13daf46d4a0693d81c3ac"
+    },
+    {
+      "archive_path": "block-1/run-9/pvp3d.log",
+      "original_path": "block-1/run-9/pvp3d.log",
+      "bytes": 50875,
+      "sha256": "21f55f45dfabcec3726f993901910d24a06397b33308bbb404697c0f0e666008"
+    },
+    {
+      "archive_path": "block-1/run-9/start-at.txt",
+      "original_path": "block-1/run-9/start-at.txt",
+      "bytes": 36,
+      "sha256": "b975703162050bfac94b23f4882a63b361ef0f0d4ab02991ac27daedf8b105ed"
+    },
+    {
+      "archive_path": "block-1/source-revision.txt",
+      "original_path": "block-1/source-revision.txt",
+      "bytes": 41,
+      "sha256": "94dbedf135837009c9595d95788c4c56d7eb153f976182c12fca231b98233078"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0001.json",
+      "original_path": "block-1/trace-decision-0001.json",
+      "bytes": 4932,
+      "sha256": "882f9bd913785d3837f7a011bab7cca1874186cdc85c32351014d2f1f242e9a0"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0005.json",
+      "original_path": "block-1/trace-decision-0005.json",
+      "bytes": 53200,
+      "sha256": "9b50b38c2ec167ff62c8836efe9ebbbcfdc8bc8cdf6a2da0a3a369b19677728a"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0009.json",
+      "original_path": "block-1/trace-decision-0009.json",
+      "bytes": 162565,
+      "sha256": "ebdf6315e04eba978d822012a48c689c875d479cfbadf3695501009f4292698c"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0012.json",
+      "original_path": "block-1/trace-decision-0012.json",
+      "bytes": 226596,
+      "sha256": "2fb030bc26cee989eabccf555a035380b1854adf763c1b8aab43e5a5288dbd0f"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0013.json",
+      "original_path": "block-1/trace-decision-0013.json",
+      "bytes": 261713,
+      "sha256": "f8098b810e3aef481b9aa69554e49f16af8508e9b808f52ac5c27fa7f0f5c9b3"
+    },
+    {
+      "archive_path": "block-1/trace-decision-0023.json",
+      "original_path": "block-1/trace-decision-0023.json",
+      "bytes": 299277,
+      "sha256": "9946dbb7580e7a61f45c48adb35a4933f240b50cffba3df5cce0192407686157"
+    },
+    {
+      "archive_path": "block-1/trace-instance-path.txt",
+      "original_path": "block-1/trace-instance-path.txt",
+      "bytes": 67,
+      "sha256": "e3a250c129795112c93fe0b38476d6367ecc48ac0386ad75dfa0dc0a40509bfc"
+    },
+    {
+      "archive_path": "block-1/trace-stats.jsonl",
+      "original_path": "block-1/trace-stats.jsonl",
+      "bytes": 108713,
+      "sha256": "c933534e426a33510fc243622218e34a9c596bf62590ed94711ea0994dac18ac"
+    },
+    {
+      "archive_path": "check-users-source.txt",
+      "original_path": "check-users.py",
+      "bytes": 4175,
+      "sha256": "e1adbb075ed8eeb33a3ca78cbc59ef745970482d1262be50e35608d61704eafb"
+    },
+    {
+      "archive_path": "control-source.txt",
+      "original_path": "control.sh",
+      "bytes": 6637,
+      "sha256": "9c420cb212b9f9f99cb33926776491dade6073d1098886c8ceac324edd99fabe"
+    },
+    {
+      "archive_path": "controller-preregistration-commit.txt",
+      "original_path": "controller-preregistration-commit.txt",
+      "bytes": 41,
+      "sha256": "e84ba9e71d6cd4dad5fa50d5c5edc5bd9c5d8ce022e0cb008254b25d9d35e48d"
+    },
+    {
+      "archive_path": "packed-binary-path.txt",
+      "original_path": "packed-binary-path.txt",
+      "bytes": 65,
+      "sha256": "d3f6e52dbdfc5ca0795eea0740de23953af12dc6537fdc8e616dfc5e2b11386c"
+    },
+    {
+      "archive_path": "preregistration-commit.txt",
+      "original_path": "preregistration-commit.txt",
+      "bytes": 41,
+      "sha256": "94dbedf135837009c9595d95788c4c56d7eb153f976182c12fca231b98233078"
+    },
+    {
+      "archive_path": "restore-source.txt",
+      "original_path": "restore.sh",
+      "bytes": 1267,
+      "sha256": "2dc7d1760b900c0640241c0cd6fa024724cc4d3698ff11cb012db834341862cc"
+    },
+    {
+      "archive_path": "source-dir.txt",
+      "original_path": "source-dir.txt",
+      "bytes": 56,
+      "sha256": "f9dce720c63845950469081df8ca1b64e18ac5da0a1bcd3e566c65c0eef9c37e"
+    },
+    {
+      "archive_path": "source-revision.txt",
+      "original_path": "source-revision.txt",
+      "bytes": 41,
+      "sha256": "94dbedf135837009c9595d95788c4c56d7eb153f976182c12fca231b98233078"
+    },
+    {
+      "archive_path": "final-restoration-inspection.json",
+      "original_path": "final-restoration-inspection.json",
+      "bytes": 3260,
+      "sha256": "a6fc86748ff97a5e29a593b9620011412dcc2a684c178c72805e0f3887f48081"
+    }
+  ]
+}
