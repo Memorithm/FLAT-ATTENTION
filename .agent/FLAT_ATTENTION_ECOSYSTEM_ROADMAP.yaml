@@ -599,9 +599,10 @@ pascal_vector_projection_program_2026_10_06:
         - treating_lavapipe_or_WARP_timing_as_physical_GPU_evidence
         - retuning_geometry_after_observing_confirmatory_results
     PVP_FLAT3C_TILE8:
-      status: implementation_PR_open_exact_head_CI_pending
+      status: merged_exact_head_correctness_qualified
       pull_request: 339
       exact_head: 01bf2e20c3d62718e5871df7564fa24cb76b69f1
+      merge_sha: ae9b26d7d28a4e518fbc96856da50f3abeaf92d1
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_merged_qualified
@@ -642,7 +643,27 @@ pascal_vector_projection_program_2026_10_06:
         - no_autotuning
         - no_performance_claim
         - no_default_routing_change
-      promotion: blocked_until_exact_head_CI_and_device_parity_are_green
+      promotion: correctness_qualified_no_physical_speed_claim
+    PVP_FLAT3D_THREE_CANDIDATE_BENCH:
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 340
+      exact_head: 2adee254e0f3997a8b98826198ba350d6d4c9a1e
+      preregistration_commit: 633c27c104c38fa83702b6fbbbe71f10186e6166
+      protocol: docs/research/PVP3D_THREE_CANDIDATE_PREREGISTRATION.md
+      controls: [PVP2_vec4, PVP3a_fused2, PVP3c_tile8]
+      qualification:
+        - Rust_1_89_host_protocol_and_example_inventory_tests_7_of_7_passed
+        - mandatory_five_geometry_Vulkan_WGPU_software_smoke_in_CI
+        - whole_state_CPU_oracle_before_and_after_wall_timing
+        - complete_cohort_capability_rejection_before_allocation
+        - balanced_six_permutation_order_with_raw_nanosecond_samples
+        - compile_time_and_runtime_source_SHA_must_agree
+      physical_status: not_executed_awaiting_exclusive_RemoteOps_admission
+      performance_claim: none
+      boundary:
+        - frozen_PVP3b_protocol_unchanged
+        - software_smoke_is_not_physical_performance_evidence
+        - no_autotuning_default_route_or_model_quality_promotion
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
