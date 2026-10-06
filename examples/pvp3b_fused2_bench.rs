@@ -156,7 +156,10 @@ mod bench {
         repeats: usize,
     ) {
         let layout = FlatPvpVec4LayoutV1::new(k, g).expect("preregistered PVP3b geometry");
-        let state_bytes = layout.storage_u32_words().checked_mul(4).expect("state bytes");
+        let state_bytes = layout
+            .storage_u32_words()
+            .checked_mul(4)
+            .expect("state bytes");
         let state_bytes_u64 = state_bytes as u64;
         let vectors_per_address = layout.vectors_per_address() as u64;
         let vec4_invocations = (k as u64 / 2)
@@ -192,7 +195,12 @@ mod bench {
         dispatch_vec4(harness, vec4, &buffers.vec4_state, layout);
         let vec4_output = read_u32(harness, &buffers.vec4_state, layout.storage_u32_words());
 
-        reset(harness, &buffers.source, &buffers.fused_state, buffers.bytes);
+        reset(
+            harness,
+            &buffers.source,
+            &buffers.fused_state,
+            buffers.bytes,
+        );
         dispatch_fused(harness, fused, &buffers.fused_state, layout);
         let fused_output = read_u32(harness, &buffers.fused_state, layout.storage_u32_words());
 
@@ -206,39 +214,11 @@ mod bench {
 
         for iteration in 0..warmups {
             if iteration.is_multiple_of(2) {
-                let _ = measure_wall(
-                    harness,
-                    Candidate::Vec4,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
-                let _ = measure_wall(
-                    harness,
-                    Candidate::Fused2,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
+                let _ = measure_wall(harness, Candidate::Vec4, vec4, fused, &buffers, layout);
+                let _ = measure_wall(harness, Candidate::Fused2, vec4, fused, &buffers, layout);
             } else {
-                let _ = measure_wall(
-                    harness,
-                    Candidate::Fused2,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
-                let _ = measure_wall(
-                    harness,
-                    Candidate::Vec4,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
+                let _ = measure_wall(harness, Candidate::Fused2, vec4, fused, &buffers, layout);
+                let _ = measure_wall(harness, Candidate::Vec4, vec4, fused, &buffers, layout);
             }
         }
 
@@ -247,40 +227,12 @@ mod bench {
         let mut fused_wins = 0usize;
         for iteration in 0..repeats {
             let (vec4_sample, fused_sample) = if iteration.is_multiple_of(2) {
-                let a = measure_wall(
-                    harness,
-                    Candidate::Vec4,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
-                let b = measure_wall(
-                    harness,
-                    Candidate::Fused2,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
+                let a = measure_wall(harness, Candidate::Vec4, vec4, fused, &buffers, layout);
+                let b = measure_wall(harness, Candidate::Fused2, vec4, fused, &buffers, layout);
                 (a, b)
             } else {
-                let b = measure_wall(
-                    harness,
-                    Candidate::Fused2,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
-                let a = measure_wall(
-                    harness,
-                    Candidate::Vec4,
-                    vec4,
-                    fused,
-                    &buffers,
-                    layout,
-                );
+                let b = measure_wall(harness, Candidate::Fused2, vec4, fused, &buffers, layout);
+                let a = measure_wall(harness, Candidate::Vec4, vec4, fused, &buffers, layout);
                 (a, b)
             };
             fused_wins += usize::from(fused_sample < vec4_sample);
@@ -422,15 +374,12 @@ mod bench {
         }
     }
 
-    fn reset(
-        harness: &DeviceHarness,
-        source: &wgpu::Buffer,
-        state: &wgpu::Buffer,
-        bytes: u64,
-    ) {
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-pvp3b-reset"),
-        });
+    fn reset(harness: &DeviceHarness, source: &wgpu::Buffer, state: &wgpu::Buffer, bytes: u64) {
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-pvp3b-reset"),
+            });
         encoder.copy_buffer_to_buffer(source, 0, state, 0, bytes);
         harness.queue.submit(Some(encoder.finish()));
         let _ = harness.device.poll(wgpu::PollType::wait_indefinitely());
@@ -463,9 +412,11 @@ mod bench {
         state: &wgpu::Buffer,
         layout: FlatPvpVec4LayoutV1,
     ) {
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-pvp3b-vec4"),
-        });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-pvp3b-vec4"),
+            });
         pipeline
             .encode_all_stages(&harness.device, &mut encoder, state, layout)
             .expect("PVP3b vec4 encode");
@@ -479,9 +430,11 @@ mod bench {
         state: &wgpu::Buffer,
         layout: FlatPvpVec4LayoutV1,
     ) {
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-pvp3b-fused2"),
-        });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-pvp3b-fused2"),
+            });
         pipeline
             .encode_all_stages(&harness.device, &mut encoder, state, layout)
             .expect("PVP3b fused2 encode");
@@ -504,9 +457,11 @@ mod bench {
         };
         reset(harness, &buffers.source, state, buffers.bytes);
 
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-pvp3b-timestamp"),
-        });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-pvp3b-timestamp"),
+            });
         encoder.write_timestamp(&timestamps.query_set, 0);
         match candidate {
             Candidate::Vec4 => vec4
@@ -534,7 +489,9 @@ mod bench {
             .recv()
             .expect("PVP3b timestamp map callback")
             .expect("PVP3b timestamp map");
-        let mapped = slice.get_mapped_range().expect("PVP3b timestamp mapped range");
+        let mapped = slice
+            .get_mapped_range()
+            .expect("PVP3b timestamp mapped range");
         let start = u64::from_ne_bytes(mapped[0..8].try_into().expect("timestamp start bytes"));
         let end = u64::from_ne_bytes(mapped[8..16].try_into().expect("timestamp end bytes"));
         drop(mapped);
@@ -542,11 +499,7 @@ mod bench {
         end.wrapping_sub(start) as f64 * f64::from(harness.timestamp_period_ns)
     }
 
-    fn read_u32(
-        harness: &DeviceHarness,
-        source: &wgpu::Buffer,
-        len: usize,
-    ) -> Vec<u32> {
+    fn read_u32(harness: &DeviceHarness, source: &wgpu::Buffer, len: usize) -> Vec<u32> {
         let bytes = (len * 4) as u64;
         let staging = harness.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("flat-pvp3b-correctness-readback"),
@@ -554,9 +507,11 @@ mod bench {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        let mut encoder = harness.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("flat-pvp3b-correctness-readback"),
-        });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("flat-pvp3b-correctness-readback"),
+            });
         encoder.copy_buffer_to_buffer(source, 0, &staging, 0, bytes);
         harness.queue.submit(Some(encoder.finish()));
 
