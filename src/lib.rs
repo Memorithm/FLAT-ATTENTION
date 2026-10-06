@@ -103,6 +103,8 @@ pub mod paged_kv;
 pub mod pvp;
 /// Research-only two-stage register-fusion PVP correctness candidate.
 pub mod pvp_fused2;
+/// Research-only tile8 workgroup-fusion PVP correctness candidate.
+pub mod pvp_tile8;
 /// Research-only 128-bit vec4-u32 PVP physical projection candidate.
 pub mod pvp_vec4;
 
