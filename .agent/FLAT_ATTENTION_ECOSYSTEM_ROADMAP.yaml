@@ -468,7 +468,9 @@ pascal_vector_projection_program_2026_10_06:
         - no_performance_claim
       promotion: qualified_reference_for_vec4_and_stage_fusion_candidates
     PVP_FLAT2_VEC4:
-      status: implementation_starting_from_qualified_scalar_reference
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 335
+      exact_head: 9db506ee7f1319a129c44b7fdff865fbdfeed6ab
       prerequisite:
         pull_request: 334
         merge_sha: 004f378dcaf89b289d3d675db6085a7db70bbee3
