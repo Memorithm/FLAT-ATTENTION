@@ -449,9 +449,10 @@ pascal_vector_projection_program_2026_10_06:
     - FLAT_may_export_or_help_qualify_a_minimal_versioned_kernel_layout_contract_that_SML_can_later_internalize
   implementation_state:
     PVP_FLAT0_FLAT1:
-      status: implementation_PR_open_exact_head_CI_pending
+      status: merged_qualified_scalar_WGPU_reference
       pull_request: 334
       exact_head: 146cf9de8619860cb7191cedb440c2b3c52f2346
+      merge_sha: 004f378dcaf89b289d3d675db6085a7db70bbee3
       scope:
         - portable_u32_projection_of_pvp_bitplanes_v1
         - exact_storage_padding_and_contract_identity
@@ -465,7 +466,7 @@ pascal_vector_projection_program_2026_10_06:
         - subgroup_deferred
         - autotuning_deferred
         - no_performance_claim
-      promotion: blocked_until_required_exact_head_CI_is_green
+      promotion: qualified_reference_for_vec4_and_stage_fusion_candidates
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
