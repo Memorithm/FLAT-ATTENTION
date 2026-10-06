@@ -101,6 +101,8 @@ pub mod paged_kv;
 /// Research-only Pascal Vector Projection (PVP) layout, scalar oracle and
 /// portable WGPU reference pipeline.
 pub mod pvp;
+/// Research-only two-stage register-fusion PVP correctness candidate.
+pub mod pvp_fused2;
 /// Research-only 128-bit vec4-u32 PVP physical projection candidate.
 pub mod pvp_vec4;
 
