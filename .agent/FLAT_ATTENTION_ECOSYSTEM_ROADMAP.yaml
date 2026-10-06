@@ -440,6 +440,8 @@ ax_kernel_task_program:
     - hardware_performance_claims_are_environment_scoped
 pascal_vector_projection_program_2026_10_06:
   status: active_research_only
+  main_contract_pr: 333
+  main_contract_merge: 68450fff4a5bba8027e740185c588c527830df21
   role: portable_GPU_projection_and_kernel_qualification_for_SML_Pascal_ANF_banks
   boundary:
     - FLAT_does_not_own_SML_model_semantics_or_ANF_bank_meaning
