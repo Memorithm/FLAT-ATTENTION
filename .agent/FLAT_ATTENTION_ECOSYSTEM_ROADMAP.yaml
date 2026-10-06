@@ -525,6 +525,59 @@ pascal_vector_projection_program_2026_10_06:
         - no_default_routing_change
         - no_performance_claim
       promotion: blocked_until_exact_head_CI_and_device_parity_are_green
+    PVP_FLAT3B_FUSED2_BENCH:
+      status: preregistered_not_executed
+      prerequisite:
+        - PVP_FLAT2_VEC4_merged_qualified
+        - PVP_FLAT3A_FUSED2_exact_head_correctness_green_before_timing
+      question: does_fusing_the_first_two_PVP_vec4_stages_reduce_measured_runtime_on_the_same_real_device
+      controls:
+        - PVP2_vec4_one_stage_per_dispatch
+        - PVP3a_fused2_exact_candidate
+        - scalar_u32_reference_optional_for_context_not_primary_speed_control
+      geometry_grid:
+        K:
+          - 256
+          - 1024
+          - 4096
+          - 16384
+          - 65536
+          - 262144
+          - 1048576
+        G:
+          - 128
+          - 512
+          - 2048
+        admission: skip_only_if_checked_buffer_or_dispatch_limits_reject_geometry_before_measurement
+      protocol:
+        same_initial_state_for_all_candidates: true
+        exact_readback_checksum_before_timing: required
+        warmups: 5
+        measured_repetitions: 30
+        rotating_candidate_order: true
+        separate_pipeline_creation_from_warm_runtime: true
+        report_end_to_end_submit_wait_readback_and_GPU_timestamp_when_supported: true
+      evidence_classes:
+        software_Vulkan_lavapipe: correctness_only
+        Direct3D12_WARP: correctness_only
+        real_device_WGPU: eligible_for_device_specific_performance_evidence
+      report:
+        - median_ns
+        - p95_ns
+        - candidate_wins
+        - logical_dispatch_count
+        - exact_state_bytes
+        - adapter_backend_driver_identity
+        - timestamp_feature_availability
+        - exact_source_revision
+      decision:
+        - retain_fused2_if_correct_even_when_speed_neutral_as_research_candidate
+        - promote_for_runtime_selection_only_if_same_device_measurement_justifies_it
+        - preserve_PVP2_vec4_fallback
+      forbid:
+        - treating_one_fewer_dispatch_as_a_speedup_without_timing
+        - treating_lavapipe_or_WARP_timing_as_physical_GPU_evidence
+        - retuning_geometry_after_observing_confirmatory_results
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
