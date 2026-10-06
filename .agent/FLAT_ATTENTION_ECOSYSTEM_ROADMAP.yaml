@@ -489,7 +489,9 @@ pascal_vector_projection_program_2026_10_06:
         - no_performance_claim
       promotion: qualified_for_stage_fusion_candidates
     PVP_FLAT3A_FUSED2:
-      status: frozen_correctness_slice_not_opened
+      status: implementation_PR_open_exact_head_CI_pending
+      pull_request: 336
+      exact_head: 8b4d0cbe3aeb8baaba9d15538b9c3827f06f040f
       prerequisite:
         pull_request: 335
         merge_sha: b91ed691ee6b4ea62b11309b36b052d8c266ea5e
