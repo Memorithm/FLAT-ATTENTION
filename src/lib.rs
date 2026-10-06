@@ -98,6 +98,10 @@ pub use numerical::{
 pub mod chunked_projection_prefill;
 pub mod paged_kv;
 
+/// Research-only Pascal Vector Projection (PVP) layout, scalar oracle and
+/// portable WGPU reference pipeline.
+pub mod pvp;
+
 /// Maximum head dimension supported by the portable WGSL kernels.
 pub const WGSL_MAX_HEAD_DIM: usize = 128;
 /// Number of invocations in one WGSL workgroup.
