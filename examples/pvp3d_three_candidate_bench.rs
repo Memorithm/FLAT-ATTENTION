@@ -20,6 +20,7 @@ struct Harness {
     vec4: WgpuPvpVec4Pipeline,
     fused2: WgpuPvpFused2Pipeline,
     tile8: WgpuPvpTile8Pipeline,
+    explicit_map_transition: bool,
 }
 
 impl Harness {
@@ -77,6 +78,17 @@ impl Harness {
         });
         let mut encoder = self.device.create_command_encoder(&Default::default());
         encoder.copy_buffer_to_buffer(state, 0, &staging, 0, bytes);
+        if self.explicit_map_transition {
+            // Opt-in correctness-readback experiment; outside the timing scope.
+            // Keep the historical --measure/--smoke paths unchanged.
+            encoder.transition_resources(
+                std::iter::once(wgpu::BufferTransition {
+                    buffer: &staging,
+                    state: wgpu::BufferUses::MAP_READ,
+                }),
+                std::iter::empty(),
+            );
+        }
         self.queue.submit(Some(encoder.finish()));
         let slice = staging.slice(..);
         let (sender, receiver) = mpsc::channel();
@@ -255,10 +267,13 @@ fn sanitize(value: &str) -> String {
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let smoke = match args.as_slice() {
-        [mode] if mode == "--smoke" => true,
-        [mode] if mode == "--measure" => false,
-        _ => panic!("use exactly --smoke or --measure; no implicit measurement"),
+    let (smoke, explicit_map_transition) = match args.as_slice() {
+        [mode] if mode == "--smoke" => (true, false),
+        [mode] if mode == "--measure" => (false, false),
+        [mode] if mode == "--measure-map-transition" => (false, true),
+        _ => panic!(
+            "use exactly --smoke, --measure or --measure-map-transition; no implicit measurement"
+        ),
     };
     let revision = std::env::var("FLAT_SOURCE_REVISION")
         .expect("set FLAT_SOURCE_REVISION to the full source SHA");
@@ -298,6 +313,7 @@ fn main() {
     );
     println!("benchmark=pvp3d_three_candidate_same_device");
     println!("source_revision={revision}");
+    println!("explicit_map_transition={explicit_map_transition}");
     println!("adapter={}", sanitize(&info.name));
     println!("backend={:?}", info.backend);
     println!("device_type={:?}", info.device_type);
@@ -328,6 +344,7 @@ fn main() {
         tile8: WgpuPvpTile8Pipeline::new(&device).expect("PVP3c pipeline"),
         device,
         queue,
+        explicit_map_transition,
     };
     println!("status,k,g,candidate,state_bytes,resident_payload_bytes,warmups,repeats,logical_dispatches,p50_ns,p95_ns,input_checksum,output_checksum,skip_reason,performance_claim");
     if smoke {

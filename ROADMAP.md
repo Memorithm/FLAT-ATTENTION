@@ -1271,6 +1271,20 @@ oracles; one process returned 16320 wrong words. All gains remain unconfirmed.
 The three native Dell RTX 4060 tests passed, with shared-device observations
 and no performance admission. Earlier failed campaigns remain archived.
 
+The [7 October re-audit](docs/research/PVP_REAUDIT_2026_10_07.md) separates
+incremental fusion gains from total representation gains and documents repeated
+host preparation plus the pre/post correctness boundary. A
+[paired-readback diagnostic](docs/research/PVP_READBACK_ISOLATION_PROTOCOL.md)
+tests automatic versus explicit native map transitions; a separate
+[full-grid control](docs/research/PVP_READBACK_FULL_GRID_PROTOCOL.md) is frozen
+without upgrading diagnostic timings to qualified gains.
+
+A separate [packed-address candidate](docs/research/PVP_PACKED_ADDRESS_CANDIDATE.md)
+places 128 addresses of one gate in each vec4 and fuses up to seven low-address
+stages in local values. Its immutable prepared plan, independent ANF truth and
+inverse checks are correctness research; comparisons must include conversion
+cost and prepare both control and candidate. No default route changes.
+
 ## PVP-F4 — subgroup/double-buffer candidates
 
 - [ ] subgroup operations capability-gated with deterministic fallback;
