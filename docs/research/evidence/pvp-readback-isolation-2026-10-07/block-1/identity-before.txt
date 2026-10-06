@@ -1,0 +1,1 @@
+/var/tmp/remoteops-pvp-r8-build.c15g0q5t/source/target/release/examples/pvp_stage_diagnostic: OK

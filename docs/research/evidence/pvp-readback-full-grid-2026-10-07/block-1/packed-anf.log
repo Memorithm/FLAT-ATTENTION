@@ -1,0 +1,47 @@
+
+running 1 test
+test actual_wgpu_prepared_packed_plan_matches_direct_anf_and_inverse ... PVP_PACKED_ADAPTER,backend=Vulkan,device_type=IntegratedGpu,name="NVIDIA Tegra NVIDIA Thor",performance_claim=none
+PVP_PACKED_CASE,K=1,G=1,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=1,G=1,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=1,G=1,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2,G=31,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2,G=31,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2,G=31,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=4,G=65,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=4,G=65,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=4,G=65,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=8,G=129,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=8,G=129,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=8,G=129,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=16,G=3,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=16,G=3,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=16,G=3,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=32,G=5,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=32,G=5,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=32,G=5,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=64,G=257,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=64,G=257,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=64,G=257,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=128,G=129,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=128,G=129,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=128,G=129,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=513,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=513,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=513,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=512,G=7,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=512,G=7,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=512,G=7,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=1024,G=33,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=1024,G=33,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=1024,G=33,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2048,G=257,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2048,G=257,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=2048,G=257,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=2048,bank=boundary,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=2048,bank=sparse4,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_CASE,K=256,G=2048,bank=dense32,truth=exact,inverse=exact,padding=exact,performance_claim=none
+PVP_PACKED_COMPLETE,cases=39,inverse_checks=39,performance_claim=none
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+

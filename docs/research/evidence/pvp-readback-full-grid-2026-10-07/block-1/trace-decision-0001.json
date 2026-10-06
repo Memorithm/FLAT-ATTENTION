@@ -1,0 +1,216 @@
+{
+  "schema": "remoteops.kernel-process-lifecycle/v1",
+  "controller_pid": 3028153,
+  "trace_clock": "local [global] counter uptime perf mono mono_raw boot tai",
+  "events": [
+    {
+      "time_ns": 2607078159958000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028435
+    },
+    {
+      "time_ns": 2607078164435000,
+      "event": "exit",
+      "pid": 3028435
+    },
+    {
+      "time_ns": 2607078164603000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028436
+    },
+    {
+      "time_ns": 2607078165745000,
+      "event": "exit",
+      "pid": 3028436
+    },
+    {
+      "time_ns": 2607078165854000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028437
+    },
+    {
+      "time_ns": 2607078167267000,
+      "event": "exit",
+      "pid": 3028437
+    },
+    {
+      "time_ns": 2607078167455000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028438
+    },
+    {
+      "time_ns": 2607078174782000,
+      "event": "fork",
+      "pid": 337,
+      "child_pid": 3028439
+    },
+    {
+      "time_ns": 2607078204198000,
+      "event": "exit",
+      "pid": 3028438
+    },
+    {
+      "time_ns": 2607078204354000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028440
+    },
+    {
+      "time_ns": 2607078205523000,
+      "event": "exit",
+      "pid": 3028440
+    },
+    {
+      "time_ns": 2607078205646000,
+      "event": "fork",
+      "pid": 3028153,
+      "child_pid": 3028441
+    }
+  ],
+  "cpu_stats": {
+    "cpu0": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "52",
+      "oldest event ts": "2607078.174782",
+      "now ts": "2607078.237173",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu1": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "75.652465",
+      "now ts": "2607078.237208",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu10": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "18446739676.425617",
+      "now ts": "2607078.237230",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu11": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "4503654.133010",
+      "now ts": "2607078.237251",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu12": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "42.751099",
+      "now ts": "2607078.237270",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu13": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "18446739676.440087",
+      "now ts": "2607078.237288",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu2": {
+      "entries": "6",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "312",
+      "oldest event ts": "2607078.159958",
+      "now ts": "2607078.237305",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu3": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "1037.859529",
+      "now ts": "2607078.237323",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu4": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "36",
+      "oldest event ts": "2607078.164435",
+      "now ts": "2607078.237340",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu5": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "36",
+      "oldest event ts": "2607078.165745",
+      "now ts": "2607078.237358",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu6": {
+      "entries": "0",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "0",
+      "oldest event ts": "1036.727067",
+      "now ts": "2607078.237374",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu7": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "36",
+      "oldest event ts": "2607078.167267",
+      "now ts": "2607078.237392",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu8": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "36",
+      "oldest event ts": "2607078.204198",
+      "now ts": "2607078.237409",
+      "dropped events": "0",
+      "read events": "0"
+    },
+    "cpu9": {
+      "entries": "1",
+      "overrun": "0",
+      "commit overrun": "0",
+      "bytes": "36",
+      "oldest event ts": "2607078.205523",
+      "now ts": "2607078.237426",
+      "dropped events": "0",
+      "read events": "0"
+    }
+  }
+}
