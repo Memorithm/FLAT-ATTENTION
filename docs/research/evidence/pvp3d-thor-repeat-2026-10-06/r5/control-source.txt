@@ -1,0 +1,130 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+root=$1
+block=$2
+lease_dir="$root/block-$block"
+scope="remoteops-pvp-r5-${root##*.}-b$block"
+probe=/var/tmp/remoteops-pvp-gap.m_xj95sy/source/target/debug/remoteops-device-users
+source_dir=/var/tmp/remoteops-pvp-fenced.45uzt10n/source
+guard="90-$scope.conf"
+watchdog="$scope-restore"
+trace_dir="/sys/kernel/tracing/instances/$scope"
+mkdir -p "$lease_dir/xdg"
+printf "%s\n" "$$" > "$lease_dir/controller-pid.txt"
+printf "%s\n" "$trace_dir" > "$lease_dir/trace-instance-path.txt"
+cd "$source_dir"
+test "$(git rev-parse HEAD)" = 64106a9afeab7d3ac079546a4dc0173fb62bacf7
+test -z "$(git status --porcelain)"
+sha256sum "$probe" > "$lease_dir/observer-identity.txt"
+test "$(sha256sum "$probe" | cut -d " " -f1)" = 2750a44e6167875081368cd7df6b7ce582e77df17473ce5685727659035149fd
+printf '%s\n' 'e262b840c8f15e56946a8c99f3d49e1a29a22fd102e49e09c0e91a8936e7ab87  target/release/examples/pvp3d_three_candidate_bench' '4458f8e245476cb5ec65ace1b8ab57f09bc7a9e4e137a4e70328b9652987adfa  target/release/deps/pvp_anf_bank-f2f5ea0ec5889510' | sha256sum -c - > "$lease_dir/identity-before.txt"
+git rev-parse HEAD > "$lease_dir/source-revision.txt"
+exec 9<>/dev/nvidia0
+flock -n -x 9
+if flock -n /dev/nvidia0 -c true 9>&-; then echo reservation_invalid_lock; exit 1; fi
+date -u --iso-8601=ns > "$lease_dir/reserved-at.txt"
+systemctl show memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service --property=Id,ActiveState,SubState,RefuseManualStart,Restart,TriggeredBy > "$lease_dir/original-services.txt"
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service; do
+  test "$(systemctl is-active "$unit")" = active
+  test "$(systemctl show "$unit" --property=RefuseManualStart --value)" = no
+  expected_restart=on-failure
+  if [ "$unit" = rustdesk.service ]; then expected_restart=no; fi
+  test "$(systemctl show "$unit" --property=Restart --value)" = "$expected_restart"
+  test ! -e "/run/systemd/system/$unit.d/$guard"
+done
+cleanup() {
+  result=$?
+  trap - EXIT
+  if [ -d "$trace_dir" ]; then
+    printf "0\\n" > "$trace_dir/tracing_on"
+    python3 "$root/check-users.py" --capture "$lease_dir" "$trace_dir" 9>&- || result=1
+    printf "0\\n" > "$trace_dir/events/sched/sched_process_fork/enable"
+    printf "0\\n" > "$trace_dir/events/sched/sched_process_exit/enable"
+    rmdir "$trace_dir" || result=1
+  fi
+  /bin/bash "$root/restore.sh" "$root" "$block" || result=1
+  systemctl stop "$watchdog.timer" || true
+  printf 'reservation_released_exit=%s\n' "$result" >> "$lease_dir/control.log"
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+systemd-run --unit="$watchdog" --on-active=30m /bin/bash "$root/restore.sh" "$root" "$block" 9>&-
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service; do
+  mkdir -p "/run/systemd/system/$unit.d"
+  printf '[Unit]\nRefuseManualStart=yes\n[Service]\nRestart=no\n' > "/run/systemd/system/$unit.d/$guard"
+done
+systemctl daemon-reload
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service; do
+  test "$(systemctl show "$unit" --property=RefuseManualStart --value)" = yes
+done
+systemctl stop rustdesk.service memorithm-clm.service memorithm-viggle-lan.service memorithm-clm-encoder.service
+phase=admission
+check_users() {
+  attempts=1
+  if [ "$phase" != measuring ]; then attempts=5; fi
+  probe_result=2
+  for attempt in $(seq 1 "$attempts"); do
+    printf '%s\t%s\t%s\n' "$phase" "$attempt" "$(date -u --iso-8601=ns)" >> "$lease_dir/occupancy-times.tsv"
+    "$probe" --details /dev/nvidia0 /dev/dri/renderD128 9>&- > "$lease_dir/occupancy-current.json" && probe_result=0 || probe_result=$?
+    cat "$lease_dir/occupancy-current.json" >> "$lease_dir/occupancy.jsonl"
+    if [ "$probe_result" != 0 ] && [ "$probe_result" != 2 ]; then return "$probe_result"; fi
+    checker_result=0
+    python3 "$root/check-users.py" "$lease_dir/occupancy-current.json" "$scope" 9>&- >> "$lease_dir/occupancy-decisions.txt" || checker_result=$?
+    if [ "$checker_result" = 0 ]; then return 0; fi
+    if [ "$checker_result" != 2 ]; then return "$checker_result"; fi
+    sleep 1
+  done
+  return 2
+}
+mkdir "$trace_dir"
+printf "global\\n" > "$trace_dir/trace_clock"
+printf "4096\\n" > "$trace_dir/buffer_size_kb"
+printf "1\\n" > "$trace_dir/events/sched/sched_process_fork/enable"
+printf "1\\n" > "$trace_dir/events/sched/sched_process_exit/enable"
+printf "1\\n" > "$trace_dir/tracing_on"
+for sample in $(seq 1 5); do check_users; sleep 1; done
+printf 'reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned\n' >> "$lease_dir/control.log"
+export XDG_RUNTIME_DIR="$lease_dir/xdg"
+export WGPU_BACKEND=vulkan FLAT_REQUIRE_WGPU=1 FLAT_SOURCE_REVISION=64106a9afeab7d3ac079546a4dc0173fb62bacf7
+test "$(sha256sum target/release/deps/pvp_transfer_reuse-4cb73b2978d78789 | cut -d " " -f1)" = 59b1287f9012b20b5acc38a772f3d8ebba983f5860a66ab1b78d441531b63f08
+sha256sum target/release/deps/pvp_transfer_reuse-4cb73b2978d78789 > "$lease_dir/transfer-test-identity.txt"
+target/release/deps/pvp_transfer_reuse-4cb73b2978d78789 --nocapture > "$lease_dir/transfer-regression.log" 2>&1
+grep -F 'PVP_TRANSFER_COMPLETE,rounds=40,words_per_round=1048576,all_words_exact=true' "$lease_dir/transfer-regression.log"
+target/release/deps/pvp_anf_bank-f2f5ea0ec5889510 --nocapture > "$lease_dir/anf-bank.log" 2>&1
+grep -F 'PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96' "$lease_dir/anf-bank.log"
+phase=after_anf
+check_users
+for invocation in $(seq 1 5); do
+  run_dir="$lease_dir/run-$invocation"
+  mkdir -p "$run_dir"
+  date -u --iso-8601=ns > "$run_dir/start-at.txt"
+  cat /proc/loadavg > "$run_dir/load-before.txt"
+  phase=measuring
+  timeout 1200s target/release/examples/pvp3d_three_candidate_bench --measure > "$run_dir/pvp3d.log" 2>&1 &
+  benchmark_job=$!
+  while kill -0 "$benchmark_job" 2>/dev/null; do
+    if ! check_users; then
+      printf 'qualification_rejected=foreign_or_unknown_device_users_run_%s\n' "$invocation" >> "$lease_dir/control.log"
+      kill "$benchmark_job" 2>/dev/null || true
+      wait "$benchmark_job" 2>/dev/null || true
+      exit 1
+    fi
+    sleep 1
+  done
+  wait "$benchmark_job"
+  phase=post_measurement
+  check_users
+  grep -Fx 'qualification_status=complete' "$run_dir/pvp3d.log"
+  grep -Fx 'hardware_measurement_eligible=true' "$run_dir/pvp3d.log"
+  rows=$(awk -F, '$1=="measured" || $1=="skipped_limit" {n++} END {print n+0}' "$run_dir/pvp3d.log")
+  test "$rows" = 63
+  cat /proc/loadavg > "$run_dir/load-after.txt"
+  date -u --iso-8601=ns > "$run_dir/complete-at.txt"
+  printf 'run_%s=complete\n' "$invocation" >> "$lease_dir/control.log"
+done
+sha256sum target/release/examples/pvp3d_three_candidate_bench target/release/deps/pvp_anf_bank-f2f5ea0ec5889510 > "$lease_dir/identity-after.txt"
+printf '%s\n' 'e262b840c8f15e56946a8c99f3d49e1a29a22fd102e49e09c0e91a8936e7ab87  target/release/examples/pvp3d_three_candidate_bench' '4458f8e245476cb5ec65ace1b8ab57f09bc7a9e4e137a4e70328b9652987adfa  target/release/deps/pvp_anf_bank-f2f5ea0ec5889510' | sha256sum -c -
+date -u --iso-8601=ns > "$lease_dir/completed-at.txt"
+printf 'block_complete=5_invocations\n' >> "$lease_dir/control.log"

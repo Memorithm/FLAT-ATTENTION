@@ -1,0 +1,21 @@
+import json,sys,pathlib
+record=json.load(open(sys.argv[1])); scope=sys.argv[2]; owned="/system.slice/"+scope+".service"
+def reject(reason,code=2):
+    print("admission_rejected="+reason,file=sys.stderr); sys.exit(code)
+if record.get("schema")!="remoteops.device-users/v2": reject("schema")
+if record["scan_limit_reached"] or record["gap_details_truncated"]: reject("truncated")
+for user in record["users"]:
+    try: lines=(pathlib.Path("/proc")/str(user["pid"])/"cgroup").read_text().splitlines()
+    except OSError: reject("unknown_visible_user")
+    if "0::"+owned not in lines: reject("foreign_visible_user",1)
+gaps=record["gaps"]
+if record["status"]=="observed":
+    if record["unreadable_entries"]!=0 or gaps: reject("inconsistent_observed")
+    print("observation=observed")
+elif record["status"]=="partial":
+    if not gaps or sum(g["count"] for g in gaps)!=record["unreadable_entries"]: reject("unattributed_partial")
+    for gap in gaps:
+        if not (gap["stage"]=="fd_metadata" and isinstance(gap["pid"],int) and gap["pid"]>0 and gap["count"]>0 and gap["process_identity_verified"] is True and gap["cgroup_v2"]==owned):
+            reject("unknown_or_foreign_gap")
+    print("observation=partial_owned_descriptor_churn,count="+str(record["unreadable_entries"]))
+else: reject("status")

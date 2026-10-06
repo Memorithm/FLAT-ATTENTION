@@ -1,0 +1,9 @@
+previous_matches_left=false
+current_matches_right=true
+left_vs_current_mismatch_words=2384
+words=1048576
+mismatch_first=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+mismatch_last=[3408, 3409, 3410, 3411, 3412, 3413, 3414, 3415, 3416, 3417, 3418, 3419, 3420, 3421, 3422, 3423]
+prefix_matching_previous=0
+wrong_words_matching_previous=0
+mismatch_ranges=[(0, 1695), (1728, 1823), (1856, 2047), (2112, 2143), (2176, 2335), (2400, 2463), (2656, 2687), (2720, 2751), (2880, 2943), (3408, 3423)]

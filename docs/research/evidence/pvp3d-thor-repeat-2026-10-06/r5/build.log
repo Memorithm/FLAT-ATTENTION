@@ -1,0 +1,6 @@
+   Compiling flat-attention v0.1.0 (/var/tmp/remoteops-pvp-fenced.45uzt10n/source)
+    Finished `release` profile [optimized] target(s) in 7.59s
+   Compiling flat-attention v0.1.0 (/var/tmp/remoteops-pvp-fenced.45uzt10n/source)
+    Finished `release` profile [optimized] target(s) in 1.92s
+  Executable tests/pvp_anf_bank.rs (target/release/deps/pvp_anf_bank-f2f5ea0ec5889510)
+  Executable tests/pvp_transfer_reuse.rs (target/release/deps/pvp_transfer_reuse-4cb73b2978d78789)

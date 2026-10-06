@@ -1,0 +1,9 @@
+previous_matches_left=false
+current_matches_right=true
+left_vs_current_mismatch_words=272
+words=1048576
+mismatch_first=[32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
+mismatch_last=[5008, 5009, 5010, 5011, 5012, 5013, 5014, 5015, 5016, 5017, 5018, 5019, 5020, 5021, 5022, 5023]
+prefix_matching_previous=0
+wrong_words_matching_previous=272
+mismatch_ranges=[(32, 63), (160, 191), (224, 255), (480, 511), (640, 671), (1472, 1487), (1728, 1759), (4896, 4927), (4992, 5023)]

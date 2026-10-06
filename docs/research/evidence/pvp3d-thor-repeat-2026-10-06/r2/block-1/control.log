@@ -1,0 +1,16 @@
+Running timer as unit: remoteops-pvp-r2-ri__vldi-b1-restore.timer
+Will run service as unit: remoteops-pvp-r2-ri__vldi-b1-restore.service
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+qualification_status=complete
+hardware_measurement_eligible=true
+run_1=complete
+qualification_status=complete
+hardware_measurement_eligible=true
+run_2=complete
+qualification_status=complete
+hardware_measurement_eligible=true
+run_3=complete
+admission_rejected=unknown_or_foreign_gap
+qualification_rejected=foreign_or_unknown_device_users_run_4
+reservation_released_exit=1

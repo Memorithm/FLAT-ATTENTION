@@ -1,0 +1,1 @@
+/sys/kernel/tracing/instances/remoteops-pvp-r6-upsgqsut-b1

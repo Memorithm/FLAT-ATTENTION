@@ -1,0 +1,6 @@
+Running timer as unit: remoteops-pvp-r6-upsgqsut-b1-restore.timer
+Will run service as unit: remoteops-pvp-r6-upsgqsut-b1-restore.service
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_TRANSFER_COMPLETE,rounds=40,words_per_round=1048576,all_words_exact=true,performance_claim=none
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+reservation_released_exit=101

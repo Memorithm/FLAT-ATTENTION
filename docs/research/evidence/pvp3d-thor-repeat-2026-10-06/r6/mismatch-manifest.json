@@ -1,0 +1,18 @@
+{
+  "failure_stage": "pre",
+  "k": 16384,
+  "g": 2048,
+  "candidate": "Tile8",
+  "previous_completed_k": 16384,
+  "previous_completed_g": 512,
+  "words": 1048576,
+  "mismatch_words": 41080,
+  "current_CPU_oracle_matches_expected_vector": true,
+  "raw_log_bytes": 24299846,
+  "raw_log_sha256": "fb22d6a94feac5ce35a11418a78494dc576649e04ea6e6806caa061eea84bdbe",
+  "actual_le_u32_sha256": "05d6275d039ed90544dd304775c72508445e2393b6ca7417483479db9ab6a108",
+  "expected_le_u32_sha256": "8779f1ee70256bb098999ef1622fdd9ab1507fcaa610398b7e2d27bb7aa3440f",
+  "reconstruction": "Generate fixture and subset-zeta oracle from pinned Rust source, replace expected[index] with actual_u32 for every mismatch-delta.csv row. Compare packed little-endian u32 hashes. Compact log substitutes two vector lines; original raw log remains on Thor.",
+  "timing_admitted": false,
+  "performance_claim": "none"
+}

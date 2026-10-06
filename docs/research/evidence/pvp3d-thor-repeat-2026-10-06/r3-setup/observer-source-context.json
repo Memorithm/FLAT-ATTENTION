@@ -1,0 +1,5 @@
+{
+  "module_and_cli_revision": "7cc8203ea9c69349fe19198efe8d04784165d8bc",
+  "supporting_workspace_revision": "a6c6c6c2e7ba082a957902d0aab18ba01c0672a5",
+  "materialization": "pinned_module_and_cli_in_prior_pinned_workspace_subset_not_full_checkout"
+}

@@ -1,0 +1,29 @@
+use flat_attention::pvp_vec4::{FlatPvpVec4BitplanesV1,FlatPvpVec4LayoutV1,pvp_subset_zeta_vec4_host_in_place};
+fn expected(k:usize,g:usize)->Vec<u32>{
+ let layout=FlatPvpVec4LayoutV1::new(k,g).unwrap();
+ let mut words=vec![0;layout.storage_u32_words()];
+ let mut state=0x9e37_79b9_u32 ^ k as u32 ^ g as u32;
+ for word in &mut words {state^=state<<13;state^=state>>17;state^=state<<5;*word=state;}
+ let mut bank=FlatPvpVec4BitplanesV1::from_words(layout,words).unwrap();
+ pvp_subset_zeta_vec4_host_in_place(&mut bank).unwrap();
+ bank.words().to_vec()
+}
+fn main(){
+ let root=std::env::args().nth(1).unwrap();
+ let load=|name:&str|std::fs::read(format!("{root}/panic-{name}.bin")).unwrap().chunks_exact(4).map(|b|u32::from_le_bytes(b.try_into().unwrap())).collect::<Vec<_>>();
+ let left=load("left");let right=load("right");
+ let args:Vec<String>=std::env::args().collect();
+ let previous=expected(args[4].parse().unwrap(),args[5].parse().unwrap());let current=expected(args[2].parse().unwrap(),args[3].parse().unwrap());
+ println!("previous_matches_left={}",previous==left);
+ println!("current_matches_right={}",current==right);
+ println!("left_vs_current_mismatch_words={}",left.iter().zip(&current).filter(|(a,b)|a!=b).count());
+ println!("words={}",left.len());
+ let mismatch:Vec<usize>=left.iter().zip(&current).enumerate().filter_map(|(i,(a,b))|if a!=b{Some(i)}else{None}).collect();
+ println!("mismatch_first={:?}",&mismatch[..mismatch.len().min(16)]);
+ println!("mismatch_last={:?}",&mismatch[mismatch.len().saturating_sub(16)..]);
+ println!("prefix_matching_previous={}",left.iter().zip(&previous).take_while(|(a,b)|a==b).count());
+ println!("wrong_words_matching_previous={}",mismatch.iter().filter(|&&i|left[i]==previous[i]).count());
+ let mut ranges=Vec::new();for i in mismatch {if let Some((_,end))=ranges.last_mut(){if *end+1==i{*end=i;continue;}}ranges.push((i,i));}
+ println!("mismatch_ranges={:?}",&ranges[..ranges.len().min(20)]);
+
+}

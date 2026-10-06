@@ -1,0 +1,9 @@
+adapter=NVIDIA Tegra NVIDIA Thor,backend=Vulkan,driver=580.00
+transfer_result,flush=false,policy=drop,rounds=30,failed_rounds=0,first=None
+transfer_result,flush=false,policy=reuse,rounds=30,failed_rounds=0,first=None
+transfer_result,flush=false,policy=retain,rounds=30,failed_rounds=2,first=Some((23, 96, Some((0, 0, 2779096508))))
+transfer_result,flush=true,policy=drop,rounds=30,failed_rounds=0,first=None
+transfer_result,flush=true,policy=reuse,rounds=30,failed_rounds=0,first=None
+transfer_result,flush=true,policy=retain,rounds=30,failed_rounds=0,first=None
+diagnostic_complete=true
+performance_claim=none

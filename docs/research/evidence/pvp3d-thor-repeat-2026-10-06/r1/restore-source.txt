@@ -1,0 +1,18 @@
+#!/bin/bash
+set -u
+root=$1
+block=$2
+lease_dir="$root/block-$block"
+scope="remoteops-pvp-r1-${root##*.}-b$block"
+result=0
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service; do
+  rm -f "/run/systemd/system/$unit.d/90-$scope.conf" || result=1
+done
+systemctl daemon-reload || result=1
+for unit in memorithm-clm-encoder.service memorithm-clm.service memorithm-viggle-lan.service; do
+  systemctl start "$unit" || result=1
+  test "$(systemctl is-active "$unit")" = active || result=1
+done
+date -u --iso-8601=ns > "$lease_dir/restored-at.txt"
+systemctl show memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service --property=Id,ActiveState,SubState,RefuseManualStart,Restart > "$lease_dir/restored-services.txt"
+exit "$result"

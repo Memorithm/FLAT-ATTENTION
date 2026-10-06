@@ -1,0 +1,7 @@
+import json,sys,pathlib
+record=json.load(open(sys.argv[1]))
+scope=sys.argv[2]
+assert record["status"]=="observed" and not record["scan_limit_reached"],"partial observation"
+for user in record["users"]:
+    lines=(pathlib.Path("/proc")/str(user["pid"])/"cgroup").read_text().splitlines()
+    assert "0::/system.slice/"+scope+".service" in lines, "foreign device user PID "+str(user["pid"])
