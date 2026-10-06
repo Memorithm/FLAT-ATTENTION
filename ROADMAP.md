@@ -1260,6 +1260,11 @@ PVP3d does not change the frozen PVP3b experiment. Software smoke is correctness
 evidence; physical measurements require exclusive RemoteOps admission and do
 not authorize a default route or SML model claim.
 
+The [first physical Thor operator capture](docs/research/PVP3D_PHYSICAL_THOR_OPERATOR_CAPTURE_2026_10_06.md)
+retains 15 measured three-candidate panels, six limit-rejected panels and
+physical ANF correctness checks. External admission review and repeatability
+remain open; this capture does not promote a runtime selection policy.
+
 ## PVP-F4 — subgroup/double-buffer candidates
 
 - [ ] subgroup operations capability-gated with deterministic fallback;

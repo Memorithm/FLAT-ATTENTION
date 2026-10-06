@@ -1,0 +1,92 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+lease_dir=/var/tmp/remoteops-pvp-reservation.f1plhF
+scope=remoteops-pvp-qualification-f1plhF-b
+probe=/var/tmp/remoteops-pvp-device-users-a6c6c6c2/target/debug/remoteops-device-users
+cd "$lease_dir/source"
+test "$(git rev-parse HEAD)" = 50c0230cc645bd44f1520e2c7194878a4b13009c
+test -z "$(git status --porcelain)"
+test -x target/release/examples/pvp3d_three_candidate_bench
+exec 9<>/dev/nvidia0
+flock -n -x 9
+if flock -n /dev/nvidia0 -c true; then echo "reservation_invalid_independent_lock_did_not_contend"; exit 1; fi
+date -u > "$lease_dir/reserved-at.txt"
+systemctl show memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service --property=Id,ActiveState,SubState,RefuseManualStart,Restart,TriggeredBy > "$lease_dir/original-services.txt"
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service; do
+  test "$(systemctl is-active "$unit")" = active
+  test "$(systemctl show "$unit" --property=RefuseManualStart --value)" = no
+  test ! -e "/run/systemd/system/$unit.d/90-remoteops-pvp-f1plhF.conf"
+done
+systemd-run --unit=remoteops-pvp-restore-f1plhF-b --on-active=30m /bin/bash "$lease_dir/restore.sh"
+cleanup() {
+  result=$?
+  trap - EXIT
+  /bin/bash "$lease_dir/restore.sh"
+  systemctl stop remoteops-pvp-restore-f1plhF-b.timer
+  printf 'reservation_released_exit=%s\n' "$result" >> "$lease_dir/control.log"
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service; do
+  mkdir -p "/run/systemd/system/$unit.d"
+  printf '[Unit]\nRefuseManualStart=yes\n[Service]\nRestart=no\n' > "/run/systemd/system/$unit.d/90-remoteops-pvp-f1plhF.conf"
+done
+systemctl daemon-reload
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service; do
+  test "$(systemctl show "$unit" --property=RefuseManualStart --value)" = yes
+done
+systemctl stop memorithm-clm.service memorithm-viggle-lan.service memorithm-clm-encoder.service
+phase=admission
+check_users() {
+  date -u >> "$lease_dir/occupancy-times.txt"
+  probe_result=2
+  attempts=1
+  if [ "$phase" != measuring ]; then attempts=5; fi
+  for attempt in $(seq 1 "$attempts"); do
+    "$probe" /dev/nvidia0 /dev/dri/renderD128 9>&- > "$lease_dir/occupancy-current.json" && probe_result=0 || probe_result=$?
+    cat "$lease_dir/occupancy-current.json" >> "$lease_dir/occupancy.jsonl"
+    if [ "$probe_result" = 0 ]; then break; fi
+    if [ "$probe_result" != 2 ]; then return "$probe_result"; fi
+    sleep 1
+  done
+  test "$probe_result" = 0
+  python3 "$lease_dir/check-users.py" "$lease_dir/occupancy-current.json" "$scope" 9>&-
+}
+for sample in $(seq 1 5); do check_users; sleep 1; done
+printf 'reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned\n' >> "$lease_dir/control.log"
+export XDG_RUNTIME_DIR="$lease_dir/xdg"
+export WGPU_BACKEND=vulkan
+export FLAT_REQUIRE_WGPU=1
+export FLAT_SOURCE_REVISION=50c0230cc645bd44f1520e2c7194878a4b13009c
+anf_test=$(find target/release/deps -maxdepth 1 -type f -executable -name 'pvp_anf_bank-*' | head -1)
+test -n "$anf_test"
+"$anf_test" --nocapture > "$lease_dir/anf-bank.log" 2>&1
+grep -F 'PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96' "$lease_dir/anf-bank.log"
+sleep 2
+check_users
+sha256sum target/release/examples/pvp3d_three_candidate_bench > "$lease_dir/benchmark-sha256.txt"
+cat /proc/loadavg > "$lease_dir/load-before.txt"
+phase=measuring
+timeout 1200s target/release/examples/pvp3d_three_candidate_bench --measure > "$lease_dir/pvp3d.log" 2>&1 &
+benchmark_job=$!
+while kill -0 "$benchmark_job" 2>/dev/null; do
+  if ! check_users; then
+    printf 'qualification_rejected=foreign_or_unknown_device_users\n' >> "$lease_dir/control.log"
+    kill "$benchmark_job" 2>/dev/null || true
+    wait "$benchmark_job" 2>/dev/null || true
+    exit 1
+  fi
+  sleep 1
+done
+wait "$benchmark_job"
+phase=post_measurement
+check_users
+grep -F 'qualification_status=complete' "$lease_dir/pvp3d.log"
+grep -F 'hardware_measurement_eligible=true' "$lease_dir/pvp3d.log"
+rows=$(awk -F, '$1=="measured" || $1=="skipped_limit" {n++} END {print n+0}' "$lease_dir/pvp3d.log")
+test "$rows" = 63
+cat /proc/loadavg > "$lease_dir/load-after.txt"
+date -u > "$lease_dir/completed-at.txt"
+printf 'qualification_status=complete_rows_63\n' >> "$lease_dir/control.log"

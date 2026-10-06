@@ -1,0 +1,8 @@
+Running timer as unit: remoteops-pvp-restore-f1plhF-b.timer
+Will run service as unit: remoteops-pvp-restore-f1plhF-b.service
+reservation_admitted=controlled_services_paused_lock_contends_visible_users_owned
+PVP_ANF_BANK_COMPLETE,cases=24,candidate_checks=96,performance_claim=none
+qualification_status=complete
+hardware_measurement_eligible=true
+qualification_status=complete_rows_63
+reservation_released_exit=0
