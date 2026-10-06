@@ -20,10 +20,10 @@ pub enum FlatPvpVec4Error {
     ZeroGates,
     ArithmeticOverflow,
     StorageLengthMismatch {
-        expected_u32_words: usize,
-        actual_u32_words: usize,
+        expected_words: usize,
+        actual_words: usize,
     },
-    NonZeroPadding { address: usize },
+    NonZeroPadding { major_index: usize },
     IndexSpaceExceeded { value: usize },
     BufferTooSmall {
         required_bytes: u64,
@@ -43,14 +43,14 @@ impl fmt::Display for FlatPvpVec4Error {
             Self::ZeroGates => write!(f, "FLAT PVP vec4 requires at least one gate"),
             Self::ArithmeticOverflow => write!(f, "FLAT PVP vec4 size computation overflowed"),
             Self::StorageLengthMismatch {
-                expected_u32_words,
-                actual_u32_words,
+                expected_words,
+                actual_words,
             } => write!(
                 f,
-                "FLAT PVP vec4 storage has {actual_u32_words} u32 words, expected {expected_u32_words}"
+                "FLAT PVP vec4 storage has {actual_words} words, expected {expected_words}"
             ),
-            Self::NonZeroPadding { address } => {
-                write!(f, "FLAT PVP vec4 row {address} has non-zero padding")
+            Self::NonZeroPadding { major_index } => {
+                write!(f, "FLAT PVP vec4 major index {major_index} has non-zero padding")
             }
             Self::IndexSpaceExceeded { value } => {
                 write!(f, "FLAT PVP vec4 value {value} exceeds WGSL u32 index space")
@@ -209,8 +209,8 @@ impl FlatPvpVec4BitplanesV1 {
     ) -> Result<Self, FlatPvpVec4Error> {
         if words.len() != layout.storage_u32_words() {
             return Err(FlatPvpVec4Error::StorageLengthMismatch {
-                expected_u32_words: layout.storage_u32_words(),
-                actual_u32_words: words.len(),
+                expected_words: layout.storage_u32_words(),
+                actual_words: words.len(),
             });
         }
         let value = Self { layout, words };
@@ -233,8 +233,8 @@ impl FlatPvpVec4BitplanesV1 {
             .ok_or(FlatPvpVec4Error::ArithmeticOverflow)?;
         if gate_major.len() != expected {
             return Err(FlatPvpVec4Error::StorageLengthMismatch {
-                expected_u32_words: expected,
-                actual_u32_words: gate_major.len(),
+                expected_words: expected,
+                actual_words: gate_major.len(),
             });
         }
         if layout.addresses() % 64 != 0 {
@@ -242,7 +242,7 @@ impl FlatPvpVec4BitplanesV1 {
             let mask = !((1_u64 << tail) - 1);
             for gate in 0..layout.gates() {
                 if gate_major[gate * address_words + address_words - 1] & mask != 0 {
-                    return Err(FlatPvpVec4Error::NonZeroPadding { address: gate });
+                    return Err(FlatPvpVec4Error::NonZeroPadding { major_index: gate });
                 }
             }
         }
@@ -295,12 +295,12 @@ impl FlatPvpVec4BitplanesV1 {
             if tail != 0 {
                 let mask = !((1_u32 << tail) - 1);
                 if self.words[base + live_words - 1] & mask != 0 {
-                    return Err(FlatPvpVec4Error::NonZeroPadding { address });
+                    return Err(FlatPvpVec4Error::NonZeroPadding { major_index: address });
                 }
             }
             for word in live_words..row_words {
                 if self.words[base + word] != 0 {
-                    return Err(FlatPvpVec4Error::NonZeroPadding { address });
+                    return Err(FlatPvpVec4Error::NonZeroPadding { major_index: address });
                 }
             }
         }
