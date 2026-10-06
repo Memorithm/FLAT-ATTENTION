@@ -674,6 +674,36 @@ pascal_vector_projection_program_2026_10_06:
         - frozen_PVP3b_protocol_unchanged
         - software_smoke_is_not_physical_performance_evidence
         - no_autotuning_default_route_or_model_quality_promotion
+    PVP_ANF_BANK_SEMANTIC_QUALIFICATION:
+      status: merged_exact_head_CI_qualified
+      pull_request: 341
+      exact_head: fa74f25053c087ad5e00d1f1791273fa376e46e8
+      merge_sha: 50c0230cc645bd44f1520e2c7194878a4b13009c
+      exact_head_CI: 10_of_10_observed_checks_success
+      backend_execution_evidence:
+        Vulkan_software: {workflow_run: 37521872197, job: 112469068719, candidate_checks: 96}
+        Metal: {workflow_run: 37521872010, job: 112469066718, candidate_checks: 96}
+        Direct3D12_WARP: {workflow_run: 37521872049, job: 112469066868, candidate_checks: 96}
+      preregistration_commit: 701a6c440fa002cd68ab00898c08aa33ad4861a5
+      protocol: docs/research/PVP_ANF_BANK_QUALIFICATION_PROTOCOL.md
+      corpus:
+        geometries: 8
+        bank_families: [boundary, sparse4, dense32]
+        cases: 24
+        maximum_K: 2048
+        maximum_G: 2048
+      controls: [scalar_u32, vec4, fused2, tile8]
+      qualification:
+        - explicit_ANF_coefficients_to_independent_direct_monomial_truth_oracle
+        - every_output_word_including_padding_compared_exactly
+        - second_transform_recovers_all_original_coefficients
+        - 96_candidate_cases_and_96_inverse_checks_per_adapter
+        - mandatory_Vulkan_Metal_and_Direct3D12_WARP_execution
+      performance_claim: none
+      boundary:
+        - deterministic_synthetic_functional_corpus_not_SML_model_aligned_study
+        - no_SML_internalization_model_quality_or_register_allocation_claim
+        - reusable_fixture_and_oracle_design_requires_destination_requalification
   hardware_policy:
     - new_PVP_work_is_CPU_or_WGPU_WGSL_open_backend_first
     - no_required_CUDA_NVRTC_cuDNN_TensorRT_TensorRT_LLM_NVML_CUTLASS_or_vendor_SDK
