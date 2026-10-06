@@ -601,7 +601,7 @@ pascal_vector_projection_program_2026_10_06:
     PVP_FLAT3C_TILE8:
       status: implementation_PR_open_exact_head_CI_pending
       pull_request: 339
-      exact_head: 54d18a5f13ca1a68484c29d29897fd6c135c42c8
+      exact_head: 01bf2e20c3d62718e5871df7564fa24cb76b69f1
       prerequisite:
         - PVP_FLAT2_VEC4_merged_qualified
         - PVP_FLAT3A_FUSED2_merged_qualified
