@@ -320,7 +320,9 @@ impl FlatPvpVec4BitplanesV1 {
             }
             for word in live_words..row_words {
                 if self.words[base + word] != 0 {
-                    return Err(FlatPvpVec4Error::NonZeroPadding { major_index: address });
+                    return Err(FlatPvpVec4Error::NonZeroPadding {
+                        major_index: address,
+                    });
                 }
             }
         }
