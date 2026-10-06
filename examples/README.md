@@ -46,6 +46,7 @@ them.
 | `m48_decode_kv_reuse_sweep` | Decode that reuses projected/rotated K. |
 | `m53_asymmetric_vec4_bench` | M53 rectangular vec4 candidate bench. |
 | `m60_q1_direct_ab` | M60 Q1 direct vec4 A/B candidate. |
+| `pvp3b_fused2_bench` | PVP3b same-device PVP2 vec4 vs PVP3a fused2 benchmark over the preregistered K/G grid. |
 
 ```bash
 cargo run --release --features wgpu --example subgroup_bench

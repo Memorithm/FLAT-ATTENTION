@@ -197,6 +197,7 @@ impl FlatPvpVec4LayoutV1 {
         )
     }
 
+    #[cfg(feature = "wgpu")]
     fn storage_bytes(self) -> Result<u64, FlatPvpVec4Error> {
         let bytes = self
             .storage_u32_words

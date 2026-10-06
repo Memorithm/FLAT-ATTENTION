@@ -1,30 +1,32 @@
-name: FLAT M53 Thor qualification
+name: FLAT PVP3b Thor qualification
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     paths:
-      - "src/**"
-      - "shaders/**"
-      - "tests/**"
-      - "examples/m53_asymmetric_vec4_bench.rs"
-      - "docs/M53_ASYMMETRIC_VEC4_CANDIDATE.md"
-      - "docs/M54_M53_THOR_QUALIFICATION.md"
-      - ".github/workflows/m53-thor-qualification.yml"
+      - "src/pvp_vec4.rs"
+      - "src/pvp_fused2.rs"
+      - "shaders/flat_pvp_vec4.wgsl"
+      - "shaders/flat_pvp_vec4_fused2.wgsl"
+      - "examples/pvp3b_fused2_bench.rs"
+      - "Cargo.toml"
+      - ".github/workflows/pvp3b-thor-qualification.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: flat-m53-thor-${{ github.event.pull_request.number || github.ref }}
+  group: flat-pvp3b-thor-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   thor:
-    name: M53 portable versus vec4 on physical Thor
+    name: PVP2 vec4 versus PVP3a fused2 on physical Thor
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       RUSTFLAGS: "-D warnings"
       CARGO_INCREMENTAL: "0"
@@ -32,24 +34,26 @@ jobs:
       FLAT_SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
       FLAT_THOR_IDLE_SETTLE_SECONDS: "300"
       WGPU_BACKEND: vulkan
-      FLAT_M53_WARMUPS: "5"
-      FLAT_M53_REPEATS: "20"
+      FLAT_PVP3B_WARMUPS: "5"
+      FLAT_PVP3B_REPEATS: "30"
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Prepare isolated Rust toolchain directories
         shell: bash
         run: |
           set -euo pipefail
-          toolchain_dir="$(mktemp -d "$RUNNER_TEMP/flat-m53-toolchain.XXXXXX")"
+          toolchain_dir="$(mktemp -d "$RUNNER_TEMP/flat-pvp3b-toolchain.XXXXXX")"
           chmod 700 "$toolchain_dir"
           mkdir -p "$toolchain_dir/cargo-home" "$toolchain_dir/rustup-home"
           echo "CARGO_HOME=$toolchain_dir/cargo-home" >> "$GITHUB_ENV"
           echo "RUSTUP_HOME=$toolchain_dir/rustup-home" >> "$GITHUB_ENV"
           echo "$toolchain_dir/cargo-home/bin" >> "$GITHUB_PATH"
-          echo "FLAT_M53_TOOLCHAIN_DIR=$toolchain_dir" >> "$GITHUB_ENV"
+          echo "FLAT_PVP3B_TOOLCHAIN_DIR=$toolchain_dir" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
@@ -62,25 +66,21 @@ jobs:
           case "$RUNNER_NAME" in
             tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
             *)
-              echo "::error::M53 requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              echo "::error::PVP3b requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
               exit 1
               ;;
           esac
           actual="$(git rev-parse HEAD)"
           echo "source_revision=$actual"
           test "$actual" = "$FLAT_SOURCE_REVISION"
-          for tool in cargo rustc; do
+          for tool in cargo rustc flock pgrep stat nvidia-smi vulkaninfo awk; do
             command -v "$tool" >/dev/null || {
-              echo "::error::M53 requires $tool on PATH; refusing runner without an active Rust toolchain"
+              echo "::error::PVP3b requires $tool on PATH"
               exit 1
             }
           done
-          rustc_version="$(rustc --version)"
-          cargo_version="$(cargo --version)"
           rustc_release="$(rustc --version --verbose | sed -n 's/^release: //p')"
           rustc_base="${rustc_release%%-*}"
-          echo "rustc=$rustc_version"
-          echo "cargo=$cargo_version"
           if [[ ! "$rustc_base" =~ ^([0-9]+)\.([0-9]+)(\.[0-9]+)?$ ]]; then
             echo "::error::unable to parse active rustc release: $rustc_release"
             exit 1
@@ -88,7 +88,7 @@ jobs:
           rust_major="${BASH_REMATCH[1]}"
           rust_minor="${BASH_REMATCH[2]}"
           if (( 10#$rust_major < 1 || (10#$rust_major == 1 && 10#$rust_minor < 89) )); then
-            echo "::error::M53 requires active rustc >= 1.89; found $rustc_release"
+            echo "::error::PVP3b requires rustc >= 1.89; found $rustc_release"
             exit 1
           fi
 
@@ -96,44 +96,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-m53-runtime.XXXXXX")"
-          build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-m53-build.XXXXXX")"
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/flat-pvp3b-runtime.XXXXXX")"
+          build_dir="$(mktemp -d "$GITHUB_WORKSPACE/.flat-pvp3b-build.XXXXXX")"
           chmod 700 "$runtime_dir" "$build_dir"
           mkdir -p "$runtime_dir/xdg" "$runtime_dir/tmp" "$build_dir/target"
           chmod 700 "$runtime_dir/xdg" "$runtime_dir/tmp"
           echo "CARGO_TARGET_DIR=$build_dir/target" >> "$GITHUB_ENV"
           echo "XDG_RUNTIME_DIR=$runtime_dir/xdg" >> "$GITHUB_ENV"
           echo "TMPDIR=$runtime_dir/tmp" >> "$GITHUB_ENV"
-          echo "FLAT_M53_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
-          echo "FLAT_M53_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+          echo "FLAT_PVP3B_RUNTIME_DIR=$runtime_dir" >> "$GITHUB_ENV"
+          echo "FLAT_PVP3B_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
 
-      - name: Build M53 sweep before GPU reservation
+      - name: Build PVP3b benchmark before GPU reservation
         shell: bash
         run: |
           set -euo pipefail
-          cargo build --release --features wgpu --example m53_asymmetric_vec4_bench
-          benchmark="$CARGO_TARGET_DIR/release/examples/m53_asymmetric_vec4_bench"
+          cargo build --release --features wgpu --example pvp3b_fused2_bench
+          benchmark="$CARGO_TARGET_DIR/release/examples/pvp3b_fused2_bench"
           test -x "$benchmark"
-          echo "FLAT_M53_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
+          echo "FLAT_PVP3B_BENCHMARK=$benchmark" >> "$GITHUB_ENV"
 
-      - name: Exclusive physical Thor M53 sweep
+      - name: Exclusive physical Thor PVP3b sweep
         shell: bash
-        timeout-minutes: 90
+        timeout-minutes: 150
         run: |
           set -euo pipefail
-          for prerequisite in flock pgrep stat nvidia-smi vulkaninfo awk; do
-            command -v "$prerequisite" >/dev/null || {
-              echo "::error::missing M53 physical-Thor prerequisite: $prerequisite"
-              exit 1
-            }
-          done
           if [[ ! -c "$SCIRUST_THOR_GPU_LOCK" || ! -r "$SCIRUST_THOR_GPU_LOCK" || ! -w "$SCIRUST_THOR_GPU_LOCK" ]]; then
-            echo "::error::physical Thor lock target is not an accessible NVIDIA character device"
+            echo "::error::physical Thor lock target is not an accessible driver character device"
             exit 1
           fi
 
-          stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F' \
-            "$SCIRUST_THOR_GPU_LOCK"
+          stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F'             "$SCIRUST_THOR_GPU_LOCK"
           exec 9<>"$SCIRUST_THOR_GPU_LOCK"
           flock -x 9
           if flock -n "$SCIRUST_THOR_GPU_LOCK" -c 'true'; then
@@ -156,38 +149,34 @@ jobs:
             training="$(pgrep -af '[c]uda_pretrain' || true)"
             active="$(compute_processes)"
             if [[ -n "${training//[[:space:]]/}" || -n "${active//[[:space:]]/}" ]]; then
-              echo "::notice::M53 physical qualification deferred because Thor is already busy; no benchmark was executed and no performance claim is accepted"
+              echo "::notice::PVP3b deferred because Thor is already busy; no performance claim is accepted"
               {
-                echo "### M53 physical Thor qualification deferred"
+                echo "### PVP3b physical Thor qualification deferred"
                 echo
-                echo "The runner and exact source revision were validated and the M53 benchmark binary built successfully, but the GPU was already occupied before measurement."
-                echo "No benchmark was executed and no performance claim is accepted from this run."
-                [[ -z "${training//[[:space:]]/}" ]] || { echo; echo 'Training processes:'; echo '```'; printf '%s\n' "$training"; echo '```'; }
-                [[ -z "${active//[[:space:]]/}" ]] || { echo; echo 'GPU compute processes:'; echo '```'; printf '%s\n' "$active"; echo '```'; }
+                echo "Exact source and runner identity were validated and the benchmark built, but the GPU was occupied before measurement."
+                echo "No PVP3b timing was accepted."
               } >> "$GITHUB_STEP_SUMMARY"
               echo "qualification_status=deferred_gpu_busy"
               echo "performance_claim=none"
               exit 0
             fi
             settled=$((settled + 5))
-            if (( settled == 5 || settled % 60 == 0 )); then
-              echo "Thor continuously idle: ${settled}/${FLAT_THOR_IDLE_SETTLE_SECONDS}s"
-            fi
             sleep 5
           done
 
           echo "source_revision=$(git rev-parse HEAD)"
-          echo "benchmark_scope=prefill_gqa8_kv2_seq128_512_d64_128_causal_noncausal"
-          echo "measurement_order=alternating_portable_vec4"
-          output="$RUNNER_TEMP/m53-thor-qualification.log"
+          echo "benchmark_scope=PVP2_vec4_vs_PVP3a_fused2_K256_to_1048576_G128_512_2048"
+          echo "primary_timing_scope=resident_encode_plus_submit_plus_wait"
+          echo "measurement_order=alternating_vec4_fused2"
+          output="$RUNNER_TEMP/pvp3b-thor-qualification.log"
 
-          "$FLAT_M53_BENCHMARK" >"$output" 2>&1 &
+          "$FLAT_PVP3B_BENCHMARK" >"$output" 2>&1 &
           bench_pid=$!
           contaminated=0
           while kill -0 "$bench_pid" 2>/dev/null; do
-            if pgrep -af '[c]uda_pretrain' >"$RUNNER_TEMP/m53-training.txt"; then
-              echo "::error::SciAgent training appeared during M53 timing"
-              cat "$RUNNER_TEMP/m53-training.txt"
+            if pgrep -af '[c]uda_pretrain' >"$RUNNER_TEMP/pvp3b-training.txt"; then
+              echo "::error::foreign training process appeared during PVP3b timing"
+              cat "$RUNNER_TEMP/pvp3b-training.txt"
               contaminated=1
               break
             fi
@@ -198,7 +187,7 @@ jobs:
                 process_name="$(printf '%s' "$process_name" | xargs)"
                 [[ -z "$pid" ]] && continue
                 if [[ "$pid" != "$bench_pid" ]]; then
-                  echo "::error::foreign GPU compute during M53: pid=$pid process=$process_name"
+                  echo "::error::foreign GPU compute during PVP3b: pid=$pid process=$process_name"
                   contaminated=1
                 fi
               done <<< "$active"
@@ -215,23 +204,38 @@ jobs:
           wait "$bench_pid"
           cat "$output"
 
-          grep -F 'adapter,backend,causal,q_heads,kv_heads,seq_len,head_dim,warmups,repeats,portable_median_us,portable_p95_us,vec4_median_us,vec4_p95_us,portable_over_vec4,parity_max_abs,performance_claim' "$output" >/dev/null
-          rows="$(awk -F, '$2 == "Vulkan" && $4 == 8 && $5 == 2 && ($6 == 128 || $6 == 512) && ($7 == 64 || $7 == 128) && $8 == 5 && $9 == 20 && $16 == "none" {count++} END {print count+0}' "$output")"
-          test "$rows" -eq 8
-          grep -F 'NVIDIA Tegra NVIDIA Thor,Vulkan,' "$output" >/dev/null
+          grep -F 'benchmark=pvp3b_fused2_same_device' "$output" >/dev/null
+          grep -F 'primary_timing_scope=resident_encode_plus_queue_submit_plus_device_wait' "$output" >/dev/null
+          grep -F 'status,adapter,backend,k,g,state_bytes,warmups,repeats,vec4_dispatches,fused2_dispatches,vec4_median_ns,vec4_p95_ns,fused2_median_ns,fused2_p95_ns,vec4_over_fused2,fused2_wins,vec4_timestamp_median_ns,fused2_timestamp_median_ns,checksum,performance_claim' "$output" >/dev/null
+
+          rows="$(awk -F, '($1 == "measured" || $1 == "skipped_limit") && $7 == 5 && $8 == 30 && $20 == "none" {count++} END {print count+0}' "$output")"
+          test "$rows" -eq 21
+          measured="$(awk -F, '$1 == "measured" {count++} END {print count+0}' "$output")"
+          test "$measured" -gt 0
+          grep -E '^(measured|skipped_limit),NVIDIA Tegra NVIDIA Thor,Vulkan,' "$output" >/dev/null
 
           post="$(compute_processes)"
           if [[ -n "${post//[[:space:]]/}" ]]; then
-            echo "::error::post-M53 compute occupancy is not empty"
+            echo "::error::post-PVP3b compute occupancy is not empty"
             printf '%s\n' "$post"
             exit 1
           fi
+
+          {
+            echo "### PVP3b physical Thor measurement"
+            echo
+            echo "Exact source: `$(git rev-parse HEAD)`"
+            echo
+            echo "Rows: $rows; measured: $measured"
+            echo
+            echo "The benchmark reports device-specific evidence only; no model-level claim is authorized."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup isolated directories
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          [[ -z "${FLAT_M53_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_M53_BUILD_DIR"
-          [[ -z "${FLAT_M53_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_M53_RUNTIME_DIR"
-          [[ -z "${FLAT_M53_TOOLCHAIN_DIR:-}" ]] || rm -rf -- "$FLAT_M53_TOOLCHAIN_DIR"
+          [[ -z "${FLAT_PVP3B_BUILD_DIR:-}" ]] || rm -rf -- "$FLAT_PVP3B_BUILD_DIR"
+          [[ -z "${FLAT_PVP3B_RUNTIME_DIR:-}" ]] || rm -rf -- "$FLAT_PVP3B_RUNTIME_DIR"
+          [[ -z "${FLAT_PVP3B_TOOLCHAIN_DIR:-}" ]] || rm -rf -- "$FLAT_PVP3B_TOOLCHAIN_DIR"
