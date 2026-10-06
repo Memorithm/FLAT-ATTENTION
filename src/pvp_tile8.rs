@@ -158,8 +158,7 @@ impl WgpuPvpTile8Pipeline {
             .storage_u32_words()
             .checked_mul(core::mem::size_of::<u32>())
             .ok_or(FlatPvpVec4Error::ArithmeticOverflow)?;
-        let required =
-            u64::try_from(required).map_err(|_| FlatPvpVec4Error::ArithmeticOverflow)?;
+        let required = u64::try_from(required).map_err(|_| FlatPvpVec4Error::ArithmeticOverflow)?;
         if state.size() < required {
             return Err(FlatPvpVec4Error::BufferTooSmall {
                 required_bytes: required,
@@ -167,16 +166,16 @@ impl WgpuPvpTile8Pipeline {
             });
         }
 
-        let addresses =
-            u32::try_from(layout.addresses()).map_err(|_| FlatPvpVec4Error::IndexSpaceExceeded {
+        let addresses = u32::try_from(layout.addresses()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
                 value: layout.addresses(),
-            })?;
-        let vectors_per_address =
-            u32::try_from(layout.vectors_per_address()).map_err(|_| {
-                FlatPvpVec4Error::IndexSpaceExceeded {
-                    value: layout.vectors_per_address(),
-                }
-            })?;
+            }
+        })?;
+        let vectors_per_address = u32::try_from(layout.vectors_per_address()).map_err(|_| {
+            FlatPvpVec4Error::IndexSpaceExceeded {
+                value: layout.vectors_per_address(),
+            }
+        })?;
         let tile_count = addresses / 8;
         let workgroups = tile_count
             .checked_mul(vectors_per_address)
@@ -196,12 +195,8 @@ impl WgpuPvpTile8Pipeline {
             });
         }
 
-        let params = crate::wgpu_internal::encode_u32(&[
-            addresses,
-            vectors_per_address,
-            tile_count,
-            0,
-        ]);
+        let params =
+            crate::wgpu_internal::encode_u32(&[addresses, vectors_per_address, tile_count, 0]);
         let uniform = crate::wgpu_internal::create_uniform_buffer_init(
             device,
             "flat-pvp-tile8-params",
@@ -247,8 +242,7 @@ mod tests {
         for gate in 0..layout.gates() {
             for address in 0..layout.addresses() {
                 if ((gate * 47 + address * 17 + (gate ^ address)) % 31) < 15 {
-                    gate_major[gate * words_per_gate + address / 64] |=
-                        1_u64 << (address % 64);
+                    gate_major[gate * words_per_gate + address / 64] |= 1_u64 << (address % 64);
                 }
             }
         }
