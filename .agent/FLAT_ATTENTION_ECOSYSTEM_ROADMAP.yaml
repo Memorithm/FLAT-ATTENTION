@@ -851,7 +851,9 @@ PVP_repetition_diagnosis_2026_10_07:
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_pull_request: 343
   evidence_exact_head: 3595eab7bc914204aab9494f7bc466badba17a7d
-  evidence_status: awaiting_exact_head_CI
+  evidence_status: merged_exact_head_CI_success
+  evidence_merge_sha: bff0fa4f74f86c64073c376a11c60b6d5b227c49
+  evidence_exact_head_CI: {completed: 10, successful: 10}
   report: docs/research/PVP3D_THOR_REPETITIONS_AND_DELL_2026_10_07.md
   artifacts: docs/research/evidence/pvp3d-thor-repeat-2026-10-06/
   repeated_execution_source: ddb6f0144821dfa29d268601e7087e5001278e52
