@@ -1,0 +1,10 @@
+{
+  "scans": 5,
+  "observed_scans": 5,
+  "unknown_scans": 0,
+  "foreign_visible_users": 0,
+  "visible_controller_pid": 3070129,
+  "no_benchmark_started": true,
+  "performance_admission": "none",
+  "exclusive_access_qualified": false
+}
