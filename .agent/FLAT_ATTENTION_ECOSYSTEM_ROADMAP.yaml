@@ -1216,3 +1216,60 @@ PVP_native_Dell_correctness_2026_10_07:
     - no_Thor_Dell_cohort_pooling
     - driver_only_vendor_layer_Rust_CPU_WGPU_path
     - final_SML_self_sufficient_FLAT_SciRust_NNIS_optional
+
+PVP_native_Dell_E2E_timing_2026_10_07:
+  status: native_speed_diagnostic_complete_evidence_PR_pending_exact_head_CI
+  control_plane: Memorithm_RemoteOps
+  control_PRs: [308, 310, 311]
+  control_revision: 163deaed6dbb74a3ba5f43b4b7d9c8f4eb186e9c
+  native_run: 37641657219
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_PR: 352
+  evidence_head: 0f5b83f3e09fd88ffce58016338d3bfb388c2036
+  source: b020d31711d75807eb0f8b13a6a967a8522c5d1c
+  report: docs/research/PVP_CANONICAL_E2E_DELL_20261007.md
+  device: Dell_T430_native_x86_64_RTX4060_Vulkan
+  driver: "595.45.04"
+  compiler: Rust_1_89_0_release
+  unprivileged_execution: memci_scoped_render_group
+  fresh_processes: 10
+  exact_processes: 10
+  measured_samples: 14400
+  warmup_samples: 3600
+  complete_comparisons: 72000
+  failed_comparisons: 0
+  rejected_geometries: 0
+  endpoint: canonical_gate_major_u64_host_input_to_host_output
+  included_costs: [conversion_in, mode_preparation, upload_fence, encode_submit_wait, explicit_MAP_READ, conversion_out]
+  excluded_costs: [device_startup, destruction, independent_verification]
+  panels: 36
+  paired_process_median_ratio_range: [1.402555543, 15.764190838]
+  panels_all_ten_process_medians_above_1_05: 36
+  individual_slower_pairs_retained: 14
+  raw_files: 79
+  archive_sha256: d6ac7b314ea9c5273415458ce273205e9947642245a144fcc18644cf1f10b62d
+  invalid_setup_attempts_retained: [37640508307, 37641009420]
+  invalid_setup_measured_samples: 0
+  independent_Rust_verifier_tests: 14
+  independent_arithmetic_cross_check: all_ratios_and_p50_p95_agree
+  occupancy_scans: 822
+  partial_scans: 114
+  unreadable_entries: 6719
+  preexisting_visible_device_users: [1890, 4285, 2152880]
+  accepted_performance_confirmation_rows: 0
+  performance_admission: none
+  confirmation_p_value: null
+  service_pauses: none
+  persistent_group_changes: none
+  final_cooperative_lock: available
+  next_active_slice: SML_owned_ANF_activation_plus_query_task_protocol_preparation
+  remaining:
+    - exact_head_CI_before_evidence_merge
+    - controlled_device_admission_before_confirmatory_GPU_gain
+    - SML_owned_fixture_and_task_output_contract_then_destination_requalification
+  boundary:
+    - completed_synthetic_timing_diagnostic_not_exclusive_GPU_or_SML_throughput_confirmation
+    - scalar_conversion_cost_is_real_but_not_an_optimal_SIMD_baseline
+    - no_Thor_Dell_pooling_default_route_model_quality_register_or_bandwidth_promotion
+    - Rust_CPU_WGPU_only_installed_driver_vendor_specific
+    - final_SML_self_sufficient_FLAT_SciRust_NNIS_optional_harness_separate
