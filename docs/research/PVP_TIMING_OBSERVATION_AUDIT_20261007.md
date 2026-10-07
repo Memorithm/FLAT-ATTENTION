@@ -38,3 +38,11 @@ Method: sum gap counts and group by stage/context; collect fork child PIDs and e
 RemoteOps remains owner of the device-observation contract. A future bounded experiment should distinguish foreign process disappearance from controller-owned churn, preserve unknown identities and retain lifecycle loss/namespace boundaries. Avoid launching extra out-of-scope monitoring processes during a new timing interval where possible. Whether those monitors caused any particular historical gap is not established.
 
 Do not relax the current gate to improve admission counts, kill unrelated processes, or silently change the observer during a cohort. Any new observation/control mechanism must be separately versioned and qualified before a new confirmatory timing campaign. The final SML model and its future harness remain independent of optional FLAT/SciRust/NNIS partners.
+
+## Strict raw-record integrity follow-up
+
+A separate read-only check of all three original logs found exactly 60,750 unique comparison keys and 13,500 unique forward/inverse sample keys including warmups. Their key sets exactly cover the frozen process × shape × bank × arm × trial × phase × comparison products. There are 10,800 measured samples, no duplicates or missing keys, and no mismatches.
+
+For every check, the reported physical word count matches the layout plus four guard words: packed `G * ceil(K/128) * 4 + 4`, other arms `K * ceil(G/128) * 4 + 4`. Every wrong-word count is zero and every mismatch tuple list is empty. Each sample has positive wall/upload times, exact=true, admission=none, the expected measured/warmup label, trial/round/repeat relation and cyclic/mirrored arm position. Each process has exactly one complete marker with samples=3600, rejected_geometries=0 and failed_comparisons=0.
+
+This checks the archived records against the protocol; it does not rerun the mathematical oracle, establish hardware inactivity or change the admission verdict.
