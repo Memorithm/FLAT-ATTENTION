@@ -127,7 +127,8 @@ fn check(
 #[test]
 #[ignore = "explicit native diagnostic timing only; not part of correctness CI"]
 fn prepared_resident_wall_diagnostic() {
-    let revision = option_env!("FLAT_SOURCE_REVISION").expect("freeze compile revision");
+    let revision = option_env!("FLAT_SOURCE_REVISION").unwrap_or("unknown");
+    assert_ne!(revision, "unknown", "freeze compile revision");
     assert_eq!(std::env::var("FLAT_SOURCE_REVISION").unwrap(), revision);
     println!("PVP_TIMING_PROTOCOL,source={revision},grid=6,banks=3,arms=5,warmups=5,repeats=20,mapping=explicit,timer=encode_submit_wait,GPU_timestamps=not_requested,performance_admission=none");
     for (k, g) in corpus::GEOMETRIES.into_iter().take(5) {
