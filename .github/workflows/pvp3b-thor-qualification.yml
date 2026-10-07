@@ -128,7 +128,18 @@ jobs:
 
           stat -Lc 'gpu_lock_target=%n st_dev=%d inode=%i rdev_hex=%t:%T mode=%a owner=%U:%G type=%F'             "$SCIRUST_THOR_GPU_LOCK"
           exec 9<>"$SCIRUST_THOR_GPU_LOCK"
-          flock -x 9
+          if ! flock -n -x 9; then
+            echo "::notice::PVP3b deferred because a cooperative Thor GPU reservation is held"
+            {
+              echo "### PVP3b physical Thor qualification deferred"
+              echo
+              echo "The cooperative device reservation was unavailable; no GPU inventory or benchmark was started."
+              echo "No PVP3b timing was accepted."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "qualification_status=deferred_gpu_reserved"
+            echo "performance_claim=none"
+            exit 0
+          fi
           if flock -n "$SCIRUST_THOR_GPU_LOCK" -c 'true'; then
             echo "::error::physical GPU lock does not contend independently"
             exit 1

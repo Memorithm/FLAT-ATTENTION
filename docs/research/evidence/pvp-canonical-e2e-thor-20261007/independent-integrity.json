@@ -1,0 +1,9 @@
+{
+  "archive_sha256": "5e9adafca249ed181945d40ff8b52c8c804b76231ff516b3c0d94b9ab97fc4af",
+  "verified_file_hashes": 337,
+  "frozen_input_hashes": 12,
+  "complete_correct_processes": 10,
+  "measured_samples": 14400,
+  "comparisons": 72000,
+  "no_admission_upgrade": true
+}

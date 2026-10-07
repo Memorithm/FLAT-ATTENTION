@@ -1,0 +1,51 @@
+[
+  {
+    "mutation": "wrong_source",
+    "rejected": true,
+    "errors": [
+      "protocol_source"
+    ],
+    "temporary_copy_only": true
+  },
+  {
+    "mutation": "duplicate_sample",
+    "rejected": true,
+    "errors": [
+      "duplicate_sample"
+    ],
+    "temporary_copy_only": true
+  },
+  {
+    "mutation": "missing_check",
+    "rejected": true,
+    "errors": [
+      "check_coverage"
+    ],
+    "temporary_copy_only": true
+  },
+  {
+    "mutation": "wrong_word",
+    "rejected": true,
+    "errors": [
+      "wrong_check_or_length"
+    ],
+    "temporary_copy_only": true
+  },
+  {
+    "mutation": "wrong_word_count",
+    "rejected": true,
+    "errors": [
+      "wrong_check_or_length"
+    ],
+    "temporary_copy_only": true
+  },
+  {
+    "mutation": "zero_wall_time",
+    "rejected": true,
+    "errors": [
+      "component_sum_exceeds_wall",
+      "nonpositive_time"
+    ],
+    "temporary_copy_only": true
+  }
+]
