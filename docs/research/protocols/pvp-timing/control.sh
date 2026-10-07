@@ -123,5 +123,5 @@ done
 sha256sum "$binary" > "$lease_dir/identity-after.txt"
 printf '%s  %s\n' "$expected_binary" "$binary" | sha256sum -c -
 date -u --iso-8601=ns > "$lease_dir/completed-at.txt"
-printf 'diagnostic_complete=3_invocations_no_timing_claim\n' >> "$lease_dir/control.log"
+printf 'diagnostic_complete=3_invocations_raw_timing_no_performance_admission\n' >> "$lease_dir/control.log"
 

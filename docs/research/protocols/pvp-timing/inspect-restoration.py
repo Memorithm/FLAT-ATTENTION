@@ -24,7 +24,7 @@ assert timer.returncode != 0 and timer.stdout.strip() in ["inactive", "unknown"]
 assert subprocess.run(["flock", "-n", "/dev/nvidia0", "-c", "true"]).returncode == 0
 control = (root / "block-1/control.log").read_text()
 assert control.endswith("reservation_released_exit=0\n")
-assert "diagnostic_complete=3_invocations_no_timing_claim\n" in control
+assert "diagnostic_complete=3_invocations_raw_timing_no_performance_admission\n" in control
 historical = pathlib.Path("/var/tmp/remoteops-pvp-r8-build.c15g0q5t/source/target/release/examples/pvp3d_three_candidate_bench")
 historical_hash = hashlib.sha256(historical.read_bytes()).hexdigest()
 assert historical_hash == "7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414"
