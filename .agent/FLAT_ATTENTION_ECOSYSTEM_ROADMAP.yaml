@@ -1042,11 +1042,12 @@ PVP_packed_large_stress_2026_10_07:
     - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_SML_HARNESS_separate
 
 PVP_prepared_five_arm_qualification_2026_10_07:
-  status: native_correctness_complete_final_exact_head_CI_pending
+  status: merged_prepared_correctness_qualified_performance_unmeasured
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_pull_request: 346
   evidence_exact_head: bde830ae47afebec317669586a4af65ed891e3c7
-  evidence_merge_sha: pending
+  evidence_merge_sha: ce1ce32f684ea909add1737cf139b1eef0e386b6
+  evidence_exact_head_CI: {completed: 15, successful: 15, workflows: 11, successful_workflows: 11}
   execution_source_and_controller: d78599ca0e589a2d578a6523c88441210290c8e1
   report: docs/research/PVP_PREPARED_QUALIFICATION_2026_10_07.md
   protocol: docs/research/PVP_PREPARED_QUALIFICATION_PROTOCOL.md
