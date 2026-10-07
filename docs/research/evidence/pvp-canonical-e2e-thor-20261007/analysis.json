@@ -1,0 +1,5091 @@
+{
+  "schema": "flat.pvp-canonical-e2e-analysis/v1",
+  "source": "b020d31711d75807eb0f8b13a6a967a8522c5d1c",
+  "runs": [
+    {
+      "run": 1,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 46,
+      "partial_scans": 1,
+      "unreadable_entries": 1,
+      "incomplete_observation_markers": 1,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 1,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 2,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 46,
+      "partial_scans": 1,
+      "unreadable_entries": 1,
+      "incomplete_observation_markers": 1,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 1,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 3,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 47,
+      "partial_scans": 1,
+      "unreadable_entries": 1,
+      "incomplete_observation_markers": 1,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 1,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 4,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 47,
+      "partial_scans": 0,
+      "unreadable_entries": 0,
+      "incomplete_observation_markers": 0,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 0,
+      "all_scans_observed": true,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 5,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 46,
+      "partial_scans": 1,
+      "unreadable_entries": 2,
+      "incomplete_observation_markers": 1,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 1,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 6,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 41,
+      "partial_scans": 9,
+      "unreadable_entries": 13,
+      "incomplete_observation_markers": 9,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 8,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 7,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 47,
+      "partial_scans": 0,
+      "unreadable_entries": 0,
+      "incomplete_observation_markers": 32,
+      "foreign_visible_user_rejections": 32,
+      "unknown_or_foreign_gap_rejections": 0,
+      "all_scans_observed": true,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": true
+    },
+    {
+      "run": 8,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 47,
+      "partial_scans": 3,
+      "unreadable_entries": 5,
+      "incomplete_observation_markers": 2,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 3,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 9,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 46,
+      "partial_scans": 3,
+      "unreadable_entries": 3,
+      "incomplete_observation_markers": 2,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 3,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    },
+    {
+      "run": 10,
+      "sample_records": 1800,
+      "measured_samples": 1440,
+      "check_records": 7200,
+      "correctness_complete": true,
+      "errors": [],
+      "occupancy_scans": 46,
+      "partial_scans": 1,
+      "unreadable_entries": 1,
+      "incomplete_observation_markers": 1,
+      "foreign_visible_user_rejections": 0,
+      "unknown_or_foreign_gap_rejections": 1,
+      "all_scans_observed": false,
+      "trace_loss_free": true,
+      "restoration_verified": true,
+      "first_restoration_inspection_failed": false
+    }
+  ],
+  "panels": [
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 4.033197620130455,
+          "minimum_paired_ratio": 2.603348698481562
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 3.831489089344152,
+          "minimum_paired_ratio": 3.3352709934175357
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 4.009289492107232,
+          "minimum_paired_ratio": 3.690413032981837
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 4.935273785134198,
+          "minimum_paired_ratio": 4.133941181185276
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 3.858207419048611,
+          "minimum_paired_ratio": 3.514331818518751
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 2.7805511167853707,
+          "minimum_paired_ratio": 2.081109265599502
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 3.990754926625824,
+          "minimum_paired_ratio": 3.655867578603771
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 2.881013215326174,
+          "minimum_paired_ratio": 2.377267864945083
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 3.942667542264468,
+          "minimum_paired_ratio": 2.223138663234069
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 3.868760908483279,
+          "minimum_paired_ratio": 3.7034038896480936
+        }
+      ],
+      "descriptive_process_median_min": 2.7805511167853707,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1240394.5,
+            "p95_ns": 1957373
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 302420.5,
+            "p95_ns": 626526
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 83
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 56741,
+            "p95_ns": 227536
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 286948,
+            "p95_ns": 468859
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 60800,
+            "p95_ns": 241092
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 515197.5,
+            "p95_ns": 688619
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 308591.5,
+            "p95_ns": 672534
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 16625,
+            "p95_ns": 21436
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 83
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 56531.5,
+            "p95_ns": 227841
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 164156,
+            "p95_ns": 341342
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 60712.5,
+            "p95_ns": 75796
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 9481.5,
+            "p95_ns": 12156
+          }
+        }
+      }
+    },
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 1.7986200264791448,
+          "minimum_paired_ratio": 1.7238102104916881
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 1.7469801523661599,
+          "minimum_paired_ratio": 1.5745910057750265
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 1.7592542621057345,
+          "minimum_paired_ratio": 1.6119302825835156
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 1.7708459949031758,
+          "minimum_paired_ratio": 1.6170772638020001
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 1.6435934086443877,
+          "minimum_paired_ratio": 1.3448969961755108
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 1.805286832104822,
+          "minimum_paired_ratio": 1.5990564517831527
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 1.7638621652571653,
+          "minimum_paired_ratio": 1.6680826342518518
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 1.8635658482819886,
+          "minimum_paired_ratio": 1.7342278958132618
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 1.7764450393377234,
+          "minimum_paired_ratio": 1.6807007336408917
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 1.788470462326904,
+          "minimum_paired_ratio": 1.5757094967508551
+        }
+      ],
+      "descriptive_process_median_min": 1.6435934086443877,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1496537,
+            "p95_ns": 2216113
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 315216.5,
+            "p95_ns": 549683
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 204745,
+            "p95_ns": 244842
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 74380,
+            "p95_ns": 251943
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 297587.5,
+            "p95_ns": 484304
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 64185,
+            "p95_ns": 250916
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 530970.5,
+            "p95_ns": 689767
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 834321.5,
+            "p95_ns": 1303857
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 18037,
+            "p95_ns": 22991
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 485252.5,
+            "p95_ns": 602089
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 77110,
+            "p95_ns": 253463
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 176943.5,
+            "p95_ns": 361286
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 64528,
+            "p95_ns": 83343
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 10241,
+            "p95_ns": 13000
+          }
+        }
+      }
+    },
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 2.5526513794727603,
+          "minimum_paired_ratio": 1.871291452551452
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 3.7297823052767836,
+          "minimum_paired_ratio": 1.867588448491571
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 3.691295282341498,
+          "minimum_paired_ratio": 1.913574498393008
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 3.743745728797853,
+          "minimum_paired_ratio": 1.8667914328658948
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 4.354978319844232,
+          "minimum_paired_ratio": 2.1021510883482715
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 2.6205104301902304,
+          "minimum_paired_ratio": 1.8164554834121727
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 2.5076252612784087,
+          "minimum_paired_ratio": 1.7373252932484569
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 4.037225587821355,
+          "minimum_paired_ratio": 2.0424649350732773
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 3.537356631899994,
+          "minimum_paired_ratio": 1.6879767351290111
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 3.7270805157974443,
+          "minimum_paired_ratio": 1.8952540465777583
+        }
+      ],
+      "descriptive_process_median_min": 2.5076252612784087,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1290815,
+            "p95_ns": 2154641
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 341850.5,
+            "p95_ns": 539433
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 58611,
+            "p95_ns": 237360
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 301938.5,
+            "p95_ns": 494572
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 64333.5,
+            "p95_ns": 249860
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 468563,
+            "p95_ns": 680257
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 326947.5,
+            "p95_ns": 873452
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 17875,
+            "p95_ns": 24084
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 58537,
+            "p95_ns": 240943
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 172180,
+            "p95_ns": 353470
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 63574,
+            "p95_ns": 249241
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 10532.5,
+            "p95_ns": 14297
+          }
+        }
+      }
+    },
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 1.7476960994620079,
+          "minimum_paired_ratio": 1.5364768341358164
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 1.6773781677884267,
+          "minimum_paired_ratio": 1.4333330733081555
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 1.6771253611954224,
+          "minimum_paired_ratio": 1.4957361486210001
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 1.6688903189989959,
+          "minimum_paired_ratio": 1.432392777796574
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 1.6956876771177518,
+          "minimum_paired_ratio": 1.542326623146049
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 1.529921079646776,
+          "minimum_paired_ratio": 1.4187946219925245
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 1.486526631491437,
+          "minimum_paired_ratio": 0.42617910554031135
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 1.6840299186394918,
+          "minimum_paired_ratio": 1.515276360309532
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 1.592180816811505,
+          "minimum_paired_ratio": 1.2970932212657595
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 1.665624745829567,
+          "minimum_paired_ratio": 1.5315391856627065
+        }
+      ],
+      "descriptive_process_median_min": 1.486526631491437,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1443273,
+            "p95_ns": 2737629
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 317785.5,
+            "p95_ns": 559285
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 211082,
+            "p95_ns": 313934
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 75925,
+            "p95_ns": 258925
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 305457.5,
+            "p95_ns": 521164
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 65792,
+            "p95_ns": 248972
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 477766.5,
+            "p95_ns": 802821
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 888863,
+            "p95_ns": 1751226
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19560.5,
+            "p95_ns": 31120
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 501652,
+            "p95_ns": 800405
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 79162,
+            "p95_ns": 260870
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 181935,
+            "p95_ns": 385193
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 66069,
+            "p95_ns": 253749
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 10463,
+            "p95_ns": 17463
+          }
+        }
+      }
+    },
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 4.899759269386556,
+          "minimum_paired_ratio": 4.059386234564685
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 4.457539781224953,
+          "minimum_paired_ratio": 3.572060433544997
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 4.451319009942829,
+          "minimum_paired_ratio": 4.110422800072239
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 4.3293972152125395,
+          "minimum_paired_ratio": 3.8670604621503246
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 4.513899497935279,
+          "minimum_paired_ratio": 4.295849946505852
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 5.505365807782255,
+          "minimum_paired_ratio": 4.861427998432924
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 4.6365055223051606,
+          "minimum_paired_ratio": 3.89807991726919
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 4.4653085737782625,
+          "minimum_paired_ratio": 3.854818105767709
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 4.769400279269265,
+          "minimum_paired_ratio": 4.096322143591266
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 4.379976010953136,
+          "minimum_paired_ratio": 3.6583761241453656
+        }
+      ],
+      "descriptive_process_median_min": 4.3293972152125395,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1383611,
+            "p95_ns": 2035669
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 310063,
+            "p95_ns": 496322
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 57028,
+            "p95_ns": 69111
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 290373.5,
+            "p95_ns": 333610
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 62162,
+            "p95_ns": 72222
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 670433,
+            "p95_ns": 1094229
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 309643,
+            "p95_ns": 369303
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 16546.5,
+            "p95_ns": 24898
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 56838.5,
+            "p95_ns": 66371
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 165402.5,
+            "p95_ns": 196111
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 61180,
+            "p95_ns": 71461
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 9375.5,
+            "p95_ns": 15130
+          }
+        }
+      }
+    },
+    {
+      "K": 4096,
+      "G": 128,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 1.9605652605600974,
+          "minimum_paired_ratio": 1.795609912468756
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 1.9115493441783962,
+          "minimum_paired_ratio": 1.71727636266747
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 1.8930352725248296,
+          "minimum_paired_ratio": 1.7960855032932235
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 1.7970142627640946,
+          "minimum_paired_ratio": 1.3619821016313898
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 1.8765706050097801,
+          "minimum_paired_ratio": 1.7629699217498493
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 1.9128524645791831,
+          "minimum_paired_ratio": 1.3895490743501084
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 1.9533140585569404,
+          "minimum_paired_ratio": 1.8239993566836066
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 1.9152893841410914,
+          "minimum_paired_ratio": 1.8277075862201666
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 1.931813429280036,
+          "minimum_paired_ratio": 1.3546322405523639
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 1.885984070612404,
+          "minimum_paired_ratio": 1.7710592613096845
+        }
+      ],
+      "descriptive_process_median_min": 1.7970142627640946,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1623003.5,
+            "p95_ns": 2375992
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 309170.5,
+            "p95_ns": 411749
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 208615.5,
+            "p95_ns": 255508
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 74930.5,
+            "p95_ns": 251628
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 297457,
+            "p95_ns": 490508
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 64740.5,
+            "p95_ns": 249213
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 670108.5,
+            "p95_ns": 883367
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 847891,
+            "p95_ns": 1427597
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 18230.5,
+            "p95_ns": 23315
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 499285,
+            "p95_ns": 616785
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 77263.5,
+            "p95_ns": 253463
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 176319,
+            "p95_ns": 361146
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 64615,
+            "p95_ns": 246295
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 10430,
+            "p95_ns": 13593
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.744796769771721,
+          "minimum_paired_ratio": 8.83076347734982
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.578342558403996,
+          "minimum_paired_ratio": 9.222705452327164
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 11.84368845454836,
+          "minimum_paired_ratio": 10.139859451407721
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.100450501822063,
+          "minimum_paired_ratio": 9.268516280824485
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 12.467563398277521,
+          "minimum_paired_ratio": 9.204173719823952
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 10.349897914054553,
+          "minimum_paired_ratio": 9.228966454776192
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.940935248003786,
+          "minimum_paired_ratio": 7.78219539098184
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.374528289769868,
+          "minimum_paired_ratio": 9.256321840410633
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 9.773580844379522,
+          "minimum_paired_ratio": 8.758553298232219
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 10.572489495405474,
+          "minimum_paired_ratio": 8.47254370664948
+        }
+      ],
+      "descriptive_process_median_min": 9.744796769771721,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72491057.5,
+            "p95_ns": 95035287
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 21312527,
+            "p95_ns": 43449149
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 222
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 567965.5,
+            "p95_ns": 1494143
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 958705.5,
+            "p95_ns": 1149266
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1164838.5,
+            "p95_ns": 1356569
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 47907943,
+            "p95_ns": 50317717
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7052198,
+            "p95_ns": 8311657
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 3334790,
+            "p95_ns": 3790792
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 185
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 585400.5,
+            "p95_ns": 1488263
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 697113.5,
+            "p95_ns": 887738
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1167560.5,
+            "p95_ns": 1340311
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1184042.5,
+            "p95_ns": 1353698
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 8.198927808032161,
+          "minimum_paired_ratio": 7.905677143959117
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 8.510726785182971,
+          "minimum_paired_ratio": 7.989344281914558
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 8.581740141055867,
+          "minimum_paired_ratio": 8.245764988324039
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 8.307097131351558,
+          "minimum_paired_ratio": 7.596107226349753
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.991833614611343,
+          "minimum_paired_ratio": 7.466248342780803
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 8.509104590706912,
+          "minimum_paired_ratio": 7.0389312273555085
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.089734678939417,
+          "minimum_paired_ratio": 5.3905714477145015
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 8.386985542528517,
+          "minimum_paired_ratio": 7.89859852977505
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 8.158355964755462,
+          "minimum_paired_ratio": 7.686440641530517
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 8.303250344460666,
+          "minimum_paired_ratio": 7.6649722213439375
+        }
+      ],
+      "descriptive_process_median_min": 7.089734678939417,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 74655797.5,
+            "p95_ns": 85075966
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 21461894,
+            "p95_ns": 30296220
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 495757.5,
+            "p95_ns": 559628
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1499902,
+            "p95_ns": 1656355
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 970163.5,
+            "p95_ns": 1507642
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1200625.5,
+            "p95_ns": 1721457
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 48542565.5,
+            "p95_ns": 51075528
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 9082279.5,
+            "p95_ns": 11365804
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 3420863,
+            "p95_ns": 4363874
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 809635.5,
+            "p95_ns": 926422
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1465676,
+            "p95_ns": 1654984
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 662710,
+            "p95_ns": 852822
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1201708,
+            "p95_ns": 1691031
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1216954.5,
+            "p95_ns": 1846234
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 10.59922507386729,
+          "minimum_paired_ratio": 9.675949830527866
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 11.039580820591375,
+          "minimum_paired_ratio": 10.264542643342725
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.876257606102207,
+          "minimum_paired_ratio": 10.167729215297129
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.62481604563246,
+          "minimum_paired_ratio": 9.640827817849093
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 10.217987889835507,
+          "minimum_paired_ratio": 9.370669644456786
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 10.505925462328689,
+          "minimum_paired_ratio": 9.72556182886597
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.401189068273684,
+          "minimum_paired_ratio": 6.428894111954509
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 11.06158102662043,
+          "minimum_paired_ratio": 9.865501519869026
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 10.511486146501774,
+          "minimum_paired_ratio": 9.619395005809157
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 10.520094943477545,
+          "minimum_paired_ratio": 9.72977027901914
+        }
+      ],
+      "descriptive_process_median_min": 10.217987889835507,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 71335848,
+            "p95_ns": 76329194
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19663503,
+            "p95_ns": 27477822
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 259
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1355018,
+            "p95_ns": 1514559
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 976519.5,
+            "p95_ns": 1153524
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1182158,
+            "p95_ns": 1356384
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 47903018.5,
+            "p95_ns": 49193210
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6578477,
+            "p95_ns": 7144448
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1566661,
+            "p95_ns": 1728059
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 241
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1338412.5,
+            "p95_ns": 1517245
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 708811.5,
+            "p95_ns": 893867
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1181445,
+            "p95_ns": 1347495
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1713017,
+            "p95_ns": 1843002
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.38427898874399,
+          "minimum_paired_ratio": 8.759863392358202
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 9.916397446607625,
+          "minimum_paired_ratio": 9.208915996143533
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 9.658553568317618,
+          "minimum_paired_ratio": 9.033436312888567
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 9.822660088528721,
+          "minimum_paired_ratio": 8.746918069120614
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 9.337543913688414,
+          "minimum_paired_ratio": 8.741782869953989
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 9.621250805396839,
+          "minimum_paired_ratio": 8.849338364064097
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 9.524944658355775,
+          "minimum_paired_ratio": 6.1088947031750465
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 9.727321307796537,
+          "minimum_paired_ratio": 7.496124319494741
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 9.496390351823042,
+          "minimum_paired_ratio": 8.419581099099224
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 9.54282300081022,
+          "minimum_paired_ratio": 8.596169973546333
+        }
+      ],
+      "descriptive_process_median_min": 9.337543913688414,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 71895438,
+            "p95_ns": 75650327
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19679650,
+            "p95_ns": 27342026
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 495618.5,
+            "p95_ns": 520026
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1433513.5,
+            "p95_ns": 1570689
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 961214.5,
+            "p95_ns": 1149737
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1166093.5,
+            "p95_ns": 1328680
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 47927085.5,
+            "p95_ns": 48903063
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7425470,
+            "p95_ns": 7879603
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1541740,
+            "p95_ns": 1722143
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 813215,
+            "p95_ns": 873201
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1423444,
+            "p95_ns": 1577615
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 657572,
+            "p95_ns": 831942
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1168311,
+            "p95_ns": 1337411
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1712868.5,
+            "p95_ns": 1831512
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 11.13450440801291,
+          "minimum_paired_ratio": 10.239500324341046
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 11.769888448011042,
+          "minimum_paired_ratio": 10.955717078985648
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 11.368325462822586,
+          "minimum_paired_ratio": 10.706222129885857
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.921497303987213,
+          "minimum_paired_ratio": 10.290295889743922
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 11.685198763794947,
+          "minimum_paired_ratio": 10.956643670276616
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 11.394184977266521,
+          "minimum_paired_ratio": 10.775318951796375
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 11.66577370849949,
+          "minimum_paired_ratio": 10.933787951818308
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 11.768873910141647,
+          "minimum_paired_ratio": 11.18914035655234
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 11.20114759147114,
+          "minimum_paired_ratio": 10.293520764922523
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 11.147890500240159,
+          "minimum_paired_ratio": 10.191812986669268
+        }
+      ],
+      "descriptive_process_median_min": 10.921497303987213,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 74844398.5,
+            "p95_ns": 78105706
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19634772,
+            "p95_ns": 23200503
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 269
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1326495.5,
+            "p95_ns": 1480041
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 971488,
+            "p95_ns": 1147867
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1153866.5,
+            "p95_ns": 1333589
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 51487702,
+            "p95_ns": 52526406
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6467880.5,
+            "p95_ns": 6964735
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1554355.5,
+            "p95_ns": 1694838
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 195
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1305153,
+            "p95_ns": 1481161
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 708566.5,
+            "p95_ns": 888525
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1162750.5,
+            "p95_ns": 1337958
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1694610,
+            "p95_ns": 1803883
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 2048,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.960659625733365,
+          "minimum_paired_ratio": 9.14958130083858
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.292715626113786,
+          "minimum_paired_ratio": 6.942491869042874
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.129005706903783,
+          "minimum_paired_ratio": 9.513205309720092
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.352249607718681,
+          "minimum_paired_ratio": 9.755353725165381
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 10.449870395045263,
+          "minimum_paired_ratio": 9.725136039425973
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 10.129692953918443,
+          "minimum_paired_ratio": 9.529229898327168
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.391492911046104,
+          "minimum_paired_ratio": 9.63836288326501
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.450628999965282,
+          "minimum_paired_ratio": 9.370158961388817
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 10.023944230756875,
+          "minimum_paired_ratio": 9.311440161807695
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 9.855063875639171,
+          "minimum_paired_ratio": 9.24748583176448
+        }
+      ],
+      "descriptive_process_median_min": 9.855063875639171,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 75503749,
+            "p95_ns": 79624721
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19765978.5,
+            "p95_ns": 25099172
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 496943,
+            "p95_ns": 510238
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1419111.5,
+            "p95_ns": 1573439
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 959751.5,
+            "p95_ns": 1131330
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1154149,
+            "p95_ns": 1314625
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 51502212.5,
+            "p95_ns": 53077142
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7349965.5,
+            "p95_ns": 7771250
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1512943.5,
+            "p95_ns": 1659984
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 811057,
+            "p95_ns": 861904
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1416328.5,
+            "p95_ns": 1574689
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 654669,
+            "p95_ns": 835053
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1178061,
+            "p95_ns": 1334365
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1707490,
+            "p95_ns": 1826641
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 10.310030700710485,
+          "minimum_paired_ratio": 9.907557157302817
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.633786243505144,
+          "minimum_paired_ratio": 9.668757307371944
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.85700123746188,
+          "minimum_paired_ratio": 7.9213551003533125
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.952316544061556,
+          "minimum_paired_ratio": 10.833290476163395
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 10.979553396252834,
+          "minimum_paired_ratio": 10.828020813556288
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 10.863967081226775,
+          "minimum_paired_ratio": 7.247448460082171
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.956863990245992,
+          "minimum_paired_ratio": 10.7723340909525
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.977535949051273,
+          "minimum_paired_ratio": 10.687643393916805
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 10.87669427213438,
+          "minimum_paired_ratio": 10.182389110098297
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 10.866317803717426,
+          "minimum_paired_ratio": 10.398968895692734
+        }
+      ],
+      "descriptive_process_median_min": 10.310030700710485,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 71267505.5,
+            "p95_ns": 75990135
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19524696,
+            "p95_ns": 23592713
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 232
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1312773.5,
+            "p95_ns": 1483151
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1083195.5,
+            "p95_ns": 1261246
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1156602.5,
+            "p95_ns": 1343422
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 47840167,
+            "p95_ns": 49318245
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6534862.5,
+            "p95_ns": 7136096
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1545008.5,
+            "p95_ns": 1674207
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 250
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1298236.5,
+            "p95_ns": 1480486
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 820048.5,
+            "p95_ns": 1003236
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1157995.5,
+            "p95_ns": 1336274
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1700078,
+            "p95_ns": 1804660
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.434858576061956,
+          "minimum_paired_ratio": 8.966507411456929
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 9.607391968699332,
+          "minimum_paired_ratio": 9.282482619052704
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 8.970943222124504,
+          "minimum_paired_ratio": 8.175008429030495
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 9.906336524735718,
+          "minimum_paired_ratio": 9.573330599135375
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 9.865238524126102,
+          "minimum_paired_ratio": 9.666254445918135
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 9.618813526177014,
+          "minimum_paired_ratio": 6.829653629201436
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 9.809694351649796,
+          "minimum_paired_ratio": 9.212338749996286
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 9.790625970965175,
+          "minimum_paired_ratio": 9.301017180823868
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 9.80390489791801,
+          "minimum_paired_ratio": 9.620150036528024
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 9.449317016326528,
+          "minimum_paired_ratio": 8.611651861050467
+        }
+      ],
+      "descriptive_process_median_min": 8.970943222124504,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72414283,
+            "p95_ns": 76815749
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19574425,
+            "p95_ns": 23993651
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 501456,
+            "p95_ns": 529841
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1395884.5,
+            "p95_ns": 1628373
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1066616,
+            "p95_ns": 1263042
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1165389.5,
+            "p95_ns": 1363606
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 47985742.5,
+            "p95_ns": 49570103
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7472775,
+            "p95_ns": 8242110
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1561365.5,
+            "p95_ns": 1712448
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 809215,
+            "p95_ns": 861432
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1397426.5,
+            "p95_ns": 1619078
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 767358.5,
+            "p95_ns": 961321
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1173815.5,
+            "p95_ns": 1356978
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1739637.5,
+            "p95_ns": 1864781
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 10.46993423357237,
+          "minimum_paired_ratio": 9.411849349903932
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 11.183101525703261,
+          "minimum_paired_ratio": 10.449517522309119
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 9.928238191353532,
+          "minimum_paired_ratio": 9.425558498861054
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 11.016820292062485,
+          "minimum_paired_ratio": 10.366230066579451
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 11.275277500632004,
+          "minimum_paired_ratio": 10.394114830539321
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 10.787866651714832,
+          "minimum_paired_ratio": 9.811800594182706
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.733888257494968,
+          "minimum_paired_ratio": 9.87151100192849
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.949765358965681,
+          "minimum_paired_ratio": 10.340171134890195
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 10.287005607488847,
+          "minimum_paired_ratio": 9.751098424510236
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 10.07749375770316,
+          "minimum_paired_ratio": 9.399193745703666
+        }
+      ],
+      "descriptive_process_median_min": 9.928238191353532,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72005371.5,
+            "p95_ns": 78116042
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19594858,
+            "p95_ns": 25702952
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 278
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1335059.5,
+            "p95_ns": 1526773
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1091927,
+            "p95_ns": 1277635
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1171153.5,
+            "p95_ns": 1363800
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 48555987.5,
+            "p95_ns": 49443265
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6592055.5,
+            "p95_ns": 7302688
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1568758,
+            "p95_ns": 1703818
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 241
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1308125,
+            "p95_ns": 1522651
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 825826.5,
+            "p95_ns": 1008034
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1174236,
+            "p95_ns": 1361153
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1710045,
+            "p95_ns": 1851735
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.260864730716136,
+          "minimum_paired_ratio": 8.586754163345976
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 9.566190015240258,
+          "minimum_paired_ratio": 8.943271725436054
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 9.066400370701295,
+          "minimum_paired_ratio": 8.491392036876835
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 9.8073047845008,
+          "minimum_paired_ratio": 8.836734887857494
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 9.864583760993437,
+          "minimum_paired_ratio": 9.316602367362915
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 9.444683319417145,
+          "minimum_paired_ratio": 8.487576718155884
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 9.589897760720827,
+          "minimum_paired_ratio": 8.97748483111596
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 9.78799166424583,
+          "minimum_paired_ratio": 9.32668584434685
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 9.545248457787654,
+          "minimum_paired_ratio": 8.508708065606633
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 9.161640339213822,
+          "minimum_paired_ratio": 8.294840947335409
+        }
+      ],
+      "descriptive_process_median_min": 9.066400370701295,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72654168,
+            "p95_ns": 78401612
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19632450,
+            "p95_ns": 24928203
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 505743,
+            "p95_ns": 531053
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1436865.5,
+            "p95_ns": 1630236
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1073399,
+            "p95_ns": 1257116
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1171644,
+            "p95_ns": 1362070
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 48673225.5,
+            "p95_ns": 49489871
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7614349.5,
+            "p95_ns": 8222083
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1583069.5,
+            "p95_ns": 1733957
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 827988.5,
+            "p95_ns": 910738
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1434277,
+            "p95_ns": 1626059
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 771108,
+            "p95_ns": 961653
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1175259.5,
+            "p95_ns": 1369255
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1748420,
+            "p95_ns": 1864624
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 10.36134404289999,
+          "minimum_paired_ratio": 9.572290529712745
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 11.213319840342162,
+          "minimum_paired_ratio": 10.448589036257566
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.302762263693795,
+          "minimum_paired_ratio": 9.587139880790826
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 10.68768783702924,
+          "minimum_paired_ratio": 9.71301609759059
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 11.277628561992561,
+          "minimum_paired_ratio": 10.484994434823458
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 11.014868983119278,
+          "minimum_paired_ratio": 10.20040514332441
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.353033113269511,
+          "minimum_paired_ratio": 7.621835656343047
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.99781000345347,
+          "minimum_paired_ratio": 10.577104429690657
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 11.083941989208908,
+          "minimum_paired_ratio": 9.836598635951566
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 10.80242634837479,
+          "minimum_paired_ratio": 9.421931025428687
+        }
+      ],
+      "descriptive_process_median_min": 10.302762263693795,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72365110,
+            "p95_ns": 77722073
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19520868.5,
+            "p95_ns": 25107904
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 287
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1315078.5,
+            "p95_ns": 1513217
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1091274.5,
+            "p95_ns": 1280291
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1168163,
+            "p95_ns": 1366839
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 48945896,
+            "p95_ns": 49658346
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6577098.5,
+            "p95_ns": 7197178
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1557480,
+            "p95_ns": 1669505
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 241
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1299500,
+            "p95_ns": 1489477
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 826197,
+            "p95_ns": 1014005
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1169764.5,
+            "p95_ns": 1358198
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1693850.5,
+            "p95_ns": 1800744
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 512,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.637414036735857,
+          "minimum_paired_ratio": 8.830378847419214
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 9.786122864531826,
+          "minimum_paired_ratio": 9.14830615589061
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 9.291641263262733,
+          "minimum_paired_ratio": 8.52233410508834
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 9.644573852285292,
+          "minimum_paired_ratio": 8.825089028135215
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 9.821204806002209,
+          "minimum_paired_ratio": 9.274343781339597
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 9.905128410146965,
+          "minimum_paired_ratio": 9.209545701312573
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 9.340266563813525,
+          "minimum_paired_ratio": 8.680591532184478
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 9.690254276771828,
+          "minimum_paired_ratio": 8.978133813752187
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 9.233457962619324,
+          "minimum_paired_ratio": 8.712668317735778
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 9.20044113037737,
+          "minimum_paired_ratio": 8.739039686631877
+        }
+      ],
+      "descriptive_process_median_min": 9.20044113037737,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 72814142.5,
+            "p95_ns": 78531334
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19502419.5,
+            "p95_ns": 24927497
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 504984.5,
+            "p95_ns": 525323
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1427777.5,
+            "p95_ns": 1629856
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1069158,
+            "p95_ns": 1267486
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1160306,
+            "p95_ns": 1373746
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 48997722.5,
+            "p95_ns": 49935112
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7517714,
+            "p95_ns": 8203971
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1573699,
+            "p95_ns": 1716429
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 820682,
+            "p95_ns": 869312
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1411384,
+            "p95_ns": 1627291
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 769636,
+            "p95_ns": 963062
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1172445.5,
+            "p95_ns": 1366847
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1715183.5,
+            "p95_ns": 1849309
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 8.443216645964755,
+          "minimum_paired_ratio": 7.700776012563152
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 8.371994442916037,
+          "minimum_paired_ratio": 7.820396418473377
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 8.296821298590933,
+          "minimum_paired_ratio": 7.651162160538423
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 8.313554708927864,
+          "minimum_paired_ratio": 7.7350576388502414
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 8.504344878469842,
+          "minimum_paired_ratio": 8.451015735768172
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.753326112051907,
+          "minimum_paired_ratio": 6.424200558669347
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 8.28977147414562,
+          "minimum_paired_ratio": 7.445486713904298
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 8.51467277668829,
+          "minimum_paired_ratio": 8.289840854064437
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 8.126106098172098,
+          "minimum_paired_ratio": 7.722285454258748
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 8.429890143004744,
+          "minimum_paired_ratio": 8.311127574464441
+        }
+      ],
+      "descriptive_process_median_min": 6.753326112051907,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 56772782,
+            "p95_ns": 61232756
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19484808.5,
+            "p95_ns": 21096020
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 259
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1319467,
+            "p95_ns": 1502357
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1202593,
+            "p95_ns": 1399264
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1149533,
+            "p95_ns": 1586551
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 32657381.5,
+            "p95_ns": 36472252
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6732972.5,
+            "p95_ns": 8893941
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1556698,
+            "p95_ns": 3159239
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 241
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1312954.5,
+            "p95_ns": 1491856
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 939932,
+            "p95_ns": 1128273
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1160167.5,
+            "p95_ns": 1590782
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1698406.5,
+            "p95_ns": 1826975
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.392260630791223,
+          "minimum_paired_ratio": 6.6956795669570965
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.396908944643614,
+          "minimum_paired_ratio": 6.946453113226405
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.59134770663213,
+          "minimum_paired_ratio": 7.278539296820839
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.454009951571143,
+          "minimum_paired_ratio": 6.997347920898007
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.768145536071995,
+          "minimum_paired_ratio": 7.437157656739302
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.005371480729845,
+          "minimum_paired_ratio": 3.614519648484948
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.543372391559032,
+          "minimum_paired_ratio": 7.440768292684563
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.439692474620276,
+          "minimum_paired_ratio": 7.19984086873711
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.444289315198367,
+          "minimum_paired_ratio": 6.762300474149132
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.578317751178805,
+          "minimum_paired_ratio": 7.366029115907357
+        }
+      ],
+      "descriptive_process_median_min": 6.005371480729845,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 57711927,
+            "p95_ns": 62052935
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19534294,
+            "p95_ns": 21202992
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 511595.5,
+            "p95_ns": 535655
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1415394,
+            "p95_ns": 1590097
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1190791.5,
+            "p95_ns": 1770819
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1147945.5,
+            "p95_ns": 1627051
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 33014206.5,
+            "p95_ns": 36771759
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7573640.5,
+            "p95_ns": 10012365
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1538194,
+            "p95_ns": 3231767
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 813752,
+            "p95_ns": 930738
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1405296,
+            "p95_ns": 1604661
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 879191.5,
+            "p95_ns": 1071792
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1146334.5,
+            "p95_ns": 1610051
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1711813.5,
+            "p95_ns": 1918826
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 8.056312420042826,
+          "minimum_paired_ratio": 6.6331204253247265
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.665854649995413,
+          "minimum_paired_ratio": 6.359673618504764
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 8.036483469945988,
+          "minimum_paired_ratio": 6.52046673826943
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.528290600558039,
+          "minimum_paired_ratio": 5.856277120721243
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.91689742556561,
+          "minimum_paired_ratio": 6.184931044273449
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 5.418774441650217,
+          "minimum_paired_ratio": 3.5586065231270694
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.908596689631674,
+          "minimum_paired_ratio": 6.184130999442909
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 8.065956997852172,
+          "minimum_paired_ratio": 6.52116055514199
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.603029206468889,
+          "minimum_paired_ratio": 6.147191243250464
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.9700271923586365,
+          "minimum_paired_ratio": 6.428376433390208
+        }
+      ],
+      "descriptive_process_median_min": 5.418774441650217,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 53238842.5,
+            "p95_ns": 56810988
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19544456.5,
+            "p95_ns": 21540296
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 259
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1307722.5,
+            "p95_ns": 1501477
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1210672,
+            "p95_ns": 1392559
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1157098.5,
+            "p95_ns": 1741494
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 29925609,
+            "p95_ns": 31312799
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6702269,
+            "p95_ns": 9457699
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1561735,
+            "p95_ns": 3377701
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 222
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1301240.5,
+            "p95_ns": 1506292
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 942386,
+            "p95_ns": 1130505
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1152311,
+            "p95_ns": 1685726
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1699290.5,
+            "p95_ns": 1905909
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.159477620967667,
+          "minimum_paired_ratio": 5.730420048528772
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 6.7577445144765305,
+          "minimum_paired_ratio": 5.615014859417207
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.219878122483385,
+          "minimum_paired_ratio": 5.737224451546776
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 6.871199654029149,
+          "minimum_paired_ratio": 5.644110904587975
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 6.743308830882235,
+          "minimum_paired_ratio": 5.231380163593052
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 5.642606684635069,
+          "minimum_paired_ratio": 4.5867994305599185
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.019985423274452,
+          "minimum_paired_ratio": 5.748774196638604
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.158933074635747,
+          "minimum_paired_ratio": 5.8371536121079215
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 6.801473088370981,
+          "minimum_paired_ratio": 5.636307206111337
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.069303400264982,
+          "minimum_paired_ratio": 5.777789683151056
+        }
+      ],
+      "descriptive_process_median_min": 5.642606684635069,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 53781569.5,
+            "p95_ns": 56630776
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19568982,
+            "p95_ns": 21523148
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 516822,
+            "p95_ns": 547294
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1448504,
+            "p95_ns": 1597216
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1191857.5,
+            "p95_ns": 1372949
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1169866,
+            "p95_ns": 1639540
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 29949475.5,
+            "p95_ns": 31314742
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7658335,
+            "p95_ns": 9867967
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1553768.5,
+            "p95_ns": 3141851
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 828631.5,
+            "p95_ns": 880766
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1443703,
+            "p95_ns": 1599837
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 881890,
+            "p95_ns": 1071403
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1169653,
+            "p95_ns": 1608688
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1720193,
+            "p95_ns": 1838818
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 8.436221455538629,
+          "minimum_paired_ratio": 7.039109710827962
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.725724222464844,
+          "minimum_paired_ratio": 6.4181260548111965
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.8075846421646045,
+          "minimum_paired_ratio": 6.532965707772094
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.77669369948593,
+          "minimum_paired_ratio": 6.585784371306984
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.749706038015976,
+          "minimum_paired_ratio": 6.597118521859201
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.62240735461285,
+          "minimum_paired_ratio": 5.700175432748377
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.840759346180102,
+          "minimum_paired_ratio": 6.653285326658842
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 8.431770150854604,
+          "minimum_paired_ratio": 7.000860642644962
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.716634470471307,
+          "minimum_paired_ratio": 5.200718577964158
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 8.144973603682383,
+          "minimum_paired_ratio": 6.9224859280826765
+        }
+      ],
+      "descriptive_process_median_min": 6.62240735461285,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 55274061,
+            "p95_ns": 57525379
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19465623,
+            "p95_ns": 21172991
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 259
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1348398,
+            "p95_ns": 1508170
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1208843,
+            "p95_ns": 1382958
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1173824.5,
+            "p95_ns": 1576809
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 31950659,
+            "p95_ns": 33066117
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7015929,
+            "p95_ns": 8471285
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1557342,
+            "p95_ns": 2990702
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 222
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1350421.5,
+            "p95_ns": 1499864
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 944395,
+            "p95_ns": 1133311
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1275107,
+            "p95_ns": 1561050
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1686035.5,
+            "p95_ns": 1820031
+          }
+        }
+      }
+    },
+    {
+      "K": 262144,
+      "G": 128,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.482463929524797,
+          "minimum_paired_ratio": 6.255117353712437
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.050257431390057,
+          "minimum_paired_ratio": 6.037322194950408
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.038924932587767,
+          "minimum_paired_ratio": 5.986684194084187
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 6.927990079814478,
+          "minimum_paired_ratio": 5.427209717456605
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.051969761038792,
+          "minimum_paired_ratio": 6.092119589208205
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.061522291089798,
+          "minimum_paired_ratio": 5.1164421043320845
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.50964855052911,
+          "minimum_paired_ratio": 6.354501471035289
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.4324433531136735,
+          "minimum_paired_ratio": 6.361908539176953
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.3031898100221095,
+          "minimum_paired_ratio": 6.115256769327372
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.255823718335341,
+          "minimum_paired_ratio": 6.204777197897143
+        }
+      ],
+      "descriptive_process_median_min": 6.061522291089798,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 55905056.5,
+            "p95_ns": 58561398
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 19573974,
+            "p95_ns": 21135224
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 515994.5,
+            "p95_ns": 539220
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1430476.5,
+            "p95_ns": 1603346
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 1189963.5,
+            "p95_ns": 1382413
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1161551.5,
+            "p95_ns": 1581355
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 32053495.5,
+            "p95_ns": 33289402
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7666746.5,
+            "p95_ns": 9536911
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1564902,
+            "p95_ns": 3037592
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 831696,
+            "p95_ns": 880562
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1433499.5,
+            "p95_ns": 1593345
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 882006,
+            "p95_ns": 1076312
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 1169727.5,
+            "p95_ns": 1578263
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 1708267.5,
+            "p95_ns": 1855196
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.7349108567652065,
+          "minimum_paired_ratio": 5.421721953135874
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.596046635625378,
+          "minimum_paired_ratio": 6.158504948868251
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 8.35861051598365,
+          "minimum_paired_ratio": 6.769592752029266
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 8.50176781582898,
+          "minimum_paired_ratio": 5.443515044665374
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 6.334420970036156,
+          "minimum_paired_ratio": 3.5860513701754027
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 9.108442114759656,
+          "minimum_paired_ratio": 5.161653874345719
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.702748650965368,
+          "minimum_paired_ratio": 4.600579199909145
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 9.543353147403788,
+          "minimum_paired_ratio": 6.077987895817395
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.576260565163468,
+          "minimum_paired_ratio": 6.020664534913473
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 6.975459541364032,
+          "minimum_paired_ratio": 4.425163718827858
+        }
+      ],
+      "descriptive_process_median_min": 6.334420970036156,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 6772421.5,
+            "p95_ns": 8892073
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1821252.5,
+            "p95_ns": 3505683
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 93
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 947293,
+            "p95_ns": 1125255
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 583099.5,
+            "p95_ns": 655303
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 165457.5,
+            "p95_ns": 198749
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 3105874,
+            "p95_ns": 3807107
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 766071,
+            "p95_ns": 1240569
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 82453,
+            "p95_ns": 99297
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 93
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 125328,
+            "p95_ns": 589757
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 360323,
+            "p95_ns": 405109
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 135457.5,
+            "p95_ns": 169852
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 50606,
+            "p95_ns": 60315
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 3.9321437695836403,
+          "minimum_paired_ratio": 3.7452743766198946
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 4.044318438348451,
+          "minimum_paired_ratio": 3.7299400362571467
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 4.03390259202597,
+          "minimum_paired_ratio": 3.550182300513904
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 4.2220500174717674,
+          "minimum_paired_ratio": 3.885431788157302
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 3.5789198069526456,
+          "minimum_paired_ratio": 2.989731238852979
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 3.1283220658960964,
+          "minimum_paired_ratio": 2.7805579068872643
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 3.5806933638197087,
+          "minimum_paired_ratio": 2.4528049650729637
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 3.2542379091579647,
+          "minimum_paired_ratio": 2.3070989274777656
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 3.9333375229159144,
+          "minimum_paired_ratio": 3.678760422634956
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 3.9125604214779894,
+          "minimum_paired_ratio": 2.4481550298708736
+        }
+      ],
+      "descriptive_process_median_min": 3.1283220658960964,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 7559417.5,
+            "p95_ns": 10302057
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 2018562,
+            "p95_ns": 3722942
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 313230.5,
+            "p95_ns": 425962
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 992395.5,
+            "p95_ns": 1038340
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 617711,
+            "p95_ns": 668571
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 172620,
+            "p95_ns": 205138
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 3505094.5,
+            "p95_ns": 4903807
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1966372.5,
+            "p95_ns": 2778426
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 99977,
+            "p95_ns": 134888
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 737729,
+            "p95_ns": 980848
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 481336.5,
+            "p95_ns": 1041468
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 384291.5,
+            "p95_ns": 425072
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 142962,
+            "p95_ns": 186833
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 57870.5,
+            "p95_ns": 81925
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 6.495318244623791,
+          "minimum_paired_ratio": 3.59097187634377
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 6.576636586240634,
+          "minimum_paired_ratio": 3.204492411473174
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 6.4787007264937575,
+          "minimum_paired_ratio": 4.455996974863331
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 6.363504538013943,
+          "minimum_paired_ratio": 5.55365529741684
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 6.870287029042462,
+          "minimum_paired_ratio": 4.946272819451732
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.1122161812874864,
+          "minimum_paired_ratio": 2.4234819748846075
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 6.405704099403942,
+          "minimum_paired_ratio": 5.16627200784294
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.080404264569743,
+          "minimum_paired_ratio": 4.544110155832544
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 6.065315440146845,
+          "minimum_paired_ratio": 5.046203575972507
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 6.209105320693624,
+          "minimum_paired_ratio": 5.295162437364272
+        }
+      ],
+      "descriptive_process_median_min": 6.065315440146845,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 5777776,
+            "p95_ns": 10232382
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1924345,
+            "p95_ns": 3487275
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 83,
+            "p95_ns": 111
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 173508.5,
+            "p95_ns": 1137912
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 611512,
+            "p95_ns": 821210
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 174850.5,
+            "p95_ns": 364073
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 2415918,
+            "p95_ns": 4413613
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 824821.5,
+            "p95_ns": 1703402
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 83957,
+            "p95_ns": 151879
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 83,
+            "p95_ns": 111
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 141583,
+            "p95_ns": 628498
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 377536.5,
+            "p95_ns": 569961
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 144106.5,
+            "p95_ns": 328656
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 52680.5,
+            "p95_ns": 95037
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 3.3770517231306627,
+          "minimum_paired_ratio": 2.8312209887539557
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 3.385625833019806,
+          "minimum_paired_ratio": 2.9778719167443533
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 4.154209854781448,
+          "minimum_paired_ratio": 2.9842476240074642
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 3.5644952182165555,
+          "minimum_paired_ratio": 3.1059591747146618
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 3.93879431418406,
+          "minimum_paired_ratio": 3.4911822951756806
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 2.6359563425278414,
+          "minimum_paired_ratio": 1.939577686834292
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 4.009068941010481,
+          "minimum_paired_ratio": 2.9025585666745624
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 3.7195170065372,
+          "minimum_paired_ratio": 2.985390151436249
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 3.3474354778348667,
+          "minimum_paired_ratio": 2.9380930011257735
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 3.4623085925690367,
+          "minimum_paired_ratio": 3.0748993964165128
+        }
+      ],
+      "descriptive_process_median_min": 2.6359563425278414,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 5091273.5,
+            "p95_ns": 8586785
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1676444,
+            "p95_ns": 2963444
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 273902,
+            "p95_ns": 469091
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 206165.5,
+            "p95_ns": 1002802
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 589892,
+            "p95_ns": 654349
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 170550,
+            "p95_ns": 194416
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 2134371.5,
+            "p95_ns": 3800505
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1429046.5,
+            "p95_ns": 2495816
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 73138,
+            "p95_ns": 132480
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 598285.5,
+            "p95_ns": 929608
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 183934.5,
+            "p95_ns": 982553
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 364091,
+            "p95_ns": 412249
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 139934.5,
+            "p95_ns": 163972
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 44749.5,
+            "p95_ns": 81944
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 6.006224978682967,
+          "minimum_paired_ratio": 2.7620545000187247
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 6.034837610303974,
+          "minimum_paired_ratio": 5.459242875144105
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 6.9138151239604255,
+          "minimum_paired_ratio": 4.651007785835782
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 6.575656254184462,
+          "minimum_paired_ratio": 5.620772561040822
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 6.863516685413726,
+          "minimum_paired_ratio": 6.016730847875879
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 6.659038035369775,
+          "minimum_paired_ratio": 5.8735019119010206
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.0141600829413795,
+          "minimum_paired_ratio": 6.449023648317143
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 4.7756887990094015,
+          "minimum_paired_ratio": 4.161722877201439
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 5.933219823286006,
+          "minimum_paired_ratio": 5.367836393214037
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 6.381198855252906,
+          "minimum_paired_ratio": 5.682654416648218
+        }
+      ],
+      "descriptive_process_median_min": 4.7756887990094015,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 4774507,
+            "p95_ns": 6953486
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1386615.5,
+            "p95_ns": 2280400
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 144467,
+            "p95_ns": 336166
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 570933,
+            "p95_ns": 775443
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 166435.5,
+            "p95_ns": 360397
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 2412589,
+            "p95_ns": 3701848
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 739771.5,
+            "p95_ns": 1333551
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 69754.5,
+            "p95_ns": 98508
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 84
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 121638.5,
+            "p95_ns": 313685
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 352878,
+            "p95_ns": 543165
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 138050.5,
+            "p95_ns": 328258
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 41847,
+            "p95_ns": 59017
+          }
+        }
+      }
+    },
+    {
+      "K": 16384,
+      "G": 129,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 3.648864486017252,
+          "minimum_paired_ratio": 3.304751888535022
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 3.5862435975739535,
+          "minimum_paired_ratio": 3.248862203233409
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 3.8723166921674483,
+          "minimum_paired_ratio": 3.4505474978005073
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 3.772444571714477,
+          "minimum_paired_ratio": 3.279647415751054
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 3.687621665976171,
+          "minimum_paired_ratio": 3.3902596303871335
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 3.685603873054246,
+          "minimum_paired_ratio": 3.1487522961913355
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 3.732241080412205,
+          "minimum_paired_ratio": 2.826491077065682
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 3.703919649178004,
+          "minimum_paired_ratio": 2.729045461360874
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 3.558833050141584,
+          "minimum_paired_ratio": 3.236278299446794
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 3.655195993315527,
+          "minimum_paired_ratio": 3.3559486053632623
+        }
+      ],
+      "descriptive_process_median_min": 3.558833050141584,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 4780771,
+            "p95_ns": 5680952
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 1244773,
+            "p95_ns": 1874596
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 224911.5,
+            "p95_ns": 262739
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 195139,
+            "p95_ns": 224407
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 568123,
+            "p95_ns": 596702
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 161184.5,
+            "p95_ns": 188804
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 2332885.5,
+            "p95_ns": 2705611
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1306305.5,
+            "p95_ns": 1402838
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 69324,
+            "p95_ns": 79999
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 519771.5,
+            "p95_ns": 585350
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 174272.5,
+            "p95_ns": 207944
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 345873.5,
+            "p95_ns": 373527
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 132536.5,
+            "p95_ns": 161018
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 39156.5,
+            "p95_ns": 48444
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "boundary",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 11.414469899665315,
+          "minimum_paired_ratio": 10.918927341280071
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.67006357673585,
+          "minimum_paired_ratio": 10.227706887393648
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.930728809510493,
+          "minimum_paired_ratio": 8.0018851001622
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 11.46173569970098,
+          "minimum_paired_ratio": 10.963167539961198
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 11.0505147155149,
+          "minimum_paired_ratio": 10.272091993293474
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 11.419099291934959,
+          "minimum_paired_ratio": 10.67939655470798
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 11.429924069039533,
+          "minimum_paired_ratio": 10.763051959985608
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 11.330715192144925,
+          "minimum_paired_ratio": 8.523557645835876
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 11.739345004911158,
+          "minimum_paired_ratio": 11.011484223662332
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 11.353529640585656,
+          "minimum_paired_ratio": 10.8772715799221
+        }
+      ],
+      "descriptive_process_median_min": 10.67006357673585,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 15564585,
+            "p95_ns": 17206162
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4924261,
+            "p95_ns": 6061563
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 176
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 572035,
+            "p95_ns": 632340
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 865853.5,
+            "p95_ns": 908534
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 346370,
+            "p95_ns": 369805
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 8835669.5,
+            "p95_ns": 9879522
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1392481,
+            "p95_ns": 1500402
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 266022,
+            "p95_ns": 280814
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 167
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 200698.5,
+            "p95_ns": 232259
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 529674,
+            "p95_ns": 561544
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 223462.5,
+            "p95_ns": 251934
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 166616,
+            "p95_ns": 188175
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "boundary",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.765666915779915,
+          "minimum_paired_ratio": 7.305333791440015
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.317280301846338,
+          "minimum_paired_ratio": 6.876447450956709
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.364747819790055,
+          "minimum_paired_ratio": 5.964416023751685
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.615859331192654,
+          "minimum_paired_ratio": 7.01653505718909
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.422977479669468,
+          "minimum_paired_ratio": 4.591275483595422
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 7.793461797122693,
+          "minimum_paired_ratio": 7.305184652150351
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.593859574468052,
+          "minimum_paired_ratio": 7.3258954119571
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.393744631907985,
+          "minimum_paired_ratio": 5.406350861750035
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 6.864063666902301,
+          "minimum_paired_ratio": 6.057552583083985
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.7234716652926965,
+          "minimum_paired_ratio": 6.279336270314644
+        }
+      ],
+      "descriptive_process_median_min": 6.864063666902301,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 16546960,
+            "p95_ns": 18512372
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4984807,
+            "p95_ns": 6104479
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 390109.5,
+            "p95_ns": 472545
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 630340.5,
+            "p95_ns": 1174079
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 853465,
+            "p95_ns": 1026738
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 347503,
+            "p95_ns": 526155
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 9167825,
+            "p95_ns": 10161752
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 2162955.5,
+            "p95_ns": 2724963
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 273272.5,
+            "p95_ns": 294499
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 699669,
+            "p95_ns": 772293
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 272170.5,
+            "p95_ns": 457295
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 512234,
+            "p95_ns": 694590
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 226267.5,
+            "p95_ns": 406591
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 170536.5,
+            "p95_ns": 191537
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "sparse4",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.958006580342602,
+          "minimum_paired_ratio": 6.705854106929715
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.643148678094754,
+          "minimum_paired_ratio": 8.80715805650786
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.880563258444544,
+          "minimum_paired_ratio": 6.871255812878254
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 11.390971633201719,
+          "minimum_paired_ratio": 9.541499886829087
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 10.834032864166788,
+          "minimum_paired_ratio": 8.882369039316787
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 11.159377270155566,
+          "minimum_paired_ratio": 9.426678390151139
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 10.592634508954458,
+          "minimum_paired_ratio": 8.889250525990779
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.938944929460497,
+          "minimum_paired_ratio": 7.251700469134842
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 8.4711597351795,
+          "minimum_paired_ratio": 6.853258074673627
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 11.308187404042,
+          "minimum_paired_ratio": 9.36504616761589
+        }
+      ],
+      "descriptive_process_median_min": 8.4711597351795,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 15464818,
+            "p95_ns": 17073023
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4974528.5,
+            "p95_ns": 6389710
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 213
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1101663,
+            "p95_ns": 1285394
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 864501.5,
+            "p95_ns": 1052609
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 343855.5,
+            "p95_ns": 527461
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 8243129,
+            "p95_ns": 8711915
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1400990.5,
+            "p95_ns": 1962539
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 274411,
+            "p95_ns": 292008
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 176
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 199244.5,
+            "p95_ns": 387840
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 527108.5,
+            "p95_ns": 713016
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 223976,
+            "p95_ns": 412805
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 168146.5,
+            "p95_ns": 195397
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "sparse4",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 6.233976818925493,
+          "minimum_paired_ratio": 5.215778807532825
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.128168432622251,
+          "minimum_paired_ratio": 5.980945748116911
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 6.884022343795715,
+          "minimum_paired_ratio": 5.294548617537947
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.388742982657538,
+          "minimum_paired_ratio": 6.411297462481482
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.47800246301172,
+          "minimum_paired_ratio": 6.266335767838115
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 7.1089212466173795,
+          "minimum_paired_ratio": 6.080350692215607
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.463171281753236,
+          "minimum_paired_ratio": 6.386827269489935
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.187175374606488,
+          "minimum_paired_ratio": 6.122534065899409
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 6.57020258907093,
+          "minimum_paired_ratio": 5.089474798359701
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 6.780746031824804,
+          "minimum_paired_ratio": 5.269287424816723
+        }
+      ],
+      "descriptive_process_median_min": 6.233976818925493,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 15900366.5,
+            "p95_ns": 17305321
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4957594,
+            "p95_ns": 6301961
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 398119,
+            "p95_ns": 480035
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1168088,
+            "p95_ns": 1335404
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 855455,
+            "p95_ns": 1021653
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 345800,
+            "p95_ns": 518082
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 8180078,
+            "p95_ns": 8568535
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 2174399.5,
+            "p95_ns": 2732833
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 267684,
+            "p95_ns": 294314
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 710965,
+            "p95_ns": 780590
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 274517.5,
+            "p95_ns": 446213
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 511512,
+            "p95_ns": 689367
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 225211.5,
+            "p95_ns": 404870
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 165235,
+            "p95_ns": 189833
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "dense32",
+      "mode": "prepared",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 9.900985262407985,
+          "minimum_paired_ratio": 7.776934930887014
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 10.964692957545214,
+          "minimum_paired_ratio": 9.78507468501705
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 10.693855713933626,
+          "minimum_paired_ratio": 7.659813924642674
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 11.674402422040554,
+          "minimum_paired_ratio": 10.292233441690806
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 11.497931442064054,
+          "minimum_paired_ratio": 9.93849065964578
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 11.579412722927769,
+          "minimum_paired_ratio": 9.920370357400495
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 11.555416344510245,
+          "minimum_paired_ratio": 10.098507650304867
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 10.674554322780462,
+          "minimum_paired_ratio": 7.584801807118919
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 11.53286035036562,
+          "minimum_paired_ratio": 9.975871336318855
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 11.434625901369799,
+          "minimum_paired_ratio": 9.966998590089405
+        }
+      ],
+      "descriptive_process_median_min": 9.900985262407985,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 16065547.5,
+            "p95_ns": 17693533
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4970205.5,
+            "p95_ns": 6263794
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 203
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1110158,
+            "p95_ns": 1274773
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 868025,
+            "p95_ns": 1040932
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 344916,
+            "p95_ns": 521016
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 8801873,
+            "p95_ns": 9442320
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 1407207.5,
+            "p95_ns": 1913021
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 273188.5,
+            "p95_ns": 289990
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 74,
+            "p95_ns": 157
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 202323,
+            "p95_ns": 372711
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 530854.5,
+            "p95_ns": 703850
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 225462,
+            "p95_ns": 399850
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 164865,
+            "p95_ns": 195268
+          }
+        }
+      }
+    },
+    {
+      "K": 65536,
+      "G": 129,
+      "bank": "dense32",
+      "mode": "fresh_resources",
+      "process_medians": [
+        {
+          "run": 1,
+          "median_paired_ratio": 7.368856323777768,
+          "minimum_paired_ratio": 5.630377291862101
+        },
+        {
+          "run": 2,
+          "median_paired_ratio": 7.254346919960296,
+          "minimum_paired_ratio": 6.372254741419347
+        },
+        {
+          "run": 3,
+          "median_paired_ratio": 7.548890852686582,
+          "minimum_paired_ratio": 6.184396112609169
+        },
+        {
+          "run": 4,
+          "median_paired_ratio": 7.652623549676997,
+          "minimum_paired_ratio": 6.855460931854858
+        },
+        {
+          "run": 5,
+          "median_paired_ratio": 7.536951806222293,
+          "minimum_paired_ratio": 6.701394713492125
+        },
+        {
+          "run": 6,
+          "median_paired_ratio": 7.395584660935443,
+          "minimum_paired_ratio": 6.483804442899607
+        },
+        {
+          "run": 7,
+          "median_paired_ratio": 7.6359890472352365,
+          "minimum_paired_ratio": 5.6248920200963095
+        },
+        {
+          "run": 8,
+          "median_paired_ratio": 7.445382679035281,
+          "minimum_paired_ratio": 6.719222684537974
+        },
+        {
+          "run": 9,
+          "median_paired_ratio": 7.404918800067856,
+          "minimum_paired_ratio": 6.6346574440823805
+        },
+        {
+          "run": 10,
+          "median_paired_ratio": 7.7331708506517085,
+          "minimum_paired_ratio": 6.629700003654036
+        }
+      ],
+      "descriptive_process_median_min": 7.254346919960296,
+      "all_ten_descriptive_medians_above_1_05": true,
+      "latency": {
+        "vec4": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 16536171,
+            "p95_ns": 18371455
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 4979700,
+            "p95_ns": 6275775
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 400266.5,
+            "p95_ns": 475619
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 1163223,
+            "p95_ns": 1309079
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 851793.5,
+            "p95_ns": 1020432
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 344267,
+            "p95_ns": 520377
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 8815789,
+            "p95_ns": 9446355
+          }
+        },
+        "packed7": {
+          "wall_ns": {
+            "n": 200,
+            "median_ns": 2177812,
+            "p95_ns": 2580566
+          },
+          "conversion_in_ns": {
+            "n": 200,
+            "median_ns": 267156.5,
+            "p95_ns": 291601
+          },
+          "preparation_ns": {
+            "n": 200,
+            "median_ns": 716770.5,
+            "p95_ns": 777840
+          },
+          "upload_ns": {
+            "n": 200,
+            "median_ns": 271762.5,
+            "p95_ns": 424091
+          },
+          "compute_wall_ns": {
+            "n": 200,
+            "median_ns": 513373.5,
+            "p95_ns": 673526
+          },
+          "readback_ns": {
+            "n": 200,
+            "median_ns": 224999,
+            "p95_ns": 394907
+          },
+          "conversion_out_ns": {
+            "n": 200,
+            "median_ns": 166124.5,
+            "p95_ns": 192879
+          }
+        }
+      }
+    }
+  ],
+  "complete_correct_processes": 10,
+  "measured_samples": 14400,
+  "independent_admission_review": "missing",
+  "confirmation_p_value": null,
+  "accepted_performance_rows": 0,
+  "performance_admission": "none",
+  "verdict": "diagnostic_only_pending_independent_admission_and_sampling_review"
+}
