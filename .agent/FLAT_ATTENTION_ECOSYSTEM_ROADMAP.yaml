@@ -1111,3 +1111,55 @@ PVP_prepared_five_arm_qualification_2026_10_07:
     - no_default_route_autotuning_driver_root_cause_or_universal_winner_claim
     - Rust_CPU_WGPU_open_backend_only_installed_driver_vendor_specific
     - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_SML_HARNESS_separate
+
+PVP_prepared_resident_timing_2026_10_07:
+  status: merged_raw_diagnostic_timing_performance_admission_open
+  evidence_pull_request: 347
+  evidence_exact_head: 66d5a5d45ad0df85fed0b0eb26a3b0d8af83c64f
+  evidence_merge_sha: 3db61bce86931b095fee69191aab8c95e6b5bf55
+  execution_source: e04c980817cac889e759fb2bb33cf231ef737e73
+  exact_head_CI: {latest_checks: 10, successful_checks: 10, workflows: 8, successful_workflows: 8}
+  M53_retry: deferred_gpu_busy_no_M53_measurements_or_performance_claim
+  report: docs/research/PVP_PREPARED_TIMING_THOR_20261007.md
+  artifact: docs/research/evidence/pvp-timing-thor-20261007/pvp-timing-thor-20261007.tar.xz
+  artifact_sha256: b8733b8cf3f49e6863acad759a64d15f8c1d5faa9963c44b7db44548213a7a93
+  native_Thor:
+    arms: [vec4, fused2, tile8, packed1, packed7]
+    fresh_processes: 3
+    geometries: 6
+    banks: [boundary, sparse4, dense32]
+    warmups: 5
+    repetitions: 20
+    measured_forward_inverse_samples: 10800
+    warmup_forward_inverse_samples: 2700
+    complete_comparisons: 60750
+    failed_comparisons: 0
+    rejected_geometries: 0
+    source_forward_inverse_paired_checks: true
+    timed_state_verified_outside_timer: true
+    forward_packed7_vec4_paired_median_ratio_range: [1.329, 1.680]
+    ratio_class: descriptive_resident_encode_submit_wait_only
+    accepted_performance_confirmation_rows: 0
+  observation_followup:
+    pull_request: 348
+    status: pending_exact_head_CI_and_merge
+    unreadable_gap_entries: 106
+    distinct_gap_PIDs: 106
+    stage: fd_directory
+    process_identity_verified: false
+    gap_cgroup: null
+    outside_recorded_controller_descendants: 106
+    fork_and_exit_seen: 100
+    exit_only_seen: 6
+    repeated_fork_child_PID: 0
+    device_use_before_disappearance: unknown
+    historical_admission_upgrade: false
+  remaining:
+    - independently_reviewed_device_observation_and_performance_admission
+    - separate_GPU_timestamps_and_complete_end_to_end_conversion_transfer_preparation_measurement
+    - SML_model_aligned_bank_study_and_destination_requalification
+  boundary:
+    - no_default_route_autotuning_register_allocation_bandwidth_or_model_quality_promotion
+    - all_regressions_unknown_observations_and_original_failures_preserved
+    - only_installed_GPU_driver_vendor_specific_Rust_CPU_WGPU_open_backend
+    - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_harness_separate
