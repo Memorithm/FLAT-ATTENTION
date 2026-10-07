@@ -1218,13 +1218,15 @@ PVP_native_Dell_correctness_2026_10_07:
     - final_SML_self_sufficient_FLAT_SciRust_NNIS_optional
 
 PVP_native_Dell_E2E_timing_2026_10_07:
-  status: native_speed_diagnostic_complete_evidence_PR_pending_exact_head_CI
+  status: merged_native_speed_diagnostic_complete_exact_head_CI_success
   control_plane: Memorithm_RemoteOps
   control_PRs: [308, 310, 311]
   control_revision: 163deaed6dbb74a3ba5f43b4b7d9c8f4eb186e9c
   native_run: 37641657219
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_PR: 352
+  evidence_merge: 7fa26a3bff9112a2f564f62b9b9769e95a311b95
+  evidence_exact_head_CI: {checks: 5, successful: 5}
   evidence_head: 0f5b83f3e09fd88ffce58016338d3bfb388c2036
   source: b020d31711d75807eb0f8b13a6a967a8522c5d1c
   report: docs/research/PVP_CANONICAL_E2E_DELL_20261007.md
@@ -1264,7 +1266,6 @@ PVP_native_Dell_E2E_timing_2026_10_07:
   final_cooperative_lock: available
   next_active_slice: SML_owned_ANF_activation_plus_query_task_protocol_preparation
   remaining:
-    - exact_head_CI_before_evidence_merge
     - controlled_device_admission_before_confirmatory_GPU_gain
     - SML_owned_fixture_and_task_output_contract_then_destination_requalification
   boundary:
