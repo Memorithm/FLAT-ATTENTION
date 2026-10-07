@@ -981,3 +981,62 @@ PVP_readback_reaudit_2026_10_07:
     - only_installed_driver_is_vendor_specific_Rust_CPU_WGPU_open_backend_target
     - FLAT_SciRust_NNIS_are_optional_partners_final_SML_model_self_sufficient
     - future_SML_HARNESS_remains_separate
+
+PVP_packed_large_stress_2026_10_07:
+  status: merged_large_domain_correctness_qualified_performance_unmeasured
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_pull_request: 345
+  evidence_exact_head: fd535232ff822aa8c5b3c8f5b8398fcc298d50ef
+  evidence_merge_sha: d6f03e96040d794e7acabbad9078ba32eab0e9b1
+  evidence_exact_head_CI: {completed: 10, successful: 10, workflows: 8}
+  execution_source_and_controller: 2065c107f9f32907b21ca944a62aed2ef0d547bd
+  report: docs/research/PVP_PACKED_LARGE_STRESS_2026_10_07.md
+  protocol: docs/research/PVP_PACKED_LARGE_STRESS_PROTOCOL.md
+  archive: docs/research/evidence/pvp-packed-large-2026-10-07/capture.tar.gz
+  archive_sha256: d191ca67dbba77626bad824147a548fe0130bb7067e14b6511ac55ddebb42096
+  original_runtime_files_verified: 103
+  native_Thor:
+    adapter: NVIDIA_Tegra_NVIDIA_Thor_Vulkan
+    installed_driver: "580.00"
+    compiler: Rust_1_89_0_LLVM_20_1_7_aarch64
+    binary_profile: unoptimized_correctness_test
+    binary_sha256: eca57bc3a3a15e4cd326e54f59da06f702cec13ffeb54e75c225fff1a73228ef
+    fresh_processes: 10
+    exact_processes: 10
+    geometries: [[16384, 2048], [65536, 512], [262144, 128], [16384, 129], [65536, 129]]
+    bank_families: [boundary, sparse4, dense32]
+    coefficient_rounds_per_case: 3
+    forward_checks: 450
+    inverse_checks: 450
+    paired_phase_observations: 1350
+    complete_word_comparisons: 4050
+    failed_comparisons: 0
+    mapping: explicit_MAP_READ_for_both_fresh_staging_buffers
+    phases: [uploaded_source_without_compute, transformed, inverse]
+    immutable_plan_reused_across_changed_coefficients: true
+    oracle: independent_wordwise_direct_monomial_masks
+    host_oracle_cross_checks: 117
+    unknown_observation_runs: [1, 3, 4, 6, 7, 8, 9, 10]
+    accepted_performance_rows: 0
+  restoration:
+    four_services_and_original_policies_restored: true
+    guards_trace_and_active_watchdog_removed: true
+    cooperative_lock_available: true
+    historical_benchmark_binary_SHA256_unchanged: true
+    independent_receipt_retained: true
+  next_slice:
+    design: docs/research/PVP_PREPARED_COMPARISON_DESIGN.md
+    implementation_and_preregistration: pending
+    goals:
+      - prepare_all_historical_controls_and_packed_candidate_before_resident_timing
+      - separate_layout_stage_fusion_and_host_preparation_effects
+      - verify_every_measured_state_and_retain_all_failures
+      - distinguish_resident_wall_GPU_timestamps_and_conversion_transfer_setup_costs
+      - independently_review_performance_admission_without_upgrading_unknown_observations
+  promotion: none
+  boundaries:
+    - bounded_synthetic_correctness_is_not_speed_or_SML_model_quality
+    - physical_register_allocation_and_driver_root_cause_remain_unproven
+    - Rust_CPU_WGPU_open_backend_only_installed_driver_vendor_specific
+    - historical_faults_regressions_and_unknown_observations_retained
+    - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_SML_HARNESS_separate
