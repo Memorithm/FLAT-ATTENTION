@@ -46,3 +46,7 @@ A separate read-only check of all three original logs found exactly 60,750 uniqu
 For every check, the reported physical word count matches the layout plus four guard words: packed `G * ceil(K/128) * 4 + 4`, other arms `K * ceil(G/128) * 4 + 4`. Every wrong-word count is zero and every mismatch tuple list is empty. Each sample has positive wall/upload times, exact=true, admission=none, the expected measured/warmup label, trial/round/repeat relation and cyclic/mirrored arm position. Each process has exactly one complete marker with samples=3600, rejected_geometries=0 and failed_comparisons=0.
 
 This checks the archived records against the protocol; it does not rerun the mathematical oracle, establish hardware inactivity or change the admission verdict.
+
+## Future adapter admission guard
+
+The original frozen timing source rejected CPU adapters but did not explicitly reject Other or VirtualGpu adapter identities. The follow-up requires IntegratedGpu or DiscreteGpu and tests both admitted types and all three rejected types. Historical Thor evidence used IntegratedGpu and is unaffected. This guard does not establish occupancy/exclusivity or change the old source revision; any new execution must identify its new source and binary.

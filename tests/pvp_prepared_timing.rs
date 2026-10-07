@@ -124,6 +124,30 @@ fn check(
     }
     failed
 }
+fn native_timing_adapter(kind: wgpu::DeviceType) -> bool {
+    matches!(
+        kind,
+        wgpu::DeviceType::IntegratedGpu | wgpu::DeviceType::DiscreteGpu
+    )
+}
+
+#[test]
+fn timing_requires_explicit_hardware_adapter_identity() {
+    for kind in [
+        wgpu::DeviceType::Other,
+        wgpu::DeviceType::VirtualGpu,
+        wgpu::DeviceType::Cpu,
+    ] {
+        assert!(!native_timing_adapter(kind), "{kind:?}");
+    }
+    for kind in [
+        wgpu::DeviceType::IntegratedGpu,
+        wgpu::DeviceType::DiscreteGpu,
+    ] {
+        assert!(native_timing_adapter(kind), "{kind:?}");
+    }
+}
+
 #[test]
 #[ignore = "explicit native diagnostic timing only; not part of correctness CI"]
 fn prepared_resident_wall_diagnostic() {
@@ -152,10 +176,10 @@ fn prepared_resident_wall_diagnostic() {
     }))
     .expect("native adapter required");
     let info = adapter.get_info();
-    assert_ne!(
-        info.device_type,
-        wgpu::DeviceType::Cpu,
-        "software timings not admitted to this cohort"
+    assert!(
+        native_timing_adapter(info.device_type),
+        "only explicitly identified integrated/discrete GPUs are admitted; got {:?}",
+        info.device_type
     );
     println!(
         "PVP_TIMING_ADAPTER,name={:?},backend={:?},driver={:?},type={:?}",
