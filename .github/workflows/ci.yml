@@ -26,6 +26,18 @@ jobs:
         with:
           toolchain: 1.89.0
           components: rustfmt, clippy
+      - name: Verify archived native Dell correctness with independent Rust parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence=docs/research/evidence/pvp-dell-native-20261007
+          printf '%s  %s\n' 0a195ca81d98bac960a12ecf1c71eb952dc686cddce3944228ff29bad1f990b8 "$evidence/capture.tar.xz" | sha256sum -c -
+          rustc --edition=2021 -D warnings --test "$evidence/verify.rs" -o "$RUNNER_TEMP/pvp-dell-verifier-tests"
+          "$RUNNER_TEMP/pvp-dell-verifier-tests"
+          rustc --edition=2021 -D warnings "$evidence/verify.rs" -o "$RUNNER_TEMP/pvp-dell-verifier"
+          capture=$(mktemp -d "$RUNNER_TEMP/pvp-dell-capture.XXXXXXXX")
+          tar -xJf "$evidence/capture.tar.xz" -C "$capture"
+          "$RUNNER_TEMP/pvp-dell-verifier" "$capture"
       - name: Reject vendor CUDA sources
         run: |
           set -euo pipefail
