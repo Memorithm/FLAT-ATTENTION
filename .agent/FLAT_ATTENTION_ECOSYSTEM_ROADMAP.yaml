@@ -1170,3 +1170,45 @@ PVP_prepared_resident_timing_2026_10_07:
     - all_regressions_unknown_observations_and_original_failures_preserved
     - only_installed_GPU_driver_vendor_specific_Rust_CPU_WGPU_open_backend
     - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_harness_separate
+
+PVP_native_Dell_correctness_2026_10_07:
+  status: native_functional_gate_passed_evidence_PR_pending_CI
+  control_plane: Memorithm_RemoteOps
+  readiness_PR: 301
+  execution_PR: 303
+  execution_control_merge: 68a447c399efd05fe1831e49ca73bb8e48e7953a
+  readiness_run: 37635323320
+  native_run: 37635882086
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_PR: 351
+  evidence_head: 75c953e1ededac748e0f1ad0cb6c970d40be4613
+  source: b020d31711d75807eb0f8b13a6a967a8522c5d1c
+  report: docs/research/PVP_DELL_NATIVE_CORRECTNESS_20261007.md
+  device: Dell_T430_RTX4060_x86_64_Vulkan
+  driver: "595.45.04"
+  compiler: Rust_1_89_0_LLVM_20_1_7_release
+  execution_user: memci_unprivileged_scoped_render_group
+  fresh_processes: 3
+  exact_processes: 3
+  cases: 2160
+  complete_paired_comparisons: 19440
+  failed_comparisons: 0
+  arms: [vec4, fused2, tile8, packed1, packed7]
+  maximum_K: 262144
+  service_pauses: none
+  account_group_mutation: none
+  accepted_performance_rows: 0
+  archive_sha256: 0a195ca81d98bac960a12ecf1c71eb952dc686cddce3944228ff29bad1f990b8
+  independent_Rust_verifier: exact_keys_words_source_device_exit_and_complete
+  verifier_tests: 7
+  remaining_gates:
+    - exact_head_CI_before_evidence_PR_merge
+    - Dell_specific_frozen_timing_and_occupancy_study
+    - independently_reviewed_performance_admission
+    - SML_owned_ANF_banks_and_destination_requalification
+  promotion: none
+  boundaries:
+    - no_speed_model_quality_register_allocation_or_default_route_claim
+    - no_Thor_Dell_cohort_pooling
+    - driver_only_vendor_layer_Rust_CPU_WGPU_path
+    - final_SML_self_sufficient_FLAT_SciRust_NNIS_optional
