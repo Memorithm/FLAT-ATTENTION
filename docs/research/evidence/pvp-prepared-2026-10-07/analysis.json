@@ -1,0 +1,35 @@
+{
+  "schema": "flat.pvp-prepared-analysis/v1",
+  "source": "d78599ca0e589a2d578a6523c88441210290c8e1",
+  "manifest_files_verified": 61,
+  "processes": [
+    {
+      "run": 1,
+      "cases": 720,
+      "comparisons": 6480,
+      "failed_comparisons": 0
+    },
+    {
+      "run": 2,
+      "cases": 720,
+      "comparisons": 6480,
+      "failed_comparisons": 0
+    },
+    {
+      "run": 3,
+      "cases": 720,
+      "comparisons": 6480,
+      "failed_comparisons": 0
+    }
+  ],
+  "paired_observations": 6480,
+  "comparisons": 19440,
+  "wrong_words": 0,
+  "unknown_observation_runs": [
+    1,
+    2,
+    3
+  ],
+  "accepted_performance_rows": 0,
+  "performance_claim": "none"
+}

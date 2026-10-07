@@ -105,6 +105,8 @@ pub mod pvp;
 pub mod pvp_fused2;
 /// Research-only gate-major address-packed PVP register-fusion candidate.
 pub mod pvp_packed;
+/// Research-only equally prepared controls for PVP comparison.
+pub mod pvp_prepared;
 /// Research-only tile8 workgroup-fusion PVP correctness candidate.
 pub mod pvp_tile8;
 /// Research-only 128-bit vec4-u32 PVP physical projection candidate.

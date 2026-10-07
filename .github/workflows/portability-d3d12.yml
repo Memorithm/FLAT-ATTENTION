@@ -80,3 +80,7 @@ jobs:
         env:
           FLAT_REQUIRE_WGPU: "1"
         run: cargo test --locked --features wgpu --test pvp_wgpu_packed_large -- --nocapture --test-threads=1
+      - name: Five equally prepared PVP arms on D3D12 WARP
+        env:
+          FLAT_REQUIRE_WGPU: "1"
+        run: cargo test --locked --features wgpu --test pvp_wgpu_prepared -- --nocapture --test-threads=1

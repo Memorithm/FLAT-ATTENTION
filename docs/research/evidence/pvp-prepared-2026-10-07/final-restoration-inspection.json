@@ -1,0 +1,34 @@
+{
+  "schema": "flat.pvp-prepared-restoration/v1",
+  "inspected_at_utc": "2026-10-07T07:29:39,406722780+00:00",
+  "services": {
+    "memorithm-clm.service": {
+      "Restart": "on-failure",
+      "ActiveState": "active",
+      "RefuseManualStart": "no"
+    },
+    "memorithm-clm-encoder.service": {
+      "Restart": "on-failure",
+      "ActiveState": "active",
+      "RefuseManualStart": "no"
+    },
+    "memorithm-viggle-lan.service": {
+      "Restart": "on-failure",
+      "ActiveState": "active",
+      "RefuseManualStart": "no"
+    },
+    "rustdesk.service": {
+      "Restart": "no",
+      "ActiveState": "active",
+      "RefuseManualStart": "no"
+    }
+  },
+  "guards_removed": true,
+  "trace_instance_removed": true,
+  "restore_timer_inactive": true,
+  "cooperative_lock_available": true,
+  "controller_exit": 0,
+  "binary_sha256": "47bd271010a501bab5a469912e7093c4bea00d32efc4c74c746be895da265b1f",
+  "historical_benchmark_sha256": "7aef67026ad088504478885cf9f2b7c864218f6fb3b0792bd8609fd907d3f414",
+  "performance_claim": "none"
+}
