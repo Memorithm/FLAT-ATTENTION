@@ -281,6 +281,29 @@ impl FlatPvpVec4BitplanesV1 {
         Ok(output)
     }
 
+    /// Recover canonical `[gate, ceil(addresses/64)] u64` coefficients/truth.
+    /// This exact scalar transpose includes padding validation and is not a
+    /// claim of SIMD speed. Callers measuring layout changes must count it.
+    pub fn to_gate_major_u64(&self) -> Result<Vec<u64>, FlatPvpVec4Error> {
+        self.validate_padding_zero()?;
+        let address_words = self.layout.addresses().div_ceil(64);
+        let len = self
+            .layout
+            .gates()
+            .checked_mul(address_words)
+            .ok_or(FlatPvpVec4Error::ArithmeticOverflow)?;
+        let mut output = vec![0_u64; len];
+        let row_words = self.layout.vectors_per_address() * 4;
+        for gate in 0..self.layout.gates() {
+            for address in 0..self.layout.addresses() {
+                if self.words[address * row_words + gate / 32] & (1_u32 << (gate % 32)) != 0 {
+                    output[gate * address_words + address / 64] |= 1_u64 << (address % 64);
+                }
+            }
+        }
+        Ok(output)
+    }
+
     #[must_use]
     pub const fn layout(&self) -> FlatPvpVec4LayoutV1 {
         self.layout

@@ -1,0 +1,27 @@
+#!/bin/bash
+set -u
+root=$1
+block=$2
+lease_dir="$root/block-$block"
+scope="remoteops-pvp-admission-${root##*.}-b$block"
+result=0
+trace_dir="/sys/kernel/tracing/instances/$scope"
+if [ -d "$trace_dir" ]; then
+  printf "0\\n" > "$trace_dir/tracing_on"
+  python3 "$root/check-users.py" --capture "$lease_dir" "$trace_dir" || result=1
+  printf "0\\n" > "$trace_dir/events/sched/sched_process_fork/enable"
+  printf "0\\n" > "$trace_dir/events/sched/sched_process_exit/enable"
+  rmdir "$trace_dir" || result=1
+fi
+for unit in memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service; do
+  rm -f "/run/systemd/system/$unit.d/90-$scope.conf" || result=1
+done
+systemctl daemon-reload || result=1
+for unit in memorithm-clm-encoder.service memorithm-clm.service memorithm-viggle-lan.service rustdesk.service; do
+  systemctl reset-failed "$unit" || result=1
+  systemctl start "$unit" || result=1
+  test "$(systemctl is-active "$unit")" = active || result=1
+done
+date -u --iso-8601=ns > "$lease_dir/restored-at.txt"
+systemctl show memorithm-clm.service memorithm-clm-encoder.service memorithm-viggle-lan.service rustdesk.service --property=Id,ActiveState,SubState,RefuseManualStart,Restart > "$lease_dir/restored-services.txt"
+exit "$result"
