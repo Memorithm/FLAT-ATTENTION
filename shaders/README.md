@@ -60,5 +60,6 @@ from this README, or if this README names a file that is gone.
 | `flat_pvp_vec4_fused2.wgsl` | PVP3a two-stage register-fused vec4-u32 correctness candidate. Research-only; no default routing or performance claim. |
 | `flat_pvp_vec4_tile8.wgsl` | PVP3c tile8 workgroup-fused vec4-u32 correctness candidate. Research-only; three local stages, no subgroup/double-buffer/performance claim. |
 | `flat_pvp_gate_major_packed.wgsl` | Packed-address ANF candidate: 128 addresses per vec4, up to seven stages in local values and a cross-vector suffix. Research-only; physical register allocation and speed remain unmeasured. |
+| `flat_pvp_gate_major_one_stage.wgsl` | Same packed-address representation, one low stage per dispatch; prepared comparison control, no speed or routing claim. |
 
 See [`docs/SHADERS.md`](../docs/SHADERS.md) and [`docs/m9-numerical-policy.md`](../docs/m9-numerical-policy.md).
