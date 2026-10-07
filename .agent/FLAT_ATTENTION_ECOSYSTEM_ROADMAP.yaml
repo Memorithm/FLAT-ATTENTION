@@ -1040,3 +1040,73 @@ PVP_packed_large_stress_2026_10_07:
     - Rust_CPU_WGPU_open_backend_only_installed_driver_vendor_specific
     - historical_faults_regressions_and_unknown_observations_retained
     - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_SML_HARNESS_separate
+
+PVP_prepared_five_arm_qualification_2026_10_07:
+  status: native_correctness_complete_final_exact_head_CI_pending
+  evidence_repository: Memorithm/FLAT-ATTENTION
+  evidence_pull_request: 346
+  evidence_exact_head: bde830ae47afebec317669586a4af65ed891e3c7
+  evidence_merge_sha: pending
+  execution_source_and_controller: d78599ca0e589a2d578a6523c88441210290c8e1
+  report: docs/research/PVP_PREPARED_QUALIFICATION_2026_10_07.md
+  protocol: docs/research/PVP_PREPARED_QUALIFICATION_PROTOCOL.md
+  archive: docs/research/evidence/pvp-prepared-2026-10-07/capture.tar.gz
+  archive_sha256: 9bceeec99d384a79e4daaeb8cf3eb7d5dfee3d2f6b6d439d4c8dfff2e596a6ab
+  original_runtime_files_verified: 61
+  native_Thor:
+    adapter: NVIDIA_Tegra_NVIDIA_Thor_Vulkan
+    installed_driver: "580.00"
+    compiler: Rust_1_89_0_LLVM_20_1_7_aarch64
+    profile: unoptimized_correctness_test_not_latency_measurement
+    binary_sha256: 47bd271010a501bab5a469912e7093c4bea00d32efc4c74c746be895da265b1f
+    arms: [vec4, fused2, tile8, packed1, packed7]
+    immutable_resources_prepared_for_every_arm: true
+    old_APIs_shaders_and_frozen_native_benchmark_unchanged: true
+    fresh_processes: 3
+    exact_processes: 3
+    geometries: 16
+    bank_families: [boundary, sparse4, dense32]
+    coefficient_rounds_per_case: 3
+    cases_per_process: 720
+    complete_word_comparisons: 19440
+    paired_phase_observations: 6480
+    forward_checks: 2160
+    inverse_checks: 2160
+    failed_comparisons: 0
+    phases: [uploaded_source_without_compute, transformed, inverse]
+    explicit_MAP_READ_on_both_fresh_staging_buffers: true
+    changed_coefficients_reuse_same_plan: true
+    padding_and_four_outside_binding_sentinels_exact: true
+    independent_monomial_oracle_cross_checks_per_process: 117
+    unknown_observation_runs: [1, 2, 3]
+    accepted_performance_rows: 0
+  evidence_validation:
+    all_original_file_hashes_and_unique_comparison_keys_checked: true
+    native_local_and_Git_archive_SHA256_identical: true
+    negative_controls: [wrong_source, duplicate_key, missing_key, wrong_word_count, wrong_word, unmatched_file_hash]
+    negative_controls_modify_temporary_copies_only: true
+  restoration:
+    four_services_and_original_policies_restored: true
+    scoped_guards_trace_and_active_watchdog_removed: true
+    first_independent_inspection: lock_availability_assertion_failed_transient_owner_unknown
+    first_empty_output_and_contention_snapshot_retained: true
+    only_read_only_inspection_repeated_not_GPU_tests: true
+    final_receipt_UTC: "2026-10-07T07:29:39.406722780Z"
+    cooperative_lock_available_at_final_receipt: true
+    historical_native_benchmark_SHA256_unchanged: true
+  next_slice:
+    status: prepared_measurement_harness_and_final_preregistration_pending
+    gates:
+      - fixed_shapes_counts_balanced_order_warmups_and_common_capability_rejection
+      - verify_every_timed_state_outside_the_timer_and_retain_all_failures
+      - separate_resident_wall_optional_public_GPU_timestamps_and_conversion_upload_cold_preparation
+      - independently_review_device_observation_and_performance_admission
+      - separate_Thor_and_Dell_cohorts
+      - later_SML_model_aligned_ANF_bank_study_and_destination_requalification
+  promotion: none
+  boundaries:
+    - no_new_latency_samples_no_register_allocation_bandwidth_or_model_quality_claim
+    - unknown_occupancy_remains_unknown_cooperative_lock_is_not_hostile_GPU_fencing
+    - no_default_route_autotuning_driver_root_cause_or_universal_winner_claim
+    - Rust_CPU_WGPU_open_backend_only_installed_driver_vendor_specific
+    - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_SML_HARNESS_separate
