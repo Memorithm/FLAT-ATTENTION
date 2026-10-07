@@ -1,0 +1,31 @@
+{
+  "schema": "flat.pvp-prepared-negative-controls/v1",
+  "original_capture_passed": true,
+  "original_capture_unmodified": true,
+  "controls": [
+    {
+      "control": "wrong_source",
+      "rejected": true
+    },
+    {
+      "control": "duplicate_key",
+      "rejected": true
+    },
+    {
+      "control": "missing_key",
+      "rejected": true
+    },
+    {
+      "control": "wrong_word_count",
+      "rejected": true
+    },
+    {
+      "control": "wrong_word",
+      "rejected": true
+    },
+    {
+      "control": "unmatched_file_hash",
+      "rejected": true
+    }
+  ]
+}

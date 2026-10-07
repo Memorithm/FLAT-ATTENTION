@@ -1382,12 +1382,9 @@ metadata; key-major is a candidate for per-key retention/reduction; query-major
 remains the ordinary causal query traversal. These are hypotheses about access
 locality only. No layout is promoted without measured evidence.
 
-remains the ordinary causal query traversal. These are hypotheses about access
-locality only. No layout is promoted without measured evidence.
-
 ## PVP prepared five-arm qualification — 2026-10-07
 
 - New research-only immutable prepared plans: vec4, fused2, tile8, packed-one-stage and existing packed-seven-stage.
 - Historical APIs/kernels/benchmark executable remain unchanged. Host recipe checks and paired source/forward/inverse device qualification include explicit mapping, padding and out-of-binding sentinels.
-- Prospective protocol: `docs/research/PVP_PREPARED_QUALIFICATION_PROTOCOL.md`; implementation validation and native execution evidence remain pending until reported.
+- Protocol: `docs/research/PVP_PREPARED_QUALIFICATION_PROTOCOL.md`; three fresh Thor processes completed 19440 paired phase comparisons exactly. Full report: `docs/research/PVP_PREPARED_QUALIFICATION_2026_10_07.md`; all three runs retain unknown occupancy and admit no performance rows. Final exact-head CI remains the merge gate.
 - Equal preparation is not a measured speedup. Resident wall, optional GPU timestamps, conversion/upload/cold setup and independently reviewed performance admission remain separate future gates.
