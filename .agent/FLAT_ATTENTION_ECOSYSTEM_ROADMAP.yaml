@@ -1172,7 +1172,7 @@ PVP_prepared_resident_timing_2026_10_07:
     - FLAT_SciRust_NNIS_optional_final_SML_self_sufficient_future_harness_separate
 
 PVP_native_Dell_correctness_2026_10_07:
-  status: native_functional_gate_passed_evidence_PR_pending_CI
+  status: merged_native_functional_evidence_exact_head_CI_success
   control_plane: Memorithm_RemoteOps
   readiness_PR: 301
   execution_PR: 303
@@ -1181,6 +1181,8 @@ PVP_native_Dell_correctness_2026_10_07:
   native_run: 37635882086
   evidence_repository: Memorithm/FLAT-ATTENTION
   evidence_PR: 351
+  evidence_merge: 724557bc0e5b6f0db9c4ae2fb5fcea0d25885a5c
+  evidence_exact_head_CI: {checks: 5, successful: 5}
   evidence_head: 6578b31cd07cfada5edac5c6b6db9e0a0d447056
   post_execution_readiness_run: 37636686105
   permanent_render_membership_after_execution: absent
@@ -1205,7 +1207,6 @@ PVP_native_Dell_correctness_2026_10_07:
   independent_Rust_verifier: exact_keys_words_source_device_exit_and_complete
   verifier_tests: 7
   remaining_gates:
-    - exact_head_CI_before_evidence_PR_merge
     - Dell_specific_frozen_timing_and_occupancy_study
     - independently_reviewed_performance_admission
     - SML_owned_ANF_banks_and_destination_requalification
