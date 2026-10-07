@@ -1,0 +1,21 @@
+{
+  "measured_samples": 10800,
+  "checks": 60750,
+  "wrong_words": 0,
+  "complete": [
+    {
+      "run": "run-1",
+      "row": "PVP_TIMING_COMPLETE,samples=3600,rejected_geometries=0,failed_comparisons=0,performance_admission=none"
+    },
+    {
+      "run": "run-2",
+      "row": "PVP_TIMING_COMPLETE,samples=3600,rejected_geometries=0,failed_comparisons=0,performance_admission=none"
+    },
+    {
+      "run": "run-3",
+      "row": "PVP_TIMING_COMPLETE,samples=3600,rejected_geometries=0,failed_comparisons=0,performance_admission=none"
+    }
+  ],
+  "exact_samples": 10800,
+  "admission": "none"
+}
