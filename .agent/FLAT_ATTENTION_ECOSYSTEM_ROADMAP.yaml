@@ -1142,7 +1142,14 @@ PVP_prepared_resident_timing_2026_10_07:
     accepted_performance_confirmation_rows: 0
   observation_followup:
     pull_request: 348
-    status: pending_exact_head_CI_and_merge
+    status: merged_exact_head_CI_success
+    exact_head: a9742159eefc33565301e4f497d72be14dfb8ed9
+    merge_sha: ce45240ecd0956764b5e04b8c4624a83d348ee29
+    exact_head_CI: {latest_checks: 10, successful_checks: 10, workflows: 8, successful_workflows: 8}
+    future_adapter_types: [IntegratedGpu, DiscreteGpu]
+    rejected_adapter_types: [Other, VirtualGpu, Cpu]
+    native_policy_test_and_strict_Clippy: passed
+    historical_binaries_SHA256_unchanged: true
     unreadable_gap_entries: 106
     distinct_gap_PIDs: 106
     stage: fd_directory
