@@ -1,6 +1,8 @@
 # Packed-address large-domain correctness protocol
 
-Status: prospective; no performance qualification or large-domain pass is claimed.
+Status: prospectively frozen before execution. The dated
+[capture report](PVP_PACKED_LARGE_STRESS_2026_10_07.md) records results;
+this protocol itself is not performance qualification.
 
 The research-only schema remains `flat.pvp-gate-major-address-packed-vec4/v1`.
 No default route, shader, historical benchmark or SML contract is changed.

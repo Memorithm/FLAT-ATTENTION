@@ -43,3 +43,10 @@ both resident and complete workload cost. Full truth-table materialization is
 not automatically the appropriate ANF evaluation strategy: sparse direct
 monomial evaluation and precomputed lookup need a declared query/update
 workload before a model-aligned comparison. No predicted speedup is evidence.
+
+The separate [large-domain stress protocol](PVP_PACKED_LARGE_STRESS_PROTOCOL.md)
+extends phase-by-phase paired readbacks to K=262144 and three 4 MiB shapes,
+with changed high-variable coefficients between rounds. Its counts and
+provenance gates are distinct from the original 39-case qualification.
+The [prepared comparison design](PVP_PREPARED_COMPARISON_DESIGN.md) describes
+the next measurement slice; it is not an executed benchmark.
