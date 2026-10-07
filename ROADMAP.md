@@ -1402,3 +1402,13 @@ arms through K=262144, 2160 cases and 19440 complete paired phase comparisons.
 Pinned FLAT/Rust source, unprivileged execution, raw logs, hashes and an independent
 Rust coverage verifier are retained. This is correctness only: zero timing
 samples and zero accepted performance rows; Dell and Thor remain separate.
+
+## Native Dell canonical end-to-end timing — 2026-10-07
+
+The [native Dell report](docs/research/PVP_CANONICAL_E2E_DELL_20261007.md) retains ten exact fresh release-profile RTX 4060/Vulkan processes,
+14,400 measured intervals and 72,000 complete comparisons with zero wrong words.
+The 360 paired process-median ratios range from 1.402556 to 15.764191;
+36/36 endpoints have all ten medians above 1.05; 14 individual slower pairs are retained.
+Other visible device users, observation gaps and missing independent sampling review leave performance admission at zero.
+The synthetic timing diagnostic is complete; next is the SML-owned activation-plus-query ANF-bank task study.
+Dell/Thor remain separate; no model-quality, default-routing or mandatory external-runtime promotion.
