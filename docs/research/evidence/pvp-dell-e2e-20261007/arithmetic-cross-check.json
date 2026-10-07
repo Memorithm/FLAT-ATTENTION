@@ -1,0 +1,7 @@
+{
+  "independent_offline_arithmetic": "Python_standard_library",
+  "raw_measured_samples": 14400,
+  "panels_cross_checked": 36,
+  "paired_regressions": 14,
+  "all_Rust_ratios_and_p50_p95_match": true
+}

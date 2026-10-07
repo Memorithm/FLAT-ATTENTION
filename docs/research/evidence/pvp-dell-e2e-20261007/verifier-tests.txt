@@ -1,0 +1,19 @@
+
+running 14 tests
+test tests::duplicate_fields_rejected ... ok
+test tests::median_pairs_not_quotient ... ok
+test tests::wrong_length_rejected ... ok
+test tests::wrong_source_rejected ... ok
+test tests::wrong_words_rejected ... ok
+test tests::software_adapter_rejected ... ok
+test tests::missing_corpus_rejected ... ok
+test tests::changed_order_rejected ... ok
+test tests::changed_exact_flag_rejected ... ok
+test tests::expected_counts ... ok
+test tests::duplicated_complete_rejected ... ok
+test tests::duplicate_sample_rejected ... ok
+test tests::full_valid_corpus_passes ... ok
+test tests::missing_one_check_rejected ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+

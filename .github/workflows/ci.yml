@@ -38,6 +38,23 @@ jobs:
           capture=$(mktemp -d "$RUNNER_TEMP/pvp-dell-capture.XXXXXXXX")
           tar -xJf "$evidence/capture.tar.xz" -C "$capture"
           "$RUNNER_TEMP/pvp-dell-verifier" "$capture"
+      - name: Verify archived native Dell E2E corpus and paired analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence=$GITHUB_WORKSPACE/docs/research/evidence/pvp-dell-e2e-20261007
+          echo "d6ac7b314ea9c5273415458ce273205e9947642245a144fcc18644cf1f10b62d  $evidence/capture.tar.xz" | sha256sum -c -
+          echo "9e10f8c4e6d0a965ef8b9532562cbfe5b28a3ab2140927b77ba512ef74bf3517  $evidence/invalid-setup-attempts.tar.xz" | sha256sum -c -
+          rustc --edition=2021 -D warnings --test "$evidence/verify.rs" -o "$RUNNER_TEMP/pvp-dell-e2e-tests"
+          "$RUNNER_TEMP/pvp-dell-e2e-tests"
+          rustc --edition=2021 -D warnings "$evidence/verify.rs" -o "$RUNNER_TEMP/pvp-dell-e2e-verify"
+          capture=$(mktemp -d "$RUNNER_TEMP/pvp-dell-e2e.XXXXXXXX")
+          tar -xJf "$evidence/capture.tar.xz" -C "$capture"
+          (cd "$capture"; sha256sum -c "$evidence/FILES.sha256")
+          "$RUNNER_TEMP/pvp-dell-e2e-verify" "$capture"
+          for summary in analysis.json panels.tsv process-ratios.tsv components.tsv paired-ratios.tsv; do
+            cmp "$capture/$summary" "$evidence/$summary"
+          done
       - name: Reject vendor CUDA sources
         run: |
           set -euo pipefail
