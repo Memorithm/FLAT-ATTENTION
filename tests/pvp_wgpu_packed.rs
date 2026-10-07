@@ -136,7 +136,9 @@ fn actual_wgpu_prepared_packed_plan_matches_direct_anf_and_inverse() {
                 let expected = if inverse {
                     original.words().to_vec()
                 } else {
-                    bank.truth_u32_words()
+                    let truth = bank.truth_u32_words();
+                    assert_eq!(truth, bank.truth_u32_words_by_monomial_masks());
+                    truth
                 };
                 assert_eq!(
                     observed, expected,

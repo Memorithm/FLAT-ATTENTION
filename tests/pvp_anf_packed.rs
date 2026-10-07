@@ -68,3 +68,46 @@ fn independent_boundary_oracle_has_known_truths() {
         .collect();
     assert_eq!(decoded, vec![18, 38, 50, 6, 50, 6, 18, 46]);
 }
+
+#[test]
+fn wordwise_monomials_match_addresswise_oracle_including_round_nonces() {
+    let mut cases = 0;
+    for (k, g) in corpus::GEOMETRIES {
+        for kind in corpus::BANKS {
+            for round in 0..3 {
+                let bank = corpus::AnfBank::frozen_for_round(k, g, kind, round);
+                assert_eq!(
+                    bank.truth_u32_words_by_monomial_masks(),
+                    bank.truth_u32_words(),
+                    "wordwise oracle K={k} G={g} bank={kind} round={round}"
+                );
+                cases += 1;
+            }
+        }
+    }
+    assert_eq!(cases, 117);
+}
+
+#[test]
+fn large_wordwise_boundary_truths_cover_high_variables() {
+    for k in [16384_usize, 65536, 262144] {
+        let bank = corpus::AnfBank::frozen(k, 6, "boundary");
+        let words = bank.truth_u32_words_by_monomial_masks();
+        let row_words = k / 32;
+        for address in [0, 1, 31, 32, 63, 64, 127, 128, k / 2, k - 1] {
+            let known = [
+                false,
+                true,
+                address & 1 == 1,
+                address == k - 1,
+                address & 1 == 0,
+                address.count_ones() % 2 == 1,
+            ];
+            for (gate, expected) in known.into_iter().enumerate() {
+                let observed = (words[gate * row_words + address / 32]
+                    >> (address % 32)) & 1 == 1;
+                assert_eq!(observed, expected, "K={k} gate={gate} address={address}");
+            }
+        }
+    }
+}
