@@ -1284,13 +1284,21 @@ explicit-transition processes. The separate explicit full-grid control then
 passes ten of ten pre/post oracles; occupancy-unknown observations remain
 unknown and accepted performance rows remain zero. The packed candidate passes
 39 direct-ANF cases and inverse recovery on software Vulkan and native Thor,
-with K up to 2048; its speed and larger geometries remain unqualified.
+with K up to 2048 at that re-audit; no speed claim followed.
 
 A separate [packed-address candidate](docs/research/PVP_PACKED_ADDRESS_CANDIDATE.md)
 places 128 addresses of one gate in each vec4 and fuses up to seven low-address
 stages in local values. Its immutable prepared plan, independent ANF truth and
 inverse checks are correctness research; comparisons must include conversion
 cost and prepare both control and candidate. No default route changes.
+
+The separate [large-domain packed stress](docs/research/PVP_PACKED_LARGE_STRESS_2026_10_07.md)
+now retains ten of ten exact native Thor processes through K=262144,
+including three 4 MiB shapes, changed coefficient rounds, and paired source,
+forward and inverse readbacks. All 4050 complete comparisons match; partial
+occupancy observations stay unknown and accepted performance rows remain zero.
+The [prepared comparison design](docs/research/PVP_PREPARED_COMPARISON_DESIGN.md)
+is the next measurement slice, not an executed benchmark or a speed promotion.
 
 ## PVP-F4 — subgroup/double-buffer candidates
 
