@@ -53,9 +53,11 @@ fn paired_read(device: &wgpu::Device, queue: &wgpu::Queue, state: &wgpu::Buffer)
         .iter()
         .map(|buffer| {
             let (sender, receiver) = mpsc::channel();
-            buffer.slice(..).map_async(wgpu::MapMode::Read, move |result| {
-                let _ = sender.send(result);
-            });
+            buffer
+                .slice(..)
+                .map_async(wgpu::MapMode::Read, move |result| {
+                    let _ = sender.send(result);
+                });
             receiver
         })
         .collect();
@@ -129,7 +131,10 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
     for (k, gates) in corpus::GEOMETRIES {
         for bank_kind in corpus::BANKS {
             let bank = corpus::AnfBank::frozen(k, gates, bank_kind);
-            assert_eq!(bank.truth_u32_words_by_monomial_masks(), bank.truth_u32_words());
+            assert_eq!(
+                bank.truth_u32_words_by_monomial_masks(),
+                bank.truth_u32_words()
+            );
             oracle_controls += 1;
         }
     }
@@ -152,8 +157,10 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
         apply_limit_buckets: false,
     }));
     let Ok(adapter) = adapter else {
-        assert!(std::env::var_os("FLAT_REQUIRE_WGPU").is_none(),
-            "mandatory large packed qualification requires an actual WGPU adapter");
+        assert!(
+            std::env::var_os("FLAT_REQUIRE_WGPU").is_none(),
+            "mandatory large packed qualification requires an actual WGPU adapter"
+        );
         eprintln!("PVP_LARGE,status=skipped_adapter_unavailable,performance_claim=none");
         return;
     };
@@ -165,7 +172,8 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
         required_features: wgpu::Features::empty(),
         required_limits: wgpu::Limits::downlevel_defaults(),
         ..Default::default()
-    })).unwrap();
+    }))
+    .unwrap();
     let pipeline = WgpuPvpPackedPipeline::new(&device).unwrap();
     let mut cases = 0;
     let mut observations = 0;
@@ -178,19 +186,27 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
             let state = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("pvp-packed-large-state"),
                 size: layout.storage_bytes().unwrap(),
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
             let plan = pipeline.prepare(&device, &state, layout).unwrap();
-            assert_eq!(plan.accounting().logical_dispatches, layout.logical_dispatches());
+            assert_eq!(
+                plan.accounting().logical_dispatches,
+                layout.logical_dispatches()
+            );
             for round in 0..rounds {
                 let bank = corpus::AnfBank::frozen_for_round(k, gates, bank_kind, round);
-                let original = FlatPvpPackedBitplanesV1::from_gate_major_u64(
-                    layout, &bank.coefficients()).unwrap();
+                let original =
+                    FlatPvpPackedBitplanesV1::from_gate_major_u64(layout, &bank.coefficients())
+                        .unwrap();
                 let truth = bank.truth_u32_words_by_monomial_masks();
-                let bytes: Vec<_> = original.words().iter()
-                    .flat_map(|word| word.to_le_bytes()).collect();
+                let bytes: Vec<_> = original
+                    .words()
+                    .iter()
+                    .flat_map(|word| word.to_le_bytes())
+                    .collect();
                 queue.write_buffer(&state, 0, &bytes);
                 queue.submit(std::iter::empty());
                 device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
@@ -207,7 +223,13 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
                         original.words()
                     };
                     let [a, b] = paired_read(&device, &queue, &state);
-                    let context = Observation { k, gates, bank: bank_kind, round, phase };
+                    let context = Observation {
+                        k,
+                        gates,
+                        bank: bank_kind,
+                        round,
+                        phase,
+                    };
                     for errors in [
                         compare(&context, "A_oracle", &a, expected),
                         compare(&context, "B_oracle", &b, expected),
@@ -217,8 +239,10 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
                         failed_comparisons += usize::from(errors != 0);
                     }
                     for words in [a, b] {
-                        FlatPvpPackedBitplanesV1::from_words(layout, words).unwrap()
-                            .validate_padding_zero().unwrap();
+                        FlatPvpPackedBitplanesV1::from_words(layout, words)
+                            .unwrap()
+                            .validate_padding_zero()
+                            .unwrap();
                     }
                     observations += 1;
                 }
@@ -232,5 +256,8 @@ fn actual_wgpu_large_packed_plan_has_exact_paired_phase_readbacks() {
     assert_eq!(observations, cases * rounds * 3);
     assert_eq!(comparisons, observations * 3);
     println!("PVP_LARGE_COMPLETE,cases={cases},rounds={rounds},observations={observations},comparisons={comparisons},failed_comparisons={failed_comparisons},performance_claim=none");
-    assert_eq!(failed_comparisons, 0, "large packed paired phase comparisons failed");
+    assert_eq!(
+        failed_comparisons, 0,
+        "large packed paired phase comparisons failed"
+    );
 }

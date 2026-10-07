@@ -104,8 +104,7 @@ fn large_wordwise_boundary_truths_cover_high_variables() {
                 address.count_ones() % 2 == 1,
             ];
             for (gate, expected) in known.into_iter().enumerate() {
-                let observed = (words[gate * row_words + address / 32]
-                    >> (address % 32)) & 1 == 1;
+                let observed = (words[gate * row_words + address / 32] >> (address % 32)) & 1 == 1;
                 assert_eq!(observed, expected, "K={k} gate={gate} address={address}");
             }
         }
