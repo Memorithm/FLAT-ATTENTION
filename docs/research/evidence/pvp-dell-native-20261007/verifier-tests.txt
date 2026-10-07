@@ -1,0 +1,12 @@
+
+running 7 tests
+test tests::wrong_count ... ok
+test tests::software_adapter ... ok
+test tests::wrong_source ... ok
+test tests::wrong_word ... ok
+test tests::missing ... ok
+test tests::duplicate ... ok
+test tests::complete_synthetic_corpus ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+

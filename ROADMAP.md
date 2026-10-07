@@ -1393,3 +1393,12 @@ locality only. No layout is promoted without measured evidence.
 ## PVP canonical end-to-end diagnostic — 2026-10-07
 
 The [canonical end-to-end Thor report](docs/research/PVP_CANONICAL_E2E_THOR_20261007.md) retains ten exact fresh processes, 14,400 measured intervals and 72,000 complete comparisons. All 360 process/panel median packed7/vec4 ratios exceed 1.05 descriptively (range 1.486527–12.467563); this endpoint includes scalar layout conversion, which dominates the current vec4 carrier. Unknown/foreign occupancy observations and a retained interruption leave accepted performance confirmations at zero. The legacy PVP3b CI now defers immediately when its cooperative reservation is held. No default route or SML model gain is promoted.
+
+## Native Dell PVP correctness — 2026-10-07
+
+The [Dell prepared-plan report](docs/research/PVP_DELL_NATIVE_CORRECTNESS_20261007.md)
+retains three exact release-profile RTX 4060/Vulkan processes, five prepared
+arms through K=262144, 2160 cases and 19440 complete paired phase comparisons.
+Pinned FLAT/Rust source, unprivileged execution, raw logs, hashes and an independent
+Rust coverage verifier are retained. This is correctness only: zero timing
+samples and zero accepted performance rows; Dell and Thor remain separate.
