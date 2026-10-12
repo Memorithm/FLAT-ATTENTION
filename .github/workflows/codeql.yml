@@ -24,16 +24,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f
         with:
           toolchain: 1.89.0
-      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           languages: rust
           queries: security-extended
           # The GPU surface needs the optional runtime feature to compile.
           build-mode: none
-      - uses: github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
-      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+      - uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           category: "/language:rust"
