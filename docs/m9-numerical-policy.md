@@ -105,6 +105,11 @@ The permanent M9 corpus contains:
 - causal and non-causal attention;
 - default, small and large positive softmax scales;
 - non-finite input rejection;
+- non-finite score rejection: finite inputs whose scaled FP32 score (or score plus
+  additive bias) overflows are rejected by every scalar oracle with
+  `FlatAttentionError::NonFiniteScore { query_position, key_position }` instead of
+  propagating `inf - inf = NaN` into O/LSE (`tests/score_overflow.rs`). GPU paths do not
+  inspect resident values and are not changed by this rule;
 - invalid-scale rejection;
 - D64, D80 and D128 deterministic GPU execution;
 - sequence lengths crossing K/V and Q-tile boundaries.

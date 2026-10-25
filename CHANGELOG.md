@@ -4,6 +4,23 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 
 ## Unreleased — 1.0 candidate
 
+### Numerical robustness
+
+- Scalar oracles (`forward_reference`, grouped, asymmetric/variable-length, RoPE,
+  projection, biased, and both backward oracles) now reject finite inputs whose scaled
+  FP32 score overflows with the new `FlatAttentionError::NonFiniteScore` variant.
+  Previously they returned `Ok` with NaN O/LSE. Finite-score results are bit-unchanged.
+- The DA-LUC research oracle's bf16 rounding no longer turns NaN into infinity or `-0.0`;
+  it now delegates to the shared `Bf16` conversion.
+- Code compiles warning-free under current stable Clippy as well as the pinned 1.89
+  toolchain (`is_multiple_of`, `sort_by_key`, one dead assignment in a test).
+
+### Precision coverage
+
+- Added the host bf16 contract: `Bf16` storage type plus `forward_reference_bf16` and
+  `forward_reference_grouped_bf16` (exact decode → FP32 oracle → RNE O, FP32 LSE).
+  Host-only; no bf16 GPU executor or performance claim. See `docs/m8-precision.md`.
+
 ### Documentation and project clarity
 
 - Corrected the README licensing section: the repository is source-available under PolyForm Noncommercial 1.0.0 (`LICENSE` / `LICENSE.md` / `LICENSING.md`), the same license as SciRust. The previous "No license grant is declared" wording was outdated and incorrect.

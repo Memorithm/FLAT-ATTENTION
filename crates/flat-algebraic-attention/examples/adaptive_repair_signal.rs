@@ -666,13 +666,10 @@ fn run() -> Result<Vec<String>> {
     let mut rows = Vec::new();
     rows.push(format_row("dense", dense_aggregate.finalize()?));
 
-    for (trigger, aggregate) in trigger_arms.into_iter().zip(trigger_aggregates.into_iter()) {
+    for (trigger, aggregate) in trigger_arms.into_iter().zip(trigger_aggregates) {
         rows.push(format_row(trigger.label(), aggregate.finalize()?));
     }
-    for (trigger, aggregate) in adaptive_triggers
-        .into_iter()
-        .zip(random_aggregates.into_iter())
-    {
+    for (trigger, aggregate) in adaptive_triggers.into_iter().zip(random_aggregates) {
         rows.push(format_row(
             &format!("matched_random_{}", trigger.label()),
             aggregate.finalize()?,

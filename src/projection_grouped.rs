@@ -11,7 +11,7 @@
 //! directly eliminates per-head column slicing and output place/add stages.
 
 use super::{
-    validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
+    checked_score, validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
     GroupedAttentionShape, RotaryEmbeddingConfig,
 };
 
@@ -128,7 +128,7 @@ pub fn forward_reference_projection_grouped_rope(
                         dot += qo * ko;
                     }
 
-                    let score = dot * scale;
+                    let score = checked_score(dot * scale, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0

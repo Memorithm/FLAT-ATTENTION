@@ -671,7 +671,7 @@ fn bytes_for_words(words: usize) -> Result<u64, WgpuF16AttentionError> {
 }
 
 fn encode_packed_f16(values: &[F16]) -> Result<Vec<u8>, WgpuF16AttentionError> {
-    if values.len() % 2 != 0 {
+    if !values.len().is_multiple_of(2) {
         return Err(WgpuF16AttentionError::OddPackedLength {
             actual: values.len(),
         });

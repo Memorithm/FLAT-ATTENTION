@@ -206,6 +206,7 @@ fn cache_scoped_binding_retains_an_independent_validated_tier_catalog() {
         dtype: DalucFloatDType::Bf16,
     };
 
+    assert_ne!(scoped.tiers(), &tiers);
     assert_eq!(scoped.tiers()[0].id, DalucTierId(10));
     assert_eq!(
         scoped.tiers()[0].values,

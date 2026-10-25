@@ -107,7 +107,7 @@ fn validate_shape(shape: AsymmetricGroupedAttentionShape) -> Result<(), FlatAtte
     {
         return Err(FlatAttentionError::ZeroDimension);
     }
-    if shape.q_heads % shape.kv_heads != 0 {
+    if !shape.q_heads.is_multiple_of(shape.kv_heads) {
         return Err(FlatAttentionError::InvalidHeadGrouping {
             q_heads: shape.q_heads,
             kv_heads: shape.kv_heads,
@@ -283,6 +283,14 @@ pub fn forward_reference_projection_grouped_rope_asymmetric_biased(
 
                     let score =
                         dot * scale + bias.score(shape, batch, q_head, query_pos, key_pos)?;
+                    // Same contract as `crate::checked_score`, inlined because this
+                    // module is also compiled standalone by its integration test.
+                    if !score.is_finite() {
+                        return Err(FlatAttentionError::NonFiniteScore {
+                            query_position: query_pos,
+                            key_position: key_pos,
+                        });
+                    }
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0

@@ -103,6 +103,31 @@ M8 also does **not** claim a portable WGSL bf16 implementation. A future bf16 pa
 
 Until those conditions are met, no bf16 GPU executor or performance claim is exposed.
 
+### Host bf16 contract (FML1 slice)
+
+The host-side half of that architecture now exists and fixes the semantics a future
+GPU path must match:
+
+- `Bf16` (`src/bf16.rs`) is a dependency-free two-byte storage value equal to the upper
+  16 bits of an IEEE binary32. Decode is exact (`bits << 16`). Encode is
+  round-to-nearest, ties-to-even; finite values rounding past `0x7f7f` become infinity;
+  NaN stays NaN with its sign kept and the quiet bit forced, so rounding can never
+  turn NaN into infinity or zero.
+- `forward_reference_bf16` (MHA) and `forward_reference_grouped_bf16` (GQA/MQA) are
+  *defined* as exact decode → the FP32 scalar oracle → RNE encode of O. Q·K,
+  online-softmax state, P·V and LSE are FP32 and bit-identical to `forward_reference`
+  / `forward_reference_grouped` on the decoded inputs. The only error the bf16 path adds
+  relative to that FP32 oracle is the final O rounding, bounded by `2^-8 · |O|`
+  (`tests/bf16_oracle.rs`). Input quantization error relative to full-precision
+  inputs is data-dependent and is not claimed.
+- bfloat16 shares binary32's exponent range, so finite bf16 inputs can overflow the
+  FP32 score; those cases fail closed with `NonFiniteScore` (see M9).
+
+Because bf16 decode is a 16-bit shift, a future WGSL path can unpack two bf16 values
+per `u32` with baseline integer operations and no `f16`/`bf16` shader capability. That
+kernel, its device parity against these oracles and any bandwidth measurement remain
+open work; nothing here is a GPU or performance claim.
+
 ## Benchmark policy
 
 `examples/f16_bench.rs` compares resident f32 and packed-binary16 paths using the same binary16-representable input values. The harness reports timings and logical representation bytes; repository documentation makes no universal speedup claim without physical-GPU measurements.

@@ -59,6 +59,11 @@ pub mod kernel_cache;
 mod f16;
 pub use f16::{FlatAttentionF16Output, F16};
 
+mod bf16;
+pub use bf16::{
+    forward_reference_bf16, forward_reference_grouped_bf16, Bf16, FlatAttentionBf16Output,
+};
+
 mod grouped;
 pub use grouped::{forward_reference_grouped, GroupedAttentionShape};
 
@@ -480,6 +485,13 @@ pub enum FlatAttentionError {
         tensor: &'static str,
         index: usize,
     },
+    /// Finite inputs produced a non-finite scaled score (FP32 overflow of
+    /// `scale * dot(q, k)` or of an additive bias), which would otherwise
+    /// propagate NaN into O/LSE.
+    NonFiniteScore {
+        query_position: usize,
+        key_position: usize,
+    },
 }
 
 impl fmt::Display for FlatAttentionError {
@@ -516,6 +528,13 @@ impl fmt::Display for FlatAttentionError {
                     "tensor {tensor} contains a non-finite value at index {index}"
                 )
             }
+            Self::NonFiniteScore {
+                query_position,
+                key_position,
+            } => write!(
+                f,
+                "attention score for query {query_position} and key {key_position} is not finite"
+            ),
         }
     }
 }
@@ -541,6 +560,23 @@ fn validate_input(
         });
     }
     Ok(())
+}
+
+/// Reject a non-finite scaled score instead of letting `inf - inf` turn the
+/// online-softmax state into NaN. Finite scores pass through bit-unchanged.
+pub(crate) fn checked_score(
+    score: f32,
+    query_position: usize,
+    key_position: usize,
+) -> Result<f32, FlatAttentionError> {
+    if score.is_finite() {
+        Ok(score)
+    } else {
+        Err(FlatAttentionError::NonFiniteScore {
+            query_position,
+            key_position,
+        })
+    }
 }
 
 /// Deterministic online-softmax reference forward pass.
@@ -588,7 +624,7 @@ pub fn forward_reference(
                     for dim in 0..shape.head_dim {
                         dot += q[q_base + dim] * k[kv_base + dim];
                     }
-                    let score = dot * scale;
+                    let score = checked_score(dot * scale, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0
