@@ -1,6 +1,6 @@
 use flat_attention::{
-    FLAT_DECODE_PAGED_U16_SHADOW_WGSL, FLAT_FWD_F16_WGSL, FLAT_FWD_GROUPED_ROPE_WGSL,
-    FLAT_FWD_GROUPED_WGSL, FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
+    FLAT_DECODE_PAGED_U16_SHADOW_WGSL, FLAT_FWD_BF16_WGSL, FLAT_FWD_F16_WGSL,
+    FLAT_FWD_GROUPED_ROPE_WGSL, FLAT_FWD_GROUPED_WGSL, FLAT_FWD_PROJECTION_ROPE_ASYMMETRIC_WGSL,
     FLAT_FWD_PROJECTION_ROPE_VARIABLE_WGSL, FLAT_FWD_PROJECTION_ROPE_WGSL, FLAT_FWD_SINGLE_WGSL,
     FLAT_FWD_SUBGROUP_WGSL, FLAT_FWD_WGSL,
 };
@@ -85,6 +85,13 @@ fn f16_q4_shader_parses_and_validates() {
         FLAT_FWD_F16_WGSL,
         Capabilities::SHADER_FLOAT16_IN_FLOAT32,
     );
+}
+
+#[test]
+fn bf16_q4_shader_validates_without_any_float16_capability() {
+    // Unlike the packed-f16 kernel, bf16 decode/encode is pure integer and
+    // bitcast work, so the shader must validate with an empty capability set.
+    validate_shader_with_capabilities("Q4 bf16", FLAT_FWD_BF16_WGSL, Capabilities::empty());
 }
 
 #[test]

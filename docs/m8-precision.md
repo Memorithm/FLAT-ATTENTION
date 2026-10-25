@@ -123,10 +123,35 @@ GPU path must match:
 - bfloat16 shares binary32's exponent range, so finite bf16 inputs can overflow the
   FP32 score; those cases fail closed with `NonFiniteScore` (see M9).
 
-Because bf16 decode is a 16-bit shift, a future WGSL path can unpack two bf16 values
-per `u32` with baseline integer operations and no `f16`/`bf16` shader capability. That
-kernel, its device parity against these oracles and any bandwidth measurement remain
-open work; nothing here is a GPU or performance claim.
+### Portable bf16 GPU kernel
+
+`shaders/flat_fwd_bf16.wgsl` executed by `WgpuBf16Attention` (`src/wgpu_bf16_backend.rs`)
+completes the eight-point architecture above:
+
+- two bf16 scalars per `u32` (element `2i` low half, `2i+1` high half);
+- decode is `bitcast<f32>(word << 16)` / `bitcast<f32>(word & 0xffff0000)`: exact, and
+  pure integer/bitcast work, so the shader validates with an **empty** Naga capability
+  set (the packed-f16 kernel needs `SHADER_FLOAT16_IN_FLOAT32`);
+- the arithmetic body is the M8 Q4 kernel unchanged (FP32 Q·K, online softmax, P·V);
+- O is encoded with the same RNE/NaN-preserving rule as the host `Bf16::from_f32`;
+  LSE stays FP32;
+- supported head dims are 64 and 128, as for packed f16; other shapes get a typed
+  `UnsupportedHeadDim`; there is no CPU fallback and the type is not wired into any
+  default router.
+
+Because device values are never inspected, finite bf16 inputs could overflow the FP32
+score on the GPU. The slice entry point therefore rejects inputs whose conservative bound
+`scale · head_dim · max|Q| · max|K|` is not below `f32::MAX`
+(`ScoreBoundExceeded`); resident entry points keep the existing "lengths and ownership
+only" contract.
+
+Qualification (`tests/wgpu_bf16.rs`): O within the portable FP32 budget plus one bf16
+ulp (`2^-7 · |O|`) of `forward_reference_bf16`, LSE within the portable FP32 budget,
+for D64/D128, causal and non-causal, `seq_len` 1/9/17 and a wide-exponent case far
+outside binary16 range. On lavapipe (llvmpipe, LLVM 20) 9,086 of 9,088 O values were
+bit-identical to the oracle and the other two differed by one bf16 ulp. That is
+software-device correctness evidence only: no physical-GPU, bandwidth or latency claim
+is made until a reproducible real-device benchmark exists.
 
 ## Benchmark policy
 
