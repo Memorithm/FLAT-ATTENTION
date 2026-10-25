@@ -22,6 +22,7 @@ from this README, or if this README names a file that is gone.
 | `flat_fwd_vec4.wgsl` | M6 vectorized storage for supported head dims. |
 | `flat_fwd_double_buffer.wgsl` | M7 double-buffered staging; opt-in, evidence-gated. |
 | `flat_fwd_f16.wgsl` | M8 packed-binary16 I/O with FP32 accumulation. |
+| `flat_fwd_bf16.wgsl` | FML1 packed-bfloat16 I/O (shift decode, RNE encode) with FP32 accumulation; explicit `WgpuBf16Attention` only, not routed by default. |
 
 ## Grouped / RoPE / projection layouts
 

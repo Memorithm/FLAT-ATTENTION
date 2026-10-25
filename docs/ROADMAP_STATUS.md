@@ -40,7 +40,7 @@ alone never implies DONE.
 
 | Milestone | Status | Evidence |
 |---|---|---|
-| M8 mixed-precision f16 I/O | DONE (packed-f16 storage with FP32 accumulation; native shader-f16 unused) | `src/f16.rs`, `src/wgpu_f16_backend.rs`, `shaders/flat_fwd_f16.wgsl`, `tests/wgpu_f16.rs`; bf16: host storage contract and MHA/GQA scalar oracles defined (`src/bf16.rs`, `tests/bf16_oracle.rs`); no bf16 GPU executor yet |
+| M8 mixed-precision f16 I/O | DONE (packed-f16 storage with FP32 accumulation; native shader-f16 unused) | `src/f16.rs`, `src/wgpu_f16_backend.rs`, `shaders/flat_fwd_f16.wgsl`, `tests/wgpu_f16.rs`; bf16: host storage contract and MHA/GQA scalar oracles (`src/bf16.rs`, `tests/bf16_oracle.rs`) plus explicit packed-bf16 WGPU executor (`src/wgpu_bf16_backend.rs`, `shaders/flat_fwd_bf16.wgsl`, `tests/wgpu_bf16.rs`), correctness-qualified on software Vulkan only; physical performance IMPLEMENTED_BUT_UNQUALIFIED |
 | M9 numerical policy layer | DONE | `src/numerical.rs`, `tests/numerical_policy.rs`, `tests/wgpu_numerical_policy.rs`, regression corpus in stress/fuzz suites |
 
 ## Phase E — modern shapes (M10–M13)

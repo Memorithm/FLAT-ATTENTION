@@ -20,6 +20,11 @@ All notable FLAT-ATTENTION changes are recorded here. The project does not treat
 - Added the host bf16 contract: `Bf16` storage type plus `forward_reference_bf16` and
   `forward_reference_grouped_bf16` (exact decode → FP32 oracle → RNE O, FP32 LSE).
   Host-only; no bf16 GPU executor or performance claim. See `docs/m8-precision.md`.
+- Added the explicit packed-bf16 WGPU executor `WgpuBf16Attention`
+  (`shaders/flat_fwd_bf16.wgsl`): exact shift decode, FP32 core identical to the M8
+  Q4 kernel, RNE O, FP32 LSE, head dims 64/128, no capability requirement, no CPU
+  fallback, not default-routed. Device parity against `forward_reference_bf16` is
+  qualified on software Vulkan; no physical-GPU performance claim.
 
 ### Documentation and project clarity
 
