@@ -98,7 +98,7 @@ fn assert_close(name: &str, actual: &[f32], expected: &[f32]) {
 
 fn summarize(mut samples_us: Vec<f64>) -> (f64, f64) {
     samples_us.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    let median = if samples_us.len() % 2 == 0 {
+    let median = if samples_us.len().is_multiple_of(2) {
         let upper = samples_us.len() / 2;
         (samples_us[upper - 1] + samples_us[upper]) * 0.5
     } else {

@@ -180,7 +180,7 @@ fn main() {
     let pipeline = WgpuGroupedBackwardRecomputePipeline::new(&device).unwrap();
 
     let mut kv_head_cases = vec![q_heads];
-    if q_heads % 4 == 0 {
+    if q_heads.is_multiple_of(4) {
         kv_head_cases.push(q_heads / 4);
     }
     kv_head_cases.push(1);

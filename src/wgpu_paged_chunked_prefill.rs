@@ -352,14 +352,14 @@ fn validate_geometry(
     if cache.is_empty() {
         return Err(PagedDecodeError::EmptyTable.into());
     }
-    if q_heads == 0 || q_heads % cache.kv_heads() != 0 {
+    if q_heads == 0 || !q_heads.is_multiple_of(cache.kv_heads()) {
         return Err(PagedDecodeError::InvalidHeadGrouping {
             q_heads,
             kv_heads: cache.kv_heads(),
         }
         .into());
     }
-    if cache.head_dim() == 0 || cache.head_dim() % 2 != 0 {
+    if cache.head_dim() == 0 || !cache.head_dim().is_multiple_of(2) {
         return Err(
             PagedDecodeError::Core(FlatAttentionError::InvalidRotaryHeadDim {
                 head_dim: cache.head_dim(),

@@ -6,8 +6,8 @@
 //! no rotated tensor or score/probability matrix is materialised.
 
 use super::{
-    validate_input, AsymmetricGroupedAttentionShape, FlatAttentionConfig, FlatAttentionError,
-    FlatAttentionOutput, RotaryEmbeddingConfig,
+    checked_score, validate_input, AsymmetricGroupedAttentionShape, FlatAttentionConfig,
+    FlatAttentionError, FlatAttentionOutput, RotaryEmbeddingConfig,
 };
 
 /// Independent RoPE position domains for rectangular attention.
@@ -184,7 +184,7 @@ pub fn forward_reference_projection_grouped_rope_asymmetric(
                         dot += qo * ko;
                     }
 
-                    let score = dot * scale;
+                    let score = checked_score(dot * scale, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0

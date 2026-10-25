@@ -51,7 +51,7 @@ fn randomized_grouped_oracle_preserves_attention_invariants() {
         let batch = 1 + rng.pick(2);
         let q_heads = q_head_choices[rng.pick(q_head_choices.len())];
         let divisors: Vec<_> = (1..=q_heads)
-            .filter(|candidate| q_heads % candidate == 0)
+            .filter(|candidate| q_heads.is_multiple_of(*candidate))
             .collect();
         let kv_heads = divisors[rng.pick(divisors.len())];
         let seq_len = 1 + rng.pick(33);

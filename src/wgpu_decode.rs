@@ -506,7 +506,7 @@ fn validate_kv_view(kv: ResidentKvView<'_>) -> Result<(), ResidentDecodeError> {
             capacity: kv.capacity,
         });
     }
-    if kv.head_dim % 2 != 0 {
+    if !kv.head_dim.is_multiple_of(2) {
         return Err(FlatAttentionError::InvalidRotaryHeadDim {
             head_dim: kv.head_dim,
         }
@@ -535,7 +535,7 @@ fn validate_kv_view(kv: ResidentKvView<'_>) -> Result<(), ResidentDecodeError> {
 
 fn validate_shape(kv: ResidentKvView<'_>, q_heads: usize) -> Result<(), ResidentDecodeError> {
     validate_kv_view(kv)?;
-    if q_heads == 0 || q_heads % kv.kv_heads != 0 {
+    if q_heads == 0 || !q_heads.is_multiple_of(kv.kv_heads) {
         return Err(FlatAttentionError::InvalidHeadGrouping {
             q_heads,
             kv_heads: kv.kv_heads,

@@ -394,7 +394,7 @@ fn tune_candidate_slice(
         }
     }
 
-    per_candidate.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+    per_candidate.sort_by_key(|a| a.0.id);
     SelectionRecord {
         selected: best.map(|(candidate, timing)| SelectedCandidate { candidate, timing }),
         per_candidate,

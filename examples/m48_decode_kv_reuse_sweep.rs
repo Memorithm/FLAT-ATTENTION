@@ -117,7 +117,7 @@ fn max_error(actual: &[f32], expected: &[f32]) -> f32 {
 
 fn summarize(mut samples: Vec<f64>) -> (f64, f64) {
     samples.sort_by(|left, right| left.partial_cmp(right).unwrap_or(Ordering::Equal));
-    let median = if samples.len() % 2 == 0 {
+    let median = if samples.len().is_multiple_of(2) {
         let upper = samples.len() / 2;
         (samples[upper - 1] + samples[upper]) * 0.5
     } else {

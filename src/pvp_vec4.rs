@@ -256,7 +256,7 @@ impl FlatPvpVec4BitplanesV1 {
                 actual_words: gate_major.len(),
             });
         }
-        if layout.addresses() % 64 != 0 {
+        if !layout.addresses().is_multiple_of(64) {
             let tail = layout.addresses() % 64;
             let mask = !((1_u64 << tail) - 1);
             for gate in 0..layout.gates() {

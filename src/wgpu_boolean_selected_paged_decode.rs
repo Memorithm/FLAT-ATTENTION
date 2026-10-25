@@ -620,10 +620,10 @@ fn validate_geometry(
     kv_heads: usize,
     head_dim: usize,
 ) -> Result<(), BooleanSelectedPagedDecodeError> {
-    if q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 {
+    if q_heads == 0 || kv_heads == 0 || !q_heads.is_multiple_of(kv_heads) {
         return Err(BooleanSelectedPagedDecodeError::InvalidHeadGrouping { q_heads, kv_heads });
     }
-    if head_dim == 0 || head_dim % 2 != 0 {
+    if head_dim == 0 || !head_dim.is_multiple_of(2) {
         return Err(FlatAttentionError::InvalidRotaryHeadDim { head_dim }.into());
     }
     if head_dim > WGSL_MAX_HEAD_DIM {

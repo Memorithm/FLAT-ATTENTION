@@ -4,7 +4,8 @@
 //! contract. No `N x N` score or probability matrix is materialized.
 
 use crate::{
-    validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
+    checked_score, validate_input, AttentionShape, FlatAttentionConfig, FlatAttentionError,
+    FlatAttentionOutput,
 };
 
 /// Gradients of one attention forward pass.
@@ -79,7 +80,7 @@ pub fn backward_reference(
                         d_probability += d_out[q_base + dim] * v[kv_base + dim];
                     }
 
-                    let score = dot_qk * scale;
+                    let score = checked_score(dot_qk * scale, query_pos, key_pos)?;
                     let probability = (score - lse).exp();
                     let d_score = probability * (d_probability - delta);
                     let d_dot = d_score * scale;

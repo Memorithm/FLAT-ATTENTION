@@ -6,7 +6,7 @@
 //! longer resident K/V cache without materialising or replaying older queries.
 
 use super::{
-    validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
+    checked_score, validate_input, FlatAttentionConfig, FlatAttentionError, FlatAttentionOutput,
     GroupedAttentionShape,
 };
 
@@ -159,7 +159,7 @@ impl AsymmetricGroupedAttentionShape {
                         for dim in 0..self.head_dim {
                             dot += q[q_base + dim] * k[kv_base + dim];
                         }
-                        let score = dot * scale;
+                        let score = checked_score(dot * scale, query_pos, key_pos)?;
                         let new_max = running_max.max(score);
                         let alpha = if running_max.is_infinite() {
                             0.0
@@ -198,7 +198,7 @@ impl AsymmetricGroupedAttentionShape {
         {
             return Err(FlatAttentionError::ZeroDimension);
         }
-        if self.q_heads % self.kv_heads != 0 {
+        if !self.q_heads.is_multiple_of(self.kv_heads) {
             return Err(FlatAttentionError::InvalidHeadGrouping {
                 q_heads: self.q_heads,
                 kv_heads: self.kv_heads,
@@ -281,7 +281,7 @@ pub fn forward_reference_grouped_asymmetric(
                     for dim in 0..shape.head_dim {
                         dot += q[q_base + dim] * k[kv_base + dim];
                     }
-                    let score = dot * scale;
+                    let score = checked_score(dot * scale, query_pos, key_pos)?;
                     let new_max = running_max.max(score);
                     let alpha = if running_max.is_infinite() {
                         0.0

@@ -568,7 +568,7 @@ impl OracleGeometry {
                 Self::new(contract, None)
             }
             DalucStorageTopology::Paged { page_size, .. } => {
-                if page_table_plane.logical_bits % 32 != 0 {
+                if !page_table_plane.logical_bits.is_multiple_of(32) {
                     return Err(DalucOracleError::InvalidPageTable(
                         "page table is not a whole u32 stream",
                     ));
@@ -1863,14 +1863,14 @@ fn round_float(value: f32, dtype: DalucFloatDType) -> f32 {
     }
 }
 
+// Delegates to the shared NaN-preserving RNE conversion; the previous local
+// rounding carried a NaN payload into the exponent (NaN -> Inf or -0.0).
 fn f32_to_bf16(value: f32) -> u16 {
-    let bits = value.to_bits();
-    let lsb = (bits >> 16) & 1;
-    ((bits.wrapping_add(0x7fff + lsb)) >> 16) as u16
+    crate::Bf16::from_f32(value).to_bits()
 }
 
 fn bf16_to_f32(bits: u16) -> f32 {
-    f32::from_bits(u32::from(bits) << 16)
+    crate::Bf16::from_bits(bits).to_f32()
 }
 
 fn write_zero_point(

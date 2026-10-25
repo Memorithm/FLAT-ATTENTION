@@ -5,8 +5,8 @@
 //! query-head copy and no `N x N` score/probability matrix is materialized.
 
 use crate::{
-    validate_input, FlatAttentionBackwardOutput, FlatAttentionConfig, FlatAttentionError,
-    FlatAttentionOutput, GroupedAttentionShape,
+    checked_score, validate_input, FlatAttentionBackwardOutput, FlatAttentionConfig,
+    FlatAttentionError, FlatAttentionOutput, GroupedAttentionShape,
 };
 
 /// Deterministic scalar dQ/dK/dV oracle for equal-length native GQA/MQA.
@@ -74,7 +74,7 @@ pub fn backward_reference_grouped(
                         d_probability += d_out[q_base + dim] * v[kv_base + dim];
                     }
 
-                    let score = dot_qk * scale;
+                    let score = checked_score(dot_qk * scale, query_pos, key_pos)?;
                     let probability = (score - lse).exp();
                     let d_score = probability * (d_probability - delta);
                     let d_dot = d_score * scale;
