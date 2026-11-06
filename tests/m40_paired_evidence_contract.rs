@@ -140,7 +140,10 @@ p95_ms = 2.5
         valid.replace("physical_device = true", "physical_device = false"),
         valid.replace("https://example.invalid/", "http://example.invalid/"),
         valid.replace("https://example.invalid/", "https:///"),
-        valid.replace("https://example.invalid/", "https://user:pass@example.invalid/"),
+        valid.replace(
+            "https://example.invalid/",
+            "https://user:pass@example.invalid/",
+        ),
         valid.replace("https://example.invalid/", "https://example.invalid?bad/"),
         valid.replace(
             "oracle_parity_passed = true",
