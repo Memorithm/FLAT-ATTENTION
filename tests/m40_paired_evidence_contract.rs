@@ -35,6 +35,21 @@ fn validate(input: &str) -> Result<(), String> {
     ] {
         required(&record, key)?;
     }
+    // An artifact locator is not an attestation: require an explicit HTTPS origin,
+    // while leaving existence, immutability and authentication to RemoteOps review.
+    let artifact_url = required(&record, "artifact_url")?;
+    let Some(authority_and_path) = artifact_url.strip_prefix("https://") else {
+        return Err("artifact_url must use HTTPS".into());
+    };
+    let authority = authority_and_path.split('/').next().unwrap_or("");
+    if authority.is_empty()
+        || authority.contains('@')
+        || authority.contains('?')
+        || authority.contains('#')
+        || authority.chars().any(char::is_whitespace)
+    {
+        return Err("artifact_url must have a nonempty HTTPS host without credentials".into());
+    }
     let adapter = required(&record, "adapter")?.to_ascii_lowercase();
     let backend = required(&record, "backend")?.to_ascii_lowercase();
     if ["lavapipe", "llvmpipe", "warp", "software", "swiftshader"]
@@ -123,6 +138,10 @@ p95_ms = 2.5
     );
     for bad in [
         valid.replace("physical_device = true", "physical_device = false"),
+        valid.replace("https://example.invalid/", "http://example.invalid/"),
+        valid.replace("https://example.invalid/", "https:///"),
+        valid.replace("https://example.invalid/", "https://user:pass@example.invalid/"),
+        valid.replace("https://example.invalid/", "https://example.invalid?bad/"),
         valid.replace(
             "oracle_parity_passed = true",
             "oracle_parity_passed = false",
