@@ -14,9 +14,7 @@ fn exact_sha(value: &str) -> bool {
 }
 
 fn validate(input: &str) -> Result<(), String> {
-    let record: Value = input
-        .parse()
-        .map_err(|error| format!("invalid TOML: {error}"))?;
+    let record: Value = toml::from_str(input).map_err(|error| format!("invalid TOML: {error}"))?;
     if record.get("schema").and_then(Value::as_str) != Some("flat.m40.paired.v1") {
         return Err("unknown evidence schema".into());
     }
