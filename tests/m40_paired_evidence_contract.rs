@@ -14,7 +14,9 @@ fn exact_sha(value: &str) -> bool {
 }
 
 fn validate(input: &str) -> Result<(), String> {
-    let record: Value = input.parse().map_err(|error| format!("invalid TOML: {error}"))?;
+    let record: Value = input
+        .parse()
+        .map_err(|error| format!("invalid TOML: {error}"))?;
     if record.get("schema").and_then(Value::as_str) != Some("flat.m40.paired.v1") {
         return Err("unknown evidence schema".into());
     }
@@ -23,7 +25,16 @@ fn validate(input: &str) -> Result<(), String> {
             return Err(format!("{key} must be an exact 40-hex commit"));
         }
     }
-    for key in ["adapter", "driver", "backend", "dtype", "geometry", "cache_state", "measurement_boundary", "artifact_url"] {
+    for key in [
+        "adapter",
+        "driver",
+        "backend",
+        "dtype",
+        "geometry",
+        "cache_state",
+        "measurement_boundary",
+        "artifact_url",
+    ] {
         required(&record, key)?;
     }
     let adapter = required(&record, "adapter")?.to_ascii_lowercase();
@@ -41,7 +52,11 @@ fn validate(input: &str) -> Result<(), String> {
         return Err("oracle parity must pass before timing".into());
     }
     for key in ["warmups", "repeats"] {
-        if record.get(key).and_then(Value::as_integer).is_none_or(|n| n < 1) {
+        if record
+            .get(key)
+            .and_then(Value::as_integer)
+            .is_none_or(|n| n < 1)
+        {
             return Err(format!("{key} must be positive"));
         }
     }
@@ -51,7 +66,11 @@ fn validate(input: &str) -> Result<(), String> {
         for key in ["route", "median_ms", "p95_ms"] {
             if key == "route" {
                 required(row, key)?;
-            } else if row.get(key).and_then(Value::as_float).is_none_or(|n| !n.is_finite() || n <= 0.0) {
+            } else if row
+                .get(key)
+                .and_then(Value::as_float)
+                .is_none_or(|n| !n.is_finite() || n <= 0.0)
+            {
                 return Err(format!("{label}.{key} must be finite and positive"));
             }
         }
@@ -99,17 +118,27 @@ p95_ms = 2.5
 "#,
         sha = "a".repeat(40)
     );
-    assert!(validate(&valid).is_ok());
+    assert!(
+        validate(&valid).is_ok(),
+        "valid fixture rejected: {:?}",
+        validate(&valid)
+    );
     for bad in [
         valid.replace("physical_device = true", "physical_device = false"),
-        valid.replace("oracle_parity_passed = true", "oracle_parity_passed = false"),
+        valid.replace(
+            "oracle_parity_passed = true",
+            "oracle_parity_passed = false",
+        ),
         valid.replace("physical test adapter", "lavapipe"),
         valid.replace("warmups = 3", "warmups = 0"),
         valid.replace("p95_ms = 2.5", "p95_ms = 1.0"),
         valid.replace("flat.m40.paired.v1", "unknown"),
         valid.replace("resident_only", "unscoped"),
         valid.replace(&"a".repeat(40), "unversioned"),
-        valid.replace("route = \"flat_resident\"", "route = \"scirust_multi_dispatch\""),
+        valid.replace(
+            "route = \"flat_resident\"",
+            "route = \"scirust_multi_dispatch\"",
+        ),
     ] {
         assert!(validate(&bad).is_err(), "invalid evidence was accepted");
     }
