@@ -9,3 +9,13 @@ A single record covers **one** timing boundary: `resident_only` or `transfer_inc
 This schema is a minimal fail-closed admission test, **not** a complete proof: the current validator cannot verify artifact immutability, driver identity, true hardware provenance, order randomization, workload equivalence, or the accuracy of timings. These require independent human/machine checks through Memorithm/RemoteOps and SciRust's exact-head integration qualification. A `physical_device = true` assertion alone is insufficient. Software Vulkan, WARP and other software adapters remain correctness evidence only. No default kernel promotion or 1.0 publication is authorized.
 
 Tracking: FLAT #359 and SciRust #1732; release gates: `docs/RELEASE_CHECKLIST.md`.
+
+## Artifact locator admission hardening (host-only)
+
+The v1 regression rejects non-HTTPS artifact locators, missing hosts, embedded
+credentials, and ambiguous query/fragment-only authorities. A syntactically
+accepted HTTPS locator is **not** proof that the object exists, is immutable,
+is authentic, or contains valid measurements. The synthetic `example.invalid`
+fixture is intentionally not a release artifact. RemoteOps must independently
+verify the artifact, its provenance, and exact-head machine evidence before
+any performance or publication decision.
