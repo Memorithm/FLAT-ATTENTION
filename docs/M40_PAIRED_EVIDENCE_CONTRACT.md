@@ -1,0 +1,11 @@
+# M40 paired physical benchmark evidence — admission contract v1
+
+This host-only regression checks that a **candidate evidence record** is explicitly scoped before it can be considered for the industrial release dossier. It does not run the GPU, establish the truth of an attestation, authenticate an artifact URL, or prove a speedup. The test fixture is synthetic and must never be cited as a measured result.
+
+Run `cargo test --locked --test m40_paired_evidence_contract` (Rust 1.89). The contract is `flat.m40.paired.v1`, represented as TOML. Required top-level fields: `flat_sha` and `scirust_sha` (full 40-character hexadecimal commits), `adapter`, `driver`, `backend`, `dtype`, `geometry`, `cache_state`, `measurement_boundary`, `artifact_url`, `physical_device = true`, `oracle_parity_passed = true`, and positive `warmups` and `repeats`. Both `[baseline]` and `[candidate]` require distinct `route` names and finite positive `median_ms` and `p95_ms` with p95 >= median.
+
+A single record covers **one** timing boundary: `resident_only` or `transfer_inclusive`. For an accepted comparison, record both boundaries separately on the same exact commits, device, geometry, precision and cache state. Baseline and candidate timings must be collected as paired runs with alternating order, matching warmups and repeats, and correctness established **before** timing. Store the immutable raw logs, machine inventory, actual driver/backend identity, measurement script, and M40 artifacts externally under the referenced artifact URL; do not commit synthetic or machine-local measurements as release evidence.
+
+This schema is a minimal fail-closed admission test, **not** a complete proof: the current validator cannot verify artifact immutability, driver identity, true hardware provenance, order randomization, workload equivalence, or the accuracy of timings. These require independent human/machine checks through Memorithm/RemoteOps and SciRust's exact-head integration qualification. A `physical_device = true` assertion alone is insufficient. Software Vulkan, WARP and other software adapters remain correctness evidence only. No default kernel promotion or 1.0 publication is authorized.
+
+Tracking: FLAT #359 and SciRust #1732; release gates: `docs/RELEASE_CHECKLIST.md`.
