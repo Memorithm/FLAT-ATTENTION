@@ -33,12 +33,13 @@ fn incomplete_release_checklist_cannot_claim_general_availability() {
         "unqualified 1.0 candidate must not be publishable"
     );
     assert!(
-        cargo.lines().any(|line| line.trim() == "version = \"0.1.0\""),
+        cargo
+            .lines()
+            .any(|line| line.trim() == "version = \"0.1.0\""),
         "unexpected version change requires release-policy review"
     );
     assert!(
-        dossier.contains("status: BLOCKED")
-            && dossier.contains("release_authorized: false"),
+        dossier.contains("status: BLOCKED") && dossier.contains("release_authorized: false"),
         "industrial dossier must keep the unqualified release fail-closed"
     );
     assert!(
@@ -75,6 +76,9 @@ fn release_evidence_is_distinct_from_software_adapter_correctness() {
         "SciRust lockfile",
         "no runtime promotion",
     ] {
-        assert!(dossier.contains(guard), "missing evidence boundary: {guard}");
+        assert!(
+            dossier.contains(guard),
+            "missing evidence boundary: {guard}"
+        );
     }
 }
