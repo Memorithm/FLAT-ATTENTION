@@ -22,7 +22,9 @@ permissions:
 jobs:
   metal:
     name: Metal parity
-    runs-on: macos-14
+    # macos-14 was retired on 2026-11-02 (GitHub Actions runner-images #13518).
+    # Use the supported Apple Silicon macOS 15 image for physical Metal parity.
+    runs-on: macos-15
     env:
       WGPU_BACKEND: metal
       FLAT_REQUIRE_WGPU: "1"
