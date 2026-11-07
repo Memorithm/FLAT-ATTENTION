@@ -1,0 +1,59 @@
+name: BPB-3 physical Metal inference control
+
+on:
+  pull_request:
+    paths:
+      - 'examples/bpb3_gpu_inference.rs'
+      - 'examples/README.md'
+      - 'Cargo.toml'
+      - '.github/workflows/bpb3-gpu-metal.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'examples/bpb3_gpu_inference.rs'
+      - 'examples/README.md'
+      - 'Cargo.toml'
+      - '.github/workflows/bpb3-gpu-metal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-metal:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.89.0
+          components: rustfmt, clippy
+      - name: Record native GPU identity
+        run: |
+          system_profiler SPHardwareDataType SPDisplaysDataType | head -100
+      - name: Strict local formatting and Clippy
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked --example bpb3_gpu_inference --features wgpu -- -D warnings
+      - name: Exact real-GPU inference parity and paired timings
+        env:
+          WGPU_BACKEND: metal
+          BPB_GPU_REQUIRE_PHYSICAL: '1'
+          RUST_BACKTRACE: '1'
+        run: |
+          set -euo pipefail
+          cargo run --locked --release --features wgpu --example bpb3_gpu_inference | tee "$RUNNER_TEMP/bpb3-native-metal.txt"
+          grep -q '^PASS_GPU_INFERENCE_STANDALONE' "$RUNNER_TEMP/bpb3-native-metal.txt"
+          grep -q 'physical_adapter=true' "$RUNNER_TEMP/bpb3-native-metal.txt"
+          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-native-metal.txt")" -eq 3
+      - name: Preserve native GPU parity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bpb3-native-metal-${{ github.sha }}
+          path: ${{ runner.temp }}/bpb3-native-metal.txt
+          if-no-files-found: warn
+          retention-days: 30
