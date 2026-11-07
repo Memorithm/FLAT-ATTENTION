@@ -10,6 +10,7 @@ on:
       - "shaders/**"
       - "tests/**"
       - "Cargo.toml"
+      - "examples/bpb3_gpu_inference.rs"
       - "Cargo.lock"
       - "docs/M36_METAL.md"
       - "docs/RELEASE_CHECKLIST.md"
@@ -46,15 +47,15 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Full WGPU parity matrix on Metal
         run: cargo test --features wgpu --tests -- --nocapture --test-threads=1
-      - name: BPB-3 standalone GPU inference parity on real Metal adapter
+      - name: BPB-3 standalone GPU parity on hosted Metal adapter (may be virtual)
         env:
           BPB_GPU_REQUIRE_PHYSICAL: "0"
           BPB_GPU_REQUIRE_NON_SOFTWARE: "1"
         run: |
           cargo run --locked --release --features wgpu --example bpb3_gpu_inference | tee "$RUNNER_TEMP/bpb3-metal.txt"
           grep -q '^PASS_GPU_INFERENCE_STANDALONE' "$RUNNER_TEMP/bpb3-metal.txt"
-          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-metal.txt")" -eq 3
-      - name: Retain real Metal study output
+          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-metal.txt")" -eq 4
+      - name: Retain hosted Metal study output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
