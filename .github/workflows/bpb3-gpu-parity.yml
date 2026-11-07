@@ -1,0 +1,56 @@
+name: BPB-3 independent WGPU inference parity (software smoke)
+
+on:
+  pull_request:
+    paths:
+      - 'examples/bpb3_gpu_inference.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/bpb3-gpu-parity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'examples/bpb3_gpu_inference.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/bpb3-gpu-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-software-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision software Vulkan for correctness only
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers vulkan-tools
+      - name: Rust 1.89 and source checks
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --component clippy rustfmt
+          rustup default 1.89.0
+          cargo fmt --all -- --check
+          cargo check --locked --example bpb3_gpu_inference --features wgpu
+          cargo clippy --locked --example bpb3_gpu_inference --features wgpu -- -D warnings
+      - name: Execute GPU API via software Vulkan adapter (NOT physical GPU)
+        env:
+          WGPU_BACKEND: vulkan
+          BPB_GPU_REQUIRE_PHYSICAL: '0'
+        run: |
+          cargo run --locked --release --features wgpu --example bpb3_gpu_inference | tee "$RUNNER_TEMP/bpb3-gpu-software.txt"
+          grep -q '^PASS_GPU_INFERENCE_STANDALONE' "$RUNNER_TEMP/bpb3-gpu-software.txt"
+          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-gpu-software.txt")" -eq 3
+      - name: Publish diagnostic, not speedup claim
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bpb3-gpu-software-${{ github.sha }}
+          path: ${{ runner.temp }}/bpb3-gpu-software.txt
+          if-no-files-found: warn
+          retention-days: 14
