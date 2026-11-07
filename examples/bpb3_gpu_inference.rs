@@ -310,10 +310,15 @@ fn main() {
     }))
     .expect("STOP_NO_GPU_ADAPTER");
     let info = adapter.get_info();
-    let physical =
+    let gpu_adapter =
         info.device_type != wgpu::DeviceType::Cpu && info.device_type != wgpu::DeviceType::Other;
+    let virtualized = info.name.to_ascii_lowercase().contains("virtual");
+    let physical = gpu_adapter && !virtualized;
     if std::env::var("BPB_GPU_REQUIRE_PHYSICAL").as_deref() == Ok("1") {
-        assert!(physical, "STOP_SOFTWARE_ADAPTER_NO_PHYSICAL_RESULT");
+        assert!(physical, "STOP_UNQUALIFIED_VIRTUAL_OR_SOFTWARE_ADAPTER");
+    }
+    if std::env::var("BPB_GPU_REQUIRE_NON_SOFTWARE").as_deref() == Ok("1") {
+        assert!(gpu_adapter, "STOP_SOFTWARE_ADAPTER_NOT_GPU");
     }
     let limits = adapter.limits();
     assert!(
@@ -340,8 +345,8 @@ fn main() {
         make_arm(&device, &source, "int8", &buf_int8, &buf_inputs),
     ];
     println!("protocol=bpb3-standalone-gpu-inference-v1,model_integrated=false,all_block_oracle=required");
-    println!("adapter={:?},device_type={:?},backend={:?},driver={},physical_adapter={},blocks={},warmups={},repeats={}",
-        info.name, info.device_type, info.backend, info.driver, physical, BLOCKS, WARMUPS, REPEATS);
+    println!("adapter={:?},device_type={:?},backend={:?},driver={},gpu_adapter={},virtualized_adapter={},unvirtualized_candidate={},blocks={},warmups={},repeats={}",
+        info.name, info.device_type, info.backend, info.driver, gpu_adapter, virtualized, physical, BLOCKS, WARMUPS, REPEATS);
     for arm in &arms {
         dispatch(&device, &queue, arm);
         let observed = readback(&device, &queue, &arm.output);
@@ -375,7 +380,7 @@ fn main() {
         );
         println!("GPU_INFERENCE_OBSERVATION arm={},median_host_submit_wait_ns={},resident_weights_bytes={},complete=true,device_class={}",
             arm.name, median(&mut timings[i]), [bp.len(), sym3.len(), int8.len()][i] * 4,
-            if physical { "physical" } else { "software" });
+            if virtualized { "virtualized" } else if physical { "unvirtualized_candidate" } else { "software" });
     }
     println!("PASS_GPU_INFERENCE_STANDALONE parity=exact timing=host_submission_plus_fence_no_energy_claim=true");
 }
