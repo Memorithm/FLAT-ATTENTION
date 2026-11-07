@@ -83,7 +83,15 @@ fn step(seed: &mut u64) -> u64 {
     (*seed).wrapping_mul(2685821657736338717)
 }
 
-fn packed_data() -> (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<i32>) {
+struct Corpus {
+    bp: Vec<u32>,
+    sym3: Vec<u32>,
+    int8: Vec<u32>,
+    masks: Vec<u32>,
+    expected: Vec<i32>,
+}
+
+fn packed_data() -> Corpus {
     let mut rng = 0x95ab_cafe_2026_1107u64;
     let mut bp = Vec::with_capacity(BLOCKS * 6);
     let mut sym3 = Vec::with_capacity(BLOCKS * 6);
@@ -137,7 +145,7 @@ fn packed_data() -> (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<i32>) {
         int8.extend_from_slice(&packed8);
         inputs.extend_from_slice(&[mask as u32, (mask >> 32) as u32]);
     }
-    (bp, sym3, int8, inputs, expected)
+    Corpus { bp, sym3, int8, masks: inputs, expected }
 }
 
 fn as_bytes(words: &[u32]) -> Vec<u8> {
@@ -280,7 +288,7 @@ fn median(times: &mut [u128]) -> u128 {
 }
 
 fn main() {
-    let (bp, sym3, int8, masks, expected) = packed_data();
+    let Corpus { bp, sym3, int8, masks, expected } = packed_data();
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
@@ -353,9 +361,9 @@ fn main() {
             "STOP_POST_TIMING_PARITY arm={}",
             arm.name
         );
-        println!("GPU_INFERENCE_OBSERVATION arm={},median_host_submit_wait_ns={},resident_weights_bytes={},complete={},device_class={}",
+        println!("GPU_INFERENCE_OBSERVATION arm={},median_host_submit_wait_ns={},resident_weights_bytes={},complete=true,device_class={}",
             arm.name, median(&mut timings[i]), [bp.len(), sym3.len(), int8.len()][i] * 4,
-            true, if physical { "physical" } else { "software" });
+            if physical { "physical" } else { "software" });
     }
     println!("PASS_GPU_INFERENCE_STANDALONE parity=exact timing=host_submission_plus_fence_no_energy_claim=true");
 }
