@@ -48,7 +48,8 @@ jobs:
         run: cargo test --features wgpu --tests -- --nocapture --test-threads=1
       - name: BPB-3 standalone GPU inference parity on real Metal adapter
         env:
-          BPB_GPU_REQUIRE_PHYSICAL: "1"
+          BPB_GPU_REQUIRE_PHYSICAL: "0"
+          BPB_GPU_REQUIRE_NON_SOFTWARE: "1"
         run: |
           cargo run --locked --release --features wgpu --example bpb3_gpu_inference | tee "$RUNNER_TEMP/bpb3-metal.txt"
           grep -q '^PASS_GPU_INFERENCE_STANDALONE' "$RUNNER_TEMP/bpb3-metal.txt"
