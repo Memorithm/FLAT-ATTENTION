@@ -131,3 +131,7 @@ required-features = ["wgpu"]
 [[example]]
 name = "vector_bench"
 required-features = ["wgpu"]
+
+[[example]]
+name = "bpb3_gpu_inference"
+required-features = ["wgpu"]
