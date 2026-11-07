@@ -102,9 +102,15 @@ fn packed_data() -> (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<i32>) {
             *slot = value;
             let pos = i / 32;
             let bit = 1u32 << (i % 32);
-            if value < 0 { signs[pos] |= bit; }
-            if value.unsigned_abs() & 1 != 0 { low[pos] |= bit; }
-            if value.unsigned_abs() & 2 != 0 { high[pos] |= bit; }
+            if value < 0 {
+                signs[pos] |= bit;
+            }
+            if value.unsigned_abs() & 1 != 0 {
+                low[pos] |= bit;
+            }
+            if value.unsigned_abs() & 2 != 0 {
+                high[pos] |= bit;
+            }
             let triple = (i32::from(value) as u32) & 7;
             let bit3 = i * 3;
             packed3[bit3 / 32] |= triple << (bit3 % 32);
@@ -114,9 +120,17 @@ fn packed_data() -> (Vec<u32>, Vec<u32>, Vec<u32>, Vec<u32>, Vec<i32>) {
             packed8[i / 4] |= (value as u8 as u32) << (8 * (i % 4));
         }
         let mask = step(&mut rng);
-        let scalar: i32 = q.iter().enumerate().map(|(i, &v)| {
-            if (mask >> i) & 1 == 0 { i32::from(v) } else { -i32::from(v) }
-        }).sum();
+        let scalar: i32 = q
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| {
+                if (mask >> i) & 1 == 0 {
+                    i32::from(v)
+                } else {
+                    -i32::from(v)
+                }
+            })
+            .sum();
         expected.push(scalar);
         bp.extend_from_slice(&[signs[0], signs[1], low[0], low[1], high[0], high[1]]);
         sym3.extend_from_slice(&packed3);
@@ -131,10 +145,12 @@ fn as_bytes(words: &[u32]) -> Vec<u8> {
 }
 
 fn wait(device: &wgpu::Device) {
-    device.poll(wgpu::PollType::Wait {
-        submission_index: None,
-        timeout: Some(Duration::from_secs(60)),
-    }).expect("device wait failed");
+    device
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(Duration::from_secs(60)),
+        })
+        .expect("device wait failed");
 }
 
 fn readback(device: &wgpu::Device, queue: &wgpu::Queue, buffer: &wgpu::Buffer) -> Vec<i32> {
@@ -156,17 +172,23 @@ fn readback(device: &wgpu::Device, queue: &wgpu::Queue, buffer: &wgpu::Buffer) -
     );
     queue.submit(Some(encoder.finish()));
     let (tx, rx) = mpsc::channel();
-    staging.slice(..).map_async(wgpu::MapMode::Read, move |result| {
-        let _ = tx.send(result);
-    });
+    staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
     wait(device);
     rx.recv_timeout(Duration::from_secs(5))
         .expect("readback callback timeout")
         .expect("GPU map error");
-    let mapped = staging.slice(..).get_mapped_range().expect("GPU mapped data");
-    let data = mapped.chunks_exact(4).map(|b| {
-        i32::from_le_bytes(b.try_into().expect("four bytes"))
-    }).collect();
+    let mapped = staging
+        .slice(..)
+        .get_mapped_range()
+        .expect("GPU mapped data");
+    let data = mapped
+        .chunks_exact(4)
+        .map(|b| i32::from_le_bytes(b.try_into().expect("four bytes")))
+        .collect();
     drop(mapped);
     staging.unmap();
     data
@@ -213,12 +235,26 @@ fn make_arm(
         label: Some(entry),
         layout: &pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: weights.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: inputs.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: output.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: weights.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: inputs.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: output.as_entire_binding(),
+            },
         ],
     });
-    Arm { name: entry, pipeline, group, output }
+    Arm {
+        name: entry,
+        pipeline,
+        group,
+        output,
+    }
 }
 
 fn dispatch(device: &wgpu::Device, queue: &wgpu::Queue, arm: &Arm) -> u128 {
@@ -251,21 +287,25 @@ fn main() {
         force_fallback_adapter: false,
         compatible_surface: None,
         apply_limit_buckets: false,
-    })).expect("STOP_NO_GPU_ADAPTER");
+    }))
+    .expect("STOP_NO_GPU_ADAPTER");
     let info = adapter.get_info();
-    let physical = info.device_type != wgpu::DeviceType::Cpu
-        && info.device_type != wgpu::DeviceType::Other;
+    let physical =
+        info.device_type != wgpu::DeviceType::Cpu && info.device_type != wgpu::DeviceType::Other;
     if std::env::var("BPB_GPU_REQUIRE_PHYSICAL").as_deref() == Ok("1") {
         assert!(physical, "STOP_SOFTWARE_ADAPTER_NO_PHYSICAL_RESULT");
     }
     let limits = adapter.limits();
-    assert!(limits.max_storage_buffer_binding_size as usize >= BLOCKS * 64,
-        "STOP_UNSUPPORTED_BUFFER_SIZE");
+    assert!(
+        limits.max_storage_buffer_binding_size as usize >= BLOCKS * 64,
+        "STOP_UNSUPPORTED_BUFFER_SIZE"
+    );
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("BPB3 standalone GPU inference study"),
         required_limits: limits,
         ..Default::default()
-    })).expect("STOP_DEVICE_UNAVAILABLE");
+    }))
+    .expect("STOP_DEVICE_UNAVAILABLE");
     let source = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("BPB3 / equal-bit INT3 / dense INT8 independent WGSL"),
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(WGSL)),
@@ -289,10 +329,15 @@ fn main() {
         for (i, (&actual, &oracle)) in observed.iter().zip(expected.iter()).enumerate() {
             assert_eq!(actual, oracle, "STOP_GPU_ORACLE arm={} block={i}", arm.name);
         }
-        println!("PASS_GPU_BLOCK_ORACLE arm={} blocks={} mismatches=0", arm.name, BLOCKS);
+        println!(
+            "PASS_GPU_BLOCK_ORACLE arm={} blocks={} mismatches=0",
+            arm.name, BLOCKS
+        );
     }
     for _ in 0..WARMUPS {
-        for arm in &arms { dispatch(&device, &queue, arm); }
+        for arm in &arms {
+            dispatch(&device, &queue, arm);
+        }
     }
     let mut timings: [Vec<u128>; 3] = std::array::from_fn(|_| Vec::with_capacity(REPEATS));
     for repeat in 0..REPEATS {
@@ -303,7 +348,11 @@ fn main() {
     }
     for (i, arm) in arms.iter().enumerate() {
         let observed = readback(&device, &queue, &arm.output);
-        assert_eq!(observed, expected, "STOP_POST_TIMING_PARITY arm={}", arm.name);
+        assert_eq!(
+            observed, expected,
+            "STOP_POST_TIMING_PARITY arm={}",
+            arm.name
+        );
         println!("GPU_INFERENCE_OBSERVATION arm={},median_host_submit_wait_ns={},resident_weights_bytes={},complete={},device_class={}",
             arm.name, median(&mut timings[i]), [bp.len(), sym3.len(), int8.len()][i] * 4,
             true, if physical { "physical" } else { "software" });
