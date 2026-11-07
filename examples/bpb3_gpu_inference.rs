@@ -1,6 +1,8 @@
 //! Model-independent BPB-3 GPU inference microkernel comparison.
-//! The three GPU arms consume the SAME 64 signed ternary coefficients and
+//! Four GPU arms consume the SAME 64 signed [-3,3] coefficients and
 //! 64-bit bipolar input per block; no dense conversion during timed scans.
+//! INT4 is a same-coefficient storage/compute comparator, NOT a wider-range
+//! INT4 quantizer nor an independently calibrated reconstruction-quality test.
 //! All-block scalar parity is mandatory before reporting descriptive timings.
 //! This is NOT SML inference, a model-quality comparison, or a GPU speedup claim.
 use std::borrow::Cow;
@@ -60,6 +62,38 @@ fn sym3(@builtin(global_invocation_id) tid: vec3<u32>) {
     out.data[id] = sum;
 }
 
+// Independent packed INT4 two's complement baseline. Each 32-bit word carries
+// eight signed 4-bit values; activation sign bits are spread to nibble lanes.
+// A SWAR/popcount dot uses the actual packed bytes, without a dense reencode.
+fn expand_8_signs(bits: u32) -> u32 {
+    var v = bits & 255u;
+    v = (v | (v << 12u)) & 0x000f000fu;
+    v = (v | (v << 6u)) & 0x03030303u;
+    return (v | (v << 3u)) & 0x11111111u;
+}
+
+@compute @workgroup_size(64)
+fn int4(@builtin(global_invocation_id) tid: vec3<u32>) {
+    let id = tid.x;
+    if id >= arrayLength(&out.data) { return; }
+    var sum = 0;
+    for (var chunk = 0u; chunk < 8u; chunk = chunk + 1u) {
+        let packed = w.data[id * 8u + chunk];
+        let input_word = x.data[id * 2u + chunk / 4u];
+        let bits = (input_word >> ((chunk % 4u) * 8u)) & 255u;
+        let signs = expand_8_signs(bits);
+        let b0 = packed & 0x11111111u;
+        let b1 = (packed >> 1u) & 0x11111111u;
+        let b2 = (packed >> 2u) & 0x11111111u;
+        let b3 = (packed >> 3u) & 0x11111111u;
+        sum += signed_count(0u, b0, signs)
+            + 2 * signed_count(0u, b1, signs)
+            + 4 * signed_count(0u, b2, signs)
+            - 8 * signed_count(0u, b3, signs);
+    }
+    out.data[id] = sum;
+}
+
 @compute @workgroup_size(64)
 fn int8(@builtin(global_invocation_id) tid: vec3<u32>) {
     let id = tid.x;
@@ -86,6 +120,7 @@ fn step(seed: &mut u64) -> u64 {
 struct Corpus {
     bp: Vec<u32>,
     sym3: Vec<u32>,
+    int4: Vec<u32>,
     int8: Vec<u32>,
     masks: Vec<u32>,
     expected: Vec<i32>,
@@ -95,6 +130,7 @@ fn packed_data() -> Corpus {
     let mut rng = 0x95ab_cafe_2026_1107u64;
     let mut bp = Vec::with_capacity(BLOCKS * 6);
     let mut sym3 = Vec::with_capacity(BLOCKS * 6);
+    let mut int4 = Vec::with_capacity(BLOCKS * 8);
     let mut int8 = Vec::with_capacity(BLOCKS * 16);
     let mut inputs = Vec::with_capacity(BLOCKS * 2);
     let mut expected = Vec::with_capacity(BLOCKS);
@@ -103,6 +139,7 @@ fn packed_data() -> Corpus {
         let mut low = [0u32; 2];
         let mut high = [0u32; 2];
         let mut packed3 = [0u32; 6];
+        let mut packed4 = [0u32; 8];
         let mut packed8 = [0u32; 16];
         let mut q = [0i8; 64];
         for (i, slot) in q.iter_mut().enumerate() {
@@ -125,6 +162,7 @@ fn packed_data() -> Corpus {
             if bit3 % 32 > 29 {
                 packed3[bit3 / 32 + 1] |= triple >> (32 - bit3 % 32);
             }
+            packed4[i / 8] |= ((value as u32) & 15) << (4 * (i % 8));
             packed8[i / 4] |= (value as u8 as u32) << (8 * (i % 4));
         }
         let mask = step(&mut rng);
@@ -142,12 +180,14 @@ fn packed_data() -> Corpus {
         expected.push(scalar);
         bp.extend_from_slice(&[signs[0], signs[1], low[0], low[1], high[0], high[1]]);
         sym3.extend_from_slice(&packed3);
+        int4.extend_from_slice(&packed4);
         int8.extend_from_slice(&packed8);
         inputs.extend_from_slice(&[mask as u32, (mask >> 32) as u32]);
     }
     Corpus {
         bp,
         sym3,
+        int4,
         int8,
         masks: inputs,
         expected,
@@ -297,6 +337,7 @@ fn main() {
     let Corpus {
         bp,
         sym3,
+        int4,
         int8,
         masks,
         expected,
@@ -332,19 +373,21 @@ fn main() {
     }))
     .expect("STOP_DEVICE_UNAVAILABLE");
     let source = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("BPB3 / equal-bit INT3 / dense INT8 independent WGSL"),
+        label: Some("BPB3 / INT3 / same-q packed INT4 / INT8 independent WGSL"),
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(WGSL)),
     });
     let buf_inputs = device_buffer(&device, "bipolar masks", &masks);
     let buf_bp = device_buffer(&device, "BPB3 three bitplanes", &bp);
     let buf_int3 = device_buffer(&device, "INT3 two's complement", &sym3);
+    let buf_int4 = device_buffer(&device, "INT4 packed two's complement", &int4);
     let buf_int8 = device_buffer(&device, "dense INT8", &int8);
     let arms = [
         make_arm(&device, &source, "bpb3", &buf_bp, &buf_inputs),
         make_arm(&device, &source, "sym3", &buf_int3, &buf_inputs),
+        make_arm(&device, &source, "int4", &buf_int4, &buf_inputs),
         make_arm(&device, &source, "int8", &buf_int8, &buf_inputs),
     ];
-    println!("protocol=bpb3-standalone-gpu-inference-v1,model_integrated=false,all_block_oracle=required");
+    println!("protocol=bpb3-standalone-gpu-inference-v2,model_integrated=false,all_block_oracle=required,int4_same_q=true");
     println!("adapter={:?},device_type={:?},backend={:?},driver={},gpu_adapter={},virtualized_adapter={},unvirtualized_candidate={},blocks={},warmups={},repeats={}",
         info.name, info.device_type, info.backend, info.driver, gpu_adapter, virtualized, physical, BLOCKS, WARMUPS, REPEATS);
     for arm in &arms {
@@ -364,7 +407,7 @@ fn main() {
             dispatch(&device, &queue, arm);
         }
     }
-    let mut timings: [Vec<u128>; 3] = std::array::from_fn(|_| Vec::with_capacity(REPEATS));
+    let mut timings: [Vec<u128>; 4] = std::array::from_fn(|_| Vec::with_capacity(REPEATS));
     for repeat in 0..REPEATS {
         for ordinal in 0..arms.len() {
             let index = (repeat + ordinal) % arms.len();
@@ -379,8 +422,45 @@ fn main() {
             arm.name
         );
         println!("GPU_INFERENCE_OBSERVATION arm={},median_host_submit_wait_ns={},resident_weights_bytes={},complete=true,device_class={}",
-            arm.name, median(&mut timings[i]), [bp.len(), sym3.len(), int8.len()][i] * 4,
+            arm.name, median(&mut timings[i]), [bp.len(), sym3.len(), int4.len(), int8.len()][i] * 4,
             if virtualized { "virtualized" } else if physical { "unvirtualized_candidate" } else { "software" });
     }
     println!("PASS_GPU_INFERENCE_STANDALONE parity=exact timing=host_submission_plus_fence_no_energy_claim=true");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn int4_packed_coefficients_match_independent_int8_oracle() {
+        let corpus = packed_data();
+        assert_eq!(corpus.bp.len(), BLOCKS * 6);
+        assert_eq!(corpus.sym3.len(), BLOCKS * 6);
+        assert_eq!(corpus.int4.len(), BLOCKS * 8);
+        assert_eq!(corpus.int8.len(), BLOCKS * 16);
+        for block in 0..BLOCKS {
+            let mut dot = 0i32;
+            for i in 0..64 {
+                let word = corpus.int4[block * 8 + i / 8];
+                let raw4 = (word >> (4 * (i % 8))) & 15;
+                let v4 = if raw4 >= 8 {
+                    raw4 as i32 - 16
+                } else {
+                    raw4 as i32
+                };
+                let word8 = corpus.int8[block * 16 + i / 4];
+                let raw8 = (word8 >> (8 * (i % 4))) & 255;
+                let v8 = if raw8 >= 128 {
+                    raw8 as i32 - 256
+                } else {
+                    raw8 as i32
+                };
+                assert_eq!(v4, v8, "INT4/INT8 coefficient block={block} i={i}");
+                let sign = (corpus.masks[block * 2 + i / 32] >> (i % 32)) & 1;
+                dot += if sign == 0 { v4 } else { -v4 };
+            }
+            assert_eq!(dot, corpus.expected[block], "scalar block={block}");
+        }
+    }
 }
