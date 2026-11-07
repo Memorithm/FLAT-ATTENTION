@@ -33,7 +33,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers vulkan-tools
       - name: Rust 1.89 and source checks
         run: |
-          rustup toolchain install 1.89.0 --profile minimal --component clippy rustfmt
+          rustup toolchain install 1.89.0 --profile minimal --component clippy --component rustfmt
           rustup default 1.89.0
           cargo fmt --all -- --check
           cargo check --locked --example bpb3_gpu_inference --features wgpu
