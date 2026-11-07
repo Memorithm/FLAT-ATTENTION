@@ -468,12 +468,11 @@ fn maa_f2_gpu_admission_feeds_sparse_attention_with_exact_candidate_identity() {
             "F2 GPU admission readback",
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         );
-        let mut encoder =
-            harness
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("MAA F2 GPU signature filtering"),
-                });
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("MAA F2 GPU signature filtering"),
+            });
         router
             .encode(
                 &harness.device,
@@ -512,9 +511,8 @@ fn maa_f2_gpu_admission_feeds_sparse_attention_with_exact_candidate_identity() {
 
     let candidates = StructuralCandidateSet::from_rows(shape, rows).expect("canonical CSR");
     let dense = forward_reference(&q, &k, &v, shape, config).expect("dense reference");
-    let host_sparse =
-        forward_reference_structural_sparse(&q, &k, &v, shape, config, &candidates)
-            .expect("masked sparse host oracle");
+    let host_sparse = forward_reference_structural_sparse(&q, &k, &v, shape, config, &candidates)
+        .expect("masked sparse host oracle");
     let (gpu_sparse, statuses, offsets, keys) =
         run_device(&harness, shape, &q, &k, &v, &candidates, config);
     let plan = StructuralDevicePlan::from_candidates(&candidates).expect("CSR plan");
