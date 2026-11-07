@@ -1,4 +1,4 @@
-name: BPB-3 physical Metal inference control
+name: BPB-3 Metal inference parity (hosted Mac can be virtual)
 
 on:
   pull_request:
@@ -38,7 +38,9 @@ jobs:
         run: |
           cargo fmt --all -- --check
           cargo clippy --locked --example bpb3_gpu_inference --features wgpu -- -D warnings
-      - name: Exact real-GPU inference parity and paired timings
+      - name: Check independent INT4 packing against scalar oracle
+        run: cargo test --locked --example bpb3_gpu_inference --features wgpu
+      - name: Exact GPU adapter parity and paired timings
         env:
           WGPU_BACKEND: metal
           BPB_GPU_REQUIRE_PHYSICAL: '0'
@@ -50,7 +52,7 @@ jobs:
           grep -q '^PASS_GPU_INFERENCE_STANDALONE' "$RUNNER_TEMP/bpb3-native-metal.txt"
           grep -q 'gpu_adapter=true' "$RUNNER_TEMP/bpb3-native-metal.txt"
           grep -q 'backend=Metal' "$RUNNER_TEMP/bpb3-native-metal.txt"
-          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-native-metal.txt")" -eq 3
+          test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-native-metal.txt")" -eq 4
       - name: Preserve native GPU parity evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
