@@ -145,7 +145,13 @@ fn packed_data() -> Corpus {
         int8.extend_from_slice(&packed8);
         inputs.extend_from_slice(&[mask as u32, (mask >> 32) as u32]);
     }
-    Corpus { bp, sym3, int8, masks: inputs, expected }
+    Corpus {
+        bp,
+        sym3,
+        int8,
+        masks: inputs,
+        expected,
+    }
 }
 
 fn as_bytes(words: &[u32]) -> Vec<u8> {
@@ -288,7 +294,13 @@ fn median(times: &mut [u128]) -> u128 {
 }
 
 fn main() {
-    let Corpus { bp, sym3, int8, masks, expected } = packed_data();
+    let Corpus {
+        bp,
+        sym3,
+        int8,
+        masks,
+        expected,
+    } = packed_data();
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
