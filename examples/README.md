@@ -49,6 +49,7 @@ them.
 | `pvp3b_fused2_bench` | PVP3b same-device PVP2 vec4 vs PVP3a fused2 benchmark over the preregistered K/G grid. |
 | `pvp3d_three_candidate_bench` | Separate PVP3d vec4/fused2/tile8 comparison: balanced six-order sampling, CPU oracle before/after timing, raw samples, software smoke, and separate opt-in native readback-transition control. |
 | `pvp_stage_diagnostic` | Separate correctness-only upload/reset/transform diagnosis with paired readbacks and an explicit native map-transition control. |
+| `bpb3_gpu_inference` | Model-independent BPB-3 vs packed INT3/INT8 resident dot-product kernels. Full 4096-block scalar oracle before and after submit/fence timing; Vulkan software checks are not physical-GPU evidence. |
 
 ```bash
 cargo run --release --features wgpu --example subgroup_bench
