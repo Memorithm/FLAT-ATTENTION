@@ -380,3 +380,183 @@ fn row_status_validation_rejects_malformed_readback() {
         Err(StructuralSparseWgpuError::NonBinaryRowStatus { row: 1, value: 2 })
     ));
 }
+
+/// Research-only F2/Hamming GPU admission -> exact structural sparse GPU attention.
+///
+/// This is a small deterministic smoke, **not** the frozen MAA-13d projector,
+/// not an end-to-end performance measurement and not a production route.
+#[test]
+fn maa_f2_gpu_admission_feeds_sparse_attention_with_exact_candidate_identity() {
+    use flat_attention::api::boolean_attention_signature::{
+        BooleanAttentionSignature, HammingAdmissionRule,
+    };
+    use flat_attention::api::wgpu_boolean_router::{
+        BooleanWgpuRouterPlan, WgpuBooleanRouterPipeline,
+    };
+
+    fn signed_bits(row: &[f32]) -> BooleanAttentionSignature {
+        assert_eq!(row.len(), 8);
+        let mut bits = 0u64;
+        for (index, value) in row.iter().enumerate() {
+            if *value >= 0.0 {
+                bits |= 1u64 << index;
+            }
+        }
+        BooleanAttentionSignature::new(8, vec![bits]).expect("valid 8-bit F2 signature")
+    }
+
+    fn router_buffer(
+        harness: &Harness,
+        values: &[u32],
+        label: &'static str,
+        usage: wgpu::BufferUsages,
+    ) -> wgpu::Buffer {
+        let mut bytes = Vec::with_capacity(values.len() * 4);
+        for value in values {
+            bytes.extend_from_slice(&value.to_ne_bytes());
+        }
+        let buffer = harness.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: bytes.len() as u64,
+            usage: usage | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        harness.queue.write_buffer(&buffer, 0, &bytes);
+        buffer
+    }
+
+    let Some(harness) = harness() else {
+        return;
+    };
+    let shape = AttentionShape {
+        batch: 1,
+        heads: 1,
+        seq_len: 9,
+        head_dim: 8,
+    };
+    let (q, _, v) = fixture(shape);
+    // The self-key guarantees one admissible candidate per query without
+    // introducing a hidden rescue/fallback outside the F2 predicate.
+    let k = q.clone();
+    let config = FlatAttentionConfig {
+        causal: false,
+        softmax_scale: None,
+    };
+    let signatures: Vec<_> = q.chunks_exact(shape.head_dim).map(signed_bits).collect();
+    let rule = HammingAdmissionRule::new(2, 8).expect("frozen local smoke threshold");
+    let router = WgpuBooleanRouterPipeline::new(&harness.device).expect("GPU F2 router");
+    let mut rows = Vec::with_capacity(shape.seq_len);
+
+    for query_index in 0..shape.seq_len {
+        let plan = BooleanWgpuRouterPlan::new(&signatures[query_index], &signatures, rule)
+            .expect("F2/Hamming host plan");
+        let query_buf = router_buffer(
+            &harness,
+            plan.query_words(),
+            "F2 query signature",
+            wgpu::BufferUsages::STORAGE,
+        );
+        let keys_buf = router_buffer(
+            &harness,
+            plan.key_words(),
+            "F2 key signatures",
+            wgpu::BufferUsages::STORAGE,
+        );
+        let admission_buf = router_buffer(
+            &harness,
+            &vec![0; shape.seq_len],
+            "F2 GPU admission readback",
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        );
+        let mut encoder = harness
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("MAA F2 GPU signature filtering"),
+            });
+        router
+            .encode(
+                &harness.device,
+                &mut encoder,
+                &query_buf,
+                &keys_buf,
+                &admission_buf,
+                &plan,
+            )
+            .expect("F2 GPU encode");
+        harness.queue.submit(Some(encoder.finish()));
+
+        let flags = read_u32(
+            &harness.device,
+            &harness.queue,
+            &admission_buf,
+            shape.seq_len,
+        );
+        assert!(
+            flags.iter().all(|flag| *flag <= 1),
+            "F2 router must emit only binary flags"
+        );
+        let selected: Vec<usize> = flags
+            .iter()
+            .enumerate()
+            .filter_map(|(key_index, flag)| (*flag == 1).then_some(key_index))
+            .collect();
+        assert_eq!(
+            selected,
+            plan.oracle_mask().admitted_blocks(),
+            "F2 WGPU route differs from bitwise Rust oracle"
+        );
+        assert!(selected.contains(&query_index), "self-key must survive");
+        rows.push(selected);
+    }
+
+    let candidates = StructuralCandidateSet::from_rows(shape, rows).expect("canonical CSR");
+    let dense = forward_reference(&q, &k, &v, shape, config).expect("dense reference");
+    let host_sparse = forward_reference_structural_sparse(&q, &k, &v, shape, config, &candidates)
+        .expect("masked sparse host oracle");
+    let (gpu_sparse, statuses, offsets, keys) =
+        run_device(&harness, shape, &q, &k, &v, &candidates, config);
+    let plan = StructuralDevicePlan::from_candidates(&candidates).expect("CSR plan");
+    assert_eq!(offsets, plan.offsets());
+    assert_eq!(keys, plan.key_positions());
+    validate_structural_sparse_row_status(&statuses, shape.seq_len).expect("no empty rows");
+
+    assert_close(
+        "F2 GPU->sparse GPU O",
+        &gpu_sparse.output,
+        &host_sparse.attention.output,
+        O_ATOL,
+        O_RTOL,
+    );
+    assert_close(
+        "F2 GPU->sparse GPU LSE",
+        &gpu_sparse.lse,
+        &host_sparse.attention.lse,
+        LSE_ATOL,
+        LSE_RTOL,
+    );
+    let max_output_error_vs_dense = gpu_sparse
+        .output
+        .iter()
+        .zip(dense.output.iter())
+        .map(|(actual, reference)| (actual - reference).abs())
+        .fold(0.0f32, f32::max);
+    let max_lse_error_vs_dense = gpu_sparse
+        .lse
+        .iter()
+        .zip(dense.lse.iter())
+        .map(|(actual, reference)| (actual - reference).abs())
+        .fold(0.0f32, f32::max);
+    println!(
+        "F2_GPU_SMOKE_VALIDATED selected={} total={} output_max_abs_error_vs_dense={} lse_max_abs_error_vs_dense={} physical_performance_claim=none",
+        candidates.admitted_count(),
+        shape.seq_len * shape.seq_len,
+        max_output_error_vs_dense,
+        max_lse_error_vs_dense
+    );
+    assert!(
+        candidates.admitted_count() < shape.seq_len * shape.seq_len,
+        "F2 smoke must actually filter at least one logical pair"
+    );
+    assert!(max_output_error_vs_dense.is_finite());
+    assert!(max_lse_error_vs_dense.is_finite());
+}
