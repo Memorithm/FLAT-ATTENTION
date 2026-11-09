@@ -23,6 +23,7 @@ mod holdout_eq;
 pub mod max_plus;
 pub mod qk_signature;
 pub mod qualification;
+pub mod rae_policy_audit;
 pub mod readiness;
 pub mod rising_edge;
 pub mod softmax_mass;
