@@ -57,7 +57,7 @@ jobs:
           test "$(grep -c '^PASS_GPU_BLOCK_ORACLE' "$RUNNER_TEMP/bpb3-metal.txt")" -eq 4
       - name: Retain hosted Metal study output
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: bpb3-gpu-metal-${{ github.sha }}
           path: ${{ runner.temp }}/bpb3-metal.txt
