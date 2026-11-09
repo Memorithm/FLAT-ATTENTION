@@ -39,7 +39,10 @@ pub enum CycloidExecutionError {
     Attention(FlatAttentionError),
     Structural(StructuralRoutingError),
     Cost(CycloidAttentionError),
-    InvalidRowCount { expected: usize, actual: usize },
+    InvalidRowCount {
+        expected: usize,
+        actual: usize,
+    },
     IneligibleCandidateKey {
         row: usize,
         candidate_id: u32,
