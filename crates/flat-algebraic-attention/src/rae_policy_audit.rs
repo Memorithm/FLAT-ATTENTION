@@ -42,10 +42,21 @@ pub enum RaeInputError {
     InvalidDimensions,
     EmptyOrExcessiveTrace,
     WrongMappingLength,
-    InvalidMapping { feature: usize, page: usize },
-    WrongWordCount { step: usize, actual: usize, expected: usize },
-    NonZeroPadding { step: usize },
-    NonIncreasingTick { step: usize },
+    InvalidMapping {
+        feature: usize,
+        page: usize,
+    },
+    WrongWordCount {
+        step: usize,
+        actual: usize,
+        expected: usize,
+    },
+    NonZeroPadding {
+        step: usize,
+    },
+    NonIncreasingTick {
+        step: usize,
+    },
 }
 
 impl fmt::Display for RaeInputError {
@@ -331,7 +342,12 @@ mod tests {
         assert_eq!(audit.total_rising_features, 1);
         assert_eq!(audit.total_falling_features, 1);
 
-        assert_eq!(audit.policy_counts(RaePolicy::AllPages).missed_required_pages, 0);
+        assert_eq!(
+            audit
+                .policy_counts(RaePolicy::AllPages)
+                .missed_required_pages,
+            0
+        );
         assert_eq!(audit.rows[0].policy_masks[1], vec![0b01]);
         assert_eq!(audit.rows[1].policy_masks[1], vec![0]);
         assert_eq!(audit.rows[1].counts[1].missed_required_pages, 1);
@@ -384,7 +400,10 @@ mod tests {
         );
         assert_eq!(
             audit_paired_page_policies(2, 2, &[0, 2], 0, &[0], &sample_steps()),
-            Err(RaeInputError::InvalidMapping { feature: 1, page: 2 })
+            Err(RaeInputError::InvalidMapping {
+                feature: 1,
+                page: 2
+            })
         );
     }
 
