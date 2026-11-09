@@ -214,7 +214,7 @@ pub fn audit_paired_page_policies(
             hybrid,
         ];
 
-        let counts = masks.map(|selected| calculate_counts(&selected, step.required_pages));
+        let counts = core::array::from_fn(|i| calculate_counts(&masks[i], step.required_pages));
         for (total, row) in totals.iter_mut().zip(counts) {
             total.accumulate(row);
         }
