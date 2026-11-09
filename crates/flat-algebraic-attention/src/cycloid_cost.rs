@@ -250,13 +250,21 @@ mod tests {
             original_key_indices: &[0],
             estimated_cost: cost(10, 10, 20, 20),
         };
-        let answer =
-            choose_costed_attention(&[0.0, 0.0], &[candidate], cost(0, 60, 40, 80), policy(), 1.0)
-                .unwrap();
+        let answer = choose_costed_attention(
+            &[0.0, 0.0],
+            &[candidate],
+            cost(0, 60, 40, 80),
+            policy(),
+            1.0,
+        )
+        .unwrap();
         assert_eq!(answer.selected_candidate_id, Some(3));
         assert_eq!(answer.original_key_indices, vec![0]);
         assert_eq!(answer.selected_estimated_ns, 40);
-        assert_eq!(answer.evidence[0].verdict, CycloidAttentionVerdict::CostFidelityCandidate);
+        assert_eq!(
+            answer.evidence[0].verdict,
+            CycloidAttentionVerdict::CostFidelityCandidate
+        );
     }
 
     #[test]
@@ -273,7 +281,10 @@ mod tests {
                 .unwrap();
         assert_eq!(answer.selected_candidate_id, None);
         assert_eq!(answer.original_key_indices, vec![0, 1]);
-        assert_eq!(answer.evidence[0].verdict, CycloidAttentionVerdict::LowRetainedMass);
+        assert_eq!(
+            answer.evidence[0].verdict,
+            CycloidAttentionVerdict::LowRetainedMass
+        );
     }
 
     #[test]
@@ -294,8 +305,14 @@ mod tests {
             choose_costed_attention(&[0.0, 0.0], &candidates, cost(0, 50, 50, 80), policy(), 1.0)
                 .unwrap();
         assert_eq!(answer.selected_candidate_id, None);
-        assert_eq!(answer.evidence[0].verdict, CycloidAttentionVerdict::NotFasterThanDense);
-        assert_eq!(answer.evidence[1].verdict, CycloidAttentionVerdict::ExcessiveReadBudget);
+        assert_eq!(
+            answer.evidence[0].verdict,
+            CycloidAttentionVerdict::NotFasterThanDense
+        );
+        assert_eq!(
+            answer.evidence[1].verdict,
+            CycloidAttentionVerdict::ExcessiveReadBudget
+        );
     }
 
     #[test]
