@@ -248,7 +248,10 @@ mod tests {
         let mut out = [1];
         for tick in 1..=4 {
             assert_eq!(
-                detector.sample_into(tick, &[0], &mut out).unwrap().rising_count,
+                detector
+                    .sample_into(tick, &[0], &mut out)
+                    .unwrap()
+                    .rising_count,
                 0
             );
             assert_eq!(out, [0]);
