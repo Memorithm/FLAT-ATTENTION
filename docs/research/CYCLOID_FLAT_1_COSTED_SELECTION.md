@@ -93,3 +93,47 @@ Source contracts:
 - docs/research/MAA_F2_FILTER_EVALUATION_2026_11_07.md
 - .agent/FLAT_ATTENTION_ECOSYSTEM_ROADMAP.yaml (agent/ecosystem-roadmap)
 - .agent/ML_MATURITY_5_OF_5.yaml (agent/ecosystem-roadmap)
+
+
+## CYCLOID-FLAT-2 — executable canonical sparse reference adapter
+
+The [Cycloid numerical adapter](../../crates/flat-algebraic-attention/src/cycloid_execution.rs)
+now exercises the existing authoritative structural attention oracles with
+the output of the cost/fidelity selector. This is functional Rust code:
+
+1. Validate **all** Q, K and V using the dense structural oracle.
+2. For every batch/head/query row, recompute full eligible Q·K scores in f64
+   from the original Q/K inputs. No sparse selection is allowed to skip
+   dense-reference numerical validation in this offline diagnostic.
+3. Reject out-of-range, causal-future, and other invalid route metadata.
+4. Compute a conservative max-|V| bound from the **actual entire head**,
+   not from a caller's underreported bound.
+5. Invoke existing \`choose_costed_attention\` with the supplied, frozen
+   dense/sparse cost profiles; preserve original key positions.
+6. Canonicalize the chosen query rows using
+   \`StructuralCandidateSet::from_rows\`.
+7. Run \`forward_reference_structural_sparse\` with original numerical Q/K/V,
+   and compare O/LSE against the independent all-accept dense oracle.
+8. Report actual logical executed query/key pairs and maximum numerical
+   output/LSE discrepancies. No physical GPU or memory metrics are inferred.
+
+Five tests cover real sparse attention output, dominant-key-drop dense
+fallback, causal-future rejection, invalid row-count rejection, and exact
+causal dense fallback.
+
+### Non-promotion boundaries
+
+This path **recomputes the dense attention scores** and executes an
+independent dense numerical oracle before choosing a candidate. It is
+therefore *necessarily slower in total algorithmic work* than an
+appropriately optimized dense-only kernel, all else equal. It is designed
+to qualify semantics and make cost/quality errors inspectable, not to be
+used for inference. The number of sparse query/key evaluations reported
+excludes the deliberate dense oracle and selector overhead.
+
+Actual speed research must replace that dense-oracle-dependent selector
+with a separately qualified precomputed/sparse or Boolean predicate,
+reuse original candidate identities and demonstrate a **net**
+end-to-end measured advantage under frozen quality budgets. A reduction
+in selected pair count alone is not that evidence. Runtime promotion
+requires all normal FLAT hardware and model-quality gates.
