@@ -12,9 +12,19 @@ use crate::rising_edge::{RisingEdgeDetector, RisingEdgeError, RisingEdgeEvidence
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PageWakeError {
     ZeroPageCount,
-    WrongFeatureMapLength { expected: usize, actual: usize },
-    InvalidPage { feature: usize, page: usize, page_count: usize },
-    WrongPageWordCount { expected: usize, actual: usize },
+    WrongFeatureMapLength {
+        expected: usize,
+        actual: usize,
+    },
+    InvalidPage {
+        feature: usize,
+        page: usize,
+        page_count: usize,
+    },
+    WrongPageWordCount {
+        expected: usize,
+        actual: usize,
+    },
     RisingEdge(RisingEdgeError),
 }
 
@@ -237,9 +247,7 @@ mod tests {
         assert_eq!(added, [0]);
         assert_eq!(router.latched_pages(), &[0b011]);
 
-        let fell = router
-            .sample_into(3, &[0], &mut wakes, &mut added)
-            .unwrap();
+        let fell = router.sample_into(3, &[0], &mut wakes, &mut added).unwrap();
         assert_eq!(fell.falling_features, 3);
         assert_eq!(fell.woken_pages, 0);
         assert_eq!(router.latched_pages(), &[0b011]);
@@ -344,15 +352,11 @@ mod tests {
         let mut router = RisingEdgePageRouter::new(1, 0, &[0], 1, &[0]).unwrap();
         let mut wakes = [0];
         let mut added = [0];
-        router
-            .sample_into(1, &[1], &mut wakes, &mut added)
-            .unwrap();
+        router.sample_into(1, &[1], &mut wakes, &mut added).unwrap();
         // The source remains active. The page stays logically latched,
         // while no new wake is emitted. A *new query* may still need
         // numerical attention to this page: a zero wake is NOT a skip mask.
-        router
-            .sample_into(2, &[1], &mut wakes, &mut added)
-            .unwrap();
+        router.sample_into(2, &[1], &mut wakes, &mut added).unwrap();
         assert_eq!(wakes, [0]);
         assert_eq!(router.latched_pages(), &[1]);
     }
