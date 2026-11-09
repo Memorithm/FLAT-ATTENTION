@@ -23,6 +23,7 @@ pub mod max_plus;
 pub mod qk_signature;
 pub mod qualification;
 pub mod readiness;
+pub mod rising_edge;
 pub mod softmax_mass;
 pub mod survivor_floor;
 pub mod survivor_set;
