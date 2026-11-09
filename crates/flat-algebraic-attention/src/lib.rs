@@ -12,6 +12,7 @@
 pub mod adaptive_repair;
 pub mod compact_preselection;
 pub mod cooperation;
+pub mod cycloid_cost;
 pub mod evidence;
 pub mod experiment;
 pub mod f2;
