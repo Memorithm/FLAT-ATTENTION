@@ -126,7 +126,7 @@ impl RisingEdgeDetector {
 }
 
 fn words_for(bit_width: usize) -> usize {
-    bit_width / 64 + usize::from(!bit_width.is_multiple_of(64))
+    bit_width / 64 + usize::from(bit_width % 64 != 0)
 }
 
 fn validate_words(bit_width: usize, words: &[u64]) -> Result<(), RisingEdgeError> {
