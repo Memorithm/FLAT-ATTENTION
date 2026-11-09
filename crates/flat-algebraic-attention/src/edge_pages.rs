@@ -164,7 +164,7 @@ impl RisingEdgePageRouter {
         let falling = current
             .iter()
             .zip(self.detector.previous())
-            .map(|(next, previous)| (previous & !next).count_ones() as usize)
+            .map(|(next, previous)| (*previous & !*next).count_ones() as usize)
             .sum();
 
         let RisingEdgeEvidence {
