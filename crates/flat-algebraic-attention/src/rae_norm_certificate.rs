@@ -93,9 +93,7 @@ impl RaeNormMassCertificate {
         maximum_dropped_mass: f64,
         maximum_output_error: f64,
     ) -> Result<bool, RaeCertError> {
-        if !maximum_dropped_mass.is_finite()
-            || !(0.0..=1.0).contains(&maximum_dropped_mass)
-        {
+        if !maximum_dropped_mass.is_finite() || !(0.0..=1.0).contains(&maximum_dropped_mass) {
             return Err(RaeCertError::InvalidDroppedMassBudget);
         }
         if !maximum_output_error.is_finite() || maximum_output_error < 0.0 {
@@ -331,15 +329,8 @@ mod tests {
         assert!(result.within_budgets(0.00005, 0.0001).unwrap());
 
         // Independent dense causal oracle ONLY in test code.
-        let actual = audit_causal_page_mass(
-            &[10.0, 0.0],
-            &[true, true],
-            &[0, 1],
-            2,
-            &[0b01],
-            1.0,
-        )
-        .unwrap();
+        let actual =
+            audit_causal_page_mass(&[10.0, 0.0], &[true, true], &[0, 1], 2, &[0b01], 1.0).unwrap();
         assert!(result.maximum_dropped_mass >= actual.softmax.dropped_mass());
     }
 
@@ -494,15 +485,8 @@ mod tests {
         pages[0].eligible_keys = 2;
         pages[64].eligible_keys = 3;
         pages[64].max_key_l2_norm = 1.0;
-        let result = certify_omitted_page_mass(
-            &[1, 0],
-            &pages,
-            &[0.0, 0.0],
-            0.0,
-            2.0,
-            versions(),
-        )
-        .unwrap();
+        let result =
+            certify_omitted_page_mass(&[1, 0], &pages, &[0.0, 0.0], 0.0, 2.0, versions()).unwrap();
         assert_eq!(result.page_count, 65);
         assert_eq!(result.selected_pages, 1);
         assert_eq!(result.selected_eligible_keys, 2);
