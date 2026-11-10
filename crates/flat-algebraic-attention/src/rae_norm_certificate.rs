@@ -278,7 +278,7 @@ fn log_add_exp(first: f64, second: f64) -> Option<f64> {
 }
 
 fn round_nonnegative_up(value: f64) -> f64 {
-    if value == 0.0 || value >= 1.0 && value == 1.0 {
+    if value == 0.0 || value == 1.0 {
         return value;
     }
     // A positive finite float's next bit-pattern represents nextUp.
