@@ -99,11 +99,9 @@ pub fn execute_cycloid_scenario_reference(
     rows: &[CycloidScenarioExecutionRow<'_>],
     policy: CycloidAttentionPolicy,
 ) -> Result<CycloidScenarioExecutionReport, CycloidScenarioExecutionError> {
-    let baseline_rows: Vec<_> = rows.iter().map(|row| row.baseline).collect();
-
-    // Checks the full Q/K/V oracle and every key mask/causal constraint before
-    // any scenario-dependent candidate filtering takes place.
-    let baseline = execute_cycloid_reference(q, k, v, shape, config, &baseline_rows, policy)?;
+    // Reject malformed row cardinality before any expensive dense oracle or
+    // per-row allocation. This is a caller/shape contract, not an inference
+    // opportunity; the numerical oracle remains the correctness authority.
     let query_count = shape.lse_len()?;
     if rows.len() != query_count {
         return Err(CycloidScenarioExecutionError::InvalidRowCount {
@@ -111,6 +109,11 @@ pub fn execute_cycloid_scenario_reference(
             actual: rows.len(),
         });
     }
+    let baseline_rows: Vec<_> = rows.iter().map(|row| row.baseline).collect();
+
+    // Checks the full Q/K/V oracle and every key mask/causal constraint before
+    // any scenario-dependent candidate filtering takes place.
+    let baseline = execute_cycloid_reference(q, k, v, shape, config, &baseline_rows, policy)?;
 
     let scale = f64::from(config.resolved_scale(shape.head_dim)?);
     let head_stride = shape
@@ -407,6 +410,26 @@ mod tests {
                     key_position: 1
                 }
             )
+        );
+    }
+
+    #[test]
+    fn malformed_original_row_cardinality_stops_before_dense_work() {
+        let result = execute_cycloid_scenario_reference(
+            &[],
+            &[],
+            &[],
+            shape(),
+            FlatAttentionConfig::default(),
+            &[],
+            policy(),
+        );
+        assert_eq!(
+            result,
+            Err(CycloidScenarioExecutionError::InvalidRowCount {
+                expected: 2,
+                actual: 0,
+            })
         );
     }
 
