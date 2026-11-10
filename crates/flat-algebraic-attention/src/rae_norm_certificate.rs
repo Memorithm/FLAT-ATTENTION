@@ -110,11 +110,11 @@ impl RaeNormMassCertificate {
 /// Assume reference score s_i = (q · k_i) * scale, scale >= 0, and
 /// scaled_query_l2_norm = ||q||_2 * scale (with no additive per-key bias).
 /// By Cauchy-Schwarz, each omitted logit in page p obeys
-/// s_i <= scaled_query_l2_norm * max_key_l2_norm[p].
+/// `s_i <= scaled_query_l2_norm * max_key_l2_norm[p]`.
 ///
 /// Let S = sum(exp(s_i)) over all currently eligible SELECTED keys, with
 /// exact scores provided by the caller, and
-/// U = sum_p eligible_key_count[p] * exp(q_scaled_norm * max_K_norm[p])
+/// `U = sum_p eligible_key_count[p] * exp(q_scaled_norm * max_K_norm[p])`
 /// over omitted pages. Then true dropped mass <= U/(S + U).
 /// Both sums are computed in log-space to avoid exp overflow.
 ///
