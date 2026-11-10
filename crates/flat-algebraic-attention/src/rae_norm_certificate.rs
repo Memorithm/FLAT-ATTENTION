@@ -261,16 +261,14 @@ pub fn certify_omitted_page_mass(
     if !raw_output_bound.is_finite() {
         return Err(RaeCertError::NumericalOverflow);
     }
-    let maximum_output_error = if raw_output_bound == 0.0
-        && maximum_dropped_mass > 0.0
-        && value_abs_bound > 0.0
-    {
-        // Preserve the strictly positive mathematical bound when the
-        // double multiplication itself underflows.
-        f64::from_bits(1)
-    } else {
-        round_nonnegative_up(raw_output_bound)
-    };
+    let maximum_output_error =
+        if raw_output_bound == 0.0 && maximum_dropped_mass > 0.0 && value_abs_bound > 0.0 {
+            // Preserve the strictly positive mathematical bound when the
+            // double multiplication itself underflows.
+            f64::from_bits(1)
+        } else {
+            round_nonnegative_up(raw_output_bound)
+        };
 
     Ok(RaeNormMassCertificate {
         page_count: pages.len(),
@@ -538,5 +536,4 @@ mod tests {
         assert!(candidate.maximum_output_error > 0.0);
         assert!(!candidate.within_budgets(0.0, 0.0).unwrap());
     }
-
 }
