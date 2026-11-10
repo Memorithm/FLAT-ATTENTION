@@ -29,6 +29,7 @@ pub mod rae_dirty_words;
 pub mod rae_mass_panel;
 pub mod rae_norm_certificate;
 pub mod rae_numeric_mass;
+pub mod rae_page_norm_ledger;
 pub mod rae_policy_audit;
 pub mod readiness;
 pub mod rising_edge;
