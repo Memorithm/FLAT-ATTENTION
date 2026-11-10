@@ -131,11 +131,8 @@ pub fn audit_causal_page_mass(
 
     let mut dense_eligible = Vec::with_capacity(scores.len());
     let mut selected_original_eligible = Vec::new();
-    for (key, ((score, &is_eligible), &page)) in scores
-        .iter()
-        .zip(eligible)
-        .zip(key_pages)
-        .enumerate()
+    for (key, ((score, &is_eligible), &page)) in
+        scores.iter().zip(eligible).zip(key_pages).enumerate()
     {
         if page >= page_count {
             return Err(RaeNumericMassError::OutOfRangeKeyPage { key, page });
@@ -156,10 +153,7 @@ pub fn audit_causal_page_mass(
         return Err(RaeNumericMassError::NoEligibleKeys);
     }
     let softmax = retained_softmax_mass(&dense_eligible, &selected_original_eligible)?;
-    let worst_case_output_error_bound = output_error_bound(
-        softmax.retained_mass(),
-        max_abs_value,
-    )?;
+    let worst_case_output_error_bound = output_error_bound(softmax.retained_mass(), max_abs_value)?;
     Ok(RaeNumericMassAudit {
         eligible_keys: dense_eligible.len(),
         selected_keys: selected_original_eligible.len(),
@@ -180,15 +174,8 @@ mod tests {
 
     #[test]
     fn misses_numerically_dominant_key_even_when_logical_page_counts_look_sparse() {
-        let result = audit_causal_page_mass(
-            &[100.0, 0.0],
-            &[true, true],
-            &[0, 1],
-            2,
-            &[0b10],
-            2.0,
-        )
-        .unwrap();
+        let result =
+            audit_causal_page_mass(&[100.0, 0.0], &[true, true], &[0, 1], 2, &[0b10], 2.0).unwrap();
         assert_eq!(result.selected_pages, 1);
         assert_eq!(result.selected_keys, 1);
         assert!(result.softmax.dropped_mass() > 0.999999);
@@ -198,15 +185,8 @@ mod tests {
 
     #[test]
     fn half_mass_is_detected_on_equal_scores() {
-        let result = audit_causal_page_mass(
-            &[0.0, 0.0],
-            &[true, true],
-            &[0, 1],
-            2,
-            &[0b01],
-            1.0,
-        )
-        .unwrap();
+        let result =
+            audit_causal_page_mass(&[0.0, 0.0], &[true, true], &[0, 1], 2, &[0b01], 1.0).unwrap();
         assert!((result.softmax.retained_mass() - 0.5).abs() < 1.0e-15);
         assert!((result.worst_case_output_error_bound - 1.0).abs() < 1.0e-15);
         assert!(result.within_oracle_budgets(0.5, 1.0).unwrap());
@@ -215,15 +195,9 @@ mod tests {
 
     #[test]
     fn causal_exclusion_happens_before_softmax_normalization() {
-        let result = audit_causal_page_mass(
-            &[1000.0, 0.0],
-            &[false, true],
-            &[0, 1],
-            2,
-            &[0b10],
-            3.0,
-        )
-        .unwrap();
+        let result =
+            audit_causal_page_mass(&[1000.0, 0.0], &[false, true], &[0, 1], 2, &[0b10], 3.0)
+                .unwrap();
         assert_eq!(result.eligible_keys, 1);
         assert_eq!(result.selected_keys, 1);
         assert_eq!(result.softmax.retained_mass(), 1.0);
@@ -249,15 +223,8 @@ mod tests {
 
     #[test]
     fn zero_candidate_keys_reports_full_drop_and_fails_budget_admission() {
-        let result = audit_causal_page_mass(
-            &[0.0, 0.0],
-            &[true, true],
-            &[0, 0],
-            2,
-            &[0b10],
-            1.0,
-        )
-        .unwrap();
+        let result =
+            audit_causal_page_mass(&[0.0, 0.0], &[true, true], &[0, 0], 2, &[0b10], 1.0).unwrap();
         assert_eq!(result.selected_pages, 1);
         assert_eq!(result.selected_keys, 0);
         assert_eq!(result.softmax.dropped_mass(), 1.0);
