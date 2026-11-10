@@ -125,6 +125,7 @@ impl RaeNormMassCertificate {
 /// - no positional/additive/masking score term violates the upper bound;
 /// - V bound is current for the exact referenced generation.
 /// - generation IDs are minted by an authoritative source, not caller guesses.
+///
 /// A mismatch is rejected; matching integers alone are not proof of provenance.
 ///
 /// This certificate does not read OMITTED keys and does not reconstruct dense
