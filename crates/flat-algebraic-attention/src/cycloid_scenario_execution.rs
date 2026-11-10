@@ -12,16 +12,14 @@ use core::fmt;
 use flat_attention::{AttentionShape, FlatAttentionConfig, FlatAttentionError};
 
 use crate::{
-    cycloid_cost::{
-        CycloidAttentionCandidate, CycloidAttentionPolicy,
-    },
+    cycloid_cost::{CycloidAttentionCandidate, CycloidAttentionPolicy},
     cycloid_execution::{
         execute_cycloid_reference, CycloidExecutionError, CycloidExecutionReport,
         CycloidExecutionRow,
     },
     cycloid_scenarios::{
-        choose_scenario_robust_attention, CycloidCostScenario,
-        CycloidRobustScenarioDecision, CycloidScenarioError,
+        choose_scenario_robust_attention, CycloidCostScenario, CycloidRobustScenarioDecision,
+        CycloidScenarioError,
     },
 };
 
@@ -46,10 +44,18 @@ pub struct CycloidScenarioExecutionReport {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CycloidScenarioExecutionError {
     Numerical(CycloidExecutionError),
-    Scenario { row: usize, source: CycloidScenarioError },
+    Scenario {
+        row: usize,
+        source: CycloidScenarioError,
+    },
     Attention(FlatAttentionError),
-    InvalidRowCount { expected: usize, actual: usize },
-    DecisionDrift { row: usize },
+    InvalidRowCount {
+        expected: usize,
+        actual: usize,
+    },
+    DecisionDrift {
+        row: usize,
+    },
     DenseOracleDrift,
 }
 
@@ -97,8 +103,7 @@ pub fn execute_cycloid_scenario_reference(
 
     // Checks the full Q/K/V oracle and every key mask/causal constraint before
     // any scenario-dependent candidate filtering takes place.
-    let baseline =
-        execute_cycloid_reference(q, k, v, shape, config, &baseline_rows, policy)?;
+    let baseline = execute_cycloid_reference(q, k, v, shape, config, &baseline_rows, policy)?;
     let query_count = shape.lse_len()?;
     if rows.len() != query_count {
         return Err(CycloidScenarioExecutionError::InvalidRowCount {
@@ -184,12 +189,7 @@ pub fn execute_cycloid_scenario_reference(
     if robust.dense != baseline.dense {
         return Err(CycloidScenarioExecutionError::DenseOracleDrift);
     }
-    for (row, (numeric, decision)) in robust
-        .decisions
-        .iter()
-        .zip(&robust_decisions)
-        .enumerate()
-    {
+    for (row, (numeric, decision)) in robust.decisions.iter().zip(&robust_decisions).enumerate() {
         if numeric.selected_candidate_id != decision.attention.selected_candidate_id
             || numeric.original_key_indices != decision.attention.original_key_indices
         {
@@ -208,8 +208,7 @@ pub fn execute_cycloid_scenario_reference(
 mod tests {
     use super::*;
     use crate::{
-        cycloid_cost::CycloidAttentionCost,
-        cycloid_scenarios::CycloidScenarioCandidateCost,
+        cycloid_cost::CycloidAttentionCost, cycloid_scenarios::CycloidScenarioCandidateCost,
     };
 
     fn shape() -> AttentionShape {
@@ -253,12 +252,24 @@ mod tests {
             },
         ];
         let first = [
-            CycloidScenarioCandidateCost { candidate_id: 1, cost: cost(20) },
-            CycloidScenarioCandidateCost { candidate_id: 2, cost: cost(40) },
+            CycloidScenarioCandidateCost {
+                candidate_id: 1,
+                cost: cost(20),
+            },
+            CycloidScenarioCandidateCost {
+                candidate_id: 2,
+                cost: cost(40),
+            },
         ];
         let second = [
-            CycloidScenarioCandidateCost { candidate_id: 1, cost: cost(80) },
-            CycloidScenarioCandidateCost { candidate_id: 2, cost: cost(30) },
+            CycloidScenarioCandidateCost {
+                candidate_id: 1,
+                cost: cost(80),
+            },
+            CycloidScenarioCandidateCost {
+                candidate_id: 2,
+                cost: cost(30),
+            },
         ];
         let scenarios = [
             CycloidCostScenario {
@@ -272,16 +283,13 @@ mod tests {
                 candidate_costs: &second,
             },
         ];
-        let rows = [
-            CycloidScenarioExecutionRow {
-                baseline: CycloidExecutionRow {
-                    candidate_routes: &candidates,
-                    dense_cost: cost(100),
-                },
-                scenarios: &scenarios,
-            };
-            2
-        ];
+        let rows = [CycloidScenarioExecutionRow {
+            baseline: CycloidExecutionRow {
+                candidate_routes: &candidates,
+                dense_cost: cost(100),
+            },
+            scenarios: &scenarios,
+        }; 2];
         let out = execute_cycloid_scenario_reference(
             &[0.0, 0.0],
             &[0.0, 0.0],
@@ -296,7 +304,10 @@ mod tests {
         assert_eq!(out.robust.dense.attention.output, vec![2.0, 2.0]);
         assert_eq!(out.robust.selected.attention.output, vec![3.0, 3.0]);
         assert_eq!(out.robust.selected.counters.executed_pairs, 2);
-        assert_eq!(out.robust_decisions[0].attention.selected_candidate_id, Some(2));
+        assert_eq!(
+            out.robust_decisions[0].attention.selected_candidate_id,
+            Some(2)
+        );
     }
 
     #[test]
@@ -311,19 +322,24 @@ mod tests {
             cost: cost(100),
         }];
         let scenarios = [
-            CycloidCostScenario { scenario_id: 1, dense_cost: cost(100), candidate_costs: &disqualified },
-            CycloidCostScenario { scenario_id: 2, dense_cost: cost(100), candidate_costs: &disqualified },
+            CycloidCostScenario {
+                scenario_id: 1,
+                dense_cost: cost(100),
+                candidate_costs: &disqualified,
+            },
+            CycloidCostScenario {
+                scenario_id: 2,
+                dense_cost: cost(100),
+                candidate_costs: &disqualified,
+            },
         ];
-        let rows = [
-            CycloidScenarioExecutionRow {
-                baseline: CycloidExecutionRow {
-                    candidate_routes: &candidates,
-                    dense_cost: cost(100),
-                },
-                scenarios: &scenarios,
-            };
-            2
-        ];
+        let rows = [CycloidScenarioExecutionRow {
+            baseline: CycloidExecutionRow {
+                candidate_routes: &candidates,
+                dense_cost: cost(100),
+            },
+            scenarios: &scenarios,
+        }; 2];
         let out = execute_cycloid_scenario_reference(
             &[0.0, 0.0],
             &[0.0, 0.0],
@@ -351,28 +367,37 @@ mod tests {
             cost: cost(5),
         }];
         let scenarios = [
-            CycloidCostScenario { scenario_id: 1, dense_cost: cost(100), candidate_costs: &cost_list },
-            CycloidCostScenario { scenario_id: 2, dense_cost: cost(100), candidate_costs: &cost_list },
+            CycloidCostScenario {
+                scenario_id: 1,
+                dense_cost: cost(100),
+                candidate_costs: &cost_list,
+            },
+            CycloidCostScenario {
+                scenario_id: 2,
+                dense_cost: cost(100),
+                candidate_costs: &cost_list,
+            },
         ];
-        let rows = [
-            CycloidScenarioExecutionRow {
-                baseline: CycloidExecutionRow {
-                    candidate_routes: &candidates,
-                    dense_cost: cost(100),
-                },
-                scenarios: &scenarios,
-            };
-            2
-        ];
+        let rows = [CycloidScenarioExecutionRow {
+            baseline: CycloidExecutionRow {
+                candidate_routes: &candidates,
+                dense_cost: cost(100),
+            },
+            scenarios: &scenarios,
+        }; 2];
         let err = execute_cycloid_scenario_reference(
             &[0.0, 0.0],
             &[0.0, 0.0],
             &[1.0, 3.0],
             shape(),
-            FlatAttentionConfig { causal: true, softmax_scale: None },
+            FlatAttentionConfig {
+                causal: true,
+                softmax_scale: None,
+            },
             &rows,
             policy(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(
             err,
             CycloidScenarioExecutionError::Numerical(
@@ -397,19 +422,24 @@ mod tests {
             cost: cost(10),
         }];
         let scenarios = [
-            CycloidCostScenario { scenario_id: 1, dense_cost: cost(100), candidate_costs: &forged },
-            CycloidCostScenario { scenario_id: 2, dense_cost: cost(100), candidate_costs: &forged },
+            CycloidCostScenario {
+                scenario_id: 1,
+                dense_cost: cost(100),
+                candidate_costs: &forged,
+            },
+            CycloidCostScenario {
+                scenario_id: 2,
+                dense_cost: cost(100),
+                candidate_costs: &forged,
+            },
         ];
-        let rows = [
-            CycloidScenarioExecutionRow {
-                baseline: CycloidExecutionRow {
-                    candidate_routes: &candidates,
-                    dense_cost: cost(100),
-                },
-                scenarios: &scenarios,
-            };
-            2
-        ];
+        let rows = [CycloidScenarioExecutionRow {
+            baseline: CycloidExecutionRow {
+                candidate_routes: &candidates,
+                dense_cost: cost(100),
+            },
+            scenarios: &scenarios,
+        }; 2];
         let err = execute_cycloid_scenario_reference(
             &[0.0, 0.0],
             &[0.0, 0.0],
@@ -418,7 +448,8 @@ mod tests {
             FlatAttentionConfig::default(),
             &rows,
             policy(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(
             err,
             CycloidScenarioExecutionError::Scenario {
