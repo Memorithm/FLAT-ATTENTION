@@ -27,9 +27,15 @@ pub struct RaeNumericalQuery<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RaeMassPanelError {
     EmptyPolicyAudit,
-    WrongQueryCount { expected: usize, actual: usize },
-    TickMismatch { row: usize, policy_tick: u64, numerical_tick: u64 },
-    WrongPolicyCount { row: usize, expected: usize, actual: usize },
+    WrongQueryCount {
+        expected: usize,
+        actual: usize,
+    },
+    TickMismatch {
+        row: usize,
+        policy_tick: u64,
+        numerical_tick: u64,
+    },
     InvalidMassBudget,
     InvalidOutputBudget,
     Numerical {
@@ -90,7 +96,9 @@ pub struct RaeMassPanel {
 impl RaeMassPanel {
     #[must_use]
     pub fn summary(&self, policy: RaePolicy) -> Option<&RaeMassPolicySummary> {
-        self.summaries.iter().find(|summary| summary.policy == policy)
+        self.summaries
+            .iter()
+            .find(|summary| summary.policy == policy)
     }
 }
 
@@ -137,24 +145,12 @@ pub fn audit_rae_numerical_panel(
         })
         .to_vec();
 
-    for (row, (selection_row, query)) in selection
-        .rows
-        .iter()
-        .zip(numerical_queries)
-        .enumerate()
-    {
+    for (row, (selection_row, query)) in selection.rows.iter().zip(numerical_queries).enumerate() {
         if selection_row.tick != query.tick {
             return Err(RaeMassPanelError::TickMismatch {
                 row,
                 policy_tick: selection_row.tick,
                 numerical_tick: query.tick,
-            });
-        }
-        if selection_row.policy_masks.len() != RAE_POLICY_COUNT {
-            return Err(RaeMassPanelError::WrongPolicyCount {
-                row,
-                expected: RAE_POLICY_COUNT,
-                actual: selection_row.policy_masks.len(),
             });
         }
         let mut points = Vec::with_capacity(RAE_POLICY_COUNT);
@@ -167,10 +163,18 @@ pub fn audit_rae_numerical_panel(
                 &selection_row.policy_masks[index],
                 query.max_abs_value,
             )
-            .map_err(|source| RaeMassPanelError::Numerical { row, policy, source })?;
+            .map_err(|source| RaeMassPanelError::Numerical {
+                row,
+                policy,
+                source,
+            })?;
             let within_budgets = numerical
                 .within_oracle_budgets(max_dropped_mass, max_output_error)
-                .map_err(|source| RaeMassPanelError::Numerical { row, policy, source })?;
+                .map_err(|source| RaeMassPanelError::Numerical {
+                    row,
+                    policy,
+                    source,
+                })?;
             let summary = &mut summaries[index];
             summary.queries += 1;
             summary.budget_failures += usize::from(!within_budgets);
@@ -253,12 +257,16 @@ mod tests {
         let active = panel.summary(RaePolicy::ActiveState).unwrap();
         assert!(active.worst_dropped_mass > 0.999999);
         assert!(active.worst_case_output_bound > 3.99999);
-        let hybrid = panel.summary(RaePolicy::RisingWithContextInvalidation).unwrap();
+        let hybrid = panel
+            .summary(RaePolicy::RisingWithContextInvalidation)
+            .unwrap();
         assert!(hybrid.worst_dropped_mass > 0.999999);
-        assert!(!panel.rows[1]
-            .for_policy(RaePolicy::RisingWithContextInvalidation)
-            .unwrap()
-            .within_budgets);
+        assert!(
+            !panel.rows[1]
+                .for_policy(RaePolicy::RisingWithContextInvalidation)
+                .unwrap()
+                .within_budgets
+        );
     }
 
     #[test]
