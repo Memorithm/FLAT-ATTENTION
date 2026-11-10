@@ -14,6 +14,7 @@ pub mod compact_preselection;
 pub mod cooperation;
 pub mod cycloid_cost;
 pub mod cycloid_execution;
+pub mod cycloid_scenario_execution;
 pub mod cycloid_scenarios;
 pub mod edge_pages;
 pub mod evidence;
