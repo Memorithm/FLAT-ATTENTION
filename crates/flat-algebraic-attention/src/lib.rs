@@ -25,6 +25,7 @@ mod holdout_eq;
 pub mod max_plus;
 pub mod qk_signature;
 pub mod qualification;
+pub mod rae_dirty_words;
 pub mod rae_mass_panel;
 pub mod rae_numeric_mass;
 pub mod rae_policy_audit;
