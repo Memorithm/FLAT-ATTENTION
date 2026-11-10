@@ -341,7 +341,9 @@ mod tests {
         let write = ledger.observe_key_write(64, &[3.0, 4.0], 1).unwrap();
         assert!(write.current_page_upper_norm >= 5.0);
         assert!(write.current_page_upper_norm < 5.00000000000001);
-        let huge = ledger.observe_key_write(0, &[1.0e200, 1.0e-200], 2).unwrap();
+        let huge = ledger
+            .observe_key_write(0, &[1.0e200, 1.0e-200], 2)
+            .unwrap();
         assert!(huge.current_page_upper_norm.is_finite());
         assert!(huge.current_page_upper_norm >= 1.0e200);
         assert_eq!(ledger.bounds_for_counts(&[0; 65]).unwrap().len(), 65);
