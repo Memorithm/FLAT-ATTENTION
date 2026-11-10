@@ -122,9 +122,7 @@ pub fn choose_scenario_robust_attention(
         }
         let dense_ns = total_ns(scenario.dense_cost)?;
         if dense_ns == 0 {
-            return Err(CycloidScenarioError::InvalidDenseCost(
-                scenario.scenario_id,
-            ));
+            return Err(CycloidScenarioError::InvalidDenseCost(scenario.scenario_id));
         }
         let mut costs = BTreeMap::new();
         for entry in scenario.candidate_costs {
@@ -200,8 +198,7 @@ pub fn choose_scenario_robust_attention(
                 let lhs = u128::from(current.0) * u128::from(*den);
                 let rhs = u128::from(*num) * u128::from(current.1);
                 lhs < rhs
-                    || (lhs == rhs
-                        && (current.2, current.3, current.4) < (*time, *bytes, *id))
+                    || (lhs == rhs && (current.2, current.3, current.4) < (*time, *bytes, *id))
             }
             None => true,
         };
@@ -212,9 +209,7 @@ pub fn choose_scenario_robust_attention(
                 .expect("baseline has already validated every candidate ID")
                 .original_key_indices
                 .to_vec();
-            best = Some((
-                current.0, current.1, current.2, current.3, current.4, keys,
-            ));
+            best = Some((current.0, current.1, current.2, current.3, current.4, keys));
         }
     }
     rejected.sort_unstable();
