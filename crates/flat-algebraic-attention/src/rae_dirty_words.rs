@@ -333,7 +333,7 @@ mod tests {
                 .unwrap();
 
             let to_mask = |pages: &[usize]| {
-                pages.iter().fold(0_u64, |mask, page| mask | (1_u64 << page))
+                pages.iter().fold(0_u64, |mask, page| mask | (1_u64 << *page))
             };
             assert_eq!(to_mask(&wakes), full_wakes[0]);
             assert_eq!(to_mask(&newly), full_newly[0]);
