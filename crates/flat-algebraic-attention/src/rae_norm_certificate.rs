@@ -247,11 +247,30 @@ pub fn certify_omitted_page_mass(
     // Round positive upper bounds *up* one representable float to avoid
     // accidentally claiming an exact threshold when numerical evaluation
     // rounded the conservative expression down.
-    let maximum_dropped_mass = round_nonnegative_up(mass.min(1.0));
+    // An omitted page with eligible keys has strictly positive exp-mass,
+    // even when the floating-point sigmoid underflows to numeric zero.
+    // Never certify *exact* zero omission merely because exp underflowed.
+    let maximum_dropped_mass = if omitted_key_count == 0 {
+        0.0
+    } else if mass == 0.0 {
+        f64::from_bits(1)
+    } else {
+        round_nonnegative_up(mass.min(1.0))
+    };
     let raw_output_bound = (2.0 * maximum_dropped_mass) * value_abs_bound;
     if !raw_output_bound.is_finite() {
         return Err(RaeCertError::NumericalOverflow);
     }
+    let maximum_output_error = if raw_output_bound == 0.0
+        && maximum_dropped_mass > 0.0
+        && value_abs_bound > 0.0
+    {
+        // Preserve the strictly positive mathematical bound when the
+        // double multiplication itself underflows.
+        f64::from_bits(1)
+    } else {
+        round_nonnegative_up(raw_output_bound)
+    };
 
     Ok(RaeNormMassCertificate {
         page_count: pages.len(),
@@ -259,7 +278,7 @@ pub fn certify_omitted_page_mass(
         selected_eligible_keys: selected_key_count,
         omitted_eligible_keys: omitted_key_count,
         maximum_dropped_mass,
-        maximum_output_error: round_nonnegative_up(raw_output_bound),
+        maximum_output_error,
     })
 }
 
@@ -495,4 +514,29 @@ mod tests {
         assert!(result.maximum_dropped_mass >= 0.6);
         assert!(result.maximum_dropped_mass < 0.600000000000001);
     }
+    #[test]
+    fn underflow_does_not_invent_exactly_zero_omitted_mass() {
+        let candidate = certify_omitted_page_mass(
+            &[0b01],
+            &[
+                RaeCausalPageBounds {
+                    eligible_keys: 1,
+                    max_key_l2_norm: 1000.0,
+                },
+                RaeCausalPageBounds {
+                    eligible_keys: 1,
+                    max_key_l2_norm: 0.0,
+                },
+            ],
+            &[1000.0],
+            1.0,
+            1.0,
+            versions(),
+        )
+        .unwrap();
+        assert!(candidate.maximum_dropped_mass > 0.0);
+        assert!(candidate.maximum_output_error > 0.0);
+        assert!(!candidate.within_budgets(0.0, 0.0).unwrap());
+    }
+
 }
