@@ -232,9 +232,7 @@ fn upper_l2_norm(key: &[f64]) -> Result<f64, RaeNormLedgerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rae_norm_certificate::{
-        certify_omitted_page_mass, RaeBoundVersions,
-    };
+    use crate::rae_norm_certificate::{certify_omitted_page_mass, RaeBoundVersions};
 
     fn versions(generation: u64) -> RaeBoundVersions {
         RaeBoundVersions {
@@ -338,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn 64_bit_page_boundary_and_stable_l2_rescaling_are_preserved() {
+    fn page_64_boundary_and_stable_l2_rescaling_are_preserved() {
         let mut ledger = RaeMonotoneKeyNormLedger::new_empty(65, 2, 0).unwrap();
         let write = ledger.observe_key_write(64, &[3.0, 4.0], 1).unwrap();
         assert!(write.current_page_upper_norm >= 5.0);
