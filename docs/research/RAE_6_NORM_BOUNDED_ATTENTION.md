@@ -80,6 +80,43 @@ selected original pages and upper estimates of omitted mass and output
 difference. The budget-predicate is explicitly **diagnostic**: it does
 not enable runtime attention skipping.
 
+## RAE-6b — maintaining page norms at key mutation time
+
+The same PR includes
+`rae_page_norm_ledger::RaeMonotoneKeyNormLedger`:
+
+- It is created **only for an initially empty K store** with known
+  page count, embedding dimension and initial K generation.
+- Each observed K insertion or replacement reads **only the written K
+  vector** to update its original page's maximum norm and the K
+  generation. No other K vector in that page is read.
+- A replacement by a lower-norm key does not shrink the stored bound:
+  this makes the metadata potentially looser, but conservatively
+  preserves an earlier valid upper bound when other keys could remain.
+- An observed deletion advances the generation without decreasing
+  the bound; exact eligible-key counts still come from a separate
+  query-specific causal count producer.
+- Query-time `bounds_for_counts` copies one small metadata pair/page,
+  not the skipped K vectors. It can feed
+  `certify_omitted_page_mass` directly.
+- Validation failures (bad page, shape, nonfinite key, overflow or
+  stale generation) do not mutate the ledger. The stable scaled-norm
+  algorithm reduces intermediate overflow risk but is not a formally
+  directed-rounding implementation.
+
+This provides a **concrete incremental source** for the previously
+external norm metadata, not just a new oracle over preexisting values.
+The producer must own *every* relevant K write/removal and must not be
+initialized against an unknown populated cache. Full cache reload,
+off-path mutation or key precision/scale change requires a verified
+rebuild/invalidating fallback. The ledger does not contain keys or
+values and cannot itself enforce upstream write completeness.
+
+The tests include a benign omitted zero-norm key that passes the
+numerical bound; an actual stronger K write to the same omitted page
+then increases its bound and causes the certificate to fail.
+Replacing/deleting that key does not incorrectly lower the bound.
+
 ## Preconditions that still need engineering evidence
 
 - Page norms must be computed **beforehand** from all current K vectors
@@ -145,6 +182,7 @@ required or authorized.
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked -p flat-algebraic-attention rae_norm_certificate
+cargo test --locked -p flat-algebraic-attention rae_page_norm_ledger
 cargo test --locked --workspace
 ```
 
