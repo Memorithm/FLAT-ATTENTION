@@ -327,13 +327,17 @@ mod tests {
                     (next != old).then_some(DirtyFeatureWord { index, next })
                 })
                 .collect::<Vec<_>>();
-            let observed = delta.apply_tick(tick, &dirty, &mut wakes, &mut newly).unwrap();
+            let observed = delta
+                .apply_tick(tick, &dirty, &mut wakes, &mut newly)
+                .unwrap();
             let reference = full
                 .sample_into(tick, &state, &mut full_wakes, &mut full_newly)
                 .unwrap();
 
             let to_mask = |pages: &[usize]| {
-                pages.iter().fold(0_u64, |mask, page| mask | (1_u64 << *page))
+                pages
+                    .iter()
+                    .fold(0_u64, |mask, page| mask | (1_u64 << *page))
             };
             assert_eq!(to_mask(&wakes), full_wakes[0]);
             assert_eq!(to_mask(&newly), full_newly[0]);
@@ -419,14 +423,24 @@ mod tests {
         let mut wakes = Vec::new();
         let mut newly = Vec::new();
         let record = router
-            .apply_tick(1, &[DirtyFeatureWord { index: 0, next: 1 }], &mut wakes, &mut newly)
+            .apply_tick(
+                1,
+                &[DirtyFeatureWord { index: 0, next: 1 }],
+                &mut wakes,
+                &mut newly,
+            )
             .unwrap();
         assert_eq!(record.woken_pages, 1);
         assert_eq!(router.first_snapshot_mismatch(&[1, 1]).unwrap(), Some(1));
         assert_eq!(router.last_tick(), 1);
         assert_eq!(router.previous(), &[1, 0]);
         router
-            .apply_tick(2, &[DirtyFeatureWord { index: 1, next: 1 }], &mut wakes, &mut newly)
+            .apply_tick(
+                2,
+                &[DirtyFeatureWord { index: 1, next: 1 }],
+                &mut wakes,
+                &mut newly,
+            )
             .unwrap();
         assert_eq!(router.first_snapshot_mismatch(&[1, 1]).unwrap(), None);
     }
@@ -439,11 +453,21 @@ mod tests {
         router.apply_tick(11, &[], &mut wakes, &mut newly).unwrap();
         assert!(wakes.is_empty());
         router
-            .apply_tick(12, &[DirtyFeatureWord { index: 0, next: 0 }], &mut wakes, &mut newly)
+            .apply_tick(
+                12,
+                &[DirtyFeatureWord { index: 0, next: 0 }],
+                &mut wakes,
+                &mut newly,
+            )
             .unwrap();
         assert!(wakes.is_empty());
         router
-            .apply_tick(13, &[DirtyFeatureWord { index: 0, next: 1 }], &mut wakes, &mut newly)
+            .apply_tick(
+                13,
+                &[DirtyFeatureWord { index: 0, next: 1 }],
+                &mut wakes,
+                &mut newly,
+            )
             .unwrap();
         assert_eq!(wakes, vec![0]);
         assert!(newly.is_empty());
