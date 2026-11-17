@@ -170,7 +170,7 @@ Every retained result MUST bind:
 - complete invocation/environment controls;
 - adapter name;
 - WGPU backend;
-- WGPU runtime identity (currently `wgpu/30.0.1` where applicable);
+- WGPU runtime identity (currently `wgpu/30.0.2` where applicable);
 - driver/runtime identity when exposed;
 - operating system and architecture;
 - shape, dtype, causal mode;
