@@ -38,9 +38,9 @@ impl PackedLaneCounts {
     fn better_lanes(&self, candidate: &Self) -> u64 {
         let mut equal = u64::MAX;
         let mut better = 0u64;
-        for (&current_bit, &candidate_bit) in
-            self.planes.iter().zip(candidate.planes.iter()).rev()
-        {
+        for index in (0..64).rev() {
+            let current_bit = self.planes[index];
+            let candidate_bit = candidate.planes[index];
             better |= equal & current_bit & !candidate_bit;
             equal &= !(current_bit ^ candidate_bit);
         }
