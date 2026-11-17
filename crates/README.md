@@ -59,6 +59,10 @@ with existing M13B Boolean routing. It does not alter default routing or
 |-------|------|
 | `flat-algebraic-attention` | Research-only packed-bit and algebraic attention foundations. |
 
+The [BPS-LSTM Boolean scan candidate](../docs/research/BPS_LSTM_BOOLEAN_SCAN.md)
+adds bit-sliced recurrent memory and an experimental discrete trainer **inside**
+`flat-algebraic-attention`. It does not change the stable attention API.
+
 ## How to treat these crates
 
 - Do not import a candidate crate from SciRust production code unless a
