@@ -75,6 +75,62 @@ impl RotatingTransition {
     }
 }
 
+/// Inclusive associative scan of explicitly supplied rotating Boolean maps.
+///
+/// This shared BPS-2/BPS-3 core does not assume every timestep has an event.
+/// Its identity transitions allow silent BPS-3 timesteps to retain exactly the
+/// same state as an event-sparse implementation. This is an algorithmic
+/// parallel-depth contract, not a speed or energy measurement.
+#[must_use]
+pub fn scan_rotating_states(
+    transitions: &[RotatingTransition],
+    initial_state: u64,
+) -> Vec<u64> {
+    let n = transitions.len();
+    let mut prefixes = transitions.to_vec();
+    let workers = thread::available_parallelism().map_or(1, |n| n.get().min(8));
+    let mut stride = 1usize;
+    while stride < n {
+        let mut next = vec![RotatingTransition::IDENTITY; n];
+        if n >= 128 && workers > 1 {
+            let chunk_size = n.div_ceil(workers);
+            thread::scope(|scope| {
+                for (chunk_index, chunk) in next.chunks_mut(chunk_size).enumerate() {
+                    let previous = &prefixes;
+                    scope.spawn(move || {
+                        let start = chunk_index * chunk_size;
+                        for (offset, result) in chunk.iter_mut().enumerate() {
+                            let index = start + offset;
+                            *result = if index < stride {
+                                previous[index]
+                            } else {
+                                previous[index - stride].then(previous[index])
+                            };
+                        }
+                    });
+                }
+            });
+        } else {
+            for index in 0..n {
+                next[index] = if index < stride {
+                    prefixes[index]
+                } else {
+                    prefixes[index - stride].then(prefixes[index])
+                };
+            }
+        }
+        prefixes = next;
+        if stride > n / 2 {
+            break;
+        }
+        stride *= 2;
+    }
+    prefixes
+        .iter()
+        .map(|transition| transition.apply(initial_state))
+        .collect()
+}
+
 /// Research-only recurrent network with a shared trainable predecessor offset.
 ///
 /// Gates are input-only (not state-dependent), permitting precomputation of
@@ -141,52 +197,12 @@ impl BooleanRotatingProgram {
     /// opportunistic and may be slower than serial evaluation.
     #[must_use]
     pub fn forward_scan(&self, inputs: &[u64], initial_state: u64) -> Vec<u64> {
-        let n = inputs.len();
-        let mut prefixes: Vec<RotatingTransition> =
+        let transitions: Vec<RotatingTransition> =
             inputs.iter().map(|&input| self.transition(input)).collect();
-        let workers = thread::available_parallelism().map_or(1, |n| n.get().min(8));
-        let mut stride = 1usize;
-        while stride < n {
-            let mut next = vec![RotatingTransition::IDENTITY; n];
-            if n >= 128 && workers > 1 {
-                let chunk_size = n.div_ceil(workers);
-                thread::scope(|scope| {
-                    for (chunk_index, chunk) in next.chunks_mut(chunk_size).enumerate() {
-                        let previous = &prefixes;
-                        scope.spawn(move || {
-                            let start = chunk_index * chunk_size;
-                            for (offset, result) in chunk.iter_mut().enumerate() {
-                                let index = start + offset;
-                                *result = if index < stride {
-                                    previous[index]
-                                } else {
-                                    previous[index - stride].then(previous[index])
-                                };
-                            }
-                        });
-                    }
-                });
-            } else {
-                for index in 0..n {
-                    next[index] = if index < stride {
-                        prefixes[index]
-                    } else {
-                        prefixes[index - stride].then(prefixes[index])
-                    };
-                }
-            }
-            prefixes = next;
-            if stride > n / 2 {
-                break;
-            }
-            stride *= 2;
-        }
-        inputs
-            .iter()
-            .zip(prefixes.iter())
-            .map(|(&input, &prefix)| {
-                prefix.apply(initial_state) & self.gates.output.evaluate(input)
-            })
+        scan_rotating_states(&transitions, initial_state)
+            .into_iter()
+            .zip(inputs.iter().copied())
+            .map(|(state, input)| state & self.gates.output.evaluate(input))
             .collect()
     }
 
