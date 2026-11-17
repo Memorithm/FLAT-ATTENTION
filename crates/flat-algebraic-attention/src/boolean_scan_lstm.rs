@@ -306,7 +306,7 @@ pub struct BooleanFitReport {
     pub epochs: usize,
 }
 
-fn validate_examples(
+pub(crate) fn validate_examples(
     examples: &[BooleanTrainingSequence<'_>],
     active_lanes: u64,
 ) -> Result<(), BooleanTrainError> {
