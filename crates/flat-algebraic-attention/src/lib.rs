@@ -11,6 +11,7 @@
 
 pub mod adaptive_repair;
 pub mod boolean_scan_lstm;
+pub mod boolean_scan_training;
 pub mod compact_preselection;
 pub mod cooperation;
 pub mod cycloid_cost;
