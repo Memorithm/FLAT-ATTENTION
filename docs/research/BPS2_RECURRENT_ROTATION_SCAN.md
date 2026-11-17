@@ -94,8 +94,10 @@ mandatory before merging. No test establishes energy/latency improvements.
 BPS-2b: disjoint cycle permutations and sparse destination-source maps
 with explicit closure/proof obligations; do not claim arbitrary fan-in.
 
-BPS-3: rising-edge-triggered updates, with correctness-preserving skip/wake
-protocols and explicit physical work accounting.
+BPS-3: [sampled rising-edge-triggered recurrence](BPS3_EDGE_GATED_RECURRENCE.md),
+with an exact identity step for quiet ticks, event-sparse execution and
+bit-for-bit equivalence to a dense semantic oracle and temporal scan.
+Physical-work and energy claims still require device measurements.
 
 BPS-4: train gates and topology jointly on held-out shifted-copy and
 selective-copy tasks, then compare with classic LSTM, minLSTM and BPS-1.
