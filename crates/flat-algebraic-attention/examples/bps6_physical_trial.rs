@@ -53,12 +53,7 @@ fn run(smoke: bool) -> Result<(), TrialError> {
             let modes = if pass % 2 == 0 { normal } else { reversed };
 
             for mode in modes {
-                let phase = format!(
-                    "R{:02}_D{:03}_{}",
-                    pass + 1,
-                    density,
-                    mode.short_label()
-                );
+                let phase = format!("R{:02}_D{:03}_{}", pass + 1, density, mode.short_label());
                 println!("BPS6_MARKER={phase}_BEGIN");
                 flush();
                 let trial = run_timed(mode, &workload, rounds)?;
