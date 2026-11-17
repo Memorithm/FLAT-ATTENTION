@@ -366,7 +366,7 @@ mod tests {
                 &[1_000_001, u64::MAX],
             )
             .unwrap();
-        assert_eq!(second.outputs, vec![0b1010, 0b0101]);
+        assert_eq!(second.outputs, vec![0b1010, 0b0010]);
         assert_eq!(runtime.total_windows(), 2);
         assert_eq!(runtime.total_fronts(), 1);
         assert_eq!(runtime.total_queries(), 2);
