@@ -1,7 +1,5 @@
 //! Deterministic host-only functional smoke for BPS-LSTM, not a benchmark.
-use flat_algebraic_attention::boolean_scan_lstm::{
-    BooleanGateProgram, BooleanTrainingSequence,
-};
+use flat_algebraic_attention::boolean_scan_lstm::{BooleanGateProgram, BooleanTrainingSequence};
 
 fn main() {
     let length = 4096usize;
