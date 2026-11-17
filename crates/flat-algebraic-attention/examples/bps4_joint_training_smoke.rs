@@ -19,8 +19,7 @@ fn main() {
     let train_targets = teacher.forward_dense(&train_inputs, 0, 1);
     let validation_inputs = [0u64, 1, 0, 0, 1, 0, 1, 0];
     let validation_initial_state = 1u64 << 3;
-    let validation_targets =
-        teacher.forward_dense(&validation_inputs, 0, validation_initial_state);
+    let validation_targets = teacher.forward_dense(&validation_inputs, 0, validation_initial_state);
     let train = [CoupledExample {
         inputs: &train_inputs,
         targets: &train_targets,
