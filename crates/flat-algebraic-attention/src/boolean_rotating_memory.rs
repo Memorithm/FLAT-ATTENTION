@@ -248,10 +248,11 @@ impl BooleanRotatingProgram {
         let mut previous_output = 0;
         for &input in inputs {
             let transported = state.rotate_left(self.recurrent_shift as u32);
-            let next = self.transition(input).apply(state);
+            let transition = self.transition(input);
+            let next = transition.apply(state);
             let output = next & self.gates.output.evaluate(input);
             activity.active_predecessor_bits +=
-                u128::from((transported & active_lanes).count_ones());
+                u128::from((transported & transition.keep & active_lanes).count_ones());
             activity.state_flips += u128::from(((next ^ state) & active_lanes).count_ones());
             activity.output_flips +=
                 u128::from(((output ^ previous_output) & active_lanes).count_ones());
@@ -472,6 +473,6 @@ mod tests {
         let events = model.logical_activity(&[0, 0, 0], 1, u64::MAX);
         assert_eq!(events.active_predecessor_bits, 3);
         assert_eq!(events.state_flips, 6);
-        assert_eq!(events.output_flips, 3);
+        assert_eq!(events.output_flips, 5);
     }
 }
