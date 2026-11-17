@@ -21,7 +21,7 @@ const ROUTER_WORKGROUP_SIZE: u32 = 64;
 /// Canonical research-only parity record for FLAT BKV-4 / KVLab BKV-K7.
 pub const BOOLEAN_KV_WGPU_PARITY_SCHEMA: &str = "flat.boolean-kv-wgpu-parity.v1";
 /// Lockfile-bound WGPU crate identity retained in parity execution provenance.
-pub const BOOLEAN_KV_WGPU_RUNTIME_ID: &str = "wgpu/30.0.1";
+pub const BOOLEAN_KV_WGPU_RUNTIME_ID: &str = "wgpu/30.0.2";
 
 const BOOLEAN_ROUTER_WGSL: &str = r#"
 struct Params {
@@ -778,7 +778,7 @@ mod tests {
         assert!(json.contains("\"source_revision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""));
         assert!(json.contains("\"backend\":\"Vulkan\""));
         assert!(json.contains("\"driver\":\"test-driver\""));
-        assert!(json.contains("\"wgpu_runtime\":\"wgpu/30.0.1\""));
+        assert!(json.contains("\"wgpu_runtime\":\"wgpu/30.0.2\""));
         assert!(json.contains("\"parity_checksum\":{\"algorithm\":\"fnv1a64\""));
     }
 
@@ -831,8 +831,8 @@ mod tests {
 
     #[test]
     fn parity_runtime_identity_matches_lockfile_wgpu_version() {
-        assert!(include_str!("../Cargo.lock").contains("name = \"wgpu\"\nversion = \"30.0.1\""));
-        assert_eq!(BOOLEAN_KV_WGPU_RUNTIME_ID, "wgpu/30.0.1");
+        assert!(include_str!("../Cargo.lock").contains("name = \"wgpu\"\nversion = \"30.0.2\""));
+        assert_eq!(BOOLEAN_KV_WGPU_RUNTIME_ID, "wgpu/30.0.2");
     }
 
     #[test]
