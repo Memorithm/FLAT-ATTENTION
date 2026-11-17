@@ -300,8 +300,8 @@ pub struct RotationFitReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::boolean_scan_lstm::UnaryGate;
+    use super::*;
 
     fn next_random(seed: &mut u64) -> u64 {
         *seed ^= *seed << 13;
@@ -332,7 +332,8 @@ mod tests {
                 next_random(&mut seed),
                 next_random(&mut seed),
                 (next_random(&mut seed) % 64) as u8,
-            ).unwrap();
+            )
+            .unwrap();
             let b = RotatingTransition::new(
                 next_random(&mut seed),
                 next_random(&mut seed),
@@ -345,7 +346,10 @@ mod tests {
             ).unwrap();
             let state = next_random(&mut seed);
             assert_eq!(a.then(b).then(c), a.then(b.then(c)));
-            assert_eq!(a.then(b).then(c).apply(state), c.apply(b.apply(a.apply(state))));
+            assert_eq!(
+                a.then(b).then(c).apply(state),
+                c.apply(b.apply(a.apply(state)))
+            );
             assert_eq!(a.then(RotatingTransition::IDENTITY), a);
             assert_eq!(RotatingTransition::IDENTITY.then(a), a);
         }
@@ -385,8 +389,14 @@ mod tests {
             let initial = next_random(&mut seed);
             let inputs: Vec<u64> = (0..37).map(|_| next_random(&mut seed)).collect();
             let program = BooleanRotatingProgram::new(gates, 0).unwrap();
-            assert_eq!(program.forward_serial(&inputs, initial), gates.forward_serial(&inputs, initial));
-            assert_eq!(program.forward_scan(&inputs, initial), gates.forward_scan(&inputs, initial));
+            assert_eq!(
+                program.forward_serial(&inputs, initial),
+                gates.forward_serial(&inputs, initial)
+            );
+            assert_eq!(
+                program.forward_scan(&inputs, initial),
+                gates.forward_scan(&inputs, initial)
+            );
         }
     }
 
