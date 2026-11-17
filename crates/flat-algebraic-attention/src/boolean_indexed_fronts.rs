@@ -197,7 +197,10 @@ pub fn certify_indexed_fronts_against_samples(
                 return Err(IndexedFrontError::SampledFrontMismatch { tick });
             }
             event_index += 1;
-        } else if fronts.get(event_index).is_some_and(|front| front.tick == tick) {
+        } else if fronts
+            .get(event_index)
+            .is_some_and(|front| front.tick == tick)
+        {
             return Err(IndexedFrontError::SampledFrontMismatch { tick });
         }
     }
@@ -235,8 +238,14 @@ mod tests {
         let run = program
             .forward_indexed_queries(&fronts, &queries, inputs.len() as u64, initial)
             .unwrap();
-        assert_eq!(run.outputs, program.forward_dense(inputs, baseline, initial));
-        assert_eq!(run.outputs, program.forward_event_scan(inputs, baseline, initial));
+        assert_eq!(
+            run.outputs,
+            program.forward_dense(inputs, baseline, initial)
+        );
+        assert_eq!(
+            run.outputs,
+            program.forward_event_scan(inputs, baseline, initial)
+        );
         let expected_end = fronts.iter().fold(initial, |state, front| {
             program.transition(front.rising).apply(state)
         });
@@ -280,8 +289,13 @@ mod tests {
     #[test]
     fn no_queries_still_evaluates_all_supplied_events_through_horizon() {
         let program = memory(1, u64::MAX);
-        let fronts = [IndexedFront { tick: 1, rising: 1 },
-            IndexedFront { tick: 1_000_000, rising: 1 }];
+        let fronts = [
+            IndexedFront { tick: 1, rising: 1 },
+            IndexedFront {
+                tick: 1_000_000,
+                rising: 1,
+            },
+        ];
         let run = program
             .forward_indexed_queries(&fronts, &[], 1_000_000, 1)
             .unwrap();
@@ -324,8 +338,10 @@ mod tests {
             certify_indexed_fronts_against_samples(&incorrect, &inputs, 0),
             Err(IndexedFrontError::SampledFrontMismatch { tick: 7 })
         );
-        let extra = [IndexedFront { tick: 1, rising: 1 },
-            IndexedFront { tick: 2, rising: 2 }];
+        let extra = [
+            IndexedFront { tick: 1, rising: 1 },
+            IndexedFront { tick: 2, rising: 2 },
+        ];
         assert_eq!(
             certify_indexed_fronts_against_samples(&extra, &inputs, 0),
             Err(IndexedFrontError::SampledFrontMismatch { tick: 2 })
@@ -337,17 +353,50 @@ mod tests {
         let program = memory(1, u64::MAX);
         let base = IndexedFront { tick: 2, rising: 1 };
         for (fronts, expected) in [
-            (vec![IndexedFront { tick: 0, rising: 1 }], IndexedFrontError::ZeroEventTick),
-            (vec![IndexedFront { tick: 2, rising: 0 }], IndexedFrontError::EmptyFront { tick: 2 }),
-            (vec![base, base], IndexedFrontError::NonIncreasingEvent { previous: 2, next: 2 }),
-            (vec![IndexedFront { tick: 5, rising: 1 }], IndexedFrontError::EventBeyondHorizon { tick: 5, horizon: 4 }),
+            (
+                vec![IndexedFront { tick: 0, rising: 1 }],
+                IndexedFrontError::ZeroEventTick,
+            ),
+            (
+                vec![IndexedFront { tick: 2, rising: 0 }],
+                IndexedFrontError::EmptyFront { tick: 2 },
+            ),
+            (
+                vec![base, base],
+                IndexedFrontError::NonIncreasingEvent {
+                    previous: 2,
+                    next: 2,
+                },
+            ),
+            (
+                vec![IndexedFront { tick: 5, rising: 1 }],
+                IndexedFrontError::EventBeyondHorizon {
+                    tick: 5,
+                    horizon: 4,
+                },
+            ),
         ] {
-            assert_eq!(program.forward_indexed_queries(&fronts, &[], 4, 1), Err(expected));
+            assert_eq!(
+                program.forward_indexed_queries(&fronts, &[], 4, 1),
+                Err(expected)
+            );
         }
         for (queries, expected) in [
             (vec![0], IndexedFrontError::ZeroQueryTick),
-            (vec![1, 1], IndexedFrontError::NonIncreasingQuery { previous: 1, next: 1 }),
-            (vec![5], IndexedFrontError::QueryBeyondHorizon { tick: 5, horizon: 4 }),
+            (
+                vec![1, 1],
+                IndexedFrontError::NonIncreasingQuery {
+                    previous: 1,
+                    next: 1,
+                },
+            ),
+            (
+                vec![5],
+                IndexedFrontError::QueryBeyondHorizon {
+                    tick: 5,
+                    horizon: 4,
+                },
+            ),
         ] {
             assert_eq!(
                 program.forward_indexed_queries(&[base], &queries, 4, 1),
@@ -365,11 +414,18 @@ mod tests {
                 seed ^= seed >> 7;
                 seed ^= seed << 17;
                 let program = BooleanEdgeProgram::new(
-                    UnaryGate { when_false: seed, when_true: seed.rotate_left(19) },
-                    UnaryGate { when_false: seed.rotate_right(9), when_true: !seed },
+                    UnaryGate {
+                        when_false: seed,
+                        when_true: seed.rotate_left(19),
+                    },
+                    UnaryGate {
+                        when_false: seed.rotate_right(9),
+                        when_true: !seed,
+                    },
                     seed.rotate_left(7),
                     shift,
-                ).unwrap();
+                )
+                .unwrap();
                 let initial = seed.rotate_right(11);
                 let baseline = seed.rotate_left(27);
                 let mut current = baseline;
@@ -378,8 +434,11 @@ mod tests {
                     seed ^= seed << 13;
                     seed ^= seed >> 7;
                     seed ^= seed << 17;
-                    if tick % 5 == 0 { current = seed; }
-                    else if tick % 3 == 0 { current = 0; }
+                    if tick % 5 == 0 {
+                        current = seed;
+                    } else if tick % 3 == 0 {
+                        current = 0;
+                    }
                     inputs.push(current);
                 }
                 let dense = program.forward_dense(&inputs, baseline, initial);
