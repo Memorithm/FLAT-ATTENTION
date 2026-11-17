@@ -25,8 +25,14 @@ fn main() {
         .forward_sparse(&samples, 0, 1)
         .expect("monotonic sampled sequence");
 
-    assert_eq!(sparse.outputs, dense, "sparse must match dense semantic oracle");
-    assert_eq!(scan, dense, "temporal scan must match dense semantic oracle");
+    assert_eq!(
+        sparse.outputs, dense,
+        "sparse must match dense semantic oracle"
+    );
+    assert_eq!(
+        scan, dense,
+        "temporal scan must match dense semantic oracle"
+    );
     assert_eq!(sparse.activity.sampled_steps, 1_024);
     assert_eq!(sparse.activity.eventful_steps, 2);
     assert_eq!(sparse.activity.skipped_identity_steps, 1_022);
@@ -35,7 +41,10 @@ fn main() {
     println!("candidate=bps3_event_gated_recurrence_v1");
     println!("samples={}", sparse.activity.sampled_steps);
     println!("eventful_steps={}", sparse.activity.eventful_steps);
-    println!("skipped_identity_steps={}", sparse.activity.skipped_identity_steps);
+    println!(
+        "skipped_identity_steps={}",
+        sparse.activity.skipped_identity_steps
+    );
     println!(
         "recurrent_transitions_evaluated={}",
         sparse.activity.evaluated_recurrent_steps
