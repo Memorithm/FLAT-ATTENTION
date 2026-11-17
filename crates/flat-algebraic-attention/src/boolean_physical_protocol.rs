@@ -175,10 +175,12 @@ pub fn run_mode(mode: TrialMode, workload: &ValidatedWorkload) -> Vec<u64> {
     match mode {
         TrialMode::OutputCopy => workload.outputs.clone(),
         TrialMode::Dense => program.forward_dense(&workload.inputs, 0, initial_state),
-        TrialMode::Sparse => program
-            .forward_sparse(&workload.inputs, 0, initial_state)
-            .expect("validated event stream always has increasing sample ticks")
-            .outputs,
+        TrialMode::Sparse => {
+            program
+                .forward_sparse(&workload.inputs, 0, initial_state)
+                .expect("validated event stream always has increasing sample ticks")
+                .outputs
+        }
         TrialMode::EventScan => program.forward_event_scan(&workload.inputs, 0, initial_state),
     }
 }
@@ -287,8 +289,14 @@ mod tests {
     #[test]
     fn resource_caps_reject_infeasible_requested_trials() {
         assert_eq!(exact_front_inputs(0, 10), Err(TrialError::InvalidSteps));
-        assert_eq!(exact_front_inputs(65_537, 10), Err(TrialError::InvalidSteps));
-        assert_eq!(exact_front_inputs(100, 101), Err(TrialError::InvalidDensity));
+        assert_eq!(
+            exact_front_inputs(65_537, 10),
+            Err(TrialError::InvalidSteps)
+        );
+        assert_eq!(
+            exact_front_inputs(100, 101),
+            Err(TrialError::InvalidDensity)
+        );
         let valid = validated_workload(64, 10).unwrap();
         assert_eq!(
             run_timed(TrialMode::Dense, &valid, 0),
