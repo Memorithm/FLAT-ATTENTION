@@ -32,9 +32,9 @@ fn main() {
     for (&tick, &output) in queries.iter().zip(&result.outputs) {
         assert_eq!(output, dense[(tick - 1) as usize]);
     }
-    let expected_last = events
-        .iter()
-        .fold(1, |state, front| program.transition(front.rising).apply(state));
+    let expected_last = events.iter().fold(1, |state, front| {
+        program.transition(front.rising).apply(state)
+    });
     assert_eq!(result.final_state, expected_last);
     println!(
         "BPS7_EVIDENCE source_sampled_steps={} indexed_events={} requested_queries={} event_recurrences={} dense_words_inspected_during_event_execution={} all_queries_match=true physical_energy_measured=false",
