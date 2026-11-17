@@ -28,7 +28,7 @@ pub struct Bps5Protocol {
     pub training: JointTrainPolicy,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Bps5Error {
     EmptySplit,
     TooManyEpisodes,
