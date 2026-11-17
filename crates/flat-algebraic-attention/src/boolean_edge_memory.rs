@@ -89,12 +89,7 @@ impl BooleanEdgeProgram {
     /// O(T log T) work, O(log T) dependency depth, O(T) memory.
     /// This does NOT skip identity transitions during scan construction.
     #[must_use]
-    pub fn forward_scan(
-        self,
-        inputs: &[u64],
-        baseline_input: u64,
-        initial_state: u64,
-    ) -> Vec<u64> {
+    pub fn forward_scan(self, inputs: &[u64], baseline_input: u64, initial_state: u64) -> Vec<u64> {
         let mut previous = baseline_input;
         let transitions: Vec<RotatingTransition> = inputs
             .iter()
@@ -402,7 +397,10 @@ mod tests {
         .unwrap();
         assert_eq!(program.transition(0), RotatingTransition::IDENTITY);
         assert_eq!(program.forward_dense(&[0, 0, 0], 0, 17), vec![17; 3]);
-        assert_eq!(program.forward_sparse(&[0, 0, 0], 0, 17).unwrap().outputs, vec![17; 3]);
+        assert_eq!(
+            program.forward_sparse(&[0, 0, 0], 0, 17).unwrap().outputs,
+            vec![17; 3]
+        );
     }
 
     #[test]
