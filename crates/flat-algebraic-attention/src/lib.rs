@@ -10,6 +10,7 @@
 //! `docs/research/COMPACT_PRESELECTION_BOOTSTRAP.md` and the companion roadmap.
 
 pub mod adaptive_repair;
+pub mod boolean_scan_lstm;
 pub mod compact_preselection;
 pub mod cooperation;
 pub mod cycloid_cost;
