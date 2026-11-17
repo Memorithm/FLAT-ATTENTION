@@ -9,14 +9,20 @@ use flat_algebraic_attention::boolean_sequenced_publisher::{
 
 fn main() {
     let program = BooleanEdgeProgram::new(
-        UnaryGate { when_false: u64::MAX, when_true: u64::MAX },
+        UnaryGate {
+            when_false: u64::MAX,
+            when_true: u64::MAX,
+        },
         UnaryGate::default(),
         u64::MAX,
         7,
     )
     .expect("valid rotation");
     let anchor = StreamAnchor {
-        source: SourceEpoch { source_id: 111, epoch_id: 2026 },
+        source: SourceEpoch {
+            source_id: 111,
+            epoch_id: 2026,
+        },
         next_sequence: 1,
         prior_commitment: 0x4e55_52bb_9b34_22f1,
         closed_through: 0,
