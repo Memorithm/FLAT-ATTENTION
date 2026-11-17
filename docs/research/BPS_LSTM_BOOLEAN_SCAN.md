@@ -4,7 +4,8 @@ Status: **research-only**. This is a compact Boolean recurrent-memory candidate,
 **not** a classical Hochreiter--Schmidhuber LSTM, a substitute for
 flat_attention::api::v1, or a demonstrated model-quality/energy improvement.
 
-Implementation: crates/flat-algebraic-attention/src/boolean_scan_lstm.rs
+Implementation: crates/flat-algebraic-attention/src/boolean_scan_lstm.rs and
+crates/flat-algebraic-attention/src/boolean_scan_training.rs
 
 ## Motivation and novelty boundary
 
@@ -68,16 +69,25 @@ equivalent to an FP32 LSTM.
 
 ## Discrete training
 
-The initial trainer minimizes a supervised Hamming loss by greedy,
-deterministic bit flips of the six packed truth-table parameters. Each change
-is accepted only when the total observed loss strictly improves.
+The reference trainer minimizes supervised Hamming loss by deterministic,
+greedy bit flips of the six packed truth-table parameters. The added packed
+trainer encodes 64 per-lane Hamming counters as 64 Boolean bit planes,
+increments them using XOR/AND ripple-carry operations, and compares candidate
+losses with a Boolean most-significant-bit comparator. It evaluates one
+candidate **per 64-lane gate mask**, then simultaneously accepts only the
+lanes with strictly lower error. This reduces candidate forward evaluations
+from up to 384 to 6 per epoch for the six parameter masks, at the cost of
+bit-plane counter work. Equivalence to lane-wise greedy coordinate descent
+is tested. The reduction is algorithmic, not a measured wall-clock benefit.
 
 This avoids floating-point gradients entirely. It does not constitute
 backpropagation-through-time, has no global-optimality guarantee, and presently
 learns **per-lane unary input-to-output dynamics only**. Cross-lane
 connections, multi-bit state depth and stronger learning rules are distinct
-research milestones. Training-time coordinate search is expensive and is not
-itself massively parallelized in this first slice.
+research milestones. The packed trainer processes all independent lanes in parallel using
+Boolean operations, but epochs and parameter-mask directions remain sequential.
+Cross-lane coupling would invalidate this independent-lane optimization until
+a different learning rule is qualified.
 
 ## Qualification and falsification
 
@@ -95,7 +105,11 @@ Run on the exact candidate SHA:
 
     cargo fmt --all -- --check
     cargo clippy -p flat-algebraic-attention --all-targets -- -D warnings
-    cargo test -p flat-algebraic-attention boolean_scan_lstm
+    cargo test -p flat-algebraic-attention boolean_scan
+
+Run the executable smoke:
+
+    cargo run -p flat-algebraic-attention --example bps_lstm_smoke
 
 These tests establish **correctness**, not language-model competence.
 
