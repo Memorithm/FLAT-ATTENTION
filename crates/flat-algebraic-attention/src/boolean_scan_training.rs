@@ -210,9 +210,7 @@ mod tests {
             program.fit_hamming_parallel_lanes(&dataset, 0, 2),
             Err(BooleanTrainError::EmptyActiveLanes)
         );
-        let report = program
-            .fit_hamming_parallel_lanes(&dataset, 1, 2)
-            .unwrap();
+        let report = program.fit_hamming_parallel_lanes(&dataset, 1, 2).unwrap();
         assert_eq!(report.final_loss, 0);
         assert_eq!(program.write.when_true & !1u64, 0);
     }
