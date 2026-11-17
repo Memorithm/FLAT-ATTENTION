@@ -82,10 +82,7 @@ impl RotatingTransition {
 /// same state as an event-sparse implementation. This is an algorithmic
 /// parallel-depth contract, not a speed or energy measurement.
 #[must_use]
-pub fn scan_rotating_states(
-    transitions: &[RotatingTransition],
-    initial_state: u64,
-) -> Vec<u64> {
+pub fn scan_rotating_states(transitions: &[RotatingTransition], initial_state: u64) -> Vec<u64> {
     let n = transitions.len();
     let mut prefixes = transitions.to_vec();
     let workers = thread::available_parallelism().map_or(1, |n| n.get().min(8));
