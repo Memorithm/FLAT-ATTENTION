@@ -120,11 +120,7 @@ impl FrontFrame {
     /// Compose a claim from an external producer. This does NOT verify the
     /// producer delivered every genuine front or actually owns the source ID.
     #[must_use]
-    pub fn claimed(
-        anchor: StreamAnchor,
-        watermark: u64,
-        fronts: Vec<IndexedFront>,
-    ) -> Self {
+    pub fn claimed(anchor: StreamAnchor, watermark: u64, fronts: Vec<IndexedFront>) -> Self {
         let mut frame = Self {
             version: FRONT_WIRE_VERSION,
             source: anchor.source,
@@ -169,11 +165,7 @@ impl SequencedFrontRuntime {
         limits: FrameLimits,
     ) -> Self {
         Self {
-            core: WatermarkedEdgeRuntime::new(
-                program,
-                anchor.closed_through,
-                initial_state,
-            ),
+            core: WatermarkedEdgeRuntime::new(program, anchor.closed_through, initial_state),
             source: anchor.source,
             next_sequence: anchor.next_sequence,
             prior_commitment: anchor.prior_commitment,
@@ -429,8 +421,7 @@ mod tests {
                     let frame = source
                         .publish_contiguous_samples(&samples[previous_end..end], 512)
                         .unwrap();
-                    let queries: Vec<u64> =
-                        ((previous_end as u64 + 1)..=end as u64).collect();
+                    let queries: Vec<u64> = ((previous_end as u64 + 1)..=end as u64).collect();
                     let answer = runtime.ingest(&frame, &queries).unwrap();
                     replies.extend(answer.data.outputs);
                     assert_eq!(answer.data.closed_through, end as u64);
@@ -460,9 +451,11 @@ mod tests {
         let b = publisher.publish_contiguous_samples(&[0, 1, 1], 4).unwrap();
         assert!(a.fronts.is_empty());
         assert_eq!(b.fronts, vec![IndexedFront { tick: 4, rising: 1 }]);
-        let mut runtime =
-            SequencedFrontRuntime::new(program(1, u64::MAX), 1, ANCHOR, LIMITS);
-        assert_eq!(runtime.ingest(&a, &[1, 2]).unwrap().data.outputs, vec![1, 1]);
+        let mut runtime = SequencedFrontRuntime::new(program(1, u64::MAX), 1, ANCHOR, LIMITS);
+        assert_eq!(
+            runtime.ingest(&a, &[1, 2]).unwrap().data.outputs,
+            vec![1, 1]
+        );
         assert_eq!(
             runtime.ingest(&b, &[3, 4, 5]).unwrap().data.outputs,
             vec![1, 2, 2]
@@ -473,13 +466,8 @@ mod tests {
     fn corrupt_data_gap_replay_epoch_source_and_version_quarantine_without_core_mutation() {
         let variants = 9;
         for case in 0..variants {
-            let mut runtime =
-                SequencedFrontRuntime::new(program(7, u64::MAX), 1, ANCHOR, LIMITS);
-            let valid = FrontFrame::claimed(
-                ANCHOR,
-                5,
-                vec![IndexedFront { tick: 2, rising: 1 }],
-            );
+            let mut runtime = SequencedFrontRuntime::new(program(7, u64::MAX), 1, ANCHOR, LIMITS);
+            let valid = FrontFrame::claimed(ANCHOR, 5, vec![IndexedFront { tick: 2, rising: 1 }]);
             let mut invalid = valid.clone();
             match case {
                 0 => invalid.version += 1,
@@ -500,14 +488,16 @@ mod tests {
             assert_eq!(runtime.closed_through(), before.closed_through());
             assert_eq!(runtime.next_sequence(), before.next_sequence());
             assert_eq!(runtime.prior_commitment(), before.prior_commitment());
-            assert_eq!(runtime.ingest(&valid, &[3]), Err(FrontFrameError::Quarantined));
+            assert_eq!(
+                runtime.ingest(&valid, &[3]),
+                Err(FrontFrameError::Quarantined)
+            );
         }
     }
 
     #[test]
     fn second_frame_gap_or_replay_is_rejected_after_successful_first_frame() {
-        let mut runtime =
-            SequencedFrontRuntime::new(program(1, u64::MAX), 1, ANCHOR, LIMITS);
+        let mut runtime = SequencedFrontRuntime::new(program(1, u64::MAX), 1, ANCHOR, LIMITS);
         let first = FrontFrame::claimed(ANCHOR, 5, vec![]);
         runtime.ingest(&first, &[1, 5]).unwrap();
         let second_anchor = StreamAnchor {
@@ -519,10 +509,16 @@ mod tests {
         let skipped = FrontFrame::claimed(second_anchor, 10, vec![]);
         assert!(matches!(
             runtime.ingest(&skipped, &[10]),
-            Err(FrontFrameError::WrongSequence { expected: 2, received: 3 })
+            Err(FrontFrameError::WrongSequence {
+                expected: 2,
+                received: 3
+            })
         ));
         assert_eq!(runtime.closed_through(), 5);
-        assert_eq!(runtime.ingest(&first, &[1]), Err(FrontFrameError::Quarantined));
+        assert_eq!(
+            runtime.ingest(&first, &[1]),
+            Err(FrontFrameError::Quarantined)
+        );
     }
 
     #[test]
@@ -533,17 +529,9 @@ mod tests {
             max_advance_ticks: 3,
         };
         for case in 0..4 {
-            let mut runtime = SequencedFrontRuntime::new(
-                program(1, u64::MAX),
-                1,
-                ANCHOR,
-                narrow,
-            );
-            let mut frame = FrontFrame::claimed(
-                ANCHOR,
-                3,
-                vec![IndexedFront { tick: 1, rising: 1 }],
-            );
+            let mut runtime = SequencedFrontRuntime::new(program(1, u64::MAX), 1, ANCHOR, narrow);
+            let mut frame =
+                FrontFrame::claimed(ANCHOR, 3, vec![IndexedFront { tick: 1, rising: 1 }]);
             let queries = match case {
                 0 => {
                     frame.watermark = 5;
@@ -611,12 +599,7 @@ mod tests {
         let mut runtime = SequencedFrontRuntime::new(p, 1, ANCHOR, LIMITS);
         let outputs = runtime.ingest(&missing, &[3]).unwrap().data.outputs;
         assert_ne!(outputs[0], p.forward_dense(&actual, 0, 1)[2]);
-        assert!(certify_indexed_fronts_against_samples(
-            &missing.fronts,
-            &actual,
-            0,
-        )
-        .is_err());
+        assert!(certify_indexed_fronts_against_samples(&missing.fronts, &actual, 0,).is_err());
         // Even an internally consistent 64-bit checksum cannot prove
         // completeness of an external event stream.
     }
@@ -644,11 +627,7 @@ mod tests {
 
     #[test]
     fn checksum_changes_with_every_bound_field_and_event() {
-        let frame = FrontFrame::claimed(
-            ANCHOR,
-            5,
-            vec![IndexedFront { tick: 2, rising: 1 }],
-        );
+        let frame = FrontFrame::claimed(ANCHOR, 5, vec![IndexedFront { tick: 2, rising: 1 }]);
         let base = frame.commitment;
         let mut changed = frame.clone();
         changed.fronts[0].tick = 3;
