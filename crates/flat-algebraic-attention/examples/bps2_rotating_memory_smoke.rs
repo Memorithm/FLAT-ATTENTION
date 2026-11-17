@@ -47,7 +47,10 @@ fn main() {
     println!("learned_rotation={}", report.selected_shift);
     println!("evaluated_rotations={}", report.evaluated_shifts);
     println!("scan_equals_serial=true");
-    println!("active_predecessor_bits={}", activity.active_predecessor_bits);
+    println!(
+        "active_predecessor_bits={}",
+        activity.active_predecessor_bits
+    );
     println!("state_flips={}", activity.state_flips);
     println!("energy_measurement=false");
     println!("performance_claim=none");
