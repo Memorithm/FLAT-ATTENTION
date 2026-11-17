@@ -1,8 +1,6 @@
 //! BPS-5 deterministic CSV report; research measurements, no physical energy.
 //! The scenarios are synthetic teacher-generated tasks, not FP32 LSTM baselines.
-use flat_algebraic_attention::boolean_benchmark_protocol::{
-    compare_bps3, Bps5Protocol, Bps5Score,
-};
+use flat_algebraic_attention::boolean_benchmark_protocol::{compare_bps3, Bps5Protocol, Bps5Score};
 use flat_algebraic_attention::boolean_coupled_learning::JointTrainPolicy;
 use flat_algebraic_attention::boolean_edge_memory::BooleanEdgeProgram;
 use flat_algebraic_attention::boolean_scan_lstm::UnaryGate;
