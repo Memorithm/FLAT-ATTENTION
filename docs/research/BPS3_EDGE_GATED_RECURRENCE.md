@@ -3,7 +3,7 @@
 Status: **research-only**. This prototype is not an exact LSTM, a
 semantics-preserving optimization of BPS-2 for arbitrary raw inputs, or
 a production routing change. It is an *explicitly different* event-driven
-model whose behavior can be evaluated by three equivalent execution paths.
+model whose behavior can be evaluated by four equivalent execution paths.
 
 Source: crates/flat-algebraic-attention/src/boolean_edge_memory.rs
 Shared prefix-scan core: crates/flat-algebraic-attention/src/boolean_rotating_memory.rs
@@ -46,21 +46,25 @@ quiet-step shortcut to that BPS-2 model would change its outputs.
 
 ## Exactness and executable oracles
 
-BPS-3 contains three independent evaluation paths:
+BPS-3 contains four complementary evaluation paths:
 
 1. **Dense semantic oracle:** samples each tick and always calls
    RotatingTransition.apply, using an identity transition on quiet ticks.
 2. **Sparse execution:** uses the qualified RisingEdgeDetector and
    bypasses the recurrent transition entirely on ticks without fronts,
    preserving the cached state and a constant readout mask.
-3. **Parallel prefix scan:** constructs identity or event transitions
-   for every sampled timestep, then evaluates the same associative
-   BPS-2 scan algebra. This path intentionally does *not* skip the
-   identity scan work.
+3. **Full temporal prefix scan:** constructs identity or event transitions
+   for every sampled timestep and evaluates the BPS-2 scan algebra.
+   This path intentionally does *not* skip identity scan work.
+4. **Event-only prefix scan:** materializes transitions only at eventful
+   sampled positions, scans those transitions with the same associative
+   engine and fills intervening output spans with the prior event state.
+   This is a correctness-preserving reduction in scan work when events
+   are rare, not a guarantee of shorter end-to-end execution.
 
-The shared BPS-2 scan engine is reused by BPS-2 and BPS-3, preventing
-two divergent composition implementations. Unit tests compare all
-three paths bit-for-bit on randomized masks and nonzero baselines,
+The shared BPS-2 scan engine is reused by BPS-2 and both BPS-3 scans,
+preventing divergent composition implementations. Unit tests compare
+all four paths bit-for-bit on randomized masks and nonzero baselines,
 lengths including 0/1/127/128/257, all selected rotations, and
 falling/rearming transitions.
 
@@ -78,8 +82,12 @@ For T supplied samples and E eventful samples (e[t] != 0):
 - Sparse recurrent transition evaluation: O(E) packed-word updates,
   with O(1) persistent runtime memory for one 64-bit state.
 - Dense semantic oracle: O(T) packed-word recurrence applications.
-- Temporal prefix scan: O(T log T) work, O(log T) dependency depth,
-  O(T) memory, with an opportunistic threaded CPU implementation.
+- Full temporal prefix scan: O(T log T) work, O(log T) scan dependency
+  depth, O(T) memory, with opportunistic host CPU threads.
+- Event-only prefix scan: O(E log E) scan work and O(log E) scan
+  dependency depth for E nonempty event steps; O(T) separate input
+  sampling and output writing remain sequential in this version.
+  The full pipeline therefore does NOT have O(log E) critical-path depth.
 
 Accounting reports sampled steps, eventful steps, skipped identity
 steps, rising bit events, executed recurrent steps, state flips and
