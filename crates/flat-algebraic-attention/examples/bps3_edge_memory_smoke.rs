@@ -21,6 +21,7 @@ fn main() {
 
     let dense = program.forward_dense(&samples, 0, 1);
     let scan = program.forward_scan(&samples, 0, 1);
+    let event_scan = program.forward_event_scan(&samples, 0, 1);
     let sparse = program
         .forward_sparse(&samples, 0, 1)
         .expect("monotonic sampled sequence");
@@ -33,6 +34,7 @@ fn main() {
         scan, dense,
         "temporal scan must match dense semantic oracle"
     );
+    assert_eq!(event_scan, dense, "event-only scan must match dense oracle");
     assert_eq!(sparse.activity.sampled_steps, 1_024);
     assert_eq!(sparse.activity.eventful_steps, 2);
     assert_eq!(sparse.activity.skipped_identity_steps, 1_022);
@@ -51,7 +53,7 @@ fn main() {
     );
     println!("rising_bits={}", sparse.activity.rising_bits);
     println!("state_flips={}", sparse.activity.state_flips);
-    println!("scan_equals_sparse_equals_dense=true");
+    println!("full_scan_equals_event_scan_equals_sparse_equals_dense=true");
     println!("physical_energy_measurement=false");
     println!("performance_claim=none");
 }
