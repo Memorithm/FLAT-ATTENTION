@@ -158,8 +158,8 @@ mod tests {
         for _ in 0..257 {
             counters.add_mask(mask).unwrap();
         }
-        assert_eq!(counters.total(mask), 514);
-        assert_eq!(counters.total(1), 257);
+        assert_eq!(counters.total(mask), Ok(514));
+        assert_eq!(counters.total(1), Ok(257));
 
         let mut lower = PackedLaneCounts::zero();
         for _ in 0..256 {
