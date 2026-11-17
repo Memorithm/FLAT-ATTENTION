@@ -338,12 +338,14 @@ mod tests {
                 next_random(&mut seed),
                 next_random(&mut seed),
                 (next_random(&mut seed) % 64) as u8,
-            ).unwrap();
+            )
+            .unwrap();
             let c = RotatingTransition::new(
                 next_random(&mut seed),
                 next_random(&mut seed),
                 (next_random(&mut seed) % 64) as u8,
-            ).unwrap();
+            )
+            .unwrap();
             let state = next_random(&mut seed);
             assert_eq!(a.then(b).then(c), a.then(b.then(c)));
             assert_eq!(
