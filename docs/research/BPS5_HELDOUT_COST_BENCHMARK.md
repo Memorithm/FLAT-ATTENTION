@@ -143,6 +143,15 @@ physical run is necessary for this correctness qualification.
 All normal FLAT-ATTENTION whole-workspace CI gates still apply to
 the candidate HEAD before merge.
 
+## BPS-6 exact-front physical-trial protocol
+
+[BPS-6](BPS6_PHYSICAL_TRIAL_PROTOCOL.md) now defines a bounded Rust CPU
+measurement executable with exact event-step rates and timed dense,
+sparse, event-scan and output-copy control phases. The Rust binary only
+emits measurement markers; it does **not** read energy hardware.
+Physical energy remains unmeasured unless a separately qualified trusted
+RemoteOps host observer produces source-pinned evidence.
+
 ## TDI / RemoteOps physical qualification — still required
 
 This commit **does not** run an unsupervised benchmark or modify

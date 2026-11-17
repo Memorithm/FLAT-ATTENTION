@@ -13,6 +13,7 @@ pub mod adaptive_repair;
 pub mod boolean_benchmark_protocol;
 pub mod boolean_coupled_learning;
 pub mod boolean_edge_memory;
+pub mod boolean_physical_protocol;
 pub mod boolean_rotating_memory;
 pub mod boolean_scan_lstm;
 pub mod boolean_scan_training;
