@@ -237,11 +237,10 @@ mod tests {
             .unwrap();
         assert_eq!(run.outputs, program.forward_dense(inputs, baseline, initial));
         assert_eq!(run.outputs, program.forward_event_scan(inputs, baseline, initial));
-        assert_eq!(run.final_state, program.forward_dense(inputs, baseline, initial).last().map_or(initial, |x| {
-            // This particular helper uses full readout to check state in
-            // separate tests; a masked output is not a full memory snapshot.
-            if mask == u64::MAX { *x } else { run.final_state }
-        }));
+        let expected_end = fronts.iter().fold(initial, |state, front| {
+            program.transition(front.rising).apply(state)
+        });
+        assert_eq!(run.final_state, expected_end);
         assert_eq!(run.executed_eventful_steps, fronts.len());
         assert_eq!(run.sampled_input_words_inspected, 0);
     }
