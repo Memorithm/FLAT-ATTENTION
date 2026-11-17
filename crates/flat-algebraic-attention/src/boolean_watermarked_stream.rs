@@ -14,9 +14,7 @@
 //! No wall-time, energy or learning advantage is established by these counts.
 
 use super::boolean_edge_memory::BooleanEdgeProgram;
-use super::boolean_indexed_fronts::{
-    validate_indexed_fronts, IndexedFront, IndexedFrontError,
-};
+use super::boolean_indexed_fronts::{validate_indexed_fronts, IndexedFront, IndexedFrontError};
 
 /// Any unsuccessful batch leaves the entire runtime unchanged.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,11 +58,7 @@ impl WatermarkedEdgeRuntime {
     /// subsequently be ingested. The caller supplies memory at that point,
     /// not a baseline raw input word.
     #[must_use]
-    pub const fn new(
-        program: BooleanEdgeProgram,
-        baseline_tick: u64,
-        initial_state: u64,
-    ) -> Self {
+    pub const fn new(program: BooleanEdgeProgram, baseline_tick: u64, initial_state: u64) -> Self {
         Self {
             program,
             state: initial_state,
@@ -183,7 +177,10 @@ impl WatermarkedEdgeRuntime {
         let mut outputs = Vec::with_capacity(queries.len());
         for &tick in queries {
             while event_index < fronts.len() && fronts[event_index].tick <= tick {
-                state = self.program.transition(fronts[event_index].rising).apply(state);
+                state = self
+                    .program
+                    .transition(fronts[event_index].rising)
+                    .apply(state);
                 event_index += 1;
             }
             outputs.push(state & self.program.readout_mask);
@@ -324,13 +321,7 @@ mod tests {
                     cuts.push(length as u64);
                 }
                 oracle_windows(
-                    program,
-                    &inputs,
-                    baseline,
-                    initial,
-                    &fronts,
-                    &queries,
-                    &cuts,
+                    program, &inputs, baseline, initial, &fronts, &queries, &cuts,
                 );
             }
         }
@@ -340,11 +331,25 @@ mod tests {
     fn watermark_at_event_tick_is_visible_in_same_tick_query() {
         let mut runtime = WatermarkedEdgeRuntime::new(rotating(1, u64::MAX), 0, 1);
         let first = runtime
-            .advance_window(10, &[IndexedFront { tick: 10, rising: 1 }], &[1, 10])
+            .advance_window(
+                10,
+                &[IndexedFront {
+                    tick: 10,
+                    rising: 1,
+                }],
+                &[1, 10],
+            )
             .unwrap();
         assert_eq!(first.outputs, vec![1, 2]);
         let next = runtime
-            .advance_window(12, &[IndexedFront { tick: 12, rising: 1 }], &[11, 12])
+            .advance_window(
+                12,
+                &[IndexedFront {
+                    tick: 12,
+                    rising: 1,
+                }],
+                &[11, 12],
+            )
             .unwrap();
         assert_eq!(next.outputs, vec![2, 4]);
         assert_eq!(runtime.state(), 4);
@@ -406,7 +411,10 @@ mod tests {
             ),
             (
                 10,
-                vec![IndexedFront { tick: 12, rising: 1 }],
+                vec![IndexedFront {
+                    tick: 12,
+                    rising: 1,
+                }],
                 vec![],
                 WatermarkedError::Front(IndexedFrontError::EventBeyondHorizon {
                     tick: 12,
@@ -450,13 +458,10 @@ mod tests {
             assert_eq!(runtime, prior);
         }
         assert_eq!(
-            runtime.advance_window(
-                10,
-                &[IndexedFront { tick: 6, rising: 1 }],
-                &[10]
-            )
-            .unwrap()
-            .outputs,
+            runtime
+                .advance_window(10, &[IndexedFront { tick: 6, rising: 1 }], &[10])
+                .unwrap()
+                .outputs,
             vec![4]
         );
     }
@@ -470,8 +475,14 @@ mod tests {
                 100,
                 &[
                     IndexedFront { tick: 2, rising: 1 },
-                    IndexedFront { tick: 50, rising: 1 },
-                    IndexedFront { tick: 50, rising: 3 },
+                    IndexedFront {
+                        tick: 50,
+                        rising: 1
+                    },
+                    IndexedFront {
+                        tick: 50,
+                        rising: 3
+                    },
                 ],
                 &[1, 4],
             ),
@@ -496,7 +507,10 @@ mod tests {
         let mut runtime = WatermarkedEdgeRuntime::new(program, 0, 1);
         let incomplete = [complete[0]];
         let outcome = runtime.advance_window(3, &incomplete, &[3]).unwrap();
-        assert_ne!(outcome.outputs, vec![program.forward_dense(&input, 0, 1)[2]]);
+        assert_ne!(
+            outcome.outputs,
+            vec![program.forward_dense(&input, 0, 1)[2]]
+        );
         assert_eq!(
             certify_indexed_fronts_against_samples(&incomplete, &input, 0),
             Err(IndexedFrontError::SampledFrontMismatch { tick: 3 })
