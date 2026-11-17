@@ -104,6 +104,17 @@ and requests only sparse outputs. It retains no previous window events
 inside the runtime but independently constructs and certifies the
 sample-derived event feed for correctness. It reports no physical energy.
 
+## BPS-9 sequence and epoch admission
+
+[BPS-9 sequenced front frames](BPS9_SEQUENCED_FRONTS.md) add a
+source-bound epoch, gap-free frame sequence, predecessor watermark and
+deterministic content/chain checksum to BPS-8. Invalid frames put the
+session in quarantine without mutating the last accepted Boolean state.
+A contiguous sampled-word reference publisher proves equivalence to
+the samples provided and correctly handles cross-frame re-arming.
+The checksum is **not** a cryptographic signature, and upstream
+source completeness/authentication remains a separate production gate.
+
 ## Next source-authenticated integration gate
 
 Before use in a live V888/SML/FLAT control loop, a separate versioned
