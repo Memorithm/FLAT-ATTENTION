@@ -312,6 +312,7 @@ mod tests {
         assert_eq!(sparse.activity.state_flips, 0);
         assert_eq!(program.forward_dense(&inputs, 1, 5), sparse.outputs);
         assert_eq!(program.forward_scan(&inputs, 1, 5), sparse.outputs);
+        assert_eq!(program.forward_event_scan(&inputs, 1, 5), sparse.outputs);
     }
 
     #[test]
@@ -327,6 +328,7 @@ mod tests {
         assert_eq!(sparse.activity.state_flips, 4);
         assert_eq!(program.forward_dense(&inputs, 0, 1), expected);
         assert_eq!(program.forward_scan(&inputs, 0, 1), expected);
+        assert_eq!(program.forward_event_scan(&inputs, 0, 1), expected);
     }
 
     #[test]
@@ -376,8 +378,10 @@ mod tests {
                 let dense = program.forward_dense(&inputs, baseline, initial);
                 let sparse = program.forward_sparse(&inputs, baseline, initial).unwrap();
                 let scan = program.forward_scan(&inputs, baseline, initial);
+                let event_scan = program.forward_event_scan(&inputs, baseline, initial);
                 assert_eq!(dense, sparse.outputs, "length={length}, shift={shift}");
                 assert_eq!(scan, dense, "length={length}, shift={shift}");
+                assert_eq!(event_scan, dense, "length={length}, shift={shift}");
                 assert_eq!(
                     sparse.activity.sampled_steps,
                     sparse.activity.eventful_steps + sparse.activity.skipped_identity_steps
