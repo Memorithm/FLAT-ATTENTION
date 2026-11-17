@@ -13,14 +13,14 @@ fn main() {
     }
 
     let mut model = BooleanGateProgram::default();
-    let single_lane = [0u64, 1, 0, 1, 1, 0];
+    let training_bits = [0u64, u64::MAX, 0, u64::MAX, u64::MAX, 0];
     let dataset = [BooleanTrainingSequence {
-        inputs: &single_lane,
-        targets: &single_lane,
+        inputs: &training_bits,
+        targets: &training_bits,
         initial_state: 0,
     }];
     let report = model
-        .fit_hamming(&dataset, 1, 4)
+        .fit_hamming_parallel_lanes(&dataset, u64::MAX, 4)
         .expect("valid Boolean supervised training task");
     assert_eq!(report.final_loss, 0, "toy task must be learned");
 
@@ -28,9 +28,11 @@ fn main() {
     let scanned = model.forward_scan(&inputs, 0);
     assert_eq!(serial, scanned, "scan must equal sequential reference");
 
-    let activity = model.logical_activity(&inputs, 0, 1);
+    let activity = model.logical_activity(&inputs, 0, u64::MAX);
     println!("candidate=bps_lstm_boolean_scan_v0");
     println!("lanes_per_word=64");
+    println!("trained_lanes=64");
+    println!("trainer=bit_sliced_parallel_lanes");
     println!("sequence_length={length}");
     println!("scan_equals_serial=true");
     println!("initial_hamming_loss={}", report.initial_loss);
