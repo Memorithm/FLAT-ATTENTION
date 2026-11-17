@@ -149,9 +149,7 @@ impl BooleanGateProgram {
         inputs
             .iter()
             .zip(prefixes.iter())
-            .map(|(&input, &prefix)| {
-                prefix.apply(initial_state) & self.output.evaluate(input)
-            })
+            .map(|(&input, &prefix)| prefix.apply(initial_state) & self.output.evaluate(input))
             .collect()
     }
 
@@ -265,7 +263,9 @@ impl BooleanGateProgram {
                 state = self.transition(input).apply(state);
                 let output = state & self.output.evaluate(input);
                 let errors = u64::from(((output ^ target) & active_lanes).count_ones());
-                loss = loss.checked_add(errors).ok_or(BooleanTrainError::LossOverflow)?;
+                loss = loss
+                    .checked_add(errors)
+                    .ok_or(BooleanTrainError::LossOverflow)?;
             }
         }
         Ok(loss)
@@ -365,7 +365,10 @@ mod tests {
             };
             let state = next_random(&mut seed);
             assert_eq!(a.then(b).then(c), a.then(b.then(c)));
-            assert_eq!(a.then(b).then(c).apply(state), c.apply(b.apply(a.apply(state))));
+            assert_eq!(
+                a.then(b).then(c).apply(state),
+                c.apply(b.apply(a.apply(state)))
+            );
             assert_eq!(a.then(BooleanTransition::IDENTITY), a);
             assert_eq!(BooleanTransition::IDENTITY.then(a), a);
         }
