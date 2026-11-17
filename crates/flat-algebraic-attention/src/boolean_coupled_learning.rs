@@ -105,8 +105,7 @@ impl CoupledModel {
         active_output_lanes: u64,
         policy: JointTrainPolicy,
     ) -> Result<JointTrainReport, JointTrainError> {
-        validate_cases(train, active_output_lanes)
-            .map_err(JointTrainError::InvalidTraining)?;
+        validate_cases(train, active_output_lanes).map_err(JointTrainError::InvalidTraining)?;
         validate_cases(validation, active_output_lanes)
             .map_err(JointTrainError::InvalidValidation)?;
         if policy.max_epochs == 0 {
@@ -271,13 +270,8 @@ impl CoupledModel {
                     .expect("rotation search always uses a valid offset"),
             ),
             Self::RisingEdge(program) => Self::RisingEdge(
-                BooleanEdgeProgram::new(
-                    program.forget,
-                    program.write,
-                    program.readout_mask,
-                    shift,
-                )
-                .expect("rotation search always uses a valid offset"),
+                BooleanEdgeProgram::new(program.forget, program.write, program.readout_mask, shift)
+                    .expect("rotation search always uses a valid offset"),
             ),
         }
     }
@@ -371,8 +365,8 @@ fn validate_cases(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::boolean_scan_lstm::{BooleanGateProgram, UnaryGate};
+    use super::*;
 
     fn all_true() -> UnaryGate {
         UnaryGate {
@@ -382,8 +376,7 @@ mod tests {
     }
 
     fn pure_rotation(shift: u8) -> BooleanEdgeProgram {
-        BooleanEdgeProgram::new(all_true(), UnaryGate::default(), u64::MAX, shift)
-            .unwrap()
+        BooleanEdgeProgram::new(all_true(), UnaryGate::default(), u64::MAX, shift).unwrap()
     }
 
     fn policy() -> JointTrainPolicy {
@@ -423,7 +416,9 @@ mod tests {
         let mut faulty = pure_rotation(0);
         faulty.write.when_true = 1;
         let mut candidate = CoupledModel::RisingEdge(faulty);
-        let report = candidate.fit_joint(&train, &holdout, u64::MAX, policy()).unwrap();
+        let report = candidate
+            .fit_joint(&train, &holdout, u64::MAX, policy())
+            .unwrap();
         assert!(report.train_loss_before > 0);
         assert_eq!(report.train_loss_after, 0);
         assert_eq!(report.validation_loss_after, 0);
@@ -471,7 +466,10 @@ mod tests {
         assert!(report.accepted_gate_flips > 0);
         if let CoupledModel::Rotating(learned) = model {
             assert_ne!(learned.gates.write.when_false & (1u64 << 2), 0);
-            assert_eq!(learned.forward_serial(&inputs, 0)[1] & (1u64 << 3), 1u64 << 3);
+            assert_eq!(
+                learned.forward_serial(&inputs, 0)[1] & (1u64 << 3),
+                1u64 << 3
+            );
         } else {
             panic!("joint learner changed model family");
         }
@@ -490,11 +488,16 @@ mod tests {
         let val_bad = [edge_case(&holdout_inputs, &bad, 1u64 << 2)];
         let mut one = CoupledModel::RisingEdge(pure_rotation(0));
         let mut two = one;
-        let report_one = one.fit_joint(&train, &val_good, u64::MAX, policy()).unwrap();
+        let report_one = one
+            .fit_joint(&train, &val_good, u64::MAX, policy())
+            .unwrap();
         let report_two = two.fit_joint(&train, &val_bad, u64::MAX, policy()).unwrap();
         assert_eq!(one, two);
         assert_eq!(report_one.train_loss_after, report_two.train_loss_after);
-        assert_ne!(report_one.validation_loss_after, report_two.validation_loss_after);
+        assert_ne!(
+            report_one.validation_loss_after,
+            report_two.validation_loss_after
+        );
     }
 
     #[test]
@@ -504,16 +507,17 @@ mod tests {
         let targets = teacher.forward_dense(&inputs, 0, 1);
         let train = [edge_case(&inputs, &targets, 1)];
         let mut model = CoupledModel::RisingEdge(pure_rotation(0));
-        let report = model.fit_joint(
-            &train,
-            &train,
-            u64::MAX,
-            JointTrainPolicy {
-                max_epochs: 5,
-                max_candidate_evaluations: 1,
-            },
-        )
-        .unwrap();
+        let report = model
+            .fit_joint(
+                &train,
+                &train,
+                u64::MAX,
+                JointTrainPolicy {
+                    max_epochs: 5,
+                    max_candidate_evaluations: 1,
+                },
+            )
+            .unwrap();
         assert_eq!(report.candidates_evaluated, 1);
         assert!(report.budget_exhausted);
         assert!(report.train_loss_after <= report.train_loss_before);
@@ -540,17 +544,29 @@ mod tests {
         );
         assert_eq!(model, original);
         assert_eq!(
-            model.fit_joint(&valid, &valid, 1, JointTrainPolicy {
-                max_epochs: 0,
-                max_candidate_evaluations: 1,
-            }),
-            Err(JointTrainError::InvalidTraining(BooleanTrainError::ZeroEpochs))
+            model.fit_joint(
+                &valid,
+                &valid,
+                1,
+                JointTrainPolicy {
+                    max_epochs: 0,
+                    max_candidate_evaluations: 1,
+                }
+            ),
+            Err(JointTrainError::InvalidTraining(
+                BooleanTrainError::ZeroEpochs
+            ))
         );
         assert_eq!(
-            model.fit_joint(&valid, &valid, 1, JointTrainPolicy {
-                max_epochs: 1,
-                max_candidate_evaluations: 0,
-            }),
+            model.fit_joint(
+                &valid,
+                &valid,
+                1,
+                JointTrainPolicy {
+                    max_epochs: 1,
+                    max_candidate_evaluations: 0,
+                }
+            ),
             Err(JointTrainError::ZeroCandidateBudget)
         );
         assert_eq!(model, original);
@@ -572,9 +588,7 @@ mod tests {
             baseline_input: u64::MAX,
             initial_state: 1,
         }];
-        let mut model = CoupledModel::Rotating(
-            BooleanRotatingProgram::new(gates, 0).unwrap(),
-        );
+        let mut model = CoupledModel::Rotating(BooleanRotatingProgram::new(gates, 0).unwrap());
         assert_eq!(
             model.hamming_loss(&data, u64::MAX),
             model_rotating_loss_oracle(&model, &data, u64::MAX)
