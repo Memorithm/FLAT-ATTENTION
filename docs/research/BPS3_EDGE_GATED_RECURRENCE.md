@@ -120,6 +120,10 @@ before merging.
 - Introduce genuinely event-indexed inputs to avoid full packed-word
   front detection when a trustworthy event feed already exists, while
   validating identical outputs at requested observation times.
+- [BPS-4 coupled learning](BPS4_COUPLED_BOOLEAN_LEARNING.md) now provides
+  bounded joint rotation/gate coordinate search with a paired-mutation
+  fallback, strict global Hamming-loss acceptance and held-out scoring;
+  measure its generalization and training cost rather than assuming it works.
 - Evaluate selective-copy, delayed-bit and long-term memory tasks;
   compare accuracy and learning budgets against BPS-1, BPS-2,
   classical LSTM and minLSTM.
