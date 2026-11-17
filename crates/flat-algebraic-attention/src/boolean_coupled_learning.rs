@@ -55,6 +55,8 @@ pub struct JointTrainReport {
     pub rotation_after: u8,
     pub accepted_rotation_changes: usize,
     pub accepted_gate_flips: usize,
+    pub accepted_joint_moves: usize,
+    pub pair_candidates_evaluated: usize,
     pub candidates_evaluated: usize,
     pub epochs_started: usize,
     pub budget_exhausted: bool,
@@ -85,9 +87,11 @@ impl CoupledModel {
     /// Coordinate-descent search with a strict, global training-loss gate.
     ///
     /// Each round first tests all alternative shared recurrent rotations,
-    /// then toggles each Boolean gate truth-table bit individually. Mutations
+    /// then toggles each Boolean gate truth-table bit individually. When
+    /// single-coordinate descent stalls, it searches pairs of one rotation
+    /// and one gate-bit mutation to escape coupled loss barriers. Mutations
     /// are accepted only if the **whole** training-set Hamming loss decreases.
-    /// Gate and rotation decisions are interleaved across rounds.
+    /// All proposal evaluations obey the same finite candidate budget.
     ///
     /// The held-out validation set is evaluated before and after training,
     /// never consulted for parameter selection, early stopping or ties.
@@ -124,6 +128,8 @@ impl CoupledModel {
         let mut loss = initial_train;
         let mut accepted_rotations = 0;
         let mut accepted_gates = 0;
+        let mut accepted_pairs = 0;
+        let mut evaluated_pairs = 0;
         let mut evaluated = 0;
         let mut epochs = 0;
         let mut budget_exhausted = false;
@@ -187,7 +193,52 @@ impl CoupledModel {
                 }
             }
             if !improved {
-                break;
+                // Strict one-coordinate descent can be stuck even when a
+                // simultaneous topology+gate mutation improves the objective.
+                // Evaluate all such proposals against the SAME base model;
+                // accept the best one, or the first zero-loss pair.
+                let base = current;
+                let mut best_pair = current;
+                let mut best_pair_loss = loss;
+                'pairs: for shift in 0..ROTATING_LANES {
+                    if shift == base.rotation() {
+                        continue;
+                    }
+                    for parameter in 0..base.gate_parameter_count() {
+                        for lane in 0..64 {
+                            if evaluated == policy.max_candidate_evaluations {
+                                budget_exhausted = true;
+                                break 'pairs;
+                            }
+                            let mut candidate = base.with_rotation(shift);
+                            candidate.toggle_gate_bit(parameter, 1u64 << lane);
+                            let candidate_loss = candidate
+                                .validated_loss(train, active_output_lanes)
+                                .map_err(JointTrainError::InvalidTraining)?;
+                            evaluated += 1;
+                            evaluated_pairs += 1;
+                            if candidate_loss < best_pair_loss {
+                                best_pair = candidate;
+                                best_pair_loss = candidate_loss;
+                            }
+                            if best_pair_loss == 0 {
+                                break 'pairs;
+                            }
+                        }
+                    }
+                }
+                if best_pair_loss < loss {
+                    current = best_pair;
+                    loss = best_pair_loss;
+                    accepted_rotations += 1;
+                    accepted_gates += 1;
+                    accepted_pairs += 1;
+                } else if !budget_exhausted {
+                    break;
+                }
+                if budget_exhausted || loss == 0 {
+                    break;
+                }
             }
         }
 
@@ -203,6 +254,8 @@ impl CoupledModel {
             rotation_after: current.rotation(),
             accepted_rotation_changes: accepted_rotations,
             accepted_gate_flips: accepted_gates,
+            accepted_joint_moves: accepted_pairs,
+            pair_candidates_evaluated: evaluated_pairs,
             candidates_evaluated: evaluated,
             epochs_started: epochs,
             budget_exhausted,
@@ -336,7 +389,7 @@ mod tests {
     fn policy() -> JointTrainPolicy {
         JointTrainPolicy {
             max_epochs: 3,
-            max_candidate_evaluations: 1024,
+            max_candidate_evaluations: 8192,
         }
     }
 
@@ -377,6 +430,8 @@ mod tests {
         assert_eq!(report.rotation_after, 7);
         assert!(report.accepted_rotation_changes > 0);
         assert!(report.accepted_gate_flips > 0);
+        assert!(report.accepted_joint_moves > 0);
+        assert!(report.pair_candidates_evaluated > 0);
         if let CoupledModel::RisingEdge(learned) = candidate {
             assert_eq!(learned.forward_dense(&inputs, 0, 1), expected);
             assert_eq!(
