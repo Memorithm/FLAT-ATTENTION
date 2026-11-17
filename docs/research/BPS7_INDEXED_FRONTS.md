@@ -86,6 +86,16 @@ output ticks. Since its event producer inspected all 4096 sampled
 words, it is a **correctness benchmark, not an end-to-end efficiency
 claim**. It prints `physical_energy_measured=false`.
 
+## BPS-8 stateful windowed execution
+
+[BPS-8 watermarked streaming](BPS8_WATERMARKED_STREAM.md) adds a
+transactional incremental counterpart to BPS-7's whole-history indexed
+query API: closed non-overlapping event windows, sparse query readouts,
+constant persistent state, and no retained previous front vectors.
+A source watermark is **not** authenticated evidence that the publisher
+delivered every real event; offline sampled-oracle certification remains
+a separate O(T) qualification task.
+
 ## Integration and next gates
 
 Possible consumers are source-authenticated asynchronous signals for
