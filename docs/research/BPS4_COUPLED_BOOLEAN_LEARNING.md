@@ -100,6 +100,15 @@ The exact PR HEAD must also pass the complete standard CI (Rust, WGPU,
 MAA host, semver, CodeQL, supply-chain). There is no production API
 promotion in this slice.
 
+## BPS-5 reproducible comparison protocol
+
+The [BPS-5 held-out benchmark](BPS5_HELDOUT_COST_BENCHMARK.md)
+now provides a deterministic teacher-generated corpus with disjoint
+initial-state lanes across train/validation/test, a like-for-like BPS-3
+comparison of untrained/rotation-only/joint models, and a dimensionless
+logical-work ledger. Synthetic correctness is not yet evidence of a
+measured energy or performance improvement.
+
 ## What still needs research evidence
 
 1. Held-out delayed-copy, selective-copy and long-sequence benchmarks
