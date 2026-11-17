@@ -117,9 +117,11 @@ before merging.
 - Measure CPU serial, sparse and scan latency on matched seeded datasets
   with frozen event densities: 0%, 1%, 10%, 50% and 100%; include
   p50/p95 and process-affinity controls on named hardware.
-- Introduce genuinely event-indexed inputs to avoid full packed-word
-  front detection when a trustworthy event feed already exists, while
-  validating identical outputs at requested observation times.
+- **BPS-7 implemented as a separate indexed-front source contract**:
+  [direct front-index and sparse-query execution](BPS7_INDEXED_FRONTS.md)
+  skips full sampled-word front detection only when a trustworthy
+  complete front publisher already exists; independent sampled-source
+  certification and original output oracles remain necessary.
 - [BPS-4 coupled learning](BPS4_COUPLED_BOOLEAN_LEARNING.md) now provides
   bounded joint rotation/gate coordinate search with a paired-mutation
   fallback, strict global Hamming-loss acceptance and held-out scoring;
