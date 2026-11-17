@@ -137,3 +137,12 @@ budgets, not just equal bitwidth.
 
 Neither model promotion nor merges should be inferred from a green unit-test
 suite alone: normal FLAT-ATTENTION release and exact-head CI gates apply.
+
+## BPS-2 prototype: genuinely recurrent cross-lane connectivity
+
+The [BPS-2 rotation scan](BPS2_RECURRENT_ROTATION_SCAN.md) adds a distinct
+research-only candidate with one cross-lane predecessor per memory bit and
+an exact constant-size associative scan. The original BPS-1 program and
+its independent-lane trainer remain unchanged. Crucially, the BPS-1
+per-lane training equivalence does not transfer to a recurrently coupled
+program; BPS-2 uses a bounded global Hamming-loss rotation search instead.
