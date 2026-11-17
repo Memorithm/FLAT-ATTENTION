@@ -105,6 +105,43 @@ impl BooleanEdgeProgram {
             .collect()
     }
 
+    /// Scan only eventful transformations, then fill each quiet output span.
+    ///
+    /// If E of T samples have rising fronts, the associative scan does
+    /// O(E log E) work instead of O(T log T). Detecting fronts and writing
+    /// all T requested outputs remain O(T) sequential work in this host
+    /// implementation. This is not a claim of end-to-end O(log E) latency.
+    #[must_use]
+    pub fn forward_event_scan(
+        self,
+        inputs: &[u64],
+        baseline_input: u64,
+        initial_state: u64,
+    ) -> Vec<u64> {
+        let mut previous = baseline_input;
+        let mut event_positions = Vec::new();
+        let mut transitions = Vec::new();
+        for (index, &current) in inputs.iter().enumerate() {
+            let fronts = current & !previous;
+            previous = current;
+            if fronts != 0 {
+                event_positions.push(index);
+                transitions.push(self.transition(fronts));
+            }
+        }
+
+        let event_states = scan_rotating_states(&transitions, initial_state);
+        let mut outputs = vec![initial_state & self.readout_mask; inputs.len()];
+        for (event_index, &start) in event_positions.iter().enumerate() {
+            let end = event_positions
+                .get(event_index + 1)
+                .copied()
+                .unwrap_or(inputs.len());
+            outputs[start..end].fill(event_states[event_index] & self.readout_mask);
+        }
+        outputs
+    }
+
     /// Timestamped event-execution API. All observations must carry strictly
     /// increasing sample ticks; gaps are unsampled, not inferred as zeros.
     pub fn runtime(
