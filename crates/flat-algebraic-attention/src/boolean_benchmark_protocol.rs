@@ -80,10 +80,7 @@ impl LogicalResources {
                 self.emitted_output_words
                     .checked_mul(weights.emitted_word)?,
             )?
-            .checked_add(
-                self.state_bit_flips
-                    .checked_mul(weights.state_flip)?,
-            )
+            .checked_add(self.state_bit_flips.checked_mul(weights.state_flip)?)
     }
 }
 
@@ -249,13 +246,9 @@ pub fn compare_bps3(
         if shift == student.shift() {
             continue;
         }
-        let candidate_program = BooleanEdgeProgram::new(
-            student.forget,
-            student.write,
-            student.readout_mask,
-            shift,
-        )
-        .expect("generated baseline shift is bounded");
+        let candidate_program =
+            BooleanEdgeProgram::new(student.forget, student.write, student.readout_mask, shift)
+                .expect("generated baseline shift is bounded");
         let candidate = CoupledModel::RisingEdge(candidate_program);
         let candidate_loss = candidate
             .hamming_loss(&train, u64::MAX)
@@ -298,9 +291,7 @@ pub fn compare_bps3(
         validation_episodes: protocol.validation_episodes,
         test_episodes: protocol.test_episodes,
         sample_steps_in_test: steps,
-        actual_eventful_steps_in_test: untrained
-            .test_resources
-            .eventful_recurrent_steps,
+        actual_eventful_steps_in_test: untrained.test_resources.eventful_recurrent_steps,
         baseline_untrained: untrained,
         rotation_only,
         jointly_trained,
@@ -337,15 +328,19 @@ fn score(
                 episode.initial_state,
             )
             .map_err(Bps5Error::InvalidRuntime)?;
-        if run.outputs != program.forward_dense(
-            &episode.inputs,
-            episode.baseline_input,
-            episode.initial_state,
-        ) || run.outputs != program.forward_event_scan(
-            &episode.inputs,
-            episode.baseline_input,
-            episode.initial_state,
-        ) {
+        if run.outputs
+            != program.forward_dense(
+                &episode.inputs,
+                episode.baseline_input,
+                episode.initial_state,
+            )
+            || run.outputs
+                != program.forward_event_scan(
+                    &episode.inputs,
+                    episode.baseline_input,
+                    episode.initial_state,
+                )
+        {
             return Err(Bps5Error::OracleMismatch);
         }
         let activity = run.activity;
@@ -397,8 +392,8 @@ impl XorShift64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::boolean_scan_lstm::UnaryGate;
+    use super::*;
 
     fn teacher(shift: u8) -> BooleanEdgeProgram {
         BooleanEdgeProgram::new(
@@ -465,7 +460,10 @@ mod tests {
             CoupledModel::RisingEdge(program).hamming_loss(&holdout, u64::MAX),
             Ok(0)
         );
-        assert_ne!(dataset.train[0].initial_state, dataset.validation[0].initial_state);
+        assert_ne!(
+            dataset.train[0].initial_state,
+            dataset.validation[0].initial_state
+        );
     }
 
     #[test]
@@ -477,7 +475,13 @@ mod tests {
         // At 0% occupancy, all inputs are zero; any initial high baseline
         // can only FALL, never create a rise, so no event is possible.
         assert_eq!(comparison.actual_eventful_steps_in_test, 0);
-        assert_eq!(comparison.baseline_untrained.test_resources.eventful_recurrent_steps, 0);
+        assert_eq!(
+            comparison
+                .baseline_untrained
+                .test_resources
+                .eventful_recurrent_steps,
+            0
+        );
         assert_eq!(comparison.baseline_untrained.test_hamming, 0);
         assert_eq!(comparison.rotation_only.test_hamming, 0);
         assert_eq!(comparison.jointly_trained.test_hamming, 0);
@@ -489,7 +493,10 @@ mod tests {
         let initial = teacher(0);
         let result = compare_bps3(config, teacher(7), initial).unwrap();
         assert_eq!(result.sample_steps_in_test, 8 * 24);
-        assert_eq!(result.baseline_untrained.test_bit_opportunities, 8 * 24 * 64);
+        assert_eq!(
+            result.baseline_untrained.test_bit_opportunities,
+            8 * 24 * 64
+        );
         assert_eq!(result.rotation_only.test_bit_opportunities, 8 * 24 * 64);
         assert_eq!(result.jointly_trained.test_bit_opportunities, 8 * 24 * 64);
         assert!(result.actual_eventful_steps_in_test > 0);
@@ -497,7 +504,9 @@ mod tests {
         assert_eq!(result.rotation_only.rotation, 7);
         assert_eq!(result.rotation_only.test_hamming, 0);
         assert!(result.jointly_trained.train_hamming <= result.baseline_untrained.train_hamming);
-        assert!(result.joint_training.candidates_evaluated <= config.training.max_candidate_evaluations);
+        assert!(
+            result.joint_training.candidates_evaluated <= config.training.max_candidate_evaluations
+        );
         assert_eq!(result.rotation_only.training_candidate_evaluations, 63);
     }
 
@@ -523,8 +532,10 @@ mod tests {
         };
         let zero = LogicalResources::default();
         assert_eq!(a.checked_add(zero), Some(a));
-        assert_eq!(a.checked_add(b).and_then(|v| v.checked_add(c)),
-                   b.checked_add(c).and_then(|v| a.checked_add(v)));
+        assert_eq!(
+            a.checked_add(b).and_then(|v| v.checked_add(c)),
+            b.checked_add(c).and_then(|v| a.checked_add(v))
+        );
         assert_eq!(a.checked_add(b), b.checked_add(a));
         let weights = LogicalCostWeights {
             sampled_word: 4,
@@ -533,34 +544,59 @@ mod tests {
             state_flip: 1,
         };
         assert_eq!(a.weighted_proxy(weights), Some(25));
-        assert_eq!(a.checked_add(b).unwrap().weighted_proxy(weights),
-                   Some(a.weighted_proxy(weights).unwrap() + b.weighted_proxy(weights).unwrap()));
-        assert_eq!(LogicalResources {
-            sampled_words: u128::MAX,
-            ..a
-        }.checked_add(b), None);
-        assert_eq!(LogicalResources {
-            sampled_words: u128::MAX,
-            ..a
-        }.weighted_proxy(weights), None);
+        assert_eq!(
+            a.checked_add(b).unwrap().weighted_proxy(weights),
+            Some(a.weighted_proxy(weights).unwrap() + b.weighted_proxy(weights).unwrap())
+        );
+        assert_eq!(
+            LogicalResources {
+                sampled_words: u128::MAX,
+                ..a
+            }
+            .checked_add(b),
+            None
+        );
+        assert_eq!(
+            LogicalResources {
+                sampled_words: u128::MAX,
+                ..a
+            }
+            .weighted_proxy(weights),
+            None
+        );
     }
 
     #[test]
     fn malformed_protocol_is_rejected_before_allocations() {
         let mut config = protocol(25);
         config.test_episodes = 0;
-        assert_eq!(Bps5Dataset::generate(config, teacher(7)), Err(Bps5Error::EmptySplit));
+        assert_eq!(
+            Bps5Dataset::generate(config, teacher(7)),
+            Err(Bps5Error::EmptySplit)
+        );
         config = protocol(25);
         config.train_episodes = 61;
-        assert_eq!(Bps5Dataset::generate(config, teacher(7)), Err(Bps5Error::TooManyEpisodes));
+        assert_eq!(
+            Bps5Dataset::generate(config, teacher(7)),
+            Err(Bps5Error::TooManyEpisodes)
+        );
         config = protocol(25);
         config.steps_per_episode = 0;
-        assert_eq!(Bps5Dataset::generate(config, teacher(7)), Err(Bps5Error::InvalidSequenceLength));
+        assert_eq!(
+            Bps5Dataset::generate(config, teacher(7)),
+            Err(Bps5Error::InvalidSequenceLength)
+        );
         config = protocol(25);
         config.input_occupancy_percent = 101;
-        assert_eq!(Bps5Dataset::generate(config, teacher(7)), Err(Bps5Error::InvalidOccupancy));
+        assert_eq!(
+            Bps5Dataset::generate(config, teacher(7)),
+            Err(Bps5Error::InvalidOccupancy)
+        );
         config = protocol(25);
         config.pulse_lane = Some(64);
-        assert_eq!(Bps5Dataset::generate(config, teacher(7)), Err(Bps5Error::InvalidPulseLane));
+        assert_eq!(
+            Bps5Dataset::generate(config, teacher(7)),
+            Err(Bps5Error::InvalidPulseLane)
+        );
     }
 }
