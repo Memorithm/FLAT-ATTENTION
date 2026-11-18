@@ -65,12 +65,8 @@ impl Panel {
                         -0.2 + 0.02 * (t * 0.03).sin(),
                         0.1 * (t * 0.07).cos(),
                     ],
-                    Self::FarAdversarial => {
-                        [if i % 2 == 0 { 12.0 } else { -12.0 }, 0.01 * t, 0.0]
-                    }
-                    Self::CoincidentCoordinates => {
-                        [0.1 + 0.02 * t, 0.1 * (t * 0.1).sin(), -0.15]
-                    }
+                    Self::FarAdversarial => [if i % 2 == 0 { 12.0 } else { -12.0 }, 0.01 * t, 0.0],
+                    Self::CoincidentCoordinates => [0.1 + 0.02 * t, 0.1 * (t * 0.1).sin(), -0.15],
                 };
                 TorsorKey {
                     reference,
@@ -286,7 +282,9 @@ fn check(
                 || b.resultant_abs[axis] > BUDGET.resultant_abs[axis]
                 || b.moment_at_query_abs[axis] > BUDGET.moment_at_query_abs[axis]
             {
-                return Err(format!("six-output analytical budget exceeded on axis {axis}"));
+                return Err(format!(
+                    "six-output analytical budget exceeded on axis {axis}"
+                ));
             }
         }
         if matches!(mode, Mode::Exact)
@@ -298,20 +296,19 @@ fn check(
                         approximation.moment_at_query[axis],
                     ))
         {
-            return Err(format!("exact tree differs from independent dense on axis {axis}"));
+            return Err(format!(
+                "exact tree differs from independent dense on axis {axis}"
+            ));
         }
     }
     let lse_delta = (exact.lse - approximation.log_sum_exp).abs();
     if let Some(b) = bounds {
-        if lse_delta
-            > b.log_sum_exp_abs + numerical_slack(exact.lse, approximation.log_sum_exp)
-        {
+        if lse_delta > b.log_sum_exp_abs + numerical_slack(exact.lse, approximation.log_sum_exp) {
             return Err("six-output analytical log-sum-exp bound exceeded".into());
         }
     }
     if matches!(mode, Mode::ScoreGuard)
-        && lse_delta
-            > MAX_SCORE_SPREAD + numerical_slack(exact.lse, approximation.log_sum_exp)
+        && lse_delta > MAX_SCORE_SPREAD + numerical_slack(exact.lse, approximation.log_sum_exp)
     {
         return Err("score-spread guard log-sum-exp budget exceeded".into());
     }
@@ -359,28 +356,32 @@ fn run(count: usize, samples: usize) -> Result<(), String> {
     for panel in Panel::ALL {
         let keys = panel.keys(count);
         let started = Instant::now();
-        let tree = PreparedTorsorOctree::build(&keys, 4, 20)
-            .map_err(|error| format!("{error:?}"))?;
+        let tree =
+            PreparedTorsorOctree::build(&keys, 4, 20).map_err(|error| format!("{error:?}"))?;
         let build_ns = started.elapsed().as_nanos();
         if tree.reserved_buffer_bytes() < count * std::mem::size_of::<TorsorKey>() {
             return Err("tree reserved capacity is smaller than key storage".into());
         }
         for (query_name, query) in queries() {
-            let (reference, dense_ns) =
-                median_timing(samples, || independent_dense(&keys, query))?;
+            let (reference, dense_ns) = median_timing(samples, || independent_dense(&keys, query))?;
             for mode in Mode::ALL {
                 let ((out, bound), mode_ns) =
                     median_timing(samples, || evaluate(&tree, query, mode))?;
-                let (r, m, lse) = check(reference, out, bound, mode, count)
-                    .map_err(|error| {
-                        format!(
-                            "panel={} query={query_name} mode={}: {error}",
-                            panel.name(),
-                            mode.name()
-                        )
-                    })?;
+                let (r, m, lse) = check(reference, out, bound, mode, count).map_err(|error| {
+                    format!(
+                        "panel={} query={query_name} mode={}: {error}",
+                        panel.name(),
+                        mode.name()
+                    )
+                })?;
                 let (r_bound, m_bound, lse_bound) = bound
-                    .map(|b| (maximum(b.resultant_abs), maximum(b.moment_at_query_abs), b.log_sum_exp_abs))
+                    .map(|b| {
+                        (
+                            maximum(b.resultant_abs),
+                            maximum(b.moment_at_query_abs),
+                            b.log_sum_exp_abs,
+                        )
+                    })
                     .unwrap_or((0.0, 0.0, 0.0));
                 println!(
                     "{},{},{},{},{},{},{},{},{},{},{},{},{:.12e},{:.12e},{:.12e},{},{:.12e},{:.12e},{:.12e}",
