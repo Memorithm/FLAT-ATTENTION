@@ -1655,13 +1655,8 @@ mod tests {
                 },
                 gate(&mut seed),
             ];
-            let model = BooleanNeuronGraph::new(
-                gates,
-                gate(&mut seed),
-                gate(&mut seed),
-                shifts,
-            )
-            .unwrap();
+            let model =
+                BooleanNeuronGraph::new(gates, gate(&mut seed), gate(&mut seed), shifts).unwrap();
             let inputs: Vec<u64> = (0..109)
                 .map(|index| match index % 9 {
                     0 => 0,
@@ -1671,16 +1666,13 @@ mod tests {
                 })
                 .collect();
             for &input in &inputs {
-                let expected = gates
-                    .iter()
-                    .enumerate()
-                    .fold(0u8, |acc, (index, gate)| {
-                        if gate.evaluate(input) == u64::MAX {
-                            acc | (1 << index)
-                        } else {
-                            acc
-                        }
-                    });
+                let expected = gates.iter().enumerate().fold(0u8, |acc, (index, gate)| {
+                    if gate.evaluate(input) == u64::MAX {
+                        acc | (1 << index)
+                    } else {
+                        acc
+                    }
+                });
                 assert_eq!(model.fully_active_channel_bits(input), expected);
             }
             let initial = next_random(&mut seed);
@@ -1690,10 +1682,7 @@ mod tests {
                     model.forward_activity_hybrid(&inputs, initial, policy),
                     oracle
                 );
-                assert_eq!(
-                    model.forward_adaptive(&inputs, initial, policy),
-                    oracle
-                );
+                assert_eq!(model.forward_adaptive(&inputs, initial, policy), oracle);
             }
         }
     }
