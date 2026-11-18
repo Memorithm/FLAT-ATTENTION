@@ -174,8 +174,8 @@ impl ScoreEnvelope {
     fn output_ranges(&self, point: Vec3) -> Option<OutputRanges> {
         let mut resultant = [0.0; 3];
         let mut moment = [0.0; 3];
-        for axis in 0..3 {
-            resultant[axis] = self.r_max[axis] - self.r_min[axis];
+        for (axis, value) in resultant.iter_mut().enumerate() {
+            *value = self.r_max[axis] - self.r_min[axis];
         }
         moment[0] = (self.c_max[0] - self.c_min[0])
             + point[1].abs() * resultant[2]
