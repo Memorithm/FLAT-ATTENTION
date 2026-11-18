@@ -261,6 +261,134 @@ impl BooleanNeuronGraph {
         (next, next & self.output.evaluate(input))
     }
 
+    /// Inspect which exact routing kernel will be selected for each
+    /// operation, given the input's active destination bits and a budget
+    /// of direct predecessor reads. This does not inspect model outputs
+    /// or hidden source state; the decision is deterministic.
+    #[must_use]
+    pub fn adaptive_route_plan(
+        &self,
+        input: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> [AdaptiveRoute; OPERATOR_COUNT] {
+        let masks = self.gates.map(|gate| gate.evaluate(input));
+        std::array::from_fn(|channel| self.choose_adaptive_route(channel, masks[channel], policy))
+    }
+
+    fn choose_adaptive_route(
+        &self,
+        channel: usize,
+        enabled_destinations: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> AdaptiveRoute {
+        if enabled_destinations == 0 {
+            return AdaptiveRoute::Dormant;
+        }
+        if self.channel_uniform_shifts[channel].is_some() {
+            return AdaptiveRoute::Uniform;
+        }
+        let active_lanes = enabled_destinations.count_ones();
+        let unique_shifts = self.active_shifts[channel].count_ones();
+        // Only take the scalar destination path when the actual number of
+        // active lanes is smaller than the compiled topology's number of
+        // unique rotation groups. No timer, hidden-state read or heuristic
+        // input prefetch is needed to make this conservative choice.
+        if active_lanes <= u32::from(policy.max_direct_lanes[channel])
+            && active_lanes < unique_shifts
+        {
+            AdaptiveRoute::DirectLanes
+        } else {
+            AdaptiveRoute::Grouped
+        }
+    }
+
+    /// Exact alternative to grouped sparse execution. Each operation picks
+    /// a deterministic source kernel based on its live input gate mask and
+    /// compiled topology:
+    ///
+    /// - Dormant: no recurrent source read for a zero gate word.
+    /// - Uniform: one rotated word for the shared source offset.
+    /// - DirectLanes: only enabled destination bits are visited and each
+    ///   reads its own predecessor bit from the previous state.
+    /// - Grouped: visit enabled per-shift destination groups.
+    ///
+    /// All four channels read the SAME old state and preserve the exact
+    /// retain/OR, excitation/OR, inhibition/AND NOT and toggle/XOR order.
+    /// This is a CPU research policy, not a measured throughput claim.
+    #[must_use]
+    pub fn step_adaptive(
+        &self,
+        input: u64,
+        previous: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> (u64, u64) {
+        if let Some(program) = self.uniform_program {
+            // BPS-17's exact whole-model fast path remains the best
+            // non-allocating dispatch for fully uniform connectivity.
+            return program.step_sparse(input, previous);
+        }
+        let masks = self.gates.map(|gate| gate.evaluate(input));
+        let mut sourced = [0u64; OPERATOR_COUNT];
+        for channel in 0..OPERATOR_COUNT {
+            match self.choose_adaptive_route(channel, masks[channel], policy) {
+                AdaptiveRoute::Dormant => {}
+                AdaptiveRoute::Uniform => {
+                    let shift = self.channel_uniform_shifts[channel]
+                        .expect("Uniform implies a validated one-shift channel");
+                    sourced[channel] = previous.rotate_left(shift as u32) & masks[channel];
+                }
+                AdaptiveRoute::DirectLanes => {
+                    // Each destination chooses exactly one source per
+                    // operation. A bit is read only when its gate is active.
+                    let mut lanes = masks[channel];
+                    while lanes != 0 {
+                        let destination = lanes.trailing_zeros() as usize;
+                        lanes &= lanes - 1;
+                        let shift = usize::from(self.shifts[channel][destination]);
+                        let source = (destination + NEURON_COUNT - shift) % NEURON_COUNT;
+                        sourced[channel] |=
+                            ((previous >> source) & 1) << destination;
+                    }
+                }
+                AdaptiveRoute::Grouped => {
+                    let mut shifts = self.active_shifts[channel];
+                    while shifts != 0 {
+                        let shift = shifts.trailing_zeros() as usize;
+                        shifts &= shifts - 1;
+                        let enabled =
+                            self.destinations_by_shift[channel][shift] & masks[channel];
+                        if enabled != 0 {
+                            sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
+                        }
+                    }
+                }
+            }
+        }
+        let base = sourced[0] | sourced[1] | self.write.evaluate(input);
+        let next = (base & !sourced[2]) ^ sourced[3];
+        (next, next & self.output.evaluate(input))
+    }
+
+    /// Exact synchronous recurrence with O(T) steps and O(1) auxiliary
+    /// recurrent state, excluding the dense returned output vector.
+    #[must_use]
+    pub fn forward_adaptive(
+        &self,
+        inputs: &[u64],
+        initial: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> Vec<u64> {
+        let mut state = initial;
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step_adaptive(input, state, policy);
+                state = next;
+                output
+            })
+            .collect()
+    }
+
     #[must_use]
     pub fn forward_scalar(&self, inputs: &[u64], initial: u64) -> Vec<u64> {
         let mut state = initial;
@@ -419,6 +547,35 @@ impl BooleanNeuronGraph {
         };
         *self = current;
         Ok(report)
+    }
+}
+
+/// The exact kernel selected for one operation at one timestep.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AdaptiveRoute {
+    Dormant,
+    Uniform,
+    DirectLanes,
+    Grouped,
+}
+
+/// Upper bound on direct predecessor bit reads per operation and timestep.
+///
+/// The path is selected only if the active destination lane count is
+/// strictly smaller than the count of distinct compiled shift groups.
+/// A zero threshold disables the direct-lane path. Values above 64
+/// have the same functional effect as 64; they are not invalid because
+/// this is only a work cap, not an index into the neuron graph.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AdaptiveRoutingPolicy {
+    pub max_direct_lanes: [u8; OPERATOR_COUNT],
+}
+
+impl Default for AdaptiveRoutingPolicy {
+    fn default() -> Self {
+        Self {
+            max_direct_lanes: [4; OPERATOR_COUNT],
+        }
     }
 }
 
