@@ -32,9 +32,18 @@ fn main() {
     )
     .unwrap();
     let policy = AdaptiveRoutingPolicy::default();
-    assert_eq!(graph.adaptive_route_plan(0, policy)[0], AdaptiveRoute::DirectLanes);
-    assert_eq!(graph.adaptive_route_plan(u64::MAX, policy)[0], AdaptiveRoute::Grouped);
-    assert_eq!(graph.adaptive_route_plan(u64::MAX, policy)[1], AdaptiveRoute::Uniform);
+    assert_eq!(
+        graph.adaptive_route_plan(0, policy)[0],
+        AdaptiveRoute::DirectLanes
+    );
+    assert_eq!(
+        graph.adaptive_route_plan(u64::MAX, policy)[0],
+        AdaptiveRoute::Grouped
+    );
+    assert_eq!(
+        graph.adaptive_route_plan(u64::MAX, policy)[1],
+        AdaptiveRoute::Uniform
+    );
     let inputs = [0, u64::MAX, 0, 0, u64::MAX, 0, u64::MAX, 0];
     let initial = 0x0101_2345_0000_0101u64;
     assert_eq!(
