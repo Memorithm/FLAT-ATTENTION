@@ -104,6 +104,10 @@ jobs:
         run: |
           cargo test -p flat-algebraic-attention boolean_two_tap_memory
           cargo run -p flat-algebraic-attention --example bps14_dual_tap_smoke
+      - name: BPS-15 operation-routed Boolean recurrent oracle
+        run: |
+          cargo test -p flat-algebraic-attention boolean_operator_channels
+          cargo run -p flat-algebraic-attention --example bps15_operator_channels_smoke
       - name: Validate EPG qualification WGSL without a device
         run: cargo test -p flat-epg-wgpu qualification_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate WGSL without a device
