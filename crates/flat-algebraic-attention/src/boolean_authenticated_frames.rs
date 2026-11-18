@@ -32,7 +32,10 @@ fn put_u64(h: &mut Hasher, x: u64) {
     h.update(&x.to_le_bytes());
 }
 fn put_usize(h: &mut Hasher, x: usize) {
-    put_u64(h, u64::try_from(x).expect("64-bit count required by BPS-10 protocol"));
+    put_u64(
+        h,
+        u64::try_from(x).expect("64-bit count required by BPS-10 protocol"),
+    );
 }
 fn put_source(h: &mut Hasher, source: SourceEpoch) {
     put_u64(h, source.source_id);
@@ -374,7 +377,9 @@ impl AuthenticatedSampledPublisher {
         max_samples: usize,
         key: &[u8; 32],
     ) -> Result<AuthenticatedFrontFrame, FrontFrameError> {
-        let frame = self.source.publish_contiguous_samples(samples, max_samples)?;
+        let frame = self
+            .source
+            .publish_contiguous_samples(samples, max_samples)?;
         let tagged = authenticate_frame(frame, self.key_id, self.previous_mac, key);
         self.previous_mac = tagged.mac;
         Ok(tagged)
@@ -399,7 +404,10 @@ mod tests {
     const KEY_ID: u64 = 9;
     const INITIAL_MAC: [u8; 32] = [0x45; 32];
     const ANCHOR: StreamAnchor = StreamAnchor {
-        source: SourceEpoch { source_id: 31, epoch_id: 7 },
+        source: SourceEpoch {
+            source_id: 31,
+            epoch_id: 7,
+        },
         next_sequence: 1,
         prior_commitment: 0x9a12_f443_1202_42d2,
         closed_through: 0,
@@ -412,17 +420,22 @@ mod tests {
 
     fn program(shift: u8) -> BooleanEdgeProgram {
         BooleanEdgeProgram::new(
-            UnaryGate { when_false: u64::MAX, when_true: u64::MAX },
-            UnaryGate::default(), u64::MAX, shift,
-        ).unwrap()
+            UnaryGate {
+                when_false: u64::MAX,
+                when_true: u64::MAX,
+            },
+            UnaryGate::default(),
+            u64::MAX,
+            shift,
+        )
+        .unwrap()
     }
 
     fn make_frame() -> AuthenticatedFrontFrame {
         let payload = FrontFrame::claimed(
-            ANCHOR, 4,
-            vec![super::super::boolean_indexed_fronts::IndexedFront {
-                tick: 2, rising: 1,
-            }],
+            ANCHOR,
+            4,
+            vec![super::super::boolean_indexed_fronts::IndexedFront { tick: 2, rising: 1 }],
         );
         authenticate_frame(payload, KEY_ID, INITIAL_MAC, &KEY)
     }
@@ -434,7 +447,8 @@ mod tests {
             let inputs = [1, 1, 0, 1, 0, 5, 5, 0, 7, 0, 7];
             let reference = p.forward_dense(&inputs, 0, 1);
             let mut publisher = AuthenticatedSampledPublisher::new(ANCHOR, 0, KEY_ID, INITIAL_MAC);
-            let mut runtime = AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+            let mut runtime =
+                AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
             let mut output = Vec::new();
             let mut start = 0usize;
             for end in [1, 4, 7, 11] {
@@ -445,11 +459,14 @@ mod tests {
                 start = end;
             }
             assert_eq!(output, reference);
-            let indexed = p.forward_indexed_queries(
-                &sampled_indexed_fronts(&inputs, 0),
-                &(1..=inputs.len() as u64).collect::<Vec<_>>(),
-                inputs.len() as u64, 1,
-            ).unwrap();
+            let indexed = p
+                .forward_indexed_queries(
+                    &sampled_indexed_fronts(&inputs, 0),
+                    &(1..=inputs.len() as u64).collect::<Vec<_>>(),
+                    inputs.len() as u64,
+                    1,
+                )
+                .unwrap();
             assert_eq!(runtime.state(), indexed.final_state);
             assert!(!runtime.quarantined());
             assert_eq!(runtime.next_sequence(), 5);
@@ -459,9 +476,8 @@ mod tests {
     #[test]
     fn tampering_each_protected_field_and_wrong_key_quarantines_atomically() {
         for case in 0..11 {
-            let mut runtime = AuthenticatedFrontRuntime::new(
-                program(1), 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC,
-            );
+            let mut runtime =
+                AuthenticatedFrontRuntime::new(program(1), 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
             let original = make_frame();
             let mut changed = original.clone();
             match case {
@@ -485,12 +501,17 @@ mod tests {
             assert_eq!(runtime.next_sequence(), before.next_sequence());
             assert_eq!(runtime.closed_through(), before.closed_through());
             assert_eq!(runtime.previous_mac(), before.previous_mac());
-            assert_eq!(runtime.ingest(&original, &[3], &KEY), Err(AuthError::Quarantined));
+            assert_eq!(
+                runtime.ingest(&original, &[3], &KEY),
+                Err(AuthError::Quarantined)
+            );
         }
-        let mut runtime = AuthenticatedFrontRuntime::new(
-            program(1), 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC,
+        let mut runtime =
+            AuthenticatedFrontRuntime::new(program(1), 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+        assert_eq!(
+            runtime.ingest(&make_frame(), &[3], &WRONG_KEY),
+            Err(AuthError::MacMismatch)
         );
-        assert_eq!(runtime.ingest(&make_frame(), &[3], &WRONG_KEY), Err(AuthError::MacMismatch));
         assert!(runtime.quarantined());
     }
 
@@ -500,7 +521,8 @@ mod tests {
         let mut producer = AuthenticatedSampledPublisher::new(ANCHOR, 0, KEY_ID, INITIAL_MAC);
         let first = producer.publish(&[1, 0], 3, &KEY).unwrap();
         let second = producer.publish(&[1, 0], 3, &KEY).unwrap();
-        let mut consumer = AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+        let mut consumer =
+            AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
         consumer.ingest(&first, &[1, 2], &KEY).unwrap();
         consumer.ingest(&second, &[3, 4], &KEY).unwrap();
         let previous = consumer.clone();
@@ -517,7 +539,8 @@ mod tests {
         let mut publisher = AuthenticatedSampledPublisher::new(ANCHOR, 0, KEY_ID, INITIAL_MAC);
         let first = publisher.publish(&[1, 1, 0, 1], 4, &KEY).unwrap();
         let second = publisher.publish(&[0, 3, 3, 0], 4, &KEY).unwrap();
-        let mut continuous = AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+        let mut continuous =
+            AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
         continuous.ingest(&first, &[1, 4], &KEY).unwrap();
         let checkpoint = continuous.checkpoint(&KEY).unwrap();
         let durable_head = TrustedCheckpointHead {
@@ -525,9 +548,9 @@ mod tests {
             key_id: checkpoint.key_id,
             checkpoint_mac: checkpoint.mac,
         };
-        let mut restored = AuthenticatedFrontRuntime::restore(
-            &checkpoint, &durable_head, p, LIMITS, KEY_ID, &KEY,
-        ).unwrap();
+        let mut restored =
+            AuthenticatedFrontRuntime::restore(&checkpoint, &durable_head, p, LIMITS, KEY_ID, &KEY)
+                .unwrap();
         let direct = continuous.ingest(&second, &[6, 8], &KEY).unwrap();
         let replay = restored.ingest(&second, &[6, 8], &KEY).unwrap();
         assert_eq!(direct.data, replay.data);
@@ -542,13 +565,16 @@ mod tests {
         let mut publisher = AuthenticatedSampledPublisher::new(ANCHOR, 0, KEY_ID, INITIAL_MAC);
         let first = publisher.publish(&[1, 0], 2, &KEY).unwrap();
         let second = publisher.publish(&[1, 0], 2, &KEY).unwrap();
-        let mut consumer = AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+        let mut consumer =
+            AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
         consumer.ingest(&first, &[2], &KEY).unwrap();
         let older = consumer.checkpoint(&KEY).unwrap();
         consumer.ingest(&second, &[4], &KEY).unwrap();
         let latest = consumer.checkpoint(&KEY).unwrap();
         let head = TrustedCheckpointHead {
-            source: latest.source, key_id: latest.key_id, checkpoint_mac: latest.mac,
+            source: latest.source,
+            key_id: latest.key_id,
+            checkpoint_mac: latest.mac,
         };
         assert_eq!(
             AuthenticatedFrontRuntime::restore(&older, &head, p, LIMITS, KEY_ID, &KEY),
@@ -562,7 +588,10 @@ mod tests {
             AuthenticatedFrontRuntime::restore(&latest, &head, program(7), LIMITS, KEY_ID, &KEY),
             Err(AuthError::ModelMismatch)
         );
-        let changed_limits = FrameLimits { max_fronts: 64, ..LIMITS };
+        let changed_limits = FrameLimits {
+            max_fronts: 64,
+            ..LIMITS
+        };
         assert_eq!(
             AuthenticatedFrontRuntime::restore(&latest, &head, p, changed_limits, KEY_ID, &KEY),
             Err(AuthError::ModelMismatch)
@@ -574,7 +603,11 @@ mod tests {
             Err(AuthError::CheckpointMacMismatch)
         );
         let other_head = TrustedCheckpointHead {
-            source: SourceEpoch { epoch_id: 99, ..latest.source }, ..head
+            source: SourceEpoch {
+                epoch_id: 99,
+                ..latest.source
+            },
+            ..head
         };
         assert_eq!(
             AuthenticatedFrontRuntime::restore(&latest, &other_head, p, LIMITS, KEY_ID, &KEY),
@@ -589,9 +622,12 @@ mod tests {
         // A sender who possesses the key can sign an omitted-event lie.
         let lying = authenticate_frame(
             FrontFrame::claimed(ANCHOR, 3, vec![]),
-            KEY_ID, INITIAL_MAC, &KEY,
+            KEY_ID,
+            INITIAL_MAC,
+            &KEY,
         );
-        let mut consumer = AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
+        let mut consumer =
+            AuthenticatedFrontRuntime::new(p, 1, ANCHOR, LIMITS, KEY_ID, INITIAL_MAC);
         let got = consumer.ingest(&lying, &[3], &KEY).unwrap().data.outputs[0];
         assert_ne!(got, p.forward_dense(&inputs, 0, 1)[2]);
         assert!(!consumer.quarantined());
