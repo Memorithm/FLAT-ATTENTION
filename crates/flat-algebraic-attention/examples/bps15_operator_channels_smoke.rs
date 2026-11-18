@@ -7,9 +7,7 @@
 use flat_algebraic_attention::boolean_operator_channels::{
     BooleanOperatorProgram, OperatorTrainPolicy,
 };
-use flat_algebraic_attention::boolean_scan_lstm::{
-    BooleanTrainingSequence, UnaryGate,
-};
+use flat_algebraic_attention::boolean_scan_lstm::{BooleanTrainingSequence, UnaryGate};
 
 fn always() -> UnaryGate {
     UnaryGate {
@@ -54,7 +52,10 @@ fn main() {
     assert_eq!(learner.forward_sparse(&holdout_inputs, 2), holdout_targets);
     println!("bps15_result=PASS");
     println!("bps15_learned_operation_shifts={:?}", report.shifts);
-    println!("bps15_candidate_evaluations={}", report.evaluated_candidates);
+    println!(
+        "bps15_candidate_evaluations={}",
+        report.evaluated_candidates
+    );
     println!("bps15_holdout_hamming={}", report.validation_loss_after);
 
     // Do not run timing in CI; use the opt-in flag only with physical
