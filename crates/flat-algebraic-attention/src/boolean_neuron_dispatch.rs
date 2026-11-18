@@ -163,10 +163,10 @@ impl BooleanNeuronGraph {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::boolean_neuron_activity::exact_weight_corpus;
     use super::super::boolean_operator_channels::OperatorChannel;
     use super::super::boolean_scan_lstm::UnaryGate;
-    use super::super::boolean_neuron_activity::exact_weight_corpus;
+    use super::*;
 
     fn next_random(seed: &mut u64) -> u64 {
         *seed ^= *seed << 13;
@@ -194,12 +194,7 @@ mod tests {
             })
         });
         BooleanNeuronGraph::new(
-            [
-                gate(seed),
-                gate(seed),
-                gate(seed),
-                gate(seed),
-            ],
+            [gate(seed), gate(seed), gate(seed), gate(seed)],
             gate(seed),
             gate(seed),
             shifts,
@@ -276,9 +271,7 @@ mod tests {
             assert_eq!(model.uniform_operation_count(), uniform);
             for weight in 0..=64u8 {
                 let inputs = exact_weight_corpus(0x73a1_0510_u64, weight, 7).unwrap();
-                let expected = if (uniform == 0 && (4..=63).contains(&weight))
-                    || uniform == 3
-                {
+                let expected = if (uniform == 0 && (4..=63).contains(&weight)) || uniform == 3 {
                     WeightRoutingDecision::GroupedDense
                 } else {
                     WeightRoutingDecision::ExistingHybrid
