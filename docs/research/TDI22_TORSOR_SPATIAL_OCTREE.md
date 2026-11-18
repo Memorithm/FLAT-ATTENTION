@@ -120,3 +120,67 @@ Before selecting this hierarchy for a model:
 4. Do not merge this research-only module into a production route or
    integrate it into SciRust/SML-GENIUS/NNIS until those destinations
    independently accept an explicit versioned contract.
+
+
+## Optional score-spread guard (research extension)
+
+An octree node can be spatially distant yet have highly heterogeneous
+semantic logits. `forward_with_score_spread_guard(query, scale, theta,
+max_score_spread)` now rejects such summaries, independently of the
+geometric `extent/distance` predicate. This is an **additional opt-in
+constraint**; the legacy `forward` behavior remains unchanged.
+
+For each token `i`, the builder reduces the torsor to a common origin:
+
+```text
+C_i = M_i(P_i) + P_i x R_i
+a = v + Q x omega
+s_i = scale * (a . R_i + omega . C_i)
+```
+
+Each leaf stores componentwise minima/maxima for `R_i` and `C_i`;
+each parent merges those envelopes bottom-up. For a query, an
+axis-aligned bound on the **within-node logit span** is:
+
+```text
+S_node = scale * sum_{axis=0..2} (
+             abs(a_axis) * (Rmax_axis - Rmin_axis)
+           + abs(omega_axis) * (Cmax_axis - Cmin_axis))
+```
+
+A distant node is summarized only if `S_node <= max_score_spread`.
+Non-finite bounds disallow approximation; a negative, infinite, or NaN
+budget is rejected. Evaluating the envelope takes constant work per
+visited node once it has been constructed; no per-token dot products
+are required to decide whether a distant node can be summarized.
+
+**Mathematical scope.** In exact arithmetic, all member logits lie
+within a range of width `S_node`. Since the summary uses the
+mean-logit surrogate plus `log(mass)`, its log-sum-exp error lies
+between zero and `S_node`. Combining the exact leaf terms and
+summarized nodes in one normalization also gives an aggregate
+log-sum-exp error no larger than the largest admitted spread budget.
+This is not a bound on the normalized resultant/moment output, and
+does not establish model-quality guarantees. IEEE-754 componentwise
+min/max and dot products are not a formally directed-rounding interval
+implementation; numerical tolerances must be separately assessed.
+
+The implementation retains a deliberately adversarial regression:
+keys that are far from the query in physical space but disagree
+strongly in their attention scores must be opened, not collapsed.
+A zero-spread test verifies that heterogeneous resultants/moments
+with identical projected logits may still be mass-correctly reduced.
+
+Version string:
+`tdi22-octree-score-spread-guard-v1`.
+
+The public API, causal routing, WGPU execution, SciRust integration,
+TDI scientific model and all default model paths remain unchanged.
+Promotion is prohibited without paired RemoteOps-controlled numerical
+and end-to-end performance evidence.
+
+Targeted test command:
+
+```bash
+cargo test -p flat-algebraic-attention torsor_octree
+```
