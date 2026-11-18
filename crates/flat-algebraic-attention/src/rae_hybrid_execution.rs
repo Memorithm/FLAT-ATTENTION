@@ -35,7 +35,7 @@ pub struct RaeNumericQuery<'a> {
     pub key_pages: &'a [usize],
     /// Trusted causal, padding and length eligibility, BEFORE page routing.
     pub eligible: &'a [bool],
-    /// The reference score is scale * sum(query[d] * key[d]); scale >= 0.
+    /// The reference score is `scale * sum(query[d] * key[d])`; scale >= 0.
     pub scale: f64,
 }
 
