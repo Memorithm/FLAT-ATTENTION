@@ -179,8 +179,7 @@ fn evaluate(snapshot: &Snapshot) -> Result<Report, String> {
     ];
     let mut value_abs_bound = 0.0_f64;
     // This full materialization is currently an explicit research overhead.
-    for key in 0..snapshot.rows {
-        let p = key_pages[key];
+    for (key, &p) in key_pages.iter().enumerate() {
         metadata[p].eligible_keys += 1;
         let base = key * snapshot.dim;
         let norm = snapshot.keys[base..base + snapshot.dim]
