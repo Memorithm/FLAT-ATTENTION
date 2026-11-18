@@ -1,8 +1,6 @@
 //! BPS-25: allocation-free, chunked Boolean recurrence over a prepared plan.
 use flat_algebraic_attention::boolean_neuron_activity::exact_weight_corpus;
-use flat_algebraic_attention::boolean_neuron_dispatch::{
-    DenseWeightWindow, WeightRoutingPolicy,
-};
+use flat_algebraic_attention::boolean_neuron_dispatch::{DenseWeightWindow, WeightRoutingPolicy};
 use flat_algebraic_attention::boolean_neuron_graph::{
     AdaptiveRoutingPolicy, BooleanNeuronGraph, NEURON_COUNT, OPERATOR_COUNT,
 };
