@@ -14,13 +14,8 @@ fn main() {
         when_false: u64::MAX,
         when_true: u64::MAX,
     };
-    let shared = BooleanOperatorProgram::new(
-        [gate; 4],
-        UnaryGate::default(),
-        output,
-        [1, 3, 5, 7],
-    )
-    .unwrap();
+    let shared =
+        BooleanOperatorProgram::new([gate; 4], UnaryGate::default(), output, [1, 3, 5, 7]).unwrap();
     let model = BooleanNeuronGraph::from_shared(shared);
     assert_eq!(model.compiled_uniform_shifts(), Some([1, 3, 5, 7]));
     let mixed = model.with_edge(OperatorChannel::Inhibit, 11, 12).unwrap();
