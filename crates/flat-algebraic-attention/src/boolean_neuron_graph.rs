@@ -644,8 +644,7 @@ impl DenseGateGuard {
 
     #[must_use]
     fn matches(self, input: u64) -> bool {
-        (input & self.required_one) == self.required_one
-            && (input & self.required_zero) == 0
+        (input & self.required_one) == self.required_one && (input & self.required_zero) == 0
     }
 }
 
@@ -1529,7 +1528,10 @@ mod tests {
             let changed = p
                 .with_edge(OperatorChannel::Toggle, 17, (topology + 1) as u8)
                 .unwrap();
-            assert_eq!(changed.compiled_dense_gate_guard(), p.compiled_dense_gate_guard());
+            assert_eq!(
+                changed.compiled_dense_gate_guard(),
+                p.compiled_dense_gate_guard()
+            );
             assert_eq!(
                 changed.forward_activity_hybrid(&inputs, initial, policies[0]),
                 changed.forward_scalar(&inputs, initial)
