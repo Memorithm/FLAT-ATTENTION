@@ -39,6 +39,10 @@ pub struct BooleanNeuronGraph {
     shifts: [[u8; NEURON_COUNT]; OPERATOR_COUNT],
     destinations_by_shift: [[u64; NEURON_COUNT]; OPERATOR_COUNT],
     active_shifts: [u64; OPERATOR_COUNT],
+    // Specialize any operation whose 64 destination neurons share one
+    // predecessor offset, including mixed topologies where other operations
+    // still need the heterogeneous grouped kernel.
+    channel_uniform_shifts: [Option<u8>; OPERATOR_COUNT],
     // Compiled once when every operator has one shared shift. This directly
     // reuses the exact BPS-15 kernel instead of looping over grouped masks.
     uniform_program: Option<BooleanOperatorProgram>,
@@ -69,8 +73,16 @@ impl BooleanNeuronGraph {
                 active_shifts[index] |= 1u64 << shift;
             }
         }
-        let uniform_program = if active_shifts.iter().all(|bits| bits.count_ones() == 1) {
-            let uniform_shifts = active_shifts.map(|bits| bits.trailing_zeros() as u8);
+        let channel_uniform_shifts = active_shifts.map(|bits| {
+            if bits.count_ones() == 1 {
+                Some(bits.trailing_zeros() as u8)
+            } else {
+                None
+            }
+        });
+        let uniform_program = if channel_uniform_shifts.iter().all(Option::is_some) {
+            let uniform_shifts = channel_uniform_shifts
+                .map(|value| value.expect("every channel was proven to be uniform"));
             Some(
                 BooleanOperatorProgram::new(gates, write, output, uniform_shifts)
                     .expect("validated grouped shifts cannot be invalid"),
@@ -85,6 +97,7 @@ impl BooleanNeuronGraph {
             shifts,
             destinations_by_shift,
             active_shifts,
+            channel_uniform_shifts,
             uniform_program,
         })
     }
@@ -142,6 +155,15 @@ impl BooleanNeuronGraph {
     #[must_use]
     pub fn compiled_uniform_shifts(&self) -> Option<[u8; OPERATOR_COUNT]> {
         self.uniform_program.map(|program| program.shifts())
+    }
+
+    /// The per-operator static specialization, independent of the other
+    /// operators. `Some(shift)` means all 64 destinations of this operator
+    /// share that source rotation; `None` means a heterogeneous source set.
+    /// Rewiring rebuilds these values with the other compiled routing masks.
+    #[must_use]
+    pub fn compiled_channel_uniform_shifts(&self) -> [Option<u8>; OPERATOR_COUNT] {
+        self.channel_uniform_shifts
     }
 
     /// Independent scalar oracle: visits all four channels for every neuron.
@@ -203,6 +225,13 @@ impl BooleanNeuronGraph {
         let mut sourced = [0u64; OPERATOR_COUNT];
         for channel in 0..OPERATOR_COUNT {
             if skip_disabled && gate_masks[channel] == 0 {
+                continue;
+            }
+            if let Some(shift) = self.channel_uniform_shifts[channel] {
+                // This channel is uniform even if the other channels are
+                // heterogeneous. Its unique source rotation can be applied
+                // directly, without scanning shift masks or OR-reducing.
+                sourced[channel] = previous.rotate_left(shift as u32) & gate_masks[channel];
                 continue;
             }
             let mut enabled = self.active_shifts[channel];
@@ -780,5 +809,99 @@ mod tests {
             program.forward_grouped_sparse(&inputs, initial),
             program.forward_scalar(&inputs, initial)
         );
+    }
+
+    #[test]
+    fn bps18_one_channel_rewire_keeps_other_three_compiled_uniform() {
+        let original = BooleanNeuronGraph::from_shared(shared());
+        assert_eq!(
+            original.compiled_channel_uniform_shifts(),
+            [Some(1), Some(3), Some(5), Some(7)]
+        );
+
+        let hetero = original.with_edge(OperatorChannel::Retain, 7, 11).unwrap();
+        assert_eq!(hetero.compiled_uniform_shifts(), None);
+        assert_eq!(
+            hetero.compiled_channel_uniform_shifts(),
+            [None, Some(3), Some(5), Some(7)]
+        );
+        assert_eq!(hetero.unique_shift_counts(), [2, 1, 1, 1]);
+
+        let more_hetero = hetero.with_edge(OperatorChannel::Toggle, 9, 21).unwrap();
+        assert_eq!(
+            more_hetero.compiled_channel_uniform_shifts(),
+            [None, Some(3), Some(5), None]
+        );
+        let restored = more_hetero
+            .with_edge(OperatorChannel::Retain, 7, 1)
+            .unwrap();
+        assert_eq!(
+            restored.compiled_channel_uniform_shifts(),
+            [Some(1), Some(3), Some(5), None]
+        );
+        let all_restored = restored.with_edge(OperatorChannel::Toggle, 9, 7).unwrap();
+        assert_eq!(all_restored, original);
+        assert_eq!(all_restored.compiled_uniform_shifts(), Some([1, 3, 5, 7]));
+
+        let mut seed = 0x31aa_6574_f41c_10ddu64;
+        for program in [&original, &hetero, &more_hetero, &restored] {
+            for _ in 0..32 {
+                let input = next_random(&mut seed);
+                let previous = next_random(&mut seed);
+                let oracle = program.step_scalar(input, previous);
+                assert_eq!(program.step_grouped(input, previous), oracle);
+                assert_eq!(program.step_grouped_sparse(input, previous), oracle);
+            }
+        }
+    }
+
+    #[test]
+    fn bps18_randomized_mixed_channel_specialization_matches_scalar() {
+        let mut seed = 0xba10_b418_983c_22d1u64;
+        for _ in 0..48 {
+            // Deliberately keep three operator channels uniform. Assign
+            // genuinely independent predecessor choices to the fourth.
+            let shifts = std::array::from_fn(|index| {
+                std::array::from_fn(|destination| {
+                    if index == 2 {
+                        ((destination * 11) % 64) as u8
+                    } else {
+                        (next_random(&mut seed) % 64) as u8
+                    }
+                })
+            });
+            let mut shared_shifts = shifts;
+            for channel in [0, 1, 3] {
+                let shift = shifts[channel][0];
+                shared_shifts[channel] = [shift; NEURON_COUNT];
+            }
+            let program = BooleanNeuronGraph::new(
+                [
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                ],
+                gate(&mut seed),
+                gate(&mut seed),
+                shared_shifts,
+            )
+            .unwrap();
+            let compiled = program.compiled_channel_uniform_shifts();
+            assert!(compiled[0].is_some());
+            assert!(compiled[1].is_some());
+            assert_eq!(compiled[2], None);
+            assert!(compiled[3].is_some());
+            let inputs: Vec<u64> = (0..77).map(|_| next_random(&mut seed)).collect();
+            let initial = next_random(&mut seed);
+            assert_eq!(
+                program.forward_grouped(&inputs, initial),
+                program.forward_scalar(&inputs, initial)
+            );
+            assert_eq!(
+                program.forward_grouped_sparse(&inputs, initial),
+                program.forward_scalar(&inputs, initial)
+            );
+        }
     }
 }
