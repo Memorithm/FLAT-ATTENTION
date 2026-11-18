@@ -1061,4 +1061,203 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn bps19_adaptive_plan_selects_direct_lanes_only_when_bounded_and_useful() {
+        let mut shifts = [[0u8; NEURON_COUNT]; OPERATOR_COUNT];
+        for destination in 0..NEURON_COUNT {
+            shifts[0][destination] = destination as u8;
+        }
+        shifts[1] = [3; NEURON_COUNT];
+        shifts[2] = [5; NEURON_COUNT];
+        shifts[3] = [7; NEURON_COUNT];
+        let selective = UnaryGate {
+            when_false: (1u64 << 1) | (1u64 << 61),
+            when_true: u64::MAX,
+        };
+        let input_switch = UnaryGate {
+            when_false: 0,
+            when_true: u64::MAX,
+        };
+        let program = BooleanNeuronGraph::new(
+            [selective, input_switch, UnaryGate::default(), UnaryGate::default()],
+            UnaryGate::default(),
+            always(),
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(program.unique_shift_counts(), [64, 1, 1, 1]);
+        assert_eq!(program.compiled_uniform_shifts(), None);
+        let policy = AdaptiveRoutingPolicy::default();
+        assert_eq!(
+            program.adaptive_route_plan(0, policy),
+            [
+                AdaptiveRoute::DirectLanes,
+                AdaptiveRoute::Dormant,
+                AdaptiveRoute::Dormant,
+                AdaptiveRoute::Dormant,
+            ]
+        );
+        assert_eq!(
+            program.adaptive_route_plan(u64::MAX, policy),
+            [
+                AdaptiveRoute::Grouped,
+                AdaptiveRoute::Uniform,
+                AdaptiveRoute::Dormant,
+                AdaptiveRoute::Dormant,
+            ]
+        );
+        let no_scalar = AdaptiveRoutingPolicy {
+            max_direct_lanes: [0; OPERATOR_COUNT],
+        };
+        assert_eq!(
+            program.adaptive_route_plan(0, no_scalar)[0],
+            AdaptiveRoute::Grouped
+        );
+        let only_one = AdaptiveRoutingPolicy {
+            max_direct_lanes: [1; OPERATOR_COUNT],
+        };
+        assert_eq!(
+            program.adaptive_route_plan(0, only_one)[0],
+            AdaptiveRoute::Grouped
+        );
+        let generous = AdaptiveRoutingPolicy {
+            max_direct_lanes: [64; OPERATOR_COUNT],
+        };
+        assert_eq!(
+            program.adaptive_route_plan(0, generous)[0],
+            AdaptiveRoute::DirectLanes
+        );
+        assert_eq!(
+            program.adaptive_route_plan(u64::MAX, generous)[0],
+            AdaptiveRoute::Grouped
+        );
+        let mut seed = 0x80ad_352a_1937_64b1u64;
+        for input in [0, u64::MAX] {
+            for _ in 0..16 {
+                let previous = next_random(&mut seed);
+                for current_policy in [policy, no_scalar, only_one, generous] {
+                    assert_eq!(
+                        program.step_adaptive(input, previous, current_policy),
+                        program.step_scalar(input, previous)
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bps19_random_per_neuron_graph_and_gate_masks_are_bit_exact() {
+        let mut seed = 0x91f6_f942_13b4_a55au64;
+        let policies = [
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [0; OPERATOR_COUNT],
+            },
+            AdaptiveRoutingPolicy::default(),
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [1, 2, 16, 64],
+            },
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [u8::MAX; OPERATOR_COUNT],
+            },
+        ];
+        for topology in 0..32 {
+            let shifts = std::array::from_fn(|channel| {
+                std::array::from_fn(|destination| {
+                    if topology % 4 == 0 && channel != 2 {
+                        (channel * 7) as u8
+                    } else if topology % 4 == 1 && channel == 0 && destination > 0 {
+                        3
+                    } else {
+                        (next_random(&mut seed) % 64) as u8
+                    }
+                })
+            });
+            let gates = [
+                gate(&mut seed),
+                gate(&mut seed),
+                gate(&mut seed),
+                gate(&mut seed),
+            ];
+            let program = BooleanNeuronGraph::new(
+                gates,
+                gate(&mut seed),
+                gate(&mut seed),
+                shifts,
+            )
+            .unwrap();
+            let inputs: Vec<u64> = (0..73)
+                .map(|index| match index % 11 {
+                    0 => 0,
+                    1 => u64::MAX,
+                    2 => 1,
+                    3 => 1 << 63,
+                    _ => next_random(&mut seed),
+                })
+                .collect();
+            let initial = next_random(&mut seed);
+            let expected = program.forward_scalar(&inputs, initial);
+            for policy in policies {
+                assert_eq!(
+                    program.forward_adaptive(&inputs, initial, policy),
+                    expected,
+                    "topology={topology} policy={policy:?}"
+                );
+            }
+            assert_eq!(
+                program.forward_adaptive(&[], initial, AdaptiveRoutingPolicy::default()),
+                Vec::<u64>::new()
+            );
+        }
+    }
+
+    #[test]
+    fn bps19_rewiring_preserves_adaptive_plan_and_full_trajectory() {
+        let mut seed = 0x61f9_3c73_a087_14bdu64;
+        let base = BooleanNeuronGraph::from_shared(
+            BooleanOperatorProgram::new(
+                [
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                ],
+                gate(&mut seed),
+                always(),
+                [1, 3, 5, 7],
+            )
+            .unwrap(),
+        );
+        let policy = AdaptiveRoutingPolicy::default();
+        assert_eq!(
+            base.compiled_uniform_shifts(),
+            Some([1, 3, 5, 7])
+        );
+        let changed = base
+            .with_edge(OperatorChannel::Retain, 11, 25)
+            .unwrap()
+            .with_edge(OperatorChannel::Retain, 41, 19)
+            .unwrap();
+        assert_eq!(changed.compiled_uniform_shifts(), None);
+        assert_eq!(
+            changed.compiled_channel_uniform_shifts(),
+            [None, Some(3), Some(5), Some(7)]
+        );
+        let inputs: Vec<u64> = (0..257).map(|_| next_random(&mut seed)).collect();
+        let state = next_random(&mut seed);
+        assert_eq!(
+            changed.forward_adaptive(&inputs, state, policy),
+            changed.forward_scalar(&inputs, state)
+        );
+        let restored = changed
+            .with_edge(OperatorChannel::Retain, 11, 1)
+            .unwrap()
+            .with_edge(OperatorChannel::Retain, 41, 1)
+            .unwrap();
+        assert_eq!(restored, base);
+        assert_eq!(
+            restored.forward_adaptive(&inputs, state, policy),
+            base.forward_grouped_sparse(&inputs, state)
+        );
+    }
 }
