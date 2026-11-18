@@ -55,7 +55,10 @@ fn main() {
     println!("bps14_two_tap=true");
     println!("bps14_train_initial_hamming={}", report.train_loss_before);
     println!("bps14_train_final_hamming={}", report.train_loss_after);
-    println!("bps14_holdout_final_hamming={}", report.validation_loss_after);
+    println!(
+        "bps14_holdout_final_hamming={}",
+        report.validation_loss_after
+    );
     println!("bps14_evaluated_candidates={}", report.evaluated_candidates);
     println!("bps14_result=PASS no_physical_speed_or_quality_claim");
 }
