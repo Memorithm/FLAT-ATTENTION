@@ -3,12 +3,8 @@
 //! The printed mask is a research candidate, never a production skip permit.
 
 use flat_algebraic_attention::rae_dirty_words::{DirtyFeatureWord, DirtyWordPageRouter};
-use flat_algebraic_attention::rae_hybrid_repair::{
-    plan_bounded_hybrid_attention, RaeHybridPlan,
-};
-use flat_algebraic_attention::rae_norm_certificate::{
-    RaeBoundVersions, RaeCausalPageBounds,
-};
+use flat_algebraic_attention::rae_hybrid_repair::{plan_bounded_hybrid_attention, RaeHybridPlan};
+use flat_algebraic_attention::rae_norm_certificate::{RaeBoundVersions, RaeCausalPageBounds};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // An exact external dirty-word producer reports a front on feature 0.
@@ -21,7 +17,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut wakes,
         &mut new_latches,
     )?;
-    let impulse_mask = wakes.iter().fold(0_u64, |mask, page| mask | (1_u64 << *page));
+    let impulse_mask = wakes
+        .iter()
+        .fold(0_u64, |mask, page| mask | (1_u64 << *page));
 
     // Independently pinned per-page causal counts / max-K norms.
     // Only page 0's actual QK logit is supplied at planning time.
