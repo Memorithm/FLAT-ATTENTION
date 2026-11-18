@@ -118,7 +118,10 @@ impl ScoreEnvelope {
 
     fn include_key(&mut self, key: TorsorKey) {
         let r = convert(key.resultant);
-        let c = add(convert(key.moment_at_reference), cross(convert(key.reference), r));
+        let c = add(
+            convert(key.moment_at_reference),
+            cross(convert(key.reference), r),
+        );
         for axis in 0..3 {
             self.r_min[axis] = self.r_min[axis].min(r[axis]);
             self.r_max[axis] = self.r_max[axis].max(r[axis]);
@@ -377,7 +380,9 @@ impl PreparedTorsorOctree {
             let child = self.nodes[child_index].aggregate;
             let child_envelope = self.nodes[child_index].score_envelope;
             self.nodes[node_index].children[octant] = Some(child_index);
-            self.nodes[node_index].score_envelope.include_child(child_envelope);
+            self.nodes[node_index]
+                .score_envelope
+                .include_child(child_envelope);
             total_r = add(total_r, child.resultant);
             total_m = add(
                 total_m,
@@ -693,7 +698,6 @@ mod tests {
             "a single mean score is not an exact log-sum-exp"
         );
     }
-
 
     #[test]
     fn guarded_adversarial_remote_keys_open_on_large_semantic_spread() {
