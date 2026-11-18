@@ -9,9 +9,7 @@ use std::thread;
 
 use super::boolean_edge_memory::BooleanEdgeProgram;
 use super::boolean_parallel_scan::MAX_BOOLEAN_SCAN_WORKERS;
-use super::boolean_rotating_memory::{
-    BooleanRotatingProgram, RotatingTransition,
-};
+use super::boolean_rotating_memory::{BooleanRotatingProgram, RotatingTransition};
 
 /// Update the two ends of an independent Blelloch tree block.
 fn update_rotating_block(block: &mut [RotatingTransition], stride: usize, up: bool) {
@@ -101,9 +99,7 @@ pub fn scan_rotating_states_parallel(
     transitions
         .iter()
         .zip(tree.iter())
-        .map(|(&transition, &exclusive)| {
-            exclusive.then(transition).apply(initial_state)
-        })
+        .map(|(&transition, &exclusive)| exclusive.then(transition).apply(initial_state))
         .collect()
 }
 
@@ -272,13 +268,9 @@ mod tests {
     fn rising_edge_event_sparse_matches_dense_and_old_scan() {
         let mut seed = 0x528e_911a_4c7b_d2f6u64;
         for shift in [0, 1, 7, 31, 63] {
-            let program = BooleanEdgeProgram::new(
-                gate(&mut seed),
-                gate(&mut seed),
-                random(&mut seed),
-                shift,
-            )
-            .unwrap();
+            let program =
+                BooleanEdgeProgram::new(gate(&mut seed), gate(&mut seed), random(&mut seed), shift)
+                    .unwrap();
             for length in [0usize, 1, 3, 64, 65, 129, 2049, 4097] {
                 let baseline = random(&mut seed);
                 let initial = random(&mut seed);
@@ -320,8 +312,7 @@ mod tests {
             when_false: u64::MAX,
             when_true: u64::MAX,
         };
-        let program =
-            BooleanEdgeProgram::new(always, UnaryGate::default(), u64::MAX, 1).unwrap();
+        let program = BooleanEdgeProgram::new(always, UnaryGate::default(), u64::MAX, 1).unwrap();
         let inputs = [1, 1, 1, 0, 0, 1, 1, 0, 1];
         let expected = program.forward_dense(&inputs, 0, 1);
         assert_eq!(expected, vec![2, 2, 2, 2, 2, 4, 4, 4, 8]);
@@ -329,10 +320,7 @@ mod tests {
             program.forward_event_scan_parallel(&inputs, 0, 1, 8),
             expected
         );
-        assert_eq!(
-            program.forward_scan_parallel(&inputs, 0, 1, 8),
-            expected
-        );
+        assert_eq!(program.forward_scan_parallel(&inputs, 0, 1, 8), expected);
         assert_eq!(
             program.forward_event_scan_parallel(&[1, 1, 0, 1], 1, 1, 8),
             vec![1, 1, 1, 2]
