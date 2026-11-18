@@ -81,9 +81,8 @@ impl BooleanNeuronGraph {
             }
         });
         let uniform_program = if channel_uniform_shifts.iter().all(Option::is_some) {
-            let uniform_shifts = channel_uniform_shifts.map(|value| {
-                value.expect("every channel was proven to be uniform")
-            });
+            let uniform_shifts = channel_uniform_shifts
+                .map(|value| value.expect("every channel was proven to be uniform"));
             Some(
                 BooleanOperatorProgram::new(gates, write, output, uniform_shifts)
                     .expect("validated grouped shifts cannot be invalid"),
