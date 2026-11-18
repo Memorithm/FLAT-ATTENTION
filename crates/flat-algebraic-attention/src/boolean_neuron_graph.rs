@@ -43,6 +43,10 @@ pub struct BooleanNeuronGraph {
     // predecessor offset, including mixed topologies where other operations
     // still need the heterogeneous grouped kernel.
     channel_uniform_shifts: [Option<u8>; OPERATOR_COUNT],
+    // Exact Boolean constraints on input bits which make ALL four
+    // recurrent channel gate words fully active. An impossible guard
+    // stays None and never triggers the dense execution fast path.
+    dense_gate_guard: Option<DenseGateGuard>,
     // Compiled once when every operator has one shared shift. This directly
     // reuses the exact BPS-15 kernel instead of looping over grouped masks.
     uniform_program: Option<BooleanOperatorProgram>,
@@ -98,6 +102,7 @@ impl BooleanNeuronGraph {
             destinations_by_shift,
             active_shifts,
             channel_uniform_shifts,
+            dense_gate_guard: DenseGateGuard::compile(&gates),
             uniform_program,
         })
     }
@@ -164,6 +169,23 @@ impl BooleanNeuronGraph {
     #[must_use]
     pub fn compiled_channel_uniform_shifts(&self) -> [Option<u8>; OPERATOR_COUNT] {
         self.channel_uniform_shifts
+    }
+
+    /// Report the exact input predicate (required-one bits, required-zero
+    /// bits) which makes all four recurrent gate words fully active.
+    /// Returns None if no input can satisfy all four Boolean gate tables.
+    #[must_use]
+    pub fn compiled_dense_gate_guard(&self) -> Option<(u64, u64)> {
+        self.dense_gate_guard
+            .map(|guard| (guard.required_one, guard.required_zero))
+    }
+
+    /// True precisely when all four channel masks evaluate to u64::MAX.
+    /// The predicate is compiled once from the Boolean gate truth tables.
+    #[must_use]
+    pub fn dense_gate_eligible(&self, input: u64) -> bool {
+        self.dense_gate_guard
+            .is_some_and(|guard| guard.matches(input))
     }
 
     /// Independent scalar oracle: visits all four channels for every neuron.
@@ -367,6 +389,48 @@ impl BooleanNeuronGraph {
         (next, next & self.output.evaluate(input))
     }
 
+    /// BPS-20 measured-density hybrid. If the compiled truth-table
+    /// predicate proves that ALL four recurrent masks contain 64 enabled
+    /// lanes, the BPS-18 dense grouped kernel is selected directly.
+    /// Otherwise the exact BPS-19 sparse, topology-dependent algorithm
+    /// is used. The branch has no uncertain arithmetic or output lookahead.
+    ///
+    /// The dense and adaptive paths both consume the same old recurrent
+    /// state and produce identical next state and output bit patterns.
+    #[must_use]
+    pub fn step_activity_hybrid(
+        &self,
+        input: u64,
+        previous: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> (u64, u64) {
+        if self.dense_gate_eligible(input) {
+            self.step_grouped(input, previous)
+        } else {
+            self.step_adaptive(input, previous, policy)
+        }
+    }
+
+    /// Multi-step exact hybrid recurrence: dense word inputs are selected
+    /// through the compiled guard; sparse inputs retain BPS-19 routing.
+    #[must_use]
+    pub fn forward_activity_hybrid(
+        &self,
+        inputs: &[u64],
+        initial: u64,
+        policy: AdaptiveRoutingPolicy,
+    ) -> Vec<u64> {
+        let mut state = initial;
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step_activity_hybrid(input, state, policy);
+                state = next;
+                output
+            })
+            .collect()
+    }
+
     /// Exact synchronous recurrence with O(T) steps and O(1) auxiliary
     /// recurrent state, excluding the dense returned output vector.
     #[must_use]
@@ -545,6 +609,43 @@ impl BooleanNeuronGraph {
         };
         *self = current;
         Ok(report)
+    }
+}
+
+/// Compile the exact condition under which every recurrent gate word
+/// contains 64 active lanes. For each input lane, all four gate tables
+/// must admit at least one input value; incompatible requirements across
+/// channels make this guard impossible.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DenseGateGuard {
+    required_one: u64,
+    required_zero: u64,
+}
+
+impl DenseGateGuard {
+    fn compile(gates: &[UnaryGate; OPERATOR_COUNT]) -> Option<Self> {
+        let mut required_one = 0u64;
+        let mut required_zero = 0u64;
+        for gate in gates {
+            if (gate.when_false | gate.when_true) != u64::MAX {
+                return None;
+            }
+            required_one |= gate.when_true & !gate.when_false;
+            required_zero |= gate.when_false & !gate.when_true;
+        }
+        if (required_one & required_zero) != 0 {
+            return None;
+        }
+        Some(Self {
+            required_one,
+            required_zero,
+        })
+    }
+
+    #[must_use]
+    fn matches(self, input: u64) -> bool {
+        (input & self.required_one) == self.required_one
+            && (input & self.required_zero) == 0
     }
 }
 
