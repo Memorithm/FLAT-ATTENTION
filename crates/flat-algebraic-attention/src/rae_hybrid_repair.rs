@@ -124,8 +124,7 @@ pub fn plan_bounded_hybrid_attention(
     // RAE-6 has already rejected non-finite upper terms for nonempty pages.
     let mut risks = Vec::new();
     for (page, metadata) in pages.iter().enumerate() {
-        if initial_page_mask[page / 64] & (1_u64 << (page % 64)) != 0
-            || metadata.eligible_keys == 0
+        if initial_page_mask[page / 64] & (1_u64 << (page % 64)) != 0 || metadata.eligible_keys == 0
         {
             continue;
         }
@@ -148,8 +147,7 @@ pub fn plan_bounded_hybrid_attention(
     // No omitted K vectors or omitted QK logits are consulted.
     let mut omitted_suffix = vec![f64::NEG_INFINITY; risks.len() + 1];
     for i in (0..risks.len()).rev() {
-        omitted_suffix[i] =
-            log_add_exp(risks[i].log_upper_mass, omitted_suffix[i + 1]);
+        omitted_suffix[i] = log_add_exp(risks[i].log_upper_mass, omitted_suffix[i + 1]);
     }
 
     let max_score = selected_eligible_logits
@@ -174,13 +172,9 @@ pub fn plan_bounded_hybrid_attention(
         selected_keys += risk.eligible_keys;
         omitted_keys -= risk.eligible_keys;
         log_retained_lower = log_add_exp(log_retained_lower, risk.log_lower_mass);
-        let maximum_dropped_mass_bound = mass_bound(
-            omitted_suffix[index + 1],
-            log_retained_lower,
-            omitted_keys,
-        );
-        let maximum_output_error_bound =
-            output_bound(maximum_dropped_mass_bound, value_abs_bound);
+        let maximum_dropped_mass_bound =
+            mass_bound(omitted_suffix[index + 1], log_retained_lower, omitted_keys);
+        let maximum_output_error_bound = output_bound(maximum_dropped_mass_bound, value_abs_bound);
         let certificate = RaeNormMassCertificate {
             page_count: pages.len(),
             selected_pages: initial.selected_pages + promoted.len(),
@@ -270,21 +264,44 @@ mod tests {
 
     fn pages() -> [RaeCausalPageBounds; 3] {
         [
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 8.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 8.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 0.0 },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 8.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 8.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 0.0,
+            },
         ]
     }
 
     #[test]
     fn promotes_highest_risk_page_without_its_qk_logit() {
         let result = plan_bounded_hybrid_attention(
-            &[0b001], &pages(), &[8.0], 1.0, 1.0,
-            versions(), 0.001, 0.001, 1, false,
-        ).unwrap();
+            &[0b001],
+            &pages(),
+            &[8.0],
+            1.0,
+            1.0,
+            versions(),
+            0.001,
+            0.001,
+            1,
+            false,
+        )
+        .unwrap();
         let RaeHybridPlan::BoundedSparse {
-            selected_page_mask, promoted_pages, certificate,
-        } = result else { panic!("one promotion should be sufficient") };
+            selected_page_mask,
+            promoted_pages,
+            certificate,
+        } = result
+        else {
+            panic!("one promotion should be sufficient")
+        };
         assert_eq!(selected_page_mask, vec![0b011]);
         assert_eq!(promoted_pages, vec![1]);
         assert_eq!(certificate.selected_eligible_keys, 2);
@@ -302,16 +319,26 @@ mod tests {
             3,
             &selected_page_mask,
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(oracle.softmax.dropped_mass() <= certificate.maximum_dropped_mass);
     }
 
     #[test]
     fn budget_exhaustion_forces_dense_not_unqualified_sparse() {
         let plan = plan_bounded_hybrid_attention(
-            &[0b001], &pages(), &[8.0], 1.0, 1.0,
-            versions(), 0.001, 0.001, 0, false,
-        ).unwrap();
+            &[0b001],
+            &pages(),
+            &[8.0],
+            1.0,
+            1.0,
+            versions(),
+            0.001,
+            0.001,
+            0,
+            false,
+        )
+        .unwrap();
         assert!(matches!(
             plan,
             RaeHybridPlan::DenseFallback {
@@ -325,9 +352,18 @@ mod tests {
     #[test]
     fn invalidation_forces_dense_even_when_initial_certificate_passes() {
         let plan = plan_bounded_hybrid_attention(
-            &[0b111], &pages(), &[8.0, -8.0, 0.0], 1.0, 1.0,
-            versions(), 0.0, 0.0, 2, true,
-        ).unwrap();
+            &[0b111],
+            &pages(),
+            &[8.0, -8.0, 0.0],
+            1.0,
+            1.0,
+            versions(),
+            0.0,
+            0.0,
+            2,
+            true,
+        )
+        .unwrap();
         assert!(matches!(
             plan,
             RaeHybridPlan::DenseFallback {
@@ -341,14 +377,32 @@ mod tests {
     #[test]
     fn identical_risks_are_broken_by_original_page_id() {
         let equal = [
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 10.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 0.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 0.0 },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 10.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 0.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 0.0,
+            },
         ];
         let plan = plan_bounded_hybrid_attention(
-            &[0b001], &equal, &[10.0], 1.0, 1.0,
-            versions(), 0.00006, 0.00012, 1, false,
-        ).unwrap();
+            &[0b001],
+            &equal,
+            &[10.0],
+            1.0,
+            1.0,
+            versions(),
+            0.00006,
+            0.00012,
+            1,
+            false,
+        )
+        .unwrap();
         match plan {
             RaeHybridPlan::BoundedSparse { promoted_pages, .. } => {
                 assert_eq!(promoted_pages, vec![1]);
@@ -360,17 +414,36 @@ mod tests {
     #[test]
     fn cross_word_page_promotions_preserve_original_ids() {
         let mut metadata = vec![
-            RaeCausalPageBounds { eligible_keys: 0, max_key_l2_norm: 0.0 };
+            RaeCausalPageBounds {
+                eligible_keys: 0,
+                max_key_l2_norm: 0.0
+            };
             65
         ];
         metadata[0].eligible_keys = 1;
-        metadata[64] = RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 6.0 };
+        metadata[64] = RaeCausalPageBounds {
+            eligible_keys: 1,
+            max_key_l2_norm: 6.0,
+        };
         let plan = plan_bounded_hybrid_attention(
-            &[1, 0], &metadata, &[6.0], 1.0, 1.0,
-            versions(), 0.0, 0.0, 1, false,
-        ).unwrap();
+            &[1, 0],
+            &metadata,
+            &[6.0],
+            1.0,
+            1.0,
+            versions(),
+            0.0,
+            0.0,
+            1,
+            false,
+        )
+        .unwrap();
         match plan {
-            RaeHybridPlan::BoundedSparse { selected_page_mask, promoted_pages, certificate } => {
+            RaeHybridPlan::BoundedSparse {
+                selected_page_mask,
+                promoted_pages,
+                certificate,
+            } => {
                 assert_eq!(selected_page_mask, vec![1, 1]);
                 assert_eq!(promoted_pages, vec![64]);
                 assert_eq!(certificate.maximum_dropped_mass, 0.0);
@@ -385,15 +458,31 @@ mod tests {
         stale.norms_key_generation += 1;
         assert_eq!(
             plan_bounded_hybrid_attention(
-                &[0b001], &pages(), &[8.0], 1.0, 1.0,
-                stale, 0.001, 0.001, 1, false,
+                &[0b001],
+                &pages(),
+                &[8.0],
+                1.0,
+                1.0,
+                stale,
+                0.001,
+                0.001,
+                1,
+                false,
             ),
             Err(RaeCertError::StaleKeyNorms)
         );
         assert_eq!(
             plan_bounded_hybrid_attention(
-                &[0b001], &pages(), &[8.0], 1.0, 1.0,
-                versions(), -0.1, 0.001, 1, true,
+                &[0b001],
+                &pages(),
+                &[8.0],
+                1.0,
+                1.0,
+                versions(),
+                -0.1,
+                0.001,
+                1,
+                true,
             ),
             Err(RaeCertError::InvalidDroppedMassBudget)
         );
