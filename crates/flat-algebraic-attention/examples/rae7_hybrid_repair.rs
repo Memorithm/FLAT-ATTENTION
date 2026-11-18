@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut wakes,
         &mut new_latches,
     )?;
-    let impulse_mask = wakes.iter().fold(0_u64, |mask, page| mask | (1_u64 << page));
+    let impulse_mask = wakes.iter().fold(0_u64, |mask, page| mask | (1_u64 << *page));
 
     // Independently pinned per-page causal counts / max-K norms.
     // Only page 0's actual QK logit is supplied at planning time.
