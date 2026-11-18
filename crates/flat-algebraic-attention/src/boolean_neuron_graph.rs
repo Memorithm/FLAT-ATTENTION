@@ -346,8 +346,7 @@ impl BooleanNeuronGraph {
                         lanes &= lanes - 1;
                         let shift = usize::from(self.shifts[channel][destination]);
                         let source = (destination + NEURON_COUNT - shift) % NEURON_COUNT;
-                        sourced[channel] |=
-                            ((previous >> source) & 1) << destination;
+                        sourced[channel] |= ((previous >> source) & 1) << destination;
                     }
                 }
                 AdaptiveRoute::Grouped => {
@@ -355,8 +354,7 @@ impl BooleanNeuronGraph {
                     while shifts != 0 {
                         let shift = shifts.trailing_zeros() as usize;
                         shifts &= shifts - 1;
-                        let enabled =
-                            self.destinations_by_shift[channel][shift] & masks[channel];
+                        let enabled = self.destinations_by_shift[channel][shift] & masks[channel];
                         if enabled != 0 {
                             sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
                         }
@@ -1080,7 +1078,12 @@ mod tests {
             when_true: u64::MAX,
         };
         let program = BooleanNeuronGraph::new(
-            [selective, input_switch, UnaryGate::default(), UnaryGate::default()],
+            [
+                selective,
+                input_switch,
+                UnaryGate::default(),
+                UnaryGate::default(),
+            ],
             UnaryGate::default(),
             always(),
             shifts,
@@ -1179,13 +1182,8 @@ mod tests {
                 gate(&mut seed),
                 gate(&mut seed),
             ];
-            let program = BooleanNeuronGraph::new(
-                gates,
-                gate(&mut seed),
-                gate(&mut seed),
-                shifts,
-            )
-            .unwrap();
+            let program =
+                BooleanNeuronGraph::new(gates, gate(&mut seed), gate(&mut seed), shifts).unwrap();
             let inputs: Vec<u64> = (0..73)
                 .map(|index| match index % 11 {
                     0 => 0,
@@ -1229,10 +1227,7 @@ mod tests {
             .unwrap(),
         );
         let policy = AdaptiveRoutingPolicy::default();
-        assert_eq!(
-            base.compiled_uniform_shifts(),
-            Some([1, 3, 5, 7])
-        );
+        assert_eq!(base.compiled_uniform_shifts(), Some([1, 3, 5, 7]));
         let changed = base
             .with_edge(OperatorChannel::Retain, 11, 25)
             .unwrap()
