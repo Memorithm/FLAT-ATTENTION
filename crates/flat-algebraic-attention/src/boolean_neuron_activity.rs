@@ -198,7 +198,7 @@ impl NeuronActivationProfile {
             add(&mut self.global_dense_ticks, 1)?;
         }
         let routes = graph.adaptive_route_plan(input, policy);
-        for channel in 0..OPERATOR_COUNT {
+        for (channel, &route) in routes.iter().enumerate() {
             let mask = graph.gates[channel].evaluate(input);
             let ones = mask.count_ones() as usize;
             add(&mut self.gate_one_bits[channel], ones as u64)?;
@@ -209,7 +209,7 @@ impl NeuronActivationProfile {
             if ones == NEURON_COUNT {
                 add(&mut self.fully_active_ticks[channel], 1)?;
             }
-            self.candidate_routes[channel].count(routes[channel])?;
+            self.candidate_routes[channel].count(route)?;
 
             // One input gate bit may activate an independent destination
             // neuron with a different predecessor. Count each distinct
