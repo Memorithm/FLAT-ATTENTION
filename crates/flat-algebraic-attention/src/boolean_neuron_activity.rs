@@ -252,8 +252,8 @@ impl NeuronActivationProfile {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::boolean_scan_lstm::UnaryGate;
+    use super::*;
 
     fn always() -> UnaryGate {
         UnaryGate {
@@ -360,7 +360,10 @@ mod tests {
             assert_eq!(profile.input_weight_histogram[usize::from(weight)], 129);
             let expected = graph.forward_scalar(&inputs, initial);
             assert_eq!(graph.forward_adaptive(&inputs, initial, policy), expected);
-            assert_eq!(graph.forward_activity_hybrid(&inputs, initial, policy), expected);
+            assert_eq!(
+                graph.forward_activity_hybrid(&inputs, initial, policy),
+                expected
+            );
             assert_eq!(graph.forward_grouped_sparse(&inputs, initial), expected);
         }
     }
