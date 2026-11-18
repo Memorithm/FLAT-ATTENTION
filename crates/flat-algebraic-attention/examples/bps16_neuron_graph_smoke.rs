@@ -16,7 +16,12 @@ fn main() {
         when_true: u64::MAX,
     };
     let initial = BooleanNeuronGraph::new(
-        [retention, UnaryGate::default(), UnaryGate::default(), UnaryGate::default()],
+        [
+            retention,
+            UnaryGate::default(),
+            UnaryGate::default(),
+            UnaryGate::default(),
+        ],
         UnaryGate::default(),
         output,
         [[0u8; NEURON_COUNT]; OPERATOR_COUNT],
@@ -59,8 +64,14 @@ fn main() {
     assert_eq!(report.accepted_rewires, 2);
     assert_eq!(learner.source_shift(OperatorChannel::Retain, 1), Some(1));
     assert_eq!(learner.source_shift(OperatorChannel::Retain, 3), Some(3));
-    assert_eq!(learner.forward_grouped_sparse(&heldout_inputs, 1 | (1 << 5)), heldout_targets);
-    assert_eq!(learner.forward_grouped(&heldout_inputs, 1 | (1 << 5)), heldout_targets);
+    assert_eq!(
+        learner.forward_grouped_sparse(&heldout_inputs, 1 | (1 << 5)),
+        heldout_targets
+    );
+    assert_eq!(
+        learner.forward_grouped(&heldout_inputs, 1 | (1 << 5)),
+        heldout_targets
+    );
     println!("BPS16_INDEPENDENT_SOURCE_EDGES=2");
     println!("BPS16_LOSS_BEFORE={}", report.train_before);
     println!("BPS16_LOSS_AFTER={}", report.train_after);
