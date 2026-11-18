@@ -180,9 +180,7 @@ impl PreparedTorsorOctree {
             return Err(TorsorTreeError::InvalidDepth);
         }
         for (index, key) in keys.iter().enumerate() {
-            if !finite(key.reference)
-                || !finite(key.resultant)
-                || !finite(key.moment_at_reference)
+            if !finite(key.reference) || !finite(key.resultant) || !finite(key.moment_at_reference)
             {
                 return Err(TorsorTreeError::NonFiniteKey { index });
             }
@@ -333,10 +331,7 @@ impl PreparedTorsorOctree {
         if !theta.is_finite() || theta < 0.0 {
             return Err(TorsorTreeError::InvalidOpeningRatio);
         }
-        if !finite(query.linear)
-            || !finite(query.angular)
-            || !finite(query.evaluation_point)
-        {
+        if !finite(query.linear) || !finite(query.angular) || !finite(query.evaluation_point) {
             return Err(TorsorTreeError::NonFiniteQuery);
         }
         let linear = convert(query.linear);
@@ -449,10 +444,7 @@ mod tests {
     }
 
     fn close(a: f64, b: f64) {
-        assert!(
-            (a - b).abs() < 1.0e-10 * (1.0 + b.abs()),
-            "{a} != {b}"
-        );
+        assert!((a - b).abs() < 1.0e-10 * (1.0 + b.abs()), "{a} != {b}");
     }
 
     /// Independent per-token softmax does not use the tree, subtree reductions
@@ -463,7 +455,8 @@ mod tests {
             let r = convert(key.resultant);
             let delta = sub(convert(key.reference), convert(query.evaluation_point));
             let moment = add(convert(key.moment_at_reference), cross(delta, r));
-            let score = scale * (dot(convert(query.linear), r) + dot(convert(query.angular), moment));
+            let score =
+                scale * (dot(convert(query.linear), r) + dot(convert(query.angular), moment));
             scored.push((score, r, moment));
         }
         let largest = scored.iter().map(|x| x.0).fold(f64::NEG_INFINITY, f64::max);
@@ -560,7 +553,9 @@ mod tests {
         assert!(row.exact_keys > 0);
         assert_eq!(row.covered_keys, keys.len());
         assert!(row.exact_keys + row.summarized_nodes <= keys.len());
-        let far = tree.forward(sample_query([1.0e5, 1.0e5, 1.0e5]), 0.2, 0.5).unwrap();
+        let far = tree
+            .forward(sample_query([1.0e5, 1.0e5, 1.0e5]), 0.2, 0.5)
+            .unwrap();
         assert_eq!(far.covered_keys, keys.len());
         assert_eq!(far.summarized_nodes, 1);
         assert_eq!(far.exact_keys, 0);
