@@ -26,13 +26,7 @@ fn graph(uniform: usize) -> BooleanNeuronGraph {
         when_false: u64::MAX,
         when_true: u64::MAX,
     };
-    BooleanNeuronGraph::new(
-        [gate; OPERATOR_COUNT],
-        UnaryGate::default(),
-        output,
-        shifts,
-    )
-    .unwrap()
+    BooleanNeuronGraph::new([gate; OPERATOR_COUNT], UnaryGate::default(), output, shifts).unwrap()
 }
 
 fn main() {
@@ -54,10 +48,7 @@ fn main() {
         for weight in [0, 1, 4, 16, 32, 48, 63, 64] {
             let inputs = exact_weight_corpus(0xf1d2_c038_a573_922e, weight, 73).unwrap();
             let expected = graph.forward_scalar(&inputs, 0x772c_e0aa_9f11_38b5);
-            assert_eq!(
-                prepared.forward(&inputs, 0x772c_e0aa_9f11_38b5),
-                expected
-            );
+            assert_eq!(prepared.forward(&inputs, 0x772c_e0aa_9f11_38b5), expected);
             assert_eq!(
                 graph.forward_weight_routed(&inputs, 0x772c_e0aa_9f11_38b5, policy),
                 expected
