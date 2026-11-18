@@ -39,6 +39,10 @@ pub struct BooleanNeuronGraph {
     shifts: [[u8; NEURON_COUNT]; OPERATOR_COUNT],
     destinations_by_shift: [[u64; NEURON_COUNT]; OPERATOR_COUNT],
     active_shifts: [u64; OPERATOR_COUNT],
+    // Specialize any operation whose 64 destination neurons share one
+    // predecessor offset, including mixed topologies where other operations
+    // still need the heterogeneous grouped kernel.
+    channel_uniform_shifts: [Option<u8>; OPERATOR_COUNT],
     // Compiled once when every operator has one shared shift. This directly
     // reuses the exact BPS-15 kernel instead of looping over grouped masks.
     uniform_program: Option<BooleanOperatorProgram>,
@@ -69,8 +73,17 @@ impl BooleanNeuronGraph {
                 active_shifts[index] |= 1u64 << shift;
             }
         }
-        let uniform_program = if active_shifts.iter().all(|bits| bits.count_ones() == 1) {
-            let uniform_shifts = active_shifts.map(|bits| bits.trailing_zeros() as u8);
+        let channel_uniform_shifts = active_shifts.map(|bits| {
+            if bits.count_ones() == 1 {
+                Some(bits.trailing_zeros() as u8)
+            } else {
+                None
+            }
+        });
+        let uniform_program = if channel_uniform_shifts.iter().all(Option::is_some) {
+            let uniform_shifts = channel_uniform_shifts.map(|value| {
+                value.expect("every channel was proven to be uniform")
+            });
             Some(
                 BooleanOperatorProgram::new(gates, write, output, uniform_shifts)
                     .expect("validated grouped shifts cannot be invalid"),
@@ -85,6 +98,7 @@ impl BooleanNeuronGraph {
             shifts,
             destinations_by_shift,
             active_shifts,
+            channel_uniform_shifts,
             uniform_program,
         })
     }
@@ -142,6 +156,15 @@ impl BooleanNeuronGraph {
     #[must_use]
     pub fn compiled_uniform_shifts(&self) -> Option<[u8; OPERATOR_COUNT]> {
         self.uniform_program.map(|program| program.shifts())
+    }
+
+    /// The per-operator static specialization, independent of the other
+    /// operators. `Some(shift)` means all 64 destinations of this operator
+    /// share that source rotation; `None` means a heterogeneous source set.
+    /// Rewiring rebuilds these values with the other compiled routing masks.
+    #[must_use]
+    pub fn compiled_channel_uniform_shifts(&self) -> [Option<u8>; OPERATOR_COUNT] {
+        self.channel_uniform_shifts
     }
 
     /// Independent scalar oracle: visits all four channels for every neuron.
@@ -203,6 +226,13 @@ impl BooleanNeuronGraph {
         let mut sourced = [0u64; OPERATOR_COUNT];
         for channel in 0..OPERATOR_COUNT {
             if skip_disabled && gate_masks[channel] == 0 {
+                continue;
+            }
+            if let Some(shift) = self.channel_uniform_shifts[channel] {
+                // This channel is uniform even if the other channels are
+                // heterogeneous. Its unique source rotation can be applied
+                // directly, without scanning shift masks or OR-reducing.
+                sourced[channel] = previous.rotate_left(shift as u32) & gate_masks[channel];
                 continue;
             }
             let mut enabled = self.active_shifts[channel];
