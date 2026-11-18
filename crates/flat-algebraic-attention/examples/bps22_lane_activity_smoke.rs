@@ -47,7 +47,9 @@ fn main() {
     let mut observed_distinct_weights = 0u64;
     for weight in [0, 1, 4, 16, 32, 48, 63, 64] {
         let corpus = exact_weight_corpus(0xb221_425e_b887_6300, weight, 127).unwrap();
-        assert!(corpus.iter().all(|word| word.count_ones() == u32::from(weight)));
+        assert!(corpus
+            .iter()
+            .all(|word| word.count_ones() == u32::from(weight)));
         let profile = NeuronActivationProfile::from_inputs(&graph, &corpus, policy).unwrap();
         assert_eq!(profile.samples, 127);
         assert_eq!(profile.input_one_bits, 127 * u64::from(weight));
@@ -57,7 +59,10 @@ fn main() {
         }
         let initial = 0x1f41_97ab_2811_340du64;
         let expected = graph.forward_scalar(&corpus, initial);
-        assert_eq!(graph.forward_activity_hybrid(&corpus, initial, policy), expected);
+        assert_eq!(
+            graph.forward_activity_hybrid(&corpus, initial, policy),
+            expected
+        );
         assert_eq!(graph.forward_adaptive(&corpus, initial, policy), expected);
         sampled += 127;
         observed_distinct_weights += 1;
