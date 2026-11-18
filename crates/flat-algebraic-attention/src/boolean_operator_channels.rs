@@ -83,7 +83,6 @@ impl BooleanOperatorProgram {
         self.shifts
     }
 
-    #[must_use]
     pub const fn with_channel_shift(
         mut self,
         channel: OperatorChannel,
