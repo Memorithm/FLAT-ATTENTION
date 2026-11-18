@@ -100,8 +100,7 @@ impl BooleanTwoTapProgram {
         let first = previous_state.rotate_left(self.primary_shift as u32);
         let second = previous_state.rotate_left(self.secondary_shift as u32);
         let coupled = self.mix.combine(first, second);
-        let next = (self.gates.forget.evaluate(input) & coupled)
-            | self.gates.write.evaluate(input);
+        let next = (self.gates.forget.evaluate(input) & coupled) | self.gates.write.evaluate(input);
         (next, next & self.gates.output.evaluate(input))
     }
 
@@ -141,9 +140,7 @@ impl BooleanTwoTapProgram {
             for (&input, &target) in example.inputs.iter().zip(example.targets.iter()) {
                 let (next, output) = self.step(input, state);
                 state = next;
-                let mistakes = u64::from(
-                    ((output ^ target) & active_output_lanes).count_ones(),
-                );
+                let mistakes = u64::from(((output ^ target) & active_output_lanes).count_ones());
                 loss = loss
                     .checked_add(mistakes)
                     .ok_or(BooleanTrainError::LossOverflow)?;
@@ -169,10 +166,8 @@ impl BooleanTwoTapProgram {
         active_output_lanes: u64,
         policy: TwoTapTrainPolicy,
     ) -> Result<TwoTapFitReport, TwoTapFitError> {
-        validate_examples(training, active_output_lanes)
-            .map_err(TwoTapFitError::Training)?;
-        validate_examples(validation, active_output_lanes)
-            .map_err(TwoTapFitError::Validation)?;
+        validate_examples(training, active_output_lanes).map_err(TwoTapFitError::Training)?;
+        validate_examples(validation, active_output_lanes).map_err(TwoTapFitError::Validation)?;
         if policy.max_epochs == 0 {
             return Err(TwoTapFitError::Training(BooleanTrainError::ZeroEpochs));
         }
@@ -407,9 +402,8 @@ mod tests {
                 },
             };
             for mix in [TwoTapMix::Or, TwoTapMix::Xor] {
-                let model = BooleanTwoTapProgram::new(
-                    gates, first_shift, second_shift, mix,
-                ).unwrap();
+                let model =
+                    BooleanTwoTapProgram::new(gates, first_shift, second_shift, mix).unwrap();
                 let mut scalar_next = 0u64;
                 for lane in 0..64u32 {
                     let from_first = (lane + 64 - u32::from(first_shift)) % 64;
@@ -507,24 +501,41 @@ mod tests {
         let original = learner;
         assert_eq!(
             learner.fit_topology(
-                &train, &train, 0,
-                TwoTapTrainPolicy { max_epochs: 1, max_candidates: 3 }
+                &train,
+                &train,
+                0,
+                TwoTapTrainPolicy {
+                    max_epochs: 1,
+                    max_candidates: 3
+                }
             ),
-            Err(TwoTapFitError::Training(BooleanTrainError::EmptyActiveLanes))
+            Err(TwoTapFitError::Training(
+                BooleanTrainError::EmptyActiveLanes
+            ))
         );
         assert_eq!(learner, original);
         assert_eq!(
             learner.fit_topology(
-                &train, &train, 1,
-                TwoTapTrainPolicy { max_epochs: 1, max_candidates: 0 }
+                &train,
+                &train,
+                1,
+                TwoTapTrainPolicy {
+                    max_epochs: 1,
+                    max_candidates: 0
+                }
             ),
             Err(TwoTapFitError::ZeroCandidateBudget)
         );
         assert_eq!(learner, original);
         assert_eq!(
             learner.fit_topology(
-                &train, &train, 1,
-                TwoTapTrainPolicy { max_epochs: 0, max_candidates: 3 }
+                &train,
+                &train,
+                1,
+                TwoTapTrainPolicy {
+                    max_epochs: 0,
+                    max_candidates: 3
+                }
             ),
             Err(TwoTapFitError::Training(BooleanTrainError::ZeroEpochs))
         );
@@ -533,10 +544,17 @@ mod tests {
         let malformed = [example(&inputs, &bad_targets, 1)];
         assert_eq!(
             learner.fit_topology(
-                &train, &malformed, 1,
-                TwoTapTrainPolicy { max_epochs: 1, max_candidates: 3 }
+                &train,
+                &malformed,
+                1,
+                TwoTapTrainPolicy {
+                    max_epochs: 1,
+                    max_candidates: 3
+                }
             ),
-            Err(TwoTapFitError::Validation(BooleanTrainError::LengthMismatch { example_index: 0 }))
+            Err(TwoTapFitError::Validation(
+                BooleanTrainError::LengthMismatch { example_index: 0 }
+            ))
         );
         assert_eq!(learner, original);
     }
@@ -554,8 +572,12 @@ mod tests {
             max_epochs: 3,
             max_candidates: 1,
         };
-        let a_report = a.fit_topology(&holdout_a, &holdout_a, u64::MAX, policy).unwrap();
-        let b_report = b.fit_topology(&holdout_a, &holdout_b, u64::MAX, policy).unwrap();
+        let a_report = a
+            .fit_topology(&holdout_a, &holdout_a, u64::MAX, policy)
+            .unwrap();
+        let b_report = b
+            .fit_topology(&holdout_a, &holdout_b, u64::MAX, policy)
+            .unwrap();
         assert_eq!(a, b);
         assert_eq!(a_report.evaluated_candidates, 1);
         assert_eq!(b_report.evaluated_candidates, 1);
