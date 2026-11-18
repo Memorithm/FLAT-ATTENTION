@@ -4,9 +4,7 @@
 use flat_algebraic_attention::rae_hybrid_execution::{
     execute_rae_hybrid, RaeNumericPolicy, RaeNumericQuery, RaeNumericalRoute,
 };
-use flat_algebraic_attention::rae_norm_certificate::{
-    RaeBoundVersions, RaeCausalPageBounds,
-};
+use flat_algebraic_attention::rae_norm_certificate::{RaeBoundVersions, RaeCausalPageBounds};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // One original causal query with three 1D K/V rows. The event router
@@ -58,7 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         selected_page_mask,
         promoted_pages,
         certificate,
-    } = &sparse.route else {
+    } = &sparse.route
+    else {
         panic!("expected a certified research sparse candidate");
     };
     assert_eq!(selected_page_mask, &[0b011]);
