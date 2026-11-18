@@ -477,7 +477,7 @@ mod tests {
         for capacity in [1, 3, 12, 128] {
             let tree = PreparedTorsorOctree::build(&keys, capacity, 20).unwrap();
             assert!(tree.node_count() >= 1);
-            assert!(tree.node_count() <= 2 * keys.len() - 1);
+            assert!(tree.node_count() < 2 * keys.len());
             let root = tree.root_aggregate();
             assert_eq!(root.mass, keys.len());
             let direct = tree.leaf_aggregate(&(0..keys.len()).collect::<Vec<_>>(), root.center);
