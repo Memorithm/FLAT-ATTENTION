@@ -92,6 +92,13 @@ jobs:
           cargo test --test workspace_inventory
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features
+      - name: TDI22 octree host-only paired numerical qualification
+        run: |
+          set -euo pipefail
+          cargo test -p flat-algebraic-attention --example tdi22_octree_qualification
+          cargo run -p flat-algebraic-attention --example tdi22_octree_qualification -- --keys 128 --samples 3 > "$RUNNER_TEMP/tdi22-octree-qualification.csv"
+          test "$(wc -l < "$RUNNER_TEMP/tdi22-octree-qualification.csv")" -eq 33
+          cat "$RUNNER_TEMP/tdi22-octree-qualification.csv"
       - name: RAE-9 model QKV snapshot protocol and grouped-head oracle
         run: |
           cargo test -p flat-algebraic-attention --example rae9_real_model_bridge
