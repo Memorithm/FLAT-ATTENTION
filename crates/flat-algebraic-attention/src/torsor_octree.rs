@@ -83,10 +83,81 @@ pub enum TorsorTreeError {
     InvalidLeafCapacity,
     InvalidDepth,
     InvalidOpeningRatio,
+    InvalidScoreSpreadLimit,
     InvalidScale,
     NonFiniteKey { index: usize },
     NonFiniteQuery,
     NonFiniteScore,
+}
+
+/// Axis-aligned numerical envelopes over the per-key origin-reduced pair (R, C).
+///
+/// TDI convention: C_i = M_i(P_i) + P_i x R_i, so the score for query
+/// (v, omega, Q) is scale * [(v + Q x omega) . R_i + omega . C_i].
+/// These envelopes are a conservative algebraic screening mechanism in exact
+/// arithmetic; IEEE-754 rounding is not treated as a formal interval proof.
+#[derive(Clone, Copy, Debug)]
+struct ScoreEnvelope {
+    r_min: Vec3,
+    r_max: Vec3,
+    c_min: Vec3,
+    c_max: Vec3,
+}
+
+impl ScoreEnvelope {
+    fn empty() -> Self {
+        Self {
+            r_min: [f64::INFINITY; 3],
+            r_max: [f64::NEG_INFINITY; 3],
+            c_min: [f64::INFINITY; 3],
+            c_max: [f64::NEG_INFINITY; 3],
+        }
+    }
+
+    fn include_key(&mut self, key: TorsorKey) {
+        let r = convert(key.resultant);
+        let c = add(convert(key.moment_at_reference), cross(convert(key.reference), r));
+        for axis in 0..3 {
+            self.r_min[axis] = self.r_min[axis].min(r[axis]);
+            self.r_max[axis] = self.r_max[axis].max(r[axis]);
+            self.c_min[axis] = self.c_min[axis].min(c[axis]);
+            self.c_max[axis] = self.c_max[axis].max(c[axis]);
+        }
+    }
+
+    fn from_leaf(keys: &[TorsorKey], indices: &[usize]) -> Self {
+        let mut envelope = Self::empty();
+        for &index in indices {
+            envelope.include_key(keys[index]);
+        }
+        envelope
+    }
+
+    fn include_child(&mut self, child: Self) {
+        for axis in 0..3 {
+            self.r_min[axis] = self.r_min[axis].min(child.r_min[axis]);
+            self.r_max[axis] = self.r_max[axis].max(child.r_max[axis]);
+            self.c_min[axis] = self.c_min[axis].min(child.c_min[axis]);
+            self.c_max[axis] = self.c_max[axis].max(child.c_max[axis]);
+        }
+    }
+
+    /// Upper estimate on max(score_i) - min(score_i) across the node.
+    /// Returns None for non-finite arithmetic so no summary is authorized.
+    fn score_span(&self, projected_linear: Vec3, angular: Vec3, scale: f64) -> Option<f64> {
+        let mut span = 0.0;
+        for axis in 0..3 {
+            let r_range = self.r_max[axis] - self.r_min[axis];
+            let c_range = self.c_max[axis] - self.c_min[axis];
+            span += projected_linear[axis].abs() * r_range + angular[axis].abs() * c_range;
+        }
+        let bound = scale * span;
+        if bound.is_finite() && bound >= 0.0 {
+            Some(bound)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -96,6 +167,7 @@ struct Node {
     bounds_max: Vec3,
     /// Largest axis-aligned extent of this node's occupied key positions.
     extent: f64,
+    score_envelope: ScoreEnvelope,
     children: [Option<usize>; 8],
     /// Only leaves retain individual key indices.
     leaf_keys: Vec<usize>,
@@ -263,11 +335,13 @@ impl PreparedTorsorOctree {
             bounds_min: lower,
             bounds_max: upper,
             extent,
+            score_envelope: ScoreEnvelope::empty(),
             children: [None; 8],
             leaf_keys: Vec::new(),
         });
         if mass <= leaf_capacity || depth == max_depth || extent == 0.0 {
             self.nodes[node_index].aggregate = self.leaf_aggregate(&indices, center);
+            self.nodes[node_index].score_envelope = ScoreEnvelope::from_leaf(&self.keys, &indices);
             self.nodes[node_index].leaf_keys = indices;
             return node_index;
         }
@@ -286,6 +360,7 @@ impl PreparedTorsorOctree {
         }
         if buckets.iter().filter(|bucket| !bucket.is_empty()).count() < 2 {
             self.nodes[node_index].aggregate = self.leaf_aggregate(&indices, center);
+            self.nodes[node_index].score_envelope = ScoreEnvelope::from_leaf(&self.keys, &indices);
             self.nodes[node_index].leaf_keys = indices;
             return node_index;
         }
@@ -298,7 +373,9 @@ impl PreparedTorsorOctree {
             }
             let child_index = self.build_node(bucket, leaf_capacity, max_depth, depth + 1);
             let child = self.nodes[child_index].aggregate;
+            let child_envelope = self.nodes[child_index].score_envelope;
             self.nodes[node_index].children[octant] = Some(child_index);
+            self.nodes[node_index].score_envelope.include_child(child_envelope);
             total_r = add(total_r, child.resultant);
             total_m = add(
                 total_m,
@@ -325,6 +402,39 @@ impl PreparedTorsorOctree {
         scale: f64,
         theta: f64,
     ) -> Result<TorsorTreeOutput, TorsorTreeError> {
+        self.forward_internal(query, scale, theta, None)
+    }
+
+    /// Optional semantic score-spread guard on top of the spatial opening test.
+    ///
+    /// A summary is admitted only if a per-node O(1) componentwise envelope
+    /// bounds the spread of scaled key logits by `max_score_spread`.
+    /// In exact arithmetic, this also bounds the global LSE discrepancy
+    /// caused by mass-aware mean-logit summaries by that amount.
+    /// This does NOT bound resultant/moment output errors or model quality,
+    /// and it is not a directed-rounding interval certificate.
+    ///
+    /// No public runtime routing change; causal masking is not supported.
+    pub fn forward_with_score_spread_guard(
+        &self,
+        query: TorsorQuery,
+        scale: f64,
+        theta: f64,
+        max_score_spread: f64,
+    ) -> Result<TorsorTreeOutput, TorsorTreeError> {
+        if !max_score_spread.is_finite() || max_score_spread < 0.0 {
+            return Err(TorsorTreeError::InvalidScoreSpreadLimit);
+        }
+        self.forward_internal(query, scale, theta, Some(max_score_spread))
+    }
+
+    fn forward_internal(
+        &self,
+        query: TorsorQuery,
+        scale: f64,
+        theta: f64,
+        max_score_spread: Option<f64>,
+    ) -> Result<TorsorTreeOutput, TorsorTreeError> {
         if !scale.is_finite() || scale <= 0.0 {
             return Err(TorsorTreeError::InvalidScale);
         }
@@ -337,6 +447,7 @@ impl PreparedTorsorOctree {
         let linear = convert(query.linear);
         let angular = convert(query.angular);
         let point = convert(query.evaluation_point);
+        let projected_linear = add(linear, cross(point, angular));
         let mut softmax = OnlineSoftmax::new();
         let mut stack = vec![0_usize];
         let mut exact_keys = 0;
@@ -354,7 +465,12 @@ impl PreparedTorsorOctree {
                 && theta > 0.0
                 && !inside
                 && distance > 0.0
-                && node.extent / distance < theta;
+                && node.extent / distance < theta
+                && max_score_spread.is_none_or(|limit| {
+                    node.score_envelope
+                        .score_span(projected_linear, angular, scale)
+                        .is_some_and(|span| span <= limit)
+                });
             if collapse {
                 let aggregate = node.aggregate;
                 let inverse_mass = 1.0 / aggregate.mass as f64;
@@ -574,6 +690,96 @@ mod tests {
             (exact.log_sum_exp - compressed.log_sum_exp).abs() > 1.0e-4,
             "a single mean score is not an exact log-sum-exp"
         );
+    }
+
+
+    #[test]
+    fn guarded_adversarial_remote_keys_open_on_large_semantic_spread() {
+        let keys: Vec<_> = (0..80).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let q = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [10000.0, 10000.0, 10000.0],
+        };
+        let dense = tree.forward(q, 0.2, 0.0).unwrap();
+        let spatial_only = tree.forward(q, 0.2, 1.0).unwrap();
+        assert_eq!(spatial_only.summarized_nodes, 1);
+        let guarded = tree
+            .forward_with_score_spread_guard(q, 0.2, 1.0, 0.0)
+            .unwrap();
+        assert_eq!(guarded.exact_keys, keys.len());
+        assert_eq!(guarded.summarized_nodes, 0);
+        assert_eq!(guarded.covered_keys, keys.len());
+        for axis in 0..3 {
+            close(guarded.resultant[axis], dense.resultant[axis]);
+            close(guarded.moment_at_query[axis], dense.moment_at_query[axis]);
+        }
+        close(guarded.log_sum_exp, dense.log_sum_exp);
+    }
+
+    #[test]
+    fn guarded_lse_remains_within_budget_for_nonuniform_logit_sets() {
+        let keys: Vec<_> = (0..80).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let q = TorsorQuery {
+            linear: [1.0, -0.25, 0.4],
+            angular: [0.0; 3],
+            evaluation_point: [1000.0, 2000.0, 3000.0],
+        };
+        let dense = tree.forward(q, 0.3, 0.0).unwrap();
+        for budget in [0.01, 0.05, 0.2, 1.0] {
+            let row = tree
+                .forward_with_score_spread_guard(q, 0.3, 1.0, budget)
+                .unwrap();
+            assert_eq!(row.covered_keys, keys.len());
+            assert!((row.log_sum_exp - dense.log_sum_exp).abs() <= budget + 1.0e-10);
+        }
+        let unrestricted = tree.forward(q, 0.3, 1.0).unwrap();
+        let loose = tree
+            .forward_with_score_spread_guard(q, 0.3, 1.0, 1.0e9)
+            .unwrap();
+        assert_eq!(unrestricted, loose);
+    }
+
+    #[test]
+    fn zero_logit_spread_allows_heterogeneous_values_with_exact_mean() {
+        let keys: Vec<_> = (0..64)
+            .map(|i| TorsorKey {
+                reference: [i as f32 * 0.2, 0.0, 0.0],
+                resultant: [1.0, i as f32 * 0.5, 0.0],
+                moment_at_reference: [0.0, 0.1 * i as f32, 0.0],
+            })
+            .collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let q = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [10000.0, 0.0, 0.0],
+        };
+        let dense = tree.forward(q, 0.4, 0.0).unwrap();
+        let row = tree
+            .forward_with_score_spread_guard(q, 0.4, 0.5, 0.0)
+            .unwrap();
+        assert_eq!(row.summarized_nodes, 1);
+        assert_eq!(row.covered_keys, keys.len());
+        for axis in 0..3 {
+            close(row.resultant[axis], dense.resultant[axis]);
+            close(row.moment_at_query[axis], dense.moment_at_query[axis]);
+        }
+        close(row.log_sum_exp, dense.log_sum_exp);
+    }
+
+    #[test]
+    fn invalid_score_spread_budget_fails_closed() {
+        let tree = PreparedTorsorOctree::build(&[sample_key(0)], 1, 2).unwrap();
+        let q = sample_query([100.0, 0.0, 0.0]);
+        for budget in [f64::NAN, f64::INFINITY, -1.0] {
+            assert!(matches!(
+                tree.forward_with_score_spread_guard(q, 0.3, 0.5, budget),
+                Err(TorsorTreeError::InvalidScoreSpreadLimit)
+            ));
+        }
     }
 
     #[test]
