@@ -39,6 +39,9 @@ pub struct BooleanNeuronGraph {
     shifts: [[u8; NEURON_COUNT]; OPERATOR_COUNT],
     destinations_by_shift: [[u64; NEURON_COUNT]; OPERATOR_COUNT],
     active_shifts: [u64; OPERATOR_COUNT],
+    // Compiled once when every operator has one shared shift. This directly
+    // reuses the exact BPS-15 kernel instead of looping over grouped masks.
+    uniform_program: Option<BooleanOperatorProgram>,
 }
 
 impl BooleanNeuronGraph {
@@ -66,6 +69,15 @@ impl BooleanNeuronGraph {
                 active_shifts[index] |= 1u64 << shift;
             }
         }
+        let uniform_program = if active_shifts.iter().all(|bits| bits.count_ones() == 1) {
+            let uniform_shifts = active_shifts.map(|bits| bits.trailing_zeros() as u8);
+            Some(
+                BooleanOperatorProgram::new(gates, write, output, uniform_shifts)
+                    .expect("validated grouped shifts cannot be invalid"),
+            )
+        } else {
+            None
+        };
         Ok(Self {
             gates,
             write,
@@ -73,6 +85,7 @@ impl BooleanNeuronGraph {
             shifts,
             destinations_by_shift,
             active_shifts,
+            uniform_program,
         })
     }
 
@@ -122,6 +135,15 @@ impl BooleanNeuronGraph {
         self.active_shifts.map(u64::count_ones)
     }
 
+    /// Present only when all 64 destinations of each operator share one shift.
+    ///
+    /// Rewiring via `with_edge` invalidates this fast path whenever a
+    /// channel acquires a second unique predecessor offset.
+    #[must_use]
+    pub fn compiled_uniform_shifts(&self) -> Option<[u8; OPERATOR_COUNT]> {
+        self.uniform_program.map(|program| program.shifts())
+    }
+
     /// Independent scalar oracle: visits all four channels for every neuron.
     ///
     /// All incoming edges read the immutable *previous* state. The operation
@@ -155,7 +177,13 @@ impl BooleanNeuronGraph {
     /// Results are bit-exact with step_scalar, including arbitrary topology.
     #[must_use]
     pub fn step_grouped(&self, input: u64, previous: u64) -> (u64, u64) {
-        self.step_grouped_impl(input, previous, false)
+        if let Some(program) = self.uniform_program {
+            // Same topology, gates and synchronous old state as BPS-15:
+            // bypass the generic per-channel bitmask dispatch completely.
+            program.step_dense(input, previous)
+        } else {
+            self.step_grouped_impl(input, previous, false)
+        }
     }
 
     /// Skip all rotations of an operation when its input gate word is zero.
@@ -163,7 +191,11 @@ impl BooleanNeuronGraph {
     /// Branch overhead is not guaranteed to outperform step_grouped.
     #[must_use]
     pub fn step_grouped_sparse(&self, input: u64, previous: u64) -> (u64, u64) {
-        self.step_grouped_impl(input, previous, true)
+        if let Some(program) = self.uniform_program {
+            program.step_sparse(input, previous)
+        } else {
+            self.step_grouped_impl(input, previous, true)
+        }
     }
 
     fn step_grouped_impl(&self, input: u64, previous: u64, skip_disabled: bool) -> (u64, u64) {
@@ -177,10 +209,23 @@ impl BooleanNeuronGraph {
             while enabled != 0 {
                 let shift = enabled.trailing_zeros() as usize;
                 enabled &= enabled - 1;
-                sourced[channel] |=
-                    previous.rotate_left(shift as u32) & self.destinations_by_shift[channel][shift];
+                let destinations = self.destinations_by_shift[channel][shift];
+                if skip_disabled {
+                    // A partially active per-neuron gate can disable a
+                    // particular shift group, even when another group in
+                    // this same operator still contributes.
+                    let enabled_destinations = destinations & gate_masks[channel];
+                    if enabled_destinations != 0 {
+                        sourced[channel] |=
+                            previous.rotate_left(shift as u32) & enabled_destinations;
+                    }
+                } else {
+                    sourced[channel] |= previous.rotate_left(shift as u32) & destinations;
+                }
             }
-            sourced[channel] &= gate_masks[channel];
+            if !skip_disabled {
+                sourced[channel] &= gate_masks[channel];
+            }
         }
         let base = sourced[0] | sourced[1] | self.write.evaluate(input);
         let next = (base & !sourced[2]) ^ sourced[3];
@@ -642,5 +687,98 @@ mod tests {
         assert_eq!(ar.candidates_evaluated, 1);
         assert_eq!(br.candidates_evaluated, 1);
         assert!(ar.budget_exhausted && br.budget_exhausted);
+    }
+
+    #[test]
+    fn bps17_compiled_uniform_path_is_invalidated_and_restored_by_rewiring() {
+        let model = shared();
+        let original = BooleanNeuronGraph::from_shared(model);
+        assert_eq!(original.compiled_uniform_shifts(), Some([1, 3, 5, 7]));
+        let heterogeneous = original.with_edge(OperatorChannel::Retain, 7, 11).unwrap();
+        assert_eq!(heterogeneous.compiled_uniform_shifts(), None);
+        assert_eq!(heterogeneous.unique_shift_counts(), [2, 1, 1, 1]);
+        let restored = heterogeneous
+            .with_edge(OperatorChannel::Retain, 7, 1)
+            .unwrap();
+        assert_eq!(restored.compiled_uniform_shifts(), Some([1, 3, 5, 7]));
+        assert_eq!(restored, original);
+
+        let mut seed = 0xb175_221a_a102_aeffu64;
+        for _ in 0..128 {
+            let previous = next_random(&mut seed);
+            let input = next_random(&mut seed);
+            assert_eq!(
+                original.step_grouped(input, previous),
+                model.step_dense(input, previous)
+            );
+            assert_eq!(
+                original.step_grouped_sparse(input, previous),
+                model.step_sparse(input, previous)
+            );
+            assert_eq!(
+                heterogeneous.step_grouped(input, previous),
+                heterogeneous.step_scalar(input, previous)
+            );
+            assert_eq!(
+                heterogeneous.step_grouped_sparse(input, previous),
+                heterogeneous.step_scalar(input, previous)
+            );
+        }
+    }
+
+    #[test]
+    fn bps17_partial_lane_gates_are_exact_with_nonuniform_group_short_circuit() {
+        let mut shifts = [[0u8; NEURON_COUNT]; OPERATOR_COUNT];
+        for destination in 0..NEURON_COUNT {
+            shifts[0][destination] = (destination % 7) as u8;
+            shifts[1][destination] = ((destination * 3) % 11) as u8;
+            shifts[2][destination] = ((destination * 5) % 13) as u8;
+            shifts[3][destination] = ((destination * 7) % 17) as u8;
+        }
+        let mut seed = 0x8bfe_943d_5225_a1e7u64;
+        let program = BooleanNeuronGraph::new(
+            [
+                UnaryGate {
+                    when_false: 0,
+                    when_true: 0x0000_0000_0000_0001,
+                },
+                UnaryGate {
+                    when_false: 0x4000_0000_0000_0000,
+                    when_true: 0x0000_0000_0000_8000,
+                },
+                UnaryGate {
+                    when_false: 0,
+                    when_true: 0x0100_0000_0000_0000,
+                },
+                UnaryGate {
+                    when_false: 0x0000_1000_0000_0000,
+                    when_true: 0x0000_0010_0000_0000,
+                },
+            ],
+            gate(&mut seed),
+            gate(&mut seed),
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(program.compiled_uniform_shifts(), None);
+        for _ in 0..192 {
+            let input = next_random(&mut seed);
+            let previous = next_random(&mut seed);
+            let oracle = program.step_scalar(input, previous);
+            assert_eq!(program.step_grouped(input, previous), oracle);
+            assert_eq!(program.step_grouped_sparse(input, previous), oracle);
+        }
+        let inputs: Vec<u64> = (0..137)
+            .map(|index| match index % 4 {
+                0 => 0,
+                1 => u64::MAX,
+                _ => next_random(&mut seed),
+            })
+            .collect();
+        let initial = next_random(&mut seed);
+        assert_eq!(
+            program.forward_grouped_sparse(&inputs, initial),
+            program.forward_scalar(&inputs, initial)
+        );
     }
 }
