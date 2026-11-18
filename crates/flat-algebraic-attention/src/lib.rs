@@ -43,6 +43,7 @@ pub mod max_plus;
 pub mod qk_signature;
 pub mod qualification;
 pub mod rae_dirty_words;
+pub mod rae_hybrid_execution;
 pub mod rae_hybrid_repair;
 pub mod rae_mass_panel;
 pub mod rae_norm_certificate;
