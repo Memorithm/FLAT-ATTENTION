@@ -551,8 +551,13 @@ impl PreparedTorsorOctree {
             .score_envelope
             .output_ranges(convert(query.evaluation_point))
             .ok_or(TorsorTreeError::NonFiniteOutputRange)?;
-        let (attention, accepted_span) =
-            self.forward_internal(query, scale, theta, Some(max_score_spread), Some((budget, ranges)))?;
+        let (attention, accepted_span) = self.forward_internal(
+            query,
+            scale,
+            theta,
+            Some(max_score_spread),
+            Some((budget, ranges)),
+        )?;
         let tv_bound = accepted_span.tanh();
         Ok(TorsorBudgetedOutput {
             attention,
@@ -607,7 +612,8 @@ impl PreparedTorsorOctree {
                 && node.extent / distance < theta;
             let gated = max_score_spread.is_some() || output_guard.is_some();
             let span = if is_distant && gated {
-                node.score_envelope.score_span(projected_linear, angular, scale)
+                node.score_envelope
+                    .score_span(projected_linear, angular, scale)
             } else {
                 None
             };
@@ -917,7 +923,6 @@ mod tests {
         close(row.log_sum_exp, dense.log_sum_exp);
     }
 
-
     #[test]
     fn output_budget_reports_componentwise_bounds_against_independent_dense() {
         let keys: Vec<_> = (0..128).map(sample_key).collect();
@@ -968,8 +973,7 @@ mod tests {
                 assert!(error.moment_at_query_abs[axis] <= budget.moment_at_query_abs[axis]);
             }
             assert!(
-                (bounded.attention.log_sum_exp - dense_lse).abs()
-                    <= error.log_sum_exp_abs + 1.0e-8
+                (bounded.attention.log_sum_exp - dense_lse).abs() <= error.log_sum_exp_abs + 1.0e-8
             );
         }
     }
