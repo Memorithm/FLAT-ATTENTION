@@ -22,6 +22,7 @@ pub mod boolean_rotating_memory;
 pub mod boolean_scan_lstm;
 pub mod boolean_scan_training;
 pub mod boolean_sequenced_publisher;
+pub mod boolean_two_tap_memory;
 pub mod boolean_watermarked_stream;
 pub mod boolean_work_efficient_scan;
 pub mod compact_preselection;
