@@ -72,7 +72,7 @@ fn parse_capture(data: &str) -> Result<Snapshot, String> {
         return Err("unsupported snapshot protocol".into());
     }
     let model: String = token(&mut words, "model")?;
-    if model != "gpt2-xl" && model != "smollm2-135m-instruct" {
+    if model != "gpt2-xl" && model != "smollm2-135m-instruct" && model != "sciagent" {
         return Err("unsupported model identity".into());
     }
     let rows: usize = token(&mut words, "rows")?;
@@ -396,6 +396,16 @@ mod tests {
         assert_eq!(report.kv_heads, 3);
         assert_eq!(report.kv_head, 1);
         assert_eq!(report.final_keys, 2);
+    }
+
+    #[test]
+    fn sciagent_native_gqa_snapshot_matches_dense() {
+        let parsed = parse_capture(&fixture("sciagent", 4, 2, 1, 0)).unwrap();
+        let report = evaluate(&parsed).unwrap();
+        assert_eq!(report.snapshot_model, "sciagent");
+        assert_eq!(report.kv_head, 0);
+        assert_eq!(report.final_keys, 2);
+        assert!(report.measured_dense_difference <= report.maximum_output_error);
     }
 
     #[test]
