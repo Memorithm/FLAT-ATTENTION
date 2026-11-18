@@ -14,14 +14,20 @@ use flat_algebraic_attention::boolean_sequenced_publisher::{
 fn main() {
     const DEMO_KEY: [u8; 32] = [0x19; 32]; // Synthetic example only
     let program = BooleanEdgeProgram::new(
-        UnaryGate { when_false: u64::MAX, when_true: u64::MAX },
+        UnaryGate {
+            when_false: u64::MAX,
+            when_true: u64::MAX,
+        },
         UnaryGate::default(),
         u64::MAX,
         7,
     )
     .unwrap();
     let anchor = StreamAnchor {
-        source: SourceEpoch { source_id: 42, epoch_id: 15 },
+        source: SourceEpoch {
+            source_id: 42,
+            epoch_id: 15,
+        },
         next_sequence: 1,
         prior_commitment: 0xc971_4afe_a2b0_4118,
         closed_through: 0,
@@ -32,11 +38,8 @@ fn main() {
         max_advance_ticks: 16,
     };
     let input = [1u64, 1, 0, 1, 0, 5, 0, 7, 7, 0, 7, 9];
-    let mut publisher =
-        AuthenticatedSampledPublisher::new(anchor, 0, 8, [0x73; 32]);
-    let mut live = AuthenticatedFrontRuntime::new(
-        program, 1, anchor, limits, 8, [0x73; 32],
-    );
+    let mut publisher = AuthenticatedSampledPublisher::new(anchor, 0, 8, [0x73; 32]);
+    let mut live = AuthenticatedFrontRuntime::new(program, 1, anchor, limits, 8, [0x73; 32]);
     let mut results = Vec::new();
     for (i, window) in input.chunks(4).enumerate() {
         let authenticated = publisher.publish(window, 16, &DEMO_KEY).unwrap();
@@ -53,10 +56,9 @@ fn main() {
                 key_id: saved.key_id,
                 checkpoint_mac: saved.mac,
             };
-            live = AuthenticatedFrontRuntime::restore(
-                &saved, &trusted, program, limits, 8, &DEMO_KEY,
-            )
-            .unwrap();
+            live =
+                AuthenticatedFrontRuntime::restore(&saved, &trusted, program, limits, 8, &DEMO_KEY)
+                    .unwrap();
         }
     }
     assert_eq!(results, program.forward_dense(&input, 0, 1));
