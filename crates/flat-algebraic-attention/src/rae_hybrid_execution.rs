@@ -214,12 +214,12 @@ pub fn execute_rae_hybrid(
         for (key, (&page, &eligible)) in query.key_pages.iter().zip(query.eligible).enumerate() {
             if eligible && contains(mask, page) {
                 let base = key * query.value_width;
-                for (dimension, &v) in query.values[base..base + query.value_width].iter().enumerate() {
+                for (dimension, &v) in query.values[base..base + query.value_width]
+                    .iter()
+                    .enumerate()
+                {
                     if !v.is_finite() {
-                        return Err(RaeNumericExecutionError::NonFiniteValue {
-                            key,
-                            dimension,
-                        });
+                        return Err(RaeNumericExecutionError::NonFiniteValue { key, dimension });
                     }
                     if v.abs() > policy.value_abs_bound {
                         fallback = Some(RaeNumericalDenseReason::InvalidSelectedValueBound);
@@ -245,7 +245,9 @@ pub fn execute_rae_hybrid(
         }
     };
     let mask = match &route {
-        RaeNumericalRoute::BoundedSparse { selected_page_mask, .. } => Some(selected_page_mask.as_slice()),
+        RaeNumericalRoute::BoundedSparse {
+            selected_page_mask, ..
+        } => Some(selected_page_mask.as_slice()),
         RaeNumericalRoute::DenseFallback { .. } => None,
     };
 
@@ -354,10 +356,7 @@ fn contains(mask: &[u64], page: usize) -> bool {
     mask[page / 64] & (1_u64 << (page % 64)) != 0
 }
 
-fn score_one(
-    query: RaeNumericQuery<'_>,
-    key: usize,
-) -> Result<f64, RaeNumericExecutionError> {
+fn score_one(query: RaeNumericQuery<'_>, key: usize) -> Result<f64, RaeNumericExecutionError> {
     let start = key * query.query.len();
     let mut dot = 0.0_f64;
     for (dimension, (&q, &k)) in query
@@ -403,7 +402,10 @@ mod tests {
             counts_mask_generation: 3,
         }
     }
-    fn policy<'a>(pages: &'a [RaeCausalPageBounds], impulse_pages: &'a [u64]) -> RaeNumericPolicy<'a> {
+    fn policy<'a>(
+        pages: &'a [RaeCausalPageBounds],
+        impulse_pages: &'a [u64],
+    ) -> RaeNumericPolicy<'a> {
         RaeNumericPolicy {
             impulse_pages,
             bounds: pages,
@@ -417,9 +419,18 @@ mod tests {
     }
     fn pages() -> [RaeCausalPageBounds; 3] {
         [
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 8.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 8.0 },
-            RaeCausalPageBounds { eligible_keys: 1, max_key_l2_norm: 0.0 },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 8.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 8.0,
+            },
+            RaeCausalPageBounds {
+                eligible_keys: 1,
+                max_key_l2_norm: 0.0,
+            },
         ]
     }
 
@@ -431,8 +442,14 @@ mod tests {
         let mut dense_policy = policy(&metadata, &[0b001]);
         dense_policy.context_invalidated = true;
         let dense = execute_rae_hybrid(q, dense_policy).unwrap();
-        assert!(matches!(repaired.route, RaeNumericalRoute::BoundedSparse { .. }));
-        assert!(matches!(dense.route, RaeNumericalRoute::DenseFallback { .. }));
+        assert!(matches!(
+            repaired.route,
+            RaeNumericalRoute::BoundedSparse { .. }
+        ));
+        assert!(matches!(
+            dense.route,
+            RaeNumericalRoute::DenseFallback { .. }
+        ));
         assert_eq!(repaired.executed_keys, 2);
         assert_eq!(repaired.key_rows_scored, 2);
         assert_eq!(repaired.value_rows_accumulated, 2);
@@ -449,9 +466,12 @@ mod tests {
         let q = query(&[1.0], &[8.0, -8.0, 0.0], &[1.0, -1.0, 0.5]);
         let metadata = pages();
         let empty = execute_rae_hybrid(q, policy(&metadata, &[0])).unwrap();
-        assert!(matches!(empty.route, RaeNumericalRoute::DenseFallback {
-            reason: RaeNumericalDenseReason::NoInitiallySelectedKeys,
-        }));
+        assert!(matches!(
+            empty.route,
+            RaeNumericalRoute::DenseFallback {
+                reason: RaeNumericalDenseReason::NoInitiallySelectedKeys,
+            }
+        ));
         assert_eq!(empty.executed_keys, 3);
         let mut invalidated = policy(&metadata, &[0b111]);
         invalidated.context_invalidated = true;
@@ -466,15 +486,21 @@ mod tests {
         let mut stale = policy(&metadata, &[1]);
         stale.versions.norms_key_generation = 99;
         let first = execute_rae_hybrid(q, stale).unwrap();
-        assert!(matches!(first.route, RaeNumericalRoute::DenseFallback {
-            reason: RaeNumericalDenseReason::PlannerRejected(RaeCertError::StaleKeyNorms),
-        }));
+        assert!(matches!(
+            first.route,
+            RaeNumericalRoute::DenseFallback {
+                reason: RaeNumericalDenseReason::PlannerRejected(RaeCertError::StaleKeyNorms),
+            }
+        ));
         let mut corrupted = metadata;
         corrupted[1].eligible_keys = 2;
         let second = execute_rae_hybrid(q, policy(&corrupted, &[1])).unwrap();
-        assert!(matches!(second.route, RaeNumericalRoute::DenseFallback {
-            reason: RaeNumericalDenseReason::CausalCountMismatch,
-        }));
+        assert!(matches!(
+            second.route,
+            RaeNumericalRoute::DenseFallback {
+                reason: RaeNumericalDenseReason::CausalCountMismatch,
+            }
+        ));
         assert_eq!(first.output, second.output);
     }
 
@@ -483,9 +509,12 @@ mod tests {
         let q = query(&[1.0], &[8.0, -8.0, 0.0], &[1.0, 5.0, 0.5]);
         let metadata = pages();
         let result = execute_rae_hybrid(q, policy(&metadata, &[1])).unwrap();
-        assert!(matches!(result.route, RaeNumericalRoute::DenseFallback {
-            reason: RaeNumericalDenseReason::InvalidSelectedValueBound,
-        }));
+        assert!(matches!(
+            result.route,
+            RaeNumericalRoute::DenseFallback {
+                reason: RaeNumericalDenseReason::InvalidSelectedValueBound,
+            }
+        ));
         assert_eq!(result.executed_keys, 3);
     }
 
@@ -496,7 +525,10 @@ mod tests {
         let mut metadata = pages();
         metadata[2].eligible_keys = 0;
         let outcome = execute_rae_hybrid(q, policy(&metadata, &[0b011])).unwrap();
-        assert!(matches!(outcome.route, RaeNumericalRoute::BoundedSparse { .. }));
+        assert!(matches!(
+            outcome.route,
+            RaeNumericalRoute::BoundedSparse { .. }
+        ));
         assert_eq!(outcome.eligible_keys, 2);
         assert_eq!(outcome.executed_keys, 2);
     }
@@ -506,9 +538,12 @@ mod tests {
         let q = query(&[1.0], &[8.0, -8.0, 0.0], &[1.0, -1.0, 0.5]);
         let metadata = pages();
         let dense = execute_rae_hybrid(q, policy(&metadata, &[0b1000])).unwrap();
-        assert!(matches!(dense.route, RaeNumericalRoute::DenseFallback {
-            reason: RaeNumericalDenseReason::InvalidImpulseMask,
-        }));
+        assert!(matches!(
+            dense.route,
+            RaeNumericalRoute::DenseFallback {
+                reason: RaeNumericalDenseReason::InvalidImpulseMask,
+            }
+        ));
         assert_eq!(dense.executed_keys, 3);
         let bad_query = RaeNumericQuery { keys: &[1.0], ..q };
         assert_eq!(
