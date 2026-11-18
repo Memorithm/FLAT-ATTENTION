@@ -177,8 +177,8 @@ impl BooleanNeuronGraph {
             while enabled != 0 {
                 let shift = enabled.trailing_zeros() as usize;
                 enabled &= enabled - 1;
-                sourced[channel] |= previous.rotate_left(shift as u32)
-                    & self.destinations_by_shift[channel][shift];
+                sourced[channel] |=
+                    previous.rotate_left(shift as u32) & self.destinations_by_shift[channel][shift];
             }
             sourced[channel] &= gate_masks[channel];
         }
@@ -190,31 +190,40 @@ impl BooleanNeuronGraph {
     #[must_use]
     pub fn forward_scalar(&self, inputs: &[u64], initial: u64) -> Vec<u64> {
         let mut state = initial;
-        inputs.iter().map(|&input| {
-            let (next, output) = self.step_scalar(input, state);
-            state = next;
-            output
-        }).collect()
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step_scalar(input, state);
+                state = next;
+                output
+            })
+            .collect()
     }
 
     #[must_use]
     pub fn forward_grouped(&self, inputs: &[u64], initial: u64) -> Vec<u64> {
         let mut state = initial;
-        inputs.iter().map(|&input| {
-            let (next, output) = self.step_grouped(input, state);
-            state = next;
-            output
-        }).collect()
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step_grouped(input, state);
+                state = next;
+                output
+            })
+            .collect()
     }
 
     #[must_use]
     pub fn forward_grouped_sparse(&self, inputs: &[u64], initial: u64) -> Vec<u64> {
         let mut state = initial;
-        inputs.iter().map(|&input| {
-            let (next, output) = self.step_grouped_sparse(input, state);
-            state = next;
-            output
-        }).collect()
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step_grouped_sparse(input, state);
+                state = next;
+                output
+            })
+            .collect()
     }
 
     pub fn hamming_loss(
@@ -238,7 +247,9 @@ impl BooleanNeuronGraph {
                 let (next, output) = self.step_grouped(input, state);
                 state = next;
                 let misses = u64::from(((output ^ target) & active_output_bits).count_ones());
-                loss = loss.checked_add(misses).ok_or(BooleanTrainError::LossOverflow)?;
+                loss = loss
+                    .checked_add(misses)
+                    .ok_or(BooleanTrainError::LossOverflow)?;
             }
         }
         Ok(loss)
@@ -267,9 +278,11 @@ impl BooleanNeuronGraph {
             return Err(NeuronFitError::ZeroCandidateBudget);
         }
 
-        let train_before = self.loss_validated(training, active_output_bits)
+        let train_before = self
+            .loss_validated(training, active_output_bits)
             .map_err(NeuronFitError::Training)?;
-        let validation_before = self.loss_validated(validation, active_output_bits)
+        let validation_before = self
+            .loss_validated(validation, active_output_bits)
             .map_err(NeuronFitError::Validation)?;
 
         let mut current = self.clone();
@@ -294,9 +307,11 @@ impl BooleanNeuronGraph {
                             exhausted = true;
                             break 'epochs;
                         }
-                        let candidate = current.with_edge(channel, destination, shift)
+                        let candidate = current
+                            .with_edge(channel, destination, shift)
                             .expect("candidate source shift and destination are valid");
-                        let candidate_loss = candidate.loss_validated(training, active_output_bits)
+                        let candidate_loss = candidate
+                            .loss_validated(training, active_output_bits)
                             .map_err(NeuronFitError::Training)?;
                         evaluated += 1;
                         if candidate_loss < loss {
@@ -315,7 +330,8 @@ impl BooleanNeuronGraph {
                 break;
             }
         }
-        let validation_after = current.loss_validated(validation, active_output_bits)
+        let validation_after = current
+            .loss_validated(validation, active_output_bits)
             .map_err(NeuronFitError::Validation)?;
         let report = NeuronFitReport {
             train_before,
@@ -388,7 +404,8 @@ mod tests {
             UnaryGate::default(),
             always(),
             [1, 3, 5, 7],
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     fn sample<'a>(
@@ -408,17 +425,29 @@ mod tests {
         let mut seed = 0x48cc_55bb_f01e_241du64;
         for _ in 0..12 {
             let p = BooleanOperatorProgram::new(
-                [gate(&mut seed), gate(&mut seed), gate(&mut seed), gate(&mut seed)],
+                [
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                ],
                 gate(&mut seed),
                 gate(&mut seed),
                 [1, 3, 17, 63],
-            ).unwrap();
+            )
+            .unwrap();
             let g = BooleanNeuronGraph::from_shared(p);
             assert_eq!(g.unique_shift_counts(), [1; OPERATOR_COUNT]);
             let inputs: Vec<u64> = (0..65).map(|_| next_random(&mut seed)).collect();
             let initial = next_random(&mut seed);
-            assert_eq!(g.forward_scalar(&inputs, initial), p.forward_dense(&inputs, initial));
-            assert_eq!(g.forward_grouped(&inputs, initial), p.forward_dense(&inputs, initial));
+            assert_eq!(
+                g.forward_scalar(&inputs, initial),
+                p.forward_dense(&inputs, initial)
+            );
+            assert_eq!(
+                g.forward_grouped(&inputs, initial),
+                p.forward_dense(&inputs, initial)
+            );
             assert_eq!(
                 g.forward_grouped_sparse(&inputs, initial),
                 p.forward_sparse(&inputs, initial)
@@ -434,14 +463,23 @@ mod tests {
                 std::array::from_fn(|_| (next_random(&mut seed) % 64) as u8)
             });
             let p = BooleanNeuronGraph::new(
-                [gate(&mut seed), gate(&mut seed), gate(&mut seed), gate(&mut seed)],
+                [
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                    gate(&mut seed),
+                ],
                 gate(&mut seed),
                 gate(&mut seed),
                 shifts,
-            ).unwrap();
+            )
+            .unwrap();
             let inputs: Vec<u64> = (0..31).map(|_| next_random(&mut seed)).collect();
             let initial = next_random(&mut seed);
-            assert_eq!(p.forward_grouped(&inputs, initial), p.forward_scalar(&inputs, initial));
+            assert_eq!(
+                p.forward_grouped(&inputs, initial),
+                p.forward_scalar(&inputs, initial)
+            );
             assert_eq!(
                 p.forward_grouped_sparse(&inputs, initial),
                 p.forward_scalar(&inputs, initial)
@@ -459,11 +497,17 @@ mod tests {
         shifts[0][1] = 1;
         shifts[0][3] = 3;
         let p = BooleanNeuronGraph::new(
-            [retain, UnaryGate::default(), UnaryGate::default(), UnaryGate::default()],
+            [
+                retain,
+                UnaryGate::default(),
+                UnaryGate::default(),
+                UnaryGate::default(),
+            ],
             UnaryGate::default(),
             always(),
             shifts,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(p.forward_grouped(&[0], 1), vec![0b1010]);
         assert_eq!(p.source_shift(OperatorChannel::Retain, 1), Some(1));
         assert_eq!(p.source_shift(OperatorChannel::Retain, 3), Some(3));
@@ -478,13 +522,22 @@ mod tests {
             when_true: (1u64 << 1) | (1u64 << 3),
         };
         let base = BooleanNeuronGraph::new(
-            [retain, UnaryGate::default(), UnaryGate::default(), UnaryGate::default()],
+            [
+                retain,
+                UnaryGate::default(),
+                UnaryGate::default(),
+                UnaryGate::default(),
+            ],
             UnaryGate::default(),
             always(),
             [[0u8; NEURON_COUNT]; OPERATOR_COUNT],
-        ).unwrap();
-        let teacher = base.with_edge(OperatorChannel::Retain, 1, 1)
-            .unwrap().with_edge(OperatorChannel::Retain, 3, 3).unwrap();
+        )
+        .unwrap();
+        let teacher = base
+            .with_edge(OperatorChannel::Retain, 1, 1)
+            .unwrap()
+            .with_edge(OperatorChannel::Retain, 3, 3)
+            .unwrap();
         let training_inputs = [0];
         let training_targets = teacher.forward_scalar(&training_inputs, 1);
         let validation_inputs = [0, 0];
@@ -492,15 +545,17 @@ mod tests {
         let train = [sample(&training_inputs, &training_targets, 1)];
         let heldout = [sample(&validation_inputs, &validation_targets, u64::MAX)];
         let mut learner = base;
-        let report = learner.fit_edges(
-            &train,
-            &heldout,
-            u64::MAX,
-            NeuronTrainPolicy {
-                max_epochs: 1,
-                max_candidates: 300,
-            },
-        ).unwrap();
+        let report = learner
+            .fit_edges(
+                &train,
+                &heldout,
+                u64::MAX,
+                NeuronTrainPolicy {
+                    max_epochs: 1,
+                    max_candidates: 300,
+                },
+            )
+            .unwrap();
         assert!(report.train_before > 0);
         assert_eq!(report.train_after, 0);
         assert_eq!(report.validation_after, 0);
@@ -542,7 +597,9 @@ mod tests {
                     max_candidates: 2,
                 }
             ),
-            Err(NeuronFitError::Training(BooleanTrainError::EmptyActiveLanes))
+            Err(NeuronFitError::Training(
+                BooleanTrainError::EmptyActiveLanes
+            ))
         );
         assert_eq!(learner, g);
         assert_eq!(
@@ -575,8 +632,12 @@ mod tests {
             max_epochs: 2,
             max_candidates: 1,
         };
-        let ar = a.fit_edges(&training, &validation_a, u64::MAX, policy).unwrap();
-        let br = b.fit_edges(&training, &validation_b, u64::MAX, policy).unwrap();
+        let ar = a
+            .fit_edges(&training, &validation_a, u64::MAX, policy)
+            .unwrap();
+        let br = b
+            .fit_edges(&training, &validation_b, u64::MAX, policy)
+            .unwrap();
         assert_eq!(a, b);
         assert_eq!(ar.candidates_evaluated, 1);
         assert_eq!(br.candidates_evaluated, 1);
