@@ -45,3 +45,15 @@ At a pinned FLAT commit, RemoteOps must verify host load, current model identity
 Gate fails closed for unsupported attention implementation or mask, dropout, GQA mapping, nonfinite activations, unsupported precision, missing model, unexpected replay divergence, different model revisions, or unverifiable native-vs-Rust attention parity.
 
 **No user-visible trained-model quality, decode speedup, energy, memory or real GPU statement until both model runs complete and produce inspectable evidence.** The RemoteOps run is a host-side controlled shadow/one-head intervention, NOT an optimized end-to-end attention backend, GPU kernel or continuous training adapter. Raw checkpoint files must never be uploaded as CI artifacts.
+
+## RAE-9 SciAgent extension
+
+The third explicitly tagged model identity, `sciagent`, is reserved for the
+actual Rust-native GQA model in `Memorithm/scirust/scirust-sciagent`.
+The SciRust producer reads **post-RoPE** Q/K and projected V from its
+existing differentiable attention tape, preserving original (not repeated)
+GQA head mapping. The snapshot protocol, native dense oracle, strict parsing,
+maximum dimensions and failure/fallback semantics are unchanged.
+This extension does not promote RAE-9 into SciAgent's resident WGPU M32/M33
+attention, does not provide backward gradients for injected numerical output,
+and makes no physical I/O, performance or model quality claim.
