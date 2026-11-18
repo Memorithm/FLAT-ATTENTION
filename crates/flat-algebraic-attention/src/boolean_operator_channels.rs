@@ -21,12 +21,7 @@ pub enum OperatorChannel {
 }
 
 impl OperatorChannel {
-    pub const ALL: [Self; 4] = [
-        Self::Retain,
-        Self::Excite,
-        Self::Inhibit,
-        Self::Toggle,
-    ];
+    pub const ALL: [Self; 4] = [Self::Retain, Self::Excite, Self::Inhibit, Self::Toggle];
 
     #[must_use]
     pub const fn index(self) -> usize {
@@ -374,10 +369,7 @@ mod tests {
         UnaryGate::default()
     }
 
-    fn model(
-        masks: [UnaryGate; 4],
-        shifts: [u8; 4],
-    ) -> BooleanOperatorProgram {
+    fn model(masks: [UnaryGate; 4], shifts: [u8; 4]) -> BooleanOperatorProgram {
         BooleanOperatorProgram::new(masks, never(), always(), shifts).unwrap()
     }
 
@@ -477,8 +469,7 @@ mod tests {
                 let mut read = [0u64; 4];
                 for index in 0..4 {
                     let predecessor = (lane + 64 - u32::from(shifts[index])) % 64;
-                    read[index] = ((state >> predecessor) & 1)
-                        & ((gate_masks[index] >> lane) & 1);
+                    read[index] = ((state >> predecessor) & 1) & ((gate_masks[index] >> lane) & 1);
                 }
                 let written = (write.evaluate(input) >> lane) & 1;
                 let bit = (((read[0] | read[1] | written) & !read[2]) ^ read[3]) & 1;
@@ -486,7 +477,10 @@ mod tests {
             }
             assert_eq!(p.step_dense(input, state).0, expected);
             assert_eq!(p.step_sparse(input, state).0, expected);
-            assert_eq!(p.step_dense(input, state).1, expected & output.evaluate(input));
+            assert_eq!(
+                p.step_dense(input, state).1,
+                expected & output.evaluate(input)
+            );
         }
     }
 
@@ -509,13 +503,8 @@ mod tests {
                     when_true: next_random(&mut seed),
                 },
             ];
-            let program = BooleanOperatorProgram::new(
-                gates,
-                never(),
-                always(),
-                [1, 3, 5, 7],
-            )
-            .unwrap();
+            let program =
+                BooleanOperatorProgram::new(gates, never(), always(), [1, 3, 5, 7]).unwrap();
             let inputs: Vec<u64> = (0..length)
                 .map(|index| {
                     if index % 17 == 0 {
@@ -610,7 +599,9 @@ mod tests {
                     max_candidates: 2,
                 }
             ),
-            Err(OperatorFitError::Training(BooleanTrainError::EmptyActiveLanes))
+            Err(OperatorFitError::Training(
+                BooleanTrainError::EmptyActiveLanes
+            ))
         );
         assert_eq!(learner, p);
         assert_eq!(
@@ -651,8 +642,12 @@ mod tests {
             max_epochs: 2,
             max_candidates: 1,
         };
-        let result_a = a.fit_shifts(&training, &validation_a, u64::MAX, policy).unwrap();
-        let result_b = b.fit_shifts(&training, &validation_b, u64::MAX, policy).unwrap();
+        let result_a = a
+            .fit_shifts(&training, &validation_a, u64::MAX, policy)
+            .unwrap();
+        let result_b = b
+            .fit_shifts(&training, &validation_b, u64::MAX, policy)
+            .unwrap();
         assert_eq!(a, b);
         assert_eq!(result_a.evaluated_candidates, 1);
         assert_eq!(result_b.evaluated_candidates, 1);
