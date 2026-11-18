@@ -56,4 +56,5 @@ pub mod softmax_mass;
 pub mod survivor_floor;
 pub mod survivor_set;
 pub mod tdi22_torsor_projection;
+pub mod torsor_octree;
 pub mod zhegalkin;
