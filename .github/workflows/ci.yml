@@ -92,6 +92,9 @@ jobs:
           cargo test --test workspace_inventory
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features
+      - name: RAE-9 model QKV snapshot protocol and grouped-head oracle
+        run: |
+          cargo test -p flat-algebraic-attention --example rae9_real_model_bridge
       - name: RAE-8 executable numerical hybrid and dense fallback oracle
         run: |
           cargo test -p flat-algebraic-attention rae_hybrid_execution
