@@ -917,6 +917,169 @@ mod tests {
         close(row.log_sum_exp, dense.log_sum_exp);
     }
 
+
+    #[test]
+    fn output_budget_reports_componentwise_bounds_against_independent_dense() {
+        let keys: Vec<_> = (0..128).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 2, 24).unwrap();
+        let budget = TorsorOutputErrorBudget {
+            resultant_abs: [1.0e8; 3],
+            moment_at_query_abs: [1.0e8; 3],
+        };
+        let queries = [
+            TorsorQuery {
+                linear: [1.0, -0.4, 0.7],
+                angular: [0.0; 3],
+                evaluation_point: [200.0, 400.0, 100.0],
+            },
+            TorsorQuery {
+                linear: [0.8, 0.1, -0.2],
+                angular: [0.02, -0.015, 0.01],
+                evaluation_point: [500.0, -400.0, 80.0],
+            },
+            TorsorQuery {
+                linear: [0.1, 0.5, -0.3],
+                angular: [-0.01, 0.005, 0.02],
+                evaluation_point: [-300.0, 250.0, 700.0],
+            },
+        ];
+        for query in queries {
+            let bounded = tree
+                .forward_with_output_budgets(query, 0.04, 0.5, 1.0e8, budget)
+                .unwrap();
+            let (dense_r, dense_m, dense_lse) = independent_dense(&keys, query, 0.04);
+            assert!(bounded.attention.summarized_nodes > 0);
+            assert_eq!(bounded.attention.covered_keys, keys.len());
+            let error = bounded.analytical_bounds;
+            for axis in 0..3 {
+                let r_delta = (bounded.attention.resultant[axis] - dense_r[axis]).abs();
+                let m_delta = (bounded.attention.moment_at_query[axis] - dense_m[axis]).abs();
+                assert!(
+                    r_delta <= error.resultant_abs[axis] + 1.0e-8,
+                    "R axis {axis}: {r_delta} > {}",
+                    error.resultant_abs[axis]
+                );
+                assert!(
+                    m_delta <= error.moment_at_query_abs[axis] + 1.0e-8,
+                    "M axis {axis}: {m_delta} > {}",
+                    error.moment_at_query_abs[axis]
+                );
+                assert!(error.resultant_abs[axis] <= budget.resultant_abs[axis]);
+                assert!(error.moment_at_query_abs[axis] <= budget.moment_at_query_abs[axis]);
+            }
+            assert!(
+                (bounded.attention.log_sum_exp - dense_lse).abs()
+                    <= error.log_sum_exp_abs + 1.0e-8
+            );
+        }
+    }
+
+    #[test]
+    fn tight_component_budgets_expand_remote_semantically_heterogeneous_tree() {
+        let keys: Vec<_> = (0..100).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let query = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [5000.0, -2000.0, 700.0],
+        };
+        let exact = tree.forward(query, 0.2, 0.0).unwrap();
+        let score_only = tree
+            .forward_with_score_spread_guard(query, 0.2, 1.0, 1.0e6)
+            .unwrap();
+        assert!(score_only.summarized_nodes > 0);
+        let bounded = tree
+            .forward_with_output_budgets(
+                query,
+                0.2,
+                1.0,
+                1.0e6,
+                TorsorOutputErrorBudget {
+                    resultant_abs: [0.0; 3],
+                    moment_at_query_abs: [0.0; 3],
+                },
+            )
+            .unwrap();
+        assert_eq!(bounded.attention.exact_keys, keys.len());
+        assert_eq!(bounded.attention.summarized_nodes, 0);
+        assert_eq!(bounded.attention, exact);
+        assert_eq!(bounded.analytical_bounds.resultant_abs, [0.0; 3]);
+        assert_eq!(bounded.analytical_bounds.moment_at_query_abs, [0.0; 3]);
+        assert_eq!(bounded.analytical_bounds.log_sum_exp_abs, 0.0);
+    }
+
+    #[test]
+    fn identical_logits_with_heterogeneous_output_allow_zero_budget_summary() {
+        let keys: Vec<_> = (0..64)
+            .map(|i| TorsorKey {
+                reference: [i as f32, 0.0, 0.0],
+                resultant: [1.0, i as f32, 0.0],
+                moment_at_reference: [0.0; 3],
+            })
+            .collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let query = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [1024.0, 0.0, 0.0],
+        };
+        let bounded = tree
+            .forward_with_output_budgets(
+                query,
+                0.25,
+                0.5,
+                0.0,
+                TorsorOutputErrorBudget {
+                    resultant_abs: [0.0; 3],
+                    moment_at_query_abs: [0.0; 3],
+                },
+            )
+            .unwrap();
+        assert_eq!(bounded.attention.summarized_nodes, 1);
+        assert_eq!(bounded.attention.exact_keys, 0);
+        let exact = tree.forward(query, 0.25, 0.0).unwrap();
+        for axis in 0..3 {
+            close(bounded.attention.resultant[axis], exact.resultant[axis]);
+            close(
+                bounded.attention.moment_at_query[axis],
+                exact.moment_at_query[axis],
+            );
+        }
+        close(bounded.attention.log_sum_exp, exact.log_sum_exp);
+        assert_eq!(bounded.analytical_bounds.max_compressed_score_span, 0.0);
+    }
+
+    #[test]
+    fn invalid_six_component_output_budgets_are_rejected() {
+        let tree = PreparedTorsorOctree::build(&[sample_key(0)], 1, 2).unwrap();
+        let query = sample_query([5.0, 0.0, 0.0]);
+        for invalid in [-1.0, f64::NAN, f64::INFINITY] {
+            let mut budget = TorsorOutputErrorBudget {
+                resultant_abs: [1.0; 3],
+                moment_at_query_abs: [1.0; 3],
+            };
+            budget.resultant_abs[1] = invalid;
+            assert!(matches!(
+                tree.forward_with_output_budgets(query, 0.3, 0.5, 0.5, budget),
+                Err(TorsorTreeError::InvalidOutputErrorBudget)
+            ));
+            budget.resultant_abs[1] = 1.0;
+            budget.moment_at_query_abs[2] = invalid;
+            assert!(matches!(
+                tree.forward_with_output_budgets(query, 0.3, 0.5, 0.5, budget),
+                Err(TorsorTreeError::InvalidOutputErrorBudget)
+            ));
+        }
+        let valid = TorsorOutputErrorBudget {
+            resultant_abs: [1.0; 3],
+            moment_at_query_abs: [1.0; 3],
+        };
+        assert!(matches!(
+            tree.forward_with_output_budgets(query, 0.3, 0.5, f64::NAN, valid),
+            Err(TorsorTreeError::InvalidScoreSpreadLimit)
+        ));
+    }
+
     #[test]
     fn invalid_score_spread_budget_fails_closed() {
         let tree = PreparedTorsorOctree::build(&[sample_key(0)], 1, 2).unwrap();
