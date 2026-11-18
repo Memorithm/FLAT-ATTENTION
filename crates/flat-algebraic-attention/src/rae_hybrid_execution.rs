@@ -214,11 +214,11 @@ pub fn execute_rae_hybrid(
         for (key, (&page, &eligible)) in query.key_pages.iter().zip(query.eligible).enumerate() {
             if eligible && contains(mask, page) {
                 let base = key * query.value_width;
-                for &v in &query.values[base..base + query.value_width] {
+                for (dimension, &v) in query.values[base..base + query.value_width].iter().enumerate() {
                     if !v.is_finite() {
                         return Err(RaeNumericExecutionError::NonFiniteValue {
                             key,
-                            dimension: 0,
+                            dimension,
                         });
                     }
                     if v.abs() > policy.value_abs_bound {
