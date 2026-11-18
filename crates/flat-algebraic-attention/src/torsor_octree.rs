@@ -13,6 +13,8 @@ use crate::tdi22_torsor_projection::{TorsorKey, TorsorQuery};
 pub const TDI22_TORSOR_OCTREE_V1: &str = "tdi22-spatial-octree-f64-reference-v1";
 /// Optional, non-production query-specific score-spread gate.
 pub const TDI22_TORSOR_OCTREE_SCORE_GUARD_V1: &str = "tdi22-octree-score-spread-guard-v1";
+/// Optional absolute componentwise output-error screen in exact arithmetic.
+pub const TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1: &str = "tdi22-octree-output-budget-v1";
 /// Bound construction memory and prohibit accidental unbounded experiments.
 pub const MAX_OCTREE_KEYS: usize = 4096;
 const MAX_DEPTH: usize = 32;
@@ -86,6 +88,8 @@ pub enum TorsorTreeError {
     InvalidDepth,
     InvalidOpeningRatio,
     InvalidScoreSpreadLimit,
+    InvalidOutputErrorBudget,
+    NonFiniteOutputRange,
     InvalidScale,
     NonFiniteKey { index: usize },
     NonFiniteQuery,
@@ -163,6 +167,86 @@ impl ScoreEnvelope {
             None
         }
     }
+
+    /// Global component ranges in query-reduced coordinates, computed only
+    /// from the envelopes stored in the root. Not a floating-point interval
+    /// certificate: the bound is algebraic in exact arithmetic.
+    fn output_ranges(&self, point: Vec3) -> Option<OutputRanges> {
+        let mut resultant = [0.0; 3];
+        let mut moment = [0.0; 3];
+        for (axis, value) in resultant.iter_mut().enumerate() {
+            *value = self.r_max[axis] - self.r_min[axis];
+        }
+        moment[0] = (self.c_max[0] - self.c_min[0])
+            + point[1].abs() * resultant[2]
+            + point[2].abs() * resultant[1];
+        moment[1] = (self.c_max[1] - self.c_min[1])
+            + point[2].abs() * resultant[0]
+            + point[0].abs() * resultant[2];
+        moment[2] = (self.c_max[2] - self.c_min[2])
+            + point[0].abs() * resultant[1]
+            + point[1].abs() * resultant[0];
+        if resultant
+            .iter()
+            .chain(moment.iter())
+            .all(|x| x.is_finite() && *x >= 0.0)
+        {
+            Some(OutputRanges { resultant, moment })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct OutputRanges {
+    resultant: Vec3,
+    moment: Vec3,
+}
+
+/// Per-coordinate absolute tolerances for the full normalized torsor output.
+/// All six tolerances must be finite and nonnegative.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TorsorOutputErrorBudget {
+    pub resultant_abs: Vec3,
+    pub moment_at_query_abs: Vec3,
+}
+
+impl TorsorOutputErrorBudget {
+    fn valid(self) -> bool {
+        self.resultant_abs
+            .iter()
+            .chain(self.moment_at_query_abs.iter())
+            .all(|x| x.is_finite() && *x >= 0.0)
+    }
+
+    fn admits(self, score_span: f64, ranges: OutputRanges) -> bool {
+        let tv_bound = score_span.tanh();
+        (0..3).all(|axis| {
+            let r_bound = ranges.resultant[axis] * tv_bound;
+            let m_bound = ranges.moment[axis] * tv_bound;
+            r_bound.is_finite()
+                && m_bound.is_finite()
+                && r_bound <= self.resultant_abs[axis]
+                && m_bound <= self.moment_at_query_abs[axis]
+        })
+    }
+}
+
+/// Conservative algebraic bounds, valid for exact arithmetic only.
+/// Not a directed-rounding IEEE-754 proof and not a model-quality guarantee.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TorsorAnalyticalErrorBounds {
+    pub resultant_abs: Vec3,
+    pub moment_at_query_abs: Vec3,
+    pub log_sum_exp_abs: f64,
+    pub max_compressed_score_span: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TorsorBudgetedOutput {
+    pub attention: TorsorTreeOutput,
+    pub analytical_bounds: TorsorAnalyticalErrorBounds,
 }
 
 #[derive(Debug)]
@@ -409,7 +493,8 @@ impl PreparedTorsorOctree {
         scale: f64,
         theta: f64,
     ) -> Result<TorsorTreeOutput, TorsorTreeError> {
-        self.forward_internal(query, scale, theta, None)
+        self.forward_internal(query, scale, theta, None, None)
+            .map(|(output, _)| output)
     }
 
     /// Optional semantic score-spread guard on top of the spatial opening test.
@@ -432,7 +517,57 @@ impl PreparedTorsorOctree {
         if !max_score_spread.is_finite() || max_score_spread < 0.0 {
             return Err(TorsorTreeError::InvalidScoreSpreadLimit);
         }
-        self.forward_internal(query, scale, theta, Some(max_score_spread))
+        self.forward_internal(query, scale, theta, Some(max_score_spread), None)
+            .map(|(output, _)| output)
+    }
+
+    /// Require both a score-spread limit and six normalized output-error
+    /// budgets before summarizing any distant internal node.
+    ///
+    /// In exact arithmetic, if all admitted key logits differ from their
+    /// node mean by at most S, the exact-versus-surrogate softmax TV distance
+    /// is at most tanh(S). Multiplication by the global query-reduced
+    /// coordinate range bounds each output-coordinate discrepancy. This is
+    /// a conservative analytical screen, NOT a floating-point proof.
+    /// No causal masking, model integration, or default runtime promotion.
+    pub fn forward_with_output_budgets(
+        &self,
+        query: TorsorQuery,
+        scale: f64,
+        theta: f64,
+        max_score_spread: f64,
+        budget: TorsorOutputErrorBudget,
+    ) -> Result<TorsorBudgetedOutput, TorsorTreeError> {
+        if !max_score_spread.is_finite() || max_score_spread < 0.0 {
+            return Err(TorsorTreeError::InvalidScoreSpreadLimit);
+        }
+        if !budget.valid() {
+            return Err(TorsorTreeError::InvalidOutputErrorBudget);
+        }
+        if !finite(query.evaluation_point) {
+            return Err(TorsorTreeError::NonFiniteQuery);
+        }
+        let ranges = self.nodes[0]
+            .score_envelope
+            .output_ranges(convert(query.evaluation_point))
+            .ok_or(TorsorTreeError::NonFiniteOutputRange)?;
+        let (attention, accepted_span) = self.forward_internal(
+            query,
+            scale,
+            theta,
+            Some(max_score_spread),
+            Some((budget, ranges)),
+        )?;
+        let tv_bound = accepted_span.tanh();
+        Ok(TorsorBudgetedOutput {
+            attention,
+            analytical_bounds: TorsorAnalyticalErrorBounds {
+                resultant_abs: mul(ranges.resultant, tv_bound),
+                moment_at_query_abs: mul(ranges.moment, tv_bound),
+                log_sum_exp_abs: accepted_span,
+                max_compressed_score_span: accepted_span,
+            },
+        })
     }
 
     fn forward_internal(
@@ -441,7 +576,8 @@ impl PreparedTorsorOctree {
         scale: f64,
         theta: f64,
         max_score_spread: Option<f64>,
-    ) -> Result<TorsorTreeOutput, TorsorTreeError> {
+        output_guard: Option<(TorsorOutputErrorBudget, OutputRanges)>,
+    ) -> Result<(TorsorTreeOutput, f64), TorsorTreeError> {
         if !scale.is_finite() || scale <= 0.0 {
             return Err(TorsorTreeError::InvalidScale);
         }
@@ -460,6 +596,7 @@ impl PreparedTorsorOctree {
         let mut exact_keys = 0;
         let mut summarized_nodes = 0;
         let mut covered_keys = 0;
+        let mut accepted_max_score_span = 0.0_f64;
         while let Some(index) = stack.pop() {
             let node = &self.nodes[index];
             let has_children = node.children.iter().any(Option::is_some);
@@ -468,17 +605,27 @@ impl PreparedTorsorOctree {
             });
             let offset = sub(node.aggregate.center, point);
             let distance = dot(offset, offset).sqrt();
-            let collapse = has_children
+            let is_distant = has_children
                 && theta > 0.0
                 && !inside
                 && distance > 0.0
-                && node.extent / distance < theta
-                && max_score_spread.is_none_or(|limit| {
-                    node.score_envelope
-                        .score_span(projected_linear, angular, scale)
-                        .is_some_and(|span| span <= limit)
+                && node.extent / distance < theta;
+            let gated = max_score_spread.is_some() || output_guard.is_some();
+            let span = if is_distant && gated {
+                node.score_envelope
+                    .score_span(projected_linear, angular, scale)
+            } else {
+                None
+            };
+            let collapse = is_distant
+                && max_score_spread.is_none_or(|limit| span.is_some_and(|value| value <= limit))
+                && output_guard.is_none_or(|(budget, ranges)| {
+                    span.is_some_and(|value| budget.admits(value, ranges))
                 });
             if collapse {
+                if let Some(value) = span {
+                    accepted_max_score_span = accepted_max_score_span.max(value);
+                }
                 let aggregate = node.aggregate;
                 let inverse_mass = 1.0 / aggregate.mass as f64;
                 let resultant = mul(aggregate.resultant, inverse_mass);
@@ -528,7 +675,7 @@ impl PreparedTorsorOctree {
         {
             return Err(TorsorTreeError::NonFiniteScore);
         }
-        Ok(result)
+        Ok((result, accepted_max_score_span))
     }
 
     pub fn forward_batch(
@@ -774,6 +921,167 @@ mod tests {
             close(row.moment_at_query[axis], dense.moment_at_query[axis]);
         }
         close(row.log_sum_exp, dense.log_sum_exp);
+    }
+
+    #[test]
+    fn output_budget_reports_componentwise_bounds_against_independent_dense() {
+        let keys: Vec<_> = (0..128).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 2, 24).unwrap();
+        let budget = TorsorOutputErrorBudget {
+            resultant_abs: [1.0e8; 3],
+            moment_at_query_abs: [1.0e8; 3],
+        };
+        let queries = [
+            TorsorQuery {
+                linear: [1.0, -0.4, 0.7],
+                angular: [0.0; 3],
+                evaluation_point: [200.0, 400.0, 100.0],
+            },
+            TorsorQuery {
+                linear: [0.8, 0.1, -0.2],
+                angular: [0.02, -0.015, 0.01],
+                evaluation_point: [500.0, -400.0, 80.0],
+            },
+            TorsorQuery {
+                linear: [0.1, 0.5, -0.3],
+                angular: [-0.01, 0.005, 0.02],
+                evaluation_point: [-300.0, 250.0, 700.0],
+            },
+        ];
+        for query in queries {
+            let bounded = tree
+                .forward_with_output_budgets(query, 0.04, 0.5, 1.0e8, budget)
+                .unwrap();
+            let (dense_r, dense_m, dense_lse) = independent_dense(&keys, query, 0.04);
+            assert!(bounded.attention.summarized_nodes > 0);
+            assert_eq!(bounded.attention.covered_keys, keys.len());
+            let error = bounded.analytical_bounds;
+            for axis in 0..3 {
+                let r_delta = (bounded.attention.resultant[axis] - dense_r[axis]).abs();
+                let m_delta = (bounded.attention.moment_at_query[axis] - dense_m[axis]).abs();
+                assert!(
+                    r_delta <= error.resultant_abs[axis] + 1.0e-8,
+                    "R axis {axis}: {r_delta} > {}",
+                    error.resultant_abs[axis]
+                );
+                assert!(
+                    m_delta <= error.moment_at_query_abs[axis] + 1.0e-8,
+                    "M axis {axis}: {m_delta} > {}",
+                    error.moment_at_query_abs[axis]
+                );
+                assert!(error.resultant_abs[axis] <= budget.resultant_abs[axis]);
+                assert!(error.moment_at_query_abs[axis] <= budget.moment_at_query_abs[axis]);
+            }
+            assert!(
+                (bounded.attention.log_sum_exp - dense_lse).abs() <= error.log_sum_exp_abs + 1.0e-8
+            );
+        }
+    }
+
+    #[test]
+    fn tight_component_budgets_expand_remote_semantically_heterogeneous_tree() {
+        let keys: Vec<_> = (0..100).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let query = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [5000.0, -2000.0, 700.0],
+        };
+        let exact = tree.forward(query, 0.2, 0.0).unwrap();
+        let score_only = tree
+            .forward_with_score_spread_guard(query, 0.2, 1.0, 1.0e6)
+            .unwrap();
+        assert!(score_only.summarized_nodes > 0);
+        let bounded = tree
+            .forward_with_output_budgets(
+                query,
+                0.2,
+                1.0,
+                1.0e6,
+                TorsorOutputErrorBudget {
+                    resultant_abs: [0.0; 3],
+                    moment_at_query_abs: [0.0; 3],
+                },
+            )
+            .unwrap();
+        assert_eq!(bounded.attention.exact_keys, keys.len());
+        assert_eq!(bounded.attention.summarized_nodes, 0);
+        assert_eq!(bounded.attention, exact);
+        assert_eq!(bounded.analytical_bounds.resultant_abs, [0.0; 3]);
+        assert_eq!(bounded.analytical_bounds.moment_at_query_abs, [0.0; 3]);
+        assert_eq!(bounded.analytical_bounds.log_sum_exp_abs, 0.0);
+    }
+
+    #[test]
+    fn identical_logits_with_heterogeneous_output_allow_zero_budget_summary() {
+        let keys: Vec<_> = (0..64)
+            .map(|i| TorsorKey {
+                reference: [i as f32, 0.0, 0.0],
+                resultant: [1.0, i as f32, 0.0],
+                moment_at_reference: [0.0; 3],
+            })
+            .collect();
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let query = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [1024.0, 0.0, 0.0],
+        };
+        let bounded = tree
+            .forward_with_output_budgets(
+                query,
+                0.25,
+                0.5,
+                0.0,
+                TorsorOutputErrorBudget {
+                    resultant_abs: [0.0; 3],
+                    moment_at_query_abs: [0.0; 3],
+                },
+            )
+            .unwrap();
+        assert_eq!(bounded.attention.summarized_nodes, 1);
+        assert_eq!(bounded.attention.exact_keys, 0);
+        let exact = tree.forward(query, 0.25, 0.0).unwrap();
+        for axis in 0..3 {
+            close(bounded.attention.resultant[axis], exact.resultant[axis]);
+            close(
+                bounded.attention.moment_at_query[axis],
+                exact.moment_at_query[axis],
+            );
+        }
+        close(bounded.attention.log_sum_exp, exact.log_sum_exp);
+        assert_eq!(bounded.analytical_bounds.max_compressed_score_span, 0.0);
+    }
+
+    #[test]
+    fn invalid_six_component_output_budgets_are_rejected() {
+        let tree = PreparedTorsorOctree::build(&[sample_key(0)], 1, 2).unwrap();
+        let query = sample_query([5.0, 0.0, 0.0]);
+        for invalid in [-1.0, f64::NAN, f64::INFINITY] {
+            let mut budget = TorsorOutputErrorBudget {
+                resultant_abs: [1.0; 3],
+                moment_at_query_abs: [1.0; 3],
+            };
+            budget.resultant_abs[1] = invalid;
+            assert!(matches!(
+                tree.forward_with_output_budgets(query, 0.3, 0.5, 0.5, budget),
+                Err(TorsorTreeError::InvalidOutputErrorBudget)
+            ));
+            budget.resultant_abs[1] = 1.0;
+            budget.moment_at_query_abs[2] = invalid;
+            assert!(matches!(
+                tree.forward_with_output_budgets(query, 0.3, 0.5, 0.5, budget),
+                Err(TorsorTreeError::InvalidOutputErrorBudget)
+            ));
+        }
+        let valid = TorsorOutputErrorBudget {
+            resultant_abs: [1.0; 3],
+            moment_at_query_abs: [1.0; 3],
+        };
+        assert!(matches!(
+            tree.forward_with_output_budgets(query, 0.3, 0.5, f64::NAN, valid),
+            Err(TorsorTreeError::InvalidScoreSpreadLimit)
+        ));
     }
 
     #[test]
