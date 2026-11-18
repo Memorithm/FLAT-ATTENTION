@@ -102,9 +102,7 @@ impl BooleanGateProgram {
             .iter()
             .zip(tree.iter())
             .map(|(&input, &exclusive)| {
-                exclusive
-                    .then(self.transition(input))
-                    .apply(initial_state)
+                exclusive.then(self.transition(input)).apply(initial_state)
                     & self.output.evaluate(input)
             })
             .collect()
@@ -134,8 +132,7 @@ mod tests {
     fn parallel_tree_matches_serial_and_work_efficient_at_all_boundaries() {
         let mut seed = 0x8e52_71b0_19dd_5a6fu64;
         for length in [
-            0usize, 1, 2, 3, 7, 16, 31, 64, 65, 127, 128, 129, 1025, 2048, 4095, 4096,
-            4097, 8191,
+            0usize, 1, 2, 3, 7, 16, 31, 64, 65, 127, 128, 129, 1025, 2048, 4095, 4096, 4097, 8191,
         ] {
             let inputs: Vec<u64> = (0..length).map(|_| next_random(&mut seed)).collect();
             for _ in 0..3 {
