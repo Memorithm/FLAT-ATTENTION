@@ -111,7 +111,10 @@ mod tests {
                 [
                     Some(DenseWeightWindow { first: 4, last: 63 }),
                     None,
-                    Some(DenseWeightWindow { first: 16, last: 48 }),
+                    Some(DenseWeightWindow {
+                        first: 16,
+                        last: 48,
+                    }),
                     Some(DenseWeightWindow { first: 0, last: 64 }),
                     None,
                 ],
@@ -208,12 +211,8 @@ mod tests {
     fn bps25_irregular_chunks_and_rewiring_preserve_exact_state_trajectory() {
         let mut seed = 0x25a5_6741_8a36_d902u64;
         let original = graph(3, &mut seed);
-        let altered = original
-            .with_edge(OperatorChannel::Retain, 5, 23)
-            .unwrap();
-        let restored = altered
-            .with_edge(OperatorChannel::Retain, 5, 0)
-            .unwrap();
+        let altered = original.with_edge(OperatorChannel::Retain, 5, 23).unwrap();
+        let restored = altered.with_edge(OperatorChannel::Retain, 5, 0).unwrap();
         assert_eq!(restored, original);
 
         let mut inputs = Vec::new();
