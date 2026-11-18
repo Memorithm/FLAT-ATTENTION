@@ -43,7 +43,9 @@ fn token<T: std::str::FromStr>(
     words: &mut std::str::SplitWhitespace<'_>,
     field: &str,
 ) -> Result<T, String> {
-    let s = words.next().ok_or_else(|| format!("missing field {field}"))?;
+    let s = words
+        .next()
+        .ok_or_else(|| format!("missing field {field}"))?;
     s.parse().map_err(|_| format!("invalid field {field}"))
 }
 
@@ -188,8 +190,9 @@ fn evaluate(snapshot: &Snapshot) -> Result<Report, String> {
         if !norm.is_finite() {
             return Err("nonfinite key norm".into());
         }
-        metadata[p].max_key_l2_norm =
-            metadata[p].max_key_l2_norm.max(norm * (1.0 + 1e-12) + 1e-12);
+        metadata[p].max_key_l2_norm = metadata[p]
+            .max_key_l2_norm
+            .max(norm * (1.0 + 1e-12) + 1e-12);
         let vb = key * snapshot.vdim;
         for &value in &snapshot.values[vb..vb + snapshot.vdim] {
             value_abs_bound = value_abs_bound.max(value.abs());
@@ -323,7 +326,9 @@ fn evaluate(snapshot: &Snapshot) -> Result<Report, String> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
-    let path = args.next().ok_or("usage: rae9_real_model_bridge <snapshot.txt>")?;
+    let path = args
+        .next()
+        .ok_or("usage: rae9_real_model_bridge <snapshot.txt>")?;
     if args.next().is_some() {
         return Err("unexpected additional argument".into());
     }
@@ -408,6 +413,8 @@ mod tests {
         assert!(parse_capture(&fixture("smollm2-135m-instruct", 9, 3, 4, 2)).is_err());
         assert!(parse_capture(&fixture("gpt2-xl", 9, 3, 4, 1)).is_err());
         assert!(parse_capture(&format!("{} 12", fixture("gpt2-xl", 4, 4, 2, 2))).is_err());
-        assert!(parse_capture(&fixture("gpt2-xl", 4, 4, 2, 2).replace("8 -8 0", "nan -8 0")).is_err());
+        assert!(
+            parse_capture(&fixture("gpt2-xl", 4, 4, 2, 2).replace("8 -8 0", "nan -8 0")).is_err()
+        );
     }
 }
