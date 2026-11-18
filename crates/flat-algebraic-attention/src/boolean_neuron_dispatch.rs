@@ -102,7 +102,99 @@ impl WeightRoutingPolicy {
     }
 }
 
+/// A routing decision compiled once for an immutable graph and policy.
+///
+/// Borrowing the graph prevents accidental mutation/re-wiring while this
+/// plan is in use. A different graph (for example `with_edge()`) gets
+/// a separately prepared decision, so no stale topology cache survives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PreparedWeightMode {
+    AlwaysHybrid,
+    AlwaysDense,
+    WeightRange { first: u8, last: u8 },
+}
+
+/// BPS-24 exact, reusable routing executor.
+///
+/// Resolves the graph's number of uniform channels and its selected
+/// caller-supplied weight window *once*, not once per recurrent tick.
+/// In the full-weight/disabled cases the inference loop never needs
+/// a live popcount at all. This is a work reduction hypothesis until
+/// paired physical measurement; it preserves all BPS-23 semantics.
+pub struct PreparedWeightRouter<'a> {
+    graph: &'a BooleanNeuronGraph,
+    mode: PreparedWeightMode,
+    adaptive: AdaptiveRoutingPolicy,
+}
+
+impl PreparedWeightRouter<'_> {
+    /// Inspect an exact decision without executing the recurrence.
+    #[must_use]
+    pub fn decision(&self, input: u64) -> WeightRoutingDecision {
+        let dense = match self.mode {
+            PreparedWeightMode::AlwaysHybrid => false,
+            PreparedWeightMode::AlwaysDense => true,
+            PreparedWeightMode::WeightRange { first, last } => {
+                (first..=last).contains(&(input.count_ones() as u8))
+            }
+        };
+        if dense {
+            WeightRoutingDecision::GroupedDense
+        } else {
+            WeightRoutingDecision::ExistingHybrid
+        }
+    }
+
+    /// One exact synchronous recurrent step, reading each source from
+    /// the same previous-state word in either selected implementation.
+    #[must_use]
+    pub fn step(&self, input: u64, previous: u64) -> (u64, u64) {
+        match self.decision(input) {
+            WeightRoutingDecision::GroupedDense => self.graph.step_grouped(input, previous),
+            WeightRoutingDecision::ExistingHybrid => {
+                self.graph.step_activity_hybrid(input, previous, self.adaptive)
+            }
+        }
+    }
+
+    /// Exact multi-step output trajectory using this prepared graph plan.
+    #[must_use]
+    pub fn forward(&self, inputs: &[u64], initial: u64) -> Vec<u64> {
+        let mut state = initial;
+        inputs
+            .iter()
+            .map(|&input| {
+                let (next, output) = self.step(input, state);
+                state = next;
+                output
+            })
+            .collect()
+    }
+}
+
 impl BooleanNeuronGraph {
+    /// BPS-24: resolve this graph's wiring-uniformity bucket just once.
+    ///
+    /// The selected graph is immutable for the executor's lifetime.
+    /// No automatic calibration or external hardware inputs are used;
+    /// the weight policy remains explicitly caller-controlled.
+    #[must_use]
+    pub fn prepare_weight_router(&self, policy: WeightRoutingPolicy) -> PreparedWeightRouter<'_> {
+        let channel_count = self.uniform_operation_count();
+        let mode = match policy.windows()[channel_count] {
+            None => PreparedWeightMode::AlwaysHybrid,
+            Some(DenseWeightWindow { first: 0, last: 64 }) => PreparedWeightMode::AlwaysDense,
+            Some(DenseWeightWindow { first, last }) => {
+                PreparedWeightMode::WeightRange { first, last }
+            }
+        };
+        PreparedWeightRouter {
+            graph: self,
+            mode,
+            adaptive: policy.adaptive(),
+        }
+    }
+
     /// Count source-uniform operations, independent of the current gate
     /// activity. Rewiring rebuilds compiled topology in the original graph.
     #[must_use]
@@ -149,15 +241,7 @@ impl BooleanNeuronGraph {
         initial: u64,
         policy: WeightRoutingPolicy,
     ) -> Vec<u64> {
-        let mut state = initial;
-        inputs
-            .iter()
-            .map(|&input| {
-                let (next, output) = self.step_weight_routed(input, state, policy);
-                state = next;
-                output
-            })
-            .collect()
+        self.prepare_weight_router(policy).forward(inputs, initial)
     }
 }
 
@@ -216,6 +300,127 @@ mod tests {
             AdaptiveRoutingPolicy::default(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn bps24_prepared_plan_matches_unprepared_for_all_65_weights_and_five_topologies() {
+        let mut seed = 0xb240_552c_f931_47a1u64;
+        let policies = [
+            WeightRoutingPolicy::DISABLED,
+            experimental_windows(),
+            WeightRoutingPolicy::new(
+                [Some(DenseWeightWindow { first: 0, last: 64 }); 5],
+                AdaptiveRoutingPolicy::default(),
+            )
+            .unwrap(),
+            WeightRoutingPolicy::new(
+                [Some(DenseWeightWindow { first: 4, last: 4 }); 5],
+                AdaptiveRoutingPolicy {
+                    max_direct_lanes: [0, 2, 4, 64],
+                },
+            )
+            .unwrap(),
+        ];
+        for uniform in 0..=4 {
+            let model = graph(uniform, &mut seed);
+            for policy in policies {
+                let prepared = model.prepare_weight_router(policy);
+                for weight in 0..=64u8 {
+                    let corpus = exact_weight_corpus(
+                        next_random(&mut seed),
+                        weight,
+                        3,
+                    )
+                    .unwrap();
+                    for input in corpus {
+                        let previous = next_random(&mut seed);
+                        assert_eq!(
+                            prepared.decision(input),
+                            model.weight_routing_decision(input, policy)
+                        );
+                        assert_eq!(
+                            prepared.step(input, previous),
+                            model.step_weight_routed(input, previous, policy)
+                        );
+                        assert_eq!(
+                            prepared.step(input, previous),
+                            model.step_scalar(input, previous)
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bps24_prepared_multi_step_matches_old_stepwise_and_scalar_recurrence() {
+        let mut seed = 0x1c29_a597_8013_b44fu64;
+        for uniform in 0..=4 {
+            for _ in 0..6 {
+                let model = graph(uniform, &mut seed);
+                let initial = next_random(&mut seed);
+                let mut inputs = Vec::new();
+                for weight in [0, 1, 4, 16, 32, 48, 63, 64] {
+                    inputs.extend(exact_weight_corpus(
+                        next_random(&mut seed),
+                        weight,
+                        19,
+                    )
+                    .unwrap());
+                }
+                for policy in [
+                    WeightRoutingPolicy::DISABLED,
+                    experimental_windows(),
+                    WeightRoutingPolicy::new(
+                        [Some(DenseWeightWindow { first: 0, last: 64 }); 5],
+                        AdaptiveRoutingPolicy::default(),
+                    )
+                    .unwrap(),
+                ] {
+                    let prepared = model.prepare_weight_router(policy);
+                    let mut state = initial;
+                    let mut unprepared = Vec::with_capacity(inputs.len());
+                    for &input in &inputs {
+                        let (next, output) = model.step_weight_routed(input, state, policy);
+                        state = next;
+                        unprepared.push(output);
+                    }
+                    assert_eq!(prepared.forward(&inputs, initial), unprepared);
+                    assert_eq!(
+                        model.forward_weight_routed(&inputs, initial, policy),
+                        unprepared
+                    );
+                    assert_eq!(unprepared, model.forward_scalar(&inputs, initial));
+                    assert!(prepared.forward(&[], initial).is_empty());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bps24_prepare_after_rewiring_uses_fresh_uniformity_bucket() {
+        let mut seed = 0x44a0_f039_c17d_92b3u64;
+        let base = graph(3, &mut seed);
+        let altered = base.with_edge(OperatorChannel::Retain, 5, 23).unwrap();
+        let restored = altered.with_edge(OperatorChannel::Retain, 5, 0).unwrap();
+        let policy = experimental_windows();
+        assert_eq!(base.prepare_weight_router(policy).decision(0), WeightRoutingDecision::GroupedDense);
+        assert_eq!(
+            altered.prepare_weight_router(policy).decision(0),
+            WeightRoutingDecision::ExistingHybrid
+        );
+        assert_eq!(
+            restored.prepare_weight_router(policy).decision(0),
+            WeightRoutingDecision::GroupedDense
+        );
+        let corpus = exact_weight_corpus(0xd528_0af7_421b_c48e, 4, 97).unwrap();
+        let initial = next_random(&mut seed);
+        for model in [&base, &altered, &restored] {
+            assert_eq!(
+                model.prepare_weight_router(policy).forward(&corpus, initial),
+                model.forward_scalar(&corpus, initial)
+            );
+        }
     }
 
     #[test]
