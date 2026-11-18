@@ -21,6 +21,7 @@ pub mod boolean_scan_lstm;
 pub mod boolean_scan_training;
 pub mod boolean_sequenced_publisher;
 pub mod boolean_watermarked_stream;
+pub mod boolean_work_efficient_scan;
 pub mod compact_preselection;
 pub mod cooperation;
 pub mod cycloid_cost;
