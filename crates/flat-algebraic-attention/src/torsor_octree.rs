@@ -363,6 +363,21 @@ impl PreparedTorsorOctree {
         self.nodes.len()
     }
 
+    /// Reserved bytes in the three owned Vec buffer families.
+    ///
+    /// This excludes allocator headers, alignment overhead, stack space,
+    /// temporaries and operating-system memory accounting. It must not be
+    /// reported as physical peak RSS or total process memory.
+    pub fn reserved_buffer_bytes(&self) -> usize {
+        self.keys.capacity() * std::mem::size_of::<TorsorKey>()
+            + self.nodes.capacity() * std::mem::size_of::<Node>()
+            + self
+                .nodes
+                .iter()
+                .map(|node| node.leaf_keys.capacity() * std::mem::size_of::<usize>())
+                .sum::<usize>()
+    }
+
     pub fn key_count(&self) -> usize {
         self.keys.len()
     }
