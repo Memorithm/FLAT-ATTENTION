@@ -152,7 +152,8 @@ impl PreparedWeightRouter<'_> {
         match self.decision(input) {
             WeightRoutingDecision::GroupedDense => self.graph.step_grouped(input, previous),
             WeightRoutingDecision::ExistingHybrid => {
-                self.graph.step_activity_hybrid(input, previous, self.adaptive)
+                self.graph
+                    .step_activity_hybrid(input, previous, self.adaptive)
             }
         }
     }
@@ -326,12 +327,7 @@ mod tests {
             for policy in policies {
                 let prepared = model.prepare_weight_router(policy);
                 for weight in 0..=64u8 {
-                    let corpus = exact_weight_corpus(
-                        next_random(&mut seed),
-                        weight,
-                        3,
-                    )
-                    .unwrap();
+                    let corpus = exact_weight_corpus(next_random(&mut seed), weight, 3).unwrap();
                     for input in corpus {
                         let previous = next_random(&mut seed);
                         assert_eq!(
@@ -361,12 +357,7 @@ mod tests {
                 let initial = next_random(&mut seed);
                 let mut inputs = Vec::new();
                 for weight in [0, 1, 4, 16, 32, 48, 63, 64] {
-                    inputs.extend(exact_weight_corpus(
-                        next_random(&mut seed),
-                        weight,
-                        19,
-                    )
-                    .unwrap());
+                    inputs.extend(exact_weight_corpus(next_random(&mut seed), weight, 19).unwrap());
                 }
                 for policy in [
                     WeightRoutingPolicy::DISABLED,
@@ -404,7 +395,10 @@ mod tests {
         let altered = base.with_edge(OperatorChannel::Retain, 5, 23).unwrap();
         let restored = altered.with_edge(OperatorChannel::Retain, 5, 0).unwrap();
         let policy = experimental_windows();
-        assert_eq!(base.prepare_weight_router(policy).decision(0), WeightRoutingDecision::GroupedDense);
+        assert_eq!(
+            base.prepare_weight_router(policy).decision(0),
+            WeightRoutingDecision::GroupedDense
+        );
         assert_eq!(
             altered.prepare_weight_router(policy).decision(0),
             WeightRoutingDecision::ExistingHybrid
@@ -417,7 +411,9 @@ mod tests {
         let initial = next_random(&mut seed);
         for model in [&base, &altered, &restored] {
             assert_eq!(
-                model.prepare_weight_router(policy).forward(&corpus, initial),
+                model
+                    .prepare_weight_router(policy)
+                    .forward(&corpus, initial),
                 model.forward_scalar(&corpus, initial)
             );
         }
