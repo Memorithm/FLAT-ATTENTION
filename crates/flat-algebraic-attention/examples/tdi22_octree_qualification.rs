@@ -481,8 +481,10 @@ mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(bounded.attention.summarized_nodes, 0);
-        assert_eq!(bounded.attention.exact_keys, keys.len());
+        // The root cannot collapse, but zero-span *children* may still
+        // collapse safely; do not conflate exact coverage with exact leaves.
+        assert!(bounded.attention.exact_keys > 0);
+        assert_eq!(bounded.attention.covered_keys, keys.len());
     }
 
     #[test]
