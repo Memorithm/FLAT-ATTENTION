@@ -102,7 +102,11 @@ jobs:
         run: cargo test -p flat-ada-a1-candidate
 
   wgpu-device:
-    runs-on: ubuntu-latest
+    # Keep the complete WGPU suite on the last verified software Vulkan host.
+    # Ubuntu 26.04 / LLVM 21 llvmpipe crashed with SIGSEGV in wgpu_matrix;
+    # the BPS-9 exact-head Ubuntu 24.04 / LLVM 20 matrix passed unchanged.
+    # No WGPU tests or regression gates are skipped.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

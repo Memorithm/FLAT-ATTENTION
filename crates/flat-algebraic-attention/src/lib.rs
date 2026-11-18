@@ -10,6 +10,7 @@
 //! `docs/research/COMPACT_PRESELECTION_BOOTSTRAP.md` and the companion roadmap.
 
 pub mod adaptive_repair;
+pub mod boolean_authenticated_frames;
 pub mod boolean_benchmark_protocol;
 pub mod boolean_coupled_learning;
 pub mod boolean_edge_memory;

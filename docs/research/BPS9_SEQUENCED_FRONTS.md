@@ -110,6 +110,18 @@ measurement. The older BPS-6 RemoteOps RAPL protocol remains pinned
 to its own source SHA and must not be changed or automatically
 scheduled as part of this work.
 
+## BPS-10 authenticated envelope and checkpoints
+
+[BPS-10 keyed authenticated frames](BPS10_AUTHENTICATED_STREAM.md) wrap
+BPS-9 source/epoch/sequence/watermark metadata and full event payloads
+in a 256-bit BLAKE3 keyed MAC, chaining each frame to the previous
+authenticated MAC. A separate checkpoint MAC binds source state,
+recurrent Boolean memory and exact model/limit metadata to a
+**separately persisted trusted head**. This adds cryptographic
+integrity of frames under a pre-provisioned secret and prevents rollback
+relative to a genuine durable high-water reference, not standalone
+source authentication or evidence that no physical front was omitted.
+
 ## Integration candidates
 
 An eventual V888/SML event publisher or FLAT async runtime may use the
