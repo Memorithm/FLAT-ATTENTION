@@ -303,7 +303,7 @@ mod tests {
             &selected_page_mask,
             1.0,
         ).unwrap();
-        assert!(oracle.dropped_mass <= certificate.maximum_dropped_mass);
+        assert!(oracle.softmax.dropped_mass() <= certificate.maximum_dropped_mass);
     }
 
     #[test]
