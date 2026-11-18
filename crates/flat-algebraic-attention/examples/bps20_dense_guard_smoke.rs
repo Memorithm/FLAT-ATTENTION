@@ -28,10 +28,7 @@ fn main() {
         shifts,
     )
     .unwrap();
-    assert_eq!(
-        graph.compiled_dense_gate_guard(),
-        Some((u64::MAX ^ 3, 0))
-    );
+    assert_eq!(graph.compiled_dense_gate_guard(), Some((u64::MAX ^ 3, 0)));
     assert!(graph.dense_gate_eligible(u64::MAX));
     assert!(!graph.dense_gate_eligible(0));
     let policy = AdaptiveRoutingPolicy::default();
