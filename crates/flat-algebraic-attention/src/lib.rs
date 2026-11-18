@@ -16,6 +16,7 @@ pub mod boolean_coupled_learning;
 pub mod boolean_edge_memory;
 pub mod boolean_indexed_fronts;
 pub mod boolean_neuron_activity;
+pub mod boolean_neuron_dispatch;
 pub mod boolean_neuron_graph;
 pub mod boolean_operator_channels;
 pub mod boolean_parallel_rotating_scan;
