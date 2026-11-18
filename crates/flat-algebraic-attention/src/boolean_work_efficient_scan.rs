@@ -96,8 +96,7 @@ mod tests {
     fn work_efficient_matches_serial_for_irregular_lengths_and_64_lanes() {
         let mut seed = 0x27a8_14bb_98d3_6ec1u64;
         for length in [
-            0usize, 1, 2, 3, 5, 7, 15, 16, 31, 32, 63, 64, 65, 127, 128, 129, 257, 513,
-            1025,
+            0usize, 1, 2, 3, 5, 7, 15, 16, 31, 32, 63, 64, 65, 127, 128, 129, 257, 513, 1025,
         ] {
             let inputs: Vec<u64> = (0..length).map(|_| next_random(&mut seed)).collect();
             for _ in 0..8 {
