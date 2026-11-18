@@ -139,6 +139,10 @@ jobs:
         run: |
           cargo test -p flat-algebraic-attention bps20_
           cargo run -p flat-algebraic-attention --example bps20_dense_guard_smoke
+      - name: BPS-21 independently dense Boolean channel exact oracle
+        run: |
+          cargo test -p flat-algebraic-attention bps21_
+          cargo run -p flat-algebraic-attention --example bps21_dense_channels_smoke
       - name: Validate EPG qualification WGSL without a device
         run: cargo test -p flat-epg-wgpu qualification_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate WGSL without a device
