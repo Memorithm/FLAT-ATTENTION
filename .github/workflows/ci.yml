@@ -112,6 +112,10 @@ jobs:
         run: |
           cargo test -p flat-algebraic-attention boolean_operator_channels
           cargo run -p flat-algebraic-attention --example bps15_operator_channels_smoke
+      - name: BPS-16 per-neuron operation graph exact oracle
+        run: |
+          cargo test -p flat-algebraic-attention boolean_neuron_graph
+          cargo run -p flat-algebraic-attention --example bps16_neuron_graph_smoke
       - name: Validate EPG qualification WGSL without a device
         run: cargo test -p flat-epg-wgpu qualification_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate WGSL without a device
