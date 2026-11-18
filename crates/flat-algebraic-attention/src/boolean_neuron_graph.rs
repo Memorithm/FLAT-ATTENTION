@@ -153,6 +153,24 @@ impl BooleanNeuronGraph {
         self.active_shifts.map(u64::count_ones)
     }
 
+    /// One bit per recurrent operation (retain, excite, inhibit, toggle)
+    /// whose current input gate enables all 64 destination lanes.
+    ///
+    /// This describes an exact Boolean property of the live input and
+    /// independently configured operation gates. BPS-21 uses it
+    /// implicitly on the grouped path; no learning or threshold tuning
+    /// changes the recurrent transition.
+    #[must_use]
+    pub fn fully_active_channel_bits(&self, input: u64) -> u8 {
+        let mut channels = 0u8;
+        for channel in 0..OPERATOR_COUNT {
+            if self.gates[channel].evaluate(input) == u64::MAX {
+                channels |= 1 << channel;
+            }
+        }
+        channels
+    }
+
     /// Present only when all 64 destinations of each operator share one shift.
     ///
     /// Rewiring via `with_edge` invalidates this fast path whenever a
@@ -373,12 +391,27 @@ impl BooleanNeuronGraph {
                 }
                 AdaptiveRoute::Grouped => {
                     let mut shifts = self.active_shifts[channel];
-                    while shifts != 0 {
-                        let shift = shifts.trailing_zeros() as usize;
-                        shifts &= shifts - 1;
-                        let enabled = self.destinations_by_shift[channel][shift] & masks[channel];
-                        if enabled != 0 {
-                            sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
+                    if masks[channel] == u64::MAX {
+                        // BPS-21: this operation is dense even if the
+                        // OTHER operators have partial or empty masks.
+                        // Every compiled destination in this channel is
+                        // enabled; skip live mask intersection and each
+                        // nonzero-group conditional, using a packed OR.
+                        while shifts != 0 {
+                            let shift = shifts.trailing_zeros() as usize;
+                            shifts &= shifts - 1;
+                            sourced[channel] |= previous.rotate_left(shift as u32)
+                                & self.destinations_by_shift[channel][shift];
+                        }
+                    } else {
+                        while shifts != 0 {
+                            let shift = shifts.trailing_zeros() as usize;
+                            shifts &= shifts - 1;
+                            let enabled =
+                                self.destinations_by_shift[channel][shift] & masks[channel];
+                            if enabled != 0 {
+                                sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
+                            }
                         }
                     }
                 }
@@ -1536,6 +1569,121 @@ mod tests {
                 changed.forward_activity_hybrid(&inputs, initial, policies[0]),
                 changed.forward_scalar(&inputs, initial)
             );
+        }
+    }
+
+    #[test]
+    fn bps21_channel_dense_bits_are_independent_and_exact_on_mixed_gates() {
+        let mut shifts = [[0u8; NEURON_COUNT]; OPERATOR_COUNT];
+        for destination in 0..NEURON_COUNT {
+            for (channel, shifts_for_channel) in shifts.iter_mut().enumerate() {
+                shifts_for_channel[destination] =
+                    ((destination * (2 * channel + 1)) % NEURON_COUNT) as u8;
+            }
+        }
+        let all = always();
+        let retain = all;
+        let excite = UnaryGate {
+            when_false: 1 << 7,
+            when_true: u64::MAX,
+        };
+        let inhibit = UnaryGate {
+            when_false: u64::MAX,
+            when_true: 1 << 5,
+        };
+        let toggle = UnaryGate {
+            when_false: 0,
+            when_true: u64::MAX,
+        };
+        let graph = BooleanNeuronGraph::new(
+            [retain, excite, inhibit, toggle],
+            UnaryGate::default(),
+            all,
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(graph.unique_shift_counts(), [64; OPERATOR_COUNT]);
+        assert_eq!(graph.compiled_dense_gate_guard(), None);
+        assert_eq!(graph.fully_active_channel_bits(0), 0b0101);
+        assert_eq!(graph.fully_active_channel_bits(u64::MAX), 0b1011);
+
+        let policy = AdaptiveRoutingPolicy::default();
+        let mut seed = 0xb210_4c36_a91e_7087u64;
+        for input in [0, u64::MAX, 1, 1 << 5, 1 << 7, u64::MAX ^ 3] {
+            for _ in 0..64 {
+                let old = next_random(&mut seed);
+                assert_eq!(
+                    graph.step_adaptive(input, old, policy),
+                    graph.step_scalar(input, old)
+                );
+                assert_eq!(
+                    graph.step_activity_hybrid(input, old, policy),
+                    graph.step_scalar(input, old)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bps21_randomized_independent_dense_channels_preserve_full_trajectories() {
+        let mut seed = 0x451c_0fe1_9da3_7260u64;
+        let policies = [
+            AdaptiveRoutingPolicy::default(),
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [0; OPERATOR_COUNT],
+            },
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [1, 4, 16, 64],
+            },
+        ];
+        for _ in 0..40 {
+            let shifts = std::array::from_fn(|channel| {
+                std::array::from_fn(|destination| {
+                    if channel == 2 {
+                        ((destination * 7) % NEURON_COUNT) as u8
+                    } else {
+                        (next_random(&mut seed) % 64) as u8
+                    }
+                })
+            });
+            let gates = [
+                always(),
+                gate(&mut seed),
+                UnaryGate {
+                    when_false: u64::MAX,
+                    when_true: next_random(&mut seed),
+                },
+                gate(&mut seed),
+            ];
+            let model =
+                BooleanNeuronGraph::new(gates, gate(&mut seed), gate(&mut seed), shifts).unwrap();
+            let inputs: Vec<u64> = (0..109)
+                .map(|index| match index % 9 {
+                    0 => 0,
+                    1 => u64::MAX,
+                    2 => 1 << 63,
+                    _ => next_random(&mut seed),
+                })
+                .collect();
+            for &input in &inputs {
+                let expected = gates.iter().enumerate().fold(0u8, |acc, (index, gate)| {
+                    if gate.evaluate(input) == u64::MAX {
+                        acc | (1 << index)
+                    } else {
+                        acc
+                    }
+                });
+                assert_eq!(model.fully_active_channel_bits(input), expected);
+            }
+            let initial = next_random(&mut seed);
+            let oracle = model.forward_scalar(&inputs, initial);
+            for policy in policies {
+                assert_eq!(
+                    model.forward_activity_hybrid(&inputs, initial, policy),
+                    oracle
+                );
+                assert_eq!(model.forward_adaptive(&inputs, initial, policy), oracle);
+            }
         }
     }
 }
