@@ -11,6 +11,8 @@ use crate::tdi22_torsor_projection::{TorsorKey, TorsorQuery};
 
 /// Explicit research-only implementation contract.
 pub const TDI22_TORSOR_OCTREE_V1: &str = "tdi22-spatial-octree-f64-reference-v1";
+/// Optional, non-production query-specific score-spread gate.
+pub const TDI22_TORSOR_OCTREE_SCORE_GUARD_V1: &str = "tdi22-octree-score-spread-guard-v1";
 /// Bound construction memory and prohibit accidental unbounded experiments.
 pub const MAX_OCTREE_KEYS: usize = 4096;
 const MAX_DEPTH: usize = 32;
