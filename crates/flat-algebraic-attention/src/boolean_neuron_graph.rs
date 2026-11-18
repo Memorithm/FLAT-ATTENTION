@@ -153,6 +153,24 @@ impl BooleanNeuronGraph {
         self.active_shifts.map(u64::count_ones)
     }
 
+    /// One bit per recurrent operation (retain, excite, inhibit, toggle)
+    /// whose current input gate enables all 64 destination lanes.
+    ///
+    /// This describes an exact Boolean property of the live input and
+    /// independently configured operation gates. BPS-21 uses it
+    /// implicitly on the grouped path; no learning or threshold tuning
+    /// changes the recurrent transition.
+    #[must_use]
+    pub fn fully_active_channel_bits(&self, input: u64) -> u8 {
+        let mut channels = 0u8;
+        for channel in 0..OPERATOR_COUNT {
+            if self.gates[channel].evaluate(input) == u64::MAX {
+                channels |= 1 << channel;
+            }
+        }
+        channels
+    }
+
     /// Present only when all 64 destinations of each operator share one shift.
     ///
     /// Rewiring via `with_edge` invalidates this fast path whenever a
@@ -373,12 +391,27 @@ impl BooleanNeuronGraph {
                 }
                 AdaptiveRoute::Grouped => {
                     let mut shifts = self.active_shifts[channel];
-                    while shifts != 0 {
-                        let shift = shifts.trailing_zeros() as usize;
-                        shifts &= shifts - 1;
-                        let enabled = self.destinations_by_shift[channel][shift] & masks[channel];
-                        if enabled != 0 {
-                            sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
+                    if masks[channel] == u64::MAX {
+                        // BPS-21: this operation is dense even if the
+                        // OTHER operators have partial or empty masks.
+                        // Every compiled destination in this channel is
+                        // enabled; skip live mask intersection and each
+                        // nonzero-group conditional, using a packed OR.
+                        while shifts != 0 {
+                            let shift = shifts.trailing_zeros() as usize;
+                            shifts &= shifts - 1;
+                            sourced[channel] |= previous.rotate_left(shift as u32)
+                                & self.destinations_by_shift[channel][shift];
+                        }
+                    } else {
+                        while shifts != 0 {
+                            let shift = shifts.trailing_zeros() as usize;
+                            shifts &= shifts - 1;
+                            let enabled =
+                                self.destinations_by_shift[channel][shift] & masks[channel];
+                            if enabled != 0 {
+                                sourced[channel] |= previous.rotate_left(shift as u32) & enabled;
+                            }
                         }
                     }
                 }
