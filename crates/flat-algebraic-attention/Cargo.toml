@@ -9,3 +9,5 @@ license-file = "../../LICENSE.md"
 
 [dependencies]
 flat-attention = { path = "../..", default-features = false }
+# Pinned audited keyed MAC; pure Rust implementation, no vendor C/ASM.
+blake3 = { version = "=1.8.7", default-features = false, features = ["std", "pure"] }
