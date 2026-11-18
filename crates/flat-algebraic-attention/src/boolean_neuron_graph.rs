@@ -1356,4 +1356,184 @@ mod tests {
             base.forward_grouped_sparse(&inputs, state)
         );
     }
+
+    #[test]
+    fn bps20_compiles_exact_dense_guard_for_required_input_bits() {
+        let always_on = always();
+        let requires_one = UnaryGate {
+            when_false: u64::MAX ^ 1,
+            when_true: u64::MAX,
+        };
+        let requires_zero = UnaryGate {
+            when_false: u64::MAX,
+            when_true: u64::MAX ^ 2,
+        };
+        let shifts = [[0u8; NEURON_COUNT]; OPERATOR_COUNT];
+        let p = BooleanNeuronGraph::new(
+            [requires_one, requires_zero, always_on, always_on],
+            UnaryGate::default(),
+            always_on,
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(p.compiled_dense_gate_guard(), Some((1, 2)));
+        assert!(p.dense_gate_eligible(1));
+        assert!(p.dense_gate_eligible(u64::MAX ^ 2));
+        assert!(!p.dense_gate_eligible(0));
+        assert!(!p.dense_gate_eligible(3));
+        let policy = AdaptiveRoutingPolicy::default();
+        let mut seed = 0x1803_55cd_9273_4471u64;
+        for input in [0, 1, 2, 3, u64::MAX, u64::MAX ^ 2] {
+            for _ in 0..16 {
+                let state = next_random(&mut seed);
+                let expected = p.step_scalar(input, state);
+                assert_eq!(p.step_activity_hybrid(input, state, policy), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn bps20_conflicting_or_impossible_gate_truth_tables_never_dispatch_dense() {
+        let always_on = always();
+        let requires_one = UnaryGate {
+            when_false: u64::MAX ^ 1,
+            when_true: u64::MAX,
+        };
+        let contradicts_one = UnaryGate {
+            when_false: u64::MAX,
+            when_true: u64::MAX ^ 1,
+        };
+        let shifts = [[0u8; NEURON_COUNT]; OPERATOR_COUNT];
+        let contradictory = BooleanNeuronGraph::new(
+            [requires_one, contradicts_one, always_on, always_on],
+            UnaryGate::default(),
+            always_on,
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(contradictory.compiled_dense_gate_guard(), None);
+        let impossible = BooleanNeuronGraph::new(
+            [UnaryGate::default(), always_on, always_on, always_on],
+            UnaryGate::default(),
+            always_on,
+            shifts,
+        )
+        .unwrap();
+        assert_eq!(impossible.compiled_dense_gate_guard(), None);
+        for input in [0, 1, 3, u64::MAX] {
+            assert!(!contradictory.dense_gate_eligible(input));
+            assert!(!impossible.dense_gate_eligible(input));
+        }
+        assert_eq!(
+            impossible.forward_activity_hybrid(
+                &[0, 1, u64::MAX],
+                u64::MAX,
+                AdaptiveRoutingPolicy::default()
+            ),
+            impossible.forward_scalar(&[0, 1, u64::MAX], u64::MAX)
+        );
+    }
+
+    #[test]
+    fn bps20_random_truth_table_guard_matches_evaluated_channel_masks() {
+        let mut seed = 0xad20_4b15_7649_18fau64;
+        for trial in 0..64 {
+            let mut gates = [always(); OPERATOR_COUNT];
+            for gate_mask in &mut gates {
+                *gate_mask = if trial % 2 == 0 {
+                    gate(&mut seed)
+                } else {
+                    // Every output bit is reachable, but input constraints
+                    // can conflict across independent operator channels.
+                    let on = next_random(&mut seed);
+                    UnaryGate {
+                        when_false: on,
+                        when_true: !on,
+                    }
+                };
+            }
+            let program = BooleanNeuronGraph::new(
+                gates,
+                UnaryGate::default(),
+                always(),
+                [[0u8; NEURON_COUNT]; OPERATOR_COUNT],
+            )
+            .unwrap();
+            for input in [0, 1, u64::MAX, u64::MAX ^ 1, next_random(&mut seed)] {
+                let expected = gates
+                    .iter()
+                    .all(|gate_mask| gate_mask.evaluate(input) == u64::MAX);
+                assert_eq!(
+                    program.dense_gate_eligible(input),
+                    expected,
+                    "trial={trial}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bps20_mixed_topologies_match_scalar_on_sparse_dense_and_transition_inputs() {
+        let mut seed = 0xb220_95fa_1148_6decu64;
+        let policies = [
+            AdaptiveRoutingPolicy::default(),
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [0; OPERATOR_COUNT],
+            },
+            AdaptiveRoutingPolicy {
+                max_direct_lanes: [8, 1, 32, 64],
+            },
+        ];
+        for topology in 0..24 {
+            let shifts = std::array::from_fn(|channel| {
+                std::array::from_fn(|destination| {
+                    if channel == 0 {
+                        destination as u8
+                    } else if topology % 2 == 0 {
+                        (channel * 7) as u8
+                    } else {
+                        (next_random(&mut seed) % 64) as u8
+                    }
+                })
+            });
+            let enable = UnaryGate {
+                when_false: 0x0000_0000_0000_0007,
+                when_true: u64::MAX,
+            };
+            let inputs: Vec<u64> = (0..129)
+                .map(|index| match index % 7 {
+                    0 => 0,
+                    1 => u64::MAX,
+                    2 => 1,
+                    _ => next_random(&mut seed),
+                })
+                .collect();
+            let p = BooleanNeuronGraph::new(
+                [enable; OPERATOR_COUNT],
+                gate(&mut seed),
+                gate(&mut seed),
+                shifts,
+            )
+            .unwrap();
+            assert!(p.dense_gate_eligible(u64::MAX));
+            assert!(!p.dense_gate_eligible(0));
+            let initial = next_random(&mut seed);
+            let oracle = p.forward_scalar(&inputs, initial);
+            for policy in policies {
+                assert_eq!(
+                    p.forward_activity_hybrid(&inputs, initial, policy),
+                    oracle,
+                    "topology={topology} policy={policy:?}"
+                );
+            }
+            let changed = p
+                .with_edge(OperatorChannel::Toggle, 17, (topology + 1) as u8)
+                .unwrap();
+            assert_eq!(changed.compiled_dense_gate_guard(), p.compiled_dense_gate_guard());
+            assert_eq!(
+                changed.forward_activity_hybrid(&inputs, initial, policies[0]),
+                changed.forward_scalar(&inputs, initial)
+            );
+        }
+    }
 }
