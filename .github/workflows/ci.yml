@@ -92,6 +92,10 @@ jobs:
           cargo test --test workspace_inventory
       - name: Test host-only contract matrix
         run: cargo test --workspace --all-features
+      - name: RAE-8 executable numerical hybrid and dense fallback oracle
+        run: |
+          cargo test -p flat-algebraic-attention rae_hybrid_execution
+          cargo run -p flat-algebraic-attention --example rae8_numeric_hybrid
       - name: RAE-7 bounded hybrid impulse repair exact oracle
         run: |
           cargo test -p flat-algebraic-attention rae_hybrid_repair
