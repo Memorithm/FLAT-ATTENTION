@@ -184,3 +184,80 @@ Targeted test command:
 ```bash
 cargo test -p flat-algebraic-attention torsor_octree
 ```
+
+
+## Six-component output-error budgets (research extension)
+
+`forward_with_output_budgets(query, scale, theta, max_score_spread,
+TorsorOutputErrorBudget { resultant_abs, moment_at_query_abs })` now
+adds **six independent absolute error tolerances** to the previously
+introduced semantic score-spread guard. The API is explicitly opt-in
+and does not alter the original `forward`, public production routing,
+or existing model adapters.
+
+The tree already stores componentwise minima and maxima over each
+origin-reduced `R_i` and `C_i=M_i(P_i)+P_i x R_i`. For a query point
+`Q`, each output value is `(R_i, M_i(Q))` with
+`M_i(Q)=C_i-Q x R_i`. Root-envelope component ranges are:
+
+```text
+WR[j] = Rmax[j] - Rmin[j]
+WM[0] = (Cmax[0]-Cmin[0]) + abs(Q[1])*WR[2] + abs(Q[2])*WR[1]
+WM[1] = (Cmax[1]-Cmin[1]) + abs(Q[2])*WR[0] + abs(Q[0])*WR[2]
+WM[2] = (Cmax[2]-Cmin[2]) + abs(Q[0])*WR[1] + abs(Q[1])*WR[0]
+```
+
+For each geometrically eligible node, `S` is the existing envelope
+upper bound on its *within-node* logit span. The surrogate assigns
+the **mean score** to every covered key (and adds `log(mass)` when
+collapsed), so each changed key's score differs by at most `S` from
+its exact score. Expanding surrogates back into their per-key uniform
+scores, the exact and surrogate softmax distributions have pointwise
+probability ratios in `[exp(-2S), exp(2S)]`. For the maximum `S_max`
+over all accepted summaries, this implies the conservative total
+variation bound `TV <= tanh(S_max)`. Thus, in **exact arithmetic**:
+
+```text
+abs(Rout_exact[j] - Rout_summary[j]) <= WR[j] * tanh(S_max)
+abs(Mout_exact[j] - Mout_summary[j]) <= WM[j] * tanh(S_max)
+abs(LSE_exact - LSE_summary) <= S_max
+```
+
+The gate checks `WR[j] * tanh(S)` and `WM[j] * tanh(S)` against the
+six user-supplied tolerances **before** admitting each candidate node.
+The returned `TorsorBudgetedOutput` contains both the attention row
+and the observed maximum admitted score-span bound, plus six
+conservative analytical output bounds and an LSE bound. No summary
+means all reported bounds are zero. A spatially remote but
+semantically heterogeneous node opens if **any** component exceeds
+its budget. Zero score spread can still allow an exact-arithmetic
+mean-reduced summary even when the underlying values differ.
+
+Invalid negative/NaN/infinite budgets fail closed; nonfinite output
+range envelopes fail closed rather than authorizing compression.
+
+**Scope limitations:** these are conservative exact-real-arithmetic
+bounds, **not** certified IEEE-754 interval bounds. Tree reductions,
+softmax updates, and origin transport use ordinary `f64` operations;
+roundoff and catastrophic cancellation are not included. Component
+bounds are absolute, not relative; they do not bound any downstream
+prediction metric, gradient, causal behavior, throughput or memory
+usage. The output proof does not authorize an automatic path to
+SML-GENIUS, SciAgent, or NNIS. Formal numerical certification would
+need directed rounding and separate end-to-end validation.
+
+This extension adds four tests: independent dense-output comparison
+across linear and angular queries, adversarial zero-budget opening,
+heterogeneous values with identical logits allowing a zero-budget
+summary, and fail-closed invalid six-component budgets.
+
+Version string: `tdi22-octree-output-budget-v1`.
+
+Targeted reproducible command:
+
+```bash
+cargo test -p flat-algebraic-attention torsor_octree
+```
+
+Physical paired qualification, if pursued, must be orchestrated solely
+through Memorithm/RemoteOps.
