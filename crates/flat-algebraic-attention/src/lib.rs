@@ -48,6 +48,7 @@ pub mod ising_attention;
 pub mod ising_quaternary;
 pub mod ising_quaternary_routing;
 pub mod ising_sparse_state;
+pub mod ising_topological_defects;
 pub mod max_plus;
 pub mod qk_signature;
 pub mod qualification;
