@@ -118,12 +118,18 @@ pub fn compare_quaternary_defects(
     current: QuaternaryDefectFrame<'_>,
 ) -> Result<QuaternaryDefectDynamics, TopologicalDefectError> {
     let before = analyze_topological_defects(
-        vertices, previous.eligibility, previous.activity,
-        previous.polarity, previous.edges,
+        vertices,
+        previous.eligibility,
+        previous.activity,
+        previous.polarity,
+        previous.edges,
     )?;
     let after = analyze_topological_defects(
-        vertices, current.eligibility, current.activity,
-        current.polarity, current.edges,
+        vertices,
+        current.eligibility,
+        current.activity,
+        current.polarity,
+        current.edges,
     )?;
 
     let mut state_transitions = [[0usize; 4]; 4];
@@ -197,8 +203,8 @@ pub fn compare_quaternary_defects(
             (None, None) => break,
         }
     }
-    let same_effective_topology = identical_masks
-        && entered_effective_edges == 0 && exited_effective_edges == 0;
+    let same_effective_topology =
+        identical_masks && entered_effective_edges == 0 && exited_effective_edges == 0;
     debug_assert_eq!(
         shared_effective_edges + exited_effective_edges,
         before.effective_edges
@@ -239,17 +245,26 @@ mod tests {
     use crate::ising_quaternary::BooleanQuaternary;
 
     fn edge(left: usize, right: usize, coupling: i16) -> SparseIsingEdge {
-        SparseIsingEdge { left, right, coupling }
+        SparseIsingEdge {
+            left,
+            right,
+            coupling,
+        }
     }
 
     #[test]
     fn frustrated_cycle_persists_as_state_defect_moves() {
         let edges = [edge(0, 1, 2), edge(0, 2, 2), edge(1, 2, -3)];
         let old = QuaternaryDefectFrame {
-            eligibility: &[0b111], activity: &[0b111],
-            polarity: &[0b111], edges: &edges,
+            eligibility: &[0b111],
+            activity: &[0b111],
+            polarity: &[0b111],
+            edges: &edges,
         };
-        let next = QuaternaryDefectFrame { polarity: &[0b011], ..old };
+        let next = QuaternaryDefectFrame {
+            polarity: &[0b011],
+            ..old
+        };
         let result = compare_quaternary_defects(3, old, next).unwrap();
         assert!(result.same_effective_topology);
         assert_eq!(result.before.negative_fundamental_cycles, 1);
@@ -268,10 +283,15 @@ mod tests {
     fn dormant_polarity_survives_activation_boundary_transition() {
         let edges = [edge(0, 1, 3)];
         let first = QuaternaryDefectFrame {
-            eligibility: &[0b11], activity: &[0b11],
-            polarity: &[0b11], edges: &edges,
+            eligibility: &[0b11],
+            activity: &[0b11],
+            polarity: &[0b11],
+            edges: &edges,
         };
-        let second = QuaternaryDefectFrame { activity: &[0b01], ..first };
+        let second = QuaternaryDefectFrame {
+            activity: &[0b01],
+            ..first
+        };
         let outcome = compare_quaternary_defects(2, first, second).unwrap();
         assert!(outcome.same_effective_topology);
         assert_eq!(outcome.state_transitions[3][1], 1);
@@ -285,12 +305,16 @@ mod tests {
     fn causal_mask_growth_is_not_counted_as_defect_creation_on_shared_edges() {
         let edges = [edge(0, 1, 1), edge(0, 2, 1), edge(1, 2, -1)];
         let early = QuaternaryDefectFrame {
-            eligibility: &[0b011], activity: &[0b011],
-            polarity: &[0b111], edges: &edges,
+            eligibility: &[0b011],
+            activity: &[0b011],
+            polarity: &[0b111],
+            edges: &edges,
         };
         let late = QuaternaryDefectFrame {
-            eligibility: &[0b111], activity: &[0b111],
-            polarity: &[0b111], edges: &edges,
+            eligibility: &[0b111],
+            activity: &[0b111],
+            polarity: &[0b111],
+            edges: &edges,
         };
         let report = compare_quaternary_defects(3, early, late).unwrap();
         assert!(!report.same_effective_topology);
@@ -309,10 +333,15 @@ mod tests {
         let original = [edge(0, 1, -2)];
         let modified = [edge(0, 1, 2)];
         let first = QuaternaryDefectFrame {
-            eligibility: &[0b11], activity: &[0b11],
-            polarity: &[0b11], edges: &original,
+            eligibility: &[0b11],
+            activity: &[0b11],
+            polarity: &[0b11],
+            edges: &original,
         };
-        let second = QuaternaryDefectFrame { edges: &modified, ..first };
+        let second = QuaternaryDefectFrame {
+            edges: &modified,
+            ..first
+        };
         let comparison = compare_quaternary_defects(2, first, second).unwrap();
         assert!(!comparison.same_effective_topology);
         assert_eq!(comparison.exited_effective_edges, 1);
@@ -323,24 +352,28 @@ mod tests {
     #[test]
     fn monitor_can_consume_real_quaternary_descent_snapshots() {
         let edges = [edge(0, 1, 2), edge(0, 2, 2), edge(1, 2, -3)];
-        let mut controller = BooleanQuaternary::new(
-            &[0; 3], &[0; 3], &[0b111], &[0b111], &[0b111], &edges,
-        ).unwrap();
+        let mut controller =
+            BooleanQuaternary::new(&[0; 3], &[0; 3], &[0b111], &[0b111], &[0b111], &edges).unwrap();
         let baseline = controller.energy();
         let (mask0, activity0, polarity0) = controller.bitplanes();
         let first_mask = mask0.to_vec();
         let first_activity = activity0.to_vec();
         let first_polarity = polarity0.to_vec();
         let first = QuaternaryDefectFrame {
-            eligibility: &first_mask, activity: &first_activity,
-            polarity: &first_polarity, edges: &edges,
+            eligibility: &first_mask,
+            activity: &first_activity,
+            polarity: &first_polarity,
+            edges: &edges,
         };
 
         assert!(controller.sweep() > 0);
         assert!(controller.energy() < baseline);
         let (mask1, activity1, polarity1) = controller.bitplanes();
         let second = QuaternaryDefectFrame {
-            eligibility: mask1, activity: activity1, polarity: polarity1, edges: &edges,
+            eligibility: mask1,
+            activity: activity1,
+            polarity: polarity1,
+            edges: &edges,
         };
         let comparison = compare_quaternary_defects(3, first, second).unwrap();
         assert!(comparison.same_effective_topology);
@@ -356,10 +389,15 @@ mod tests {
     fn invalid_frame_fails_closed() {
         let edges = [edge(0, 1, 2)];
         let first = QuaternaryDefectFrame {
-            eligibility: &[0b11], activity: &[0b11],
-            polarity: &[0b11], edges: &edges,
+            eligibility: &[0b11],
+            activity: &[0b11],
+            polarity: &[0b11],
+            edges: &edges,
         };
-        let broken = QuaternaryDefectFrame { activity: &[0b100], ..first };
+        let broken = QuaternaryDefectFrame {
+            activity: &[0b100],
+            ..first
+        };
         assert!(matches!(
             compare_quaternary_defects(2, first, broken),
             Err(TopologicalDefectError::InvalidPaddingBits)
