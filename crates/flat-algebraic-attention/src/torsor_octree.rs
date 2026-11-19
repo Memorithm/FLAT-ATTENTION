@@ -296,10 +296,8 @@ impl LocalBudgetState {
         let mut resultant_abs = [0.0; 3];
         let mut moment_at_query_abs = [0.0; 3];
         for axis in 0..3 {
-            resultant_abs[axis] =
-                self.max_local_resultant[axis] + root.resultant[axis] * mass_tv;
-            moment_at_query_abs[axis] =
-                self.max_local_moment[axis] + root.moment[axis] * mass_tv;
+            resultant_abs[axis] = self.max_local_resultant[axis] + root.resultant[axis] * mass_tv;
+            moment_at_query_abs[axis] = self.max_local_moment[axis] + root.moment[axis] * mass_tv;
         }
         if !resultant_abs
             .iter()
@@ -750,7 +748,8 @@ impl PreparedTorsorOctree {
                 && !inside
                 && distance > 0.0
                 && node.extent / distance < theta;
-            let gated = max_score_spread.is_some() || output_guard.is_some() || local_guard.is_some();
+            let gated =
+                max_score_spread.is_some() || output_guard.is_some() || local_guard.is_some();
             let span = if is_distant && gated {
                 node.score_envelope
                     .score_span(projected_linear, angular, scale)
