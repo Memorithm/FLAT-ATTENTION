@@ -534,12 +534,15 @@ mod tests {
             assert_eq!(v2.attention.covered_keys, count);
             assert_eq!(v2.attention.exact_keys, 0);
             assert_eq!(v2.attention.summarized_nodes, 2);
-            // On 64 keys V1 already accepts both groups; larger groups
-            // expose V1's root-range over-conservatism.
+            // On 64 keys V1 already accepts both groups. On larger banks
+            // V1 may still summarize all keys, but into *more* nodes.
+            // Compare the actual number of scored terms, not just leaves.
             if count >= 256 {
+                let v1_terms = v1.attention.exact_keys + v1.attention.summarized_nodes;
+                let v2_terms = v2.attention.exact_keys + v2.attention.summarized_nodes;
                 assert!(
-                    v1.attention.exact_keys > v2.attention.exact_keys,
-                    "expected strictly fewer exact key evaluations for {count} keys"
+                    v1_terms > v2_terms,
+                    "expected fewer scored terms with V2 for {count} keys: V1={v1_terms}, V2={v2_terms}"
                 );
             }
             let oracle = independent_dense(&keys, q).unwrap();
