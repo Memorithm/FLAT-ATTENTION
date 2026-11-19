@@ -3,9 +3,7 @@
 //! Unlike BPS-26's cost of all compiled groups, this opt-in research
 //! executor computes an input-local estimate without reading recurrent state.
 
-use super::boolean_neuron_cost_router::{
-    CostRoutingDecision, RoutingCostModel,
-};
+use super::boolean_neuron_cost_router::{CostRoutingDecision, RoutingCostModel};
 use super::boolean_neuron_graph::{
     AdaptiveRoutingPolicy, BooleanNeuronGraph, NEURON_COUNT, OPERATOR_COUNT,
 };
@@ -27,10 +25,7 @@ impl BooleanNeuronGraph {
     /// Compile exact destination masks for each source rotation once.
     /// This does not change the original BPS-26 policy or execution.
     #[must_use]
-    pub fn prepare_live_cost_router(
-        &self,
-        model: RoutingCostModel,
-    ) -> PreparedLiveCostRouter<'_> {
+    pub fn prepare_live_cost_router(&self, model: RoutingCostModel) -> PreparedLiveCostRouter<'_> {
         let mut destinations_by_shift = [[0u64; NEURON_COUNT]; OPERATOR_COUNT];
         let mut active_shifts = [0u64; OPERATOR_COUNT];
         for channel in OperatorChannel::ALL {
@@ -136,7 +131,8 @@ impl PreparedLiveCostRouter<'_> {
             CostRoutingDecision::DenseGuard
         } else {
             CostRoutingDecision::Adaptive(
-                self.graph.adaptive_route_plan(input, self.adaptive_policy(input)),
+                self.graph
+                    .adaptive_route_plan(input, self.adaptive_policy(input)),
             )
         }
     }
@@ -235,34 +231,40 @@ mod tests {
 
     #[test]
     fn bps27_live_groups_change_kernel_choice_without_changing_results() {
-        let shifts = std::array::from_fn(|_| {
-            std::array::from_fn(|destination| destination as u8)
-        });
+        let shifts = std::array::from_fn(|_| std::array::from_fn(|destination| destination as u8));
         let gate = UnaryGate {
             when_false: 0,
             when_true: u64::MAX,
         };
-        let graph = BooleanNeuronGraph::new(
-            [gate; OPERATOR_COUNT],
-            UnaryGate::default(),
-            gate,
-            shifts,
-        )
-        .unwrap();
+        let graph =
+            BooleanNeuronGraph::new([gate; OPERATOR_COUNT], UnaryGate::default(), gate, shifts)
+                .unwrap();
         let candidate = model(2, 1);
         let static_router = graph.prepare_cost_router(candidate);
         let live_router = graph.prepare_live_cost_router(candidate);
         let input = 0x0000_0000_0000_0003u64;
         assert_eq!(live_router.live_shift_counts(input), [2; OPERATOR_COUNT]);
-        assert_eq!(static_router.adaptive_policy().max_direct_lanes, [31; OPERATOR_COUNT]);
-        assert_eq!(live_router.adaptive_policy(input).max_direct_lanes, [0; OPERATOR_COUNT]);
+        assert_eq!(
+            static_router.adaptive_policy().max_direct_lanes,
+            [31; OPERATOR_COUNT]
+        );
+        assert_eq!(
+            live_router.adaptive_policy(input).max_direct_lanes,
+            [0; OPERATOR_COUNT]
+        );
         assert_eq!(
             live_router.decision(input),
             CostRoutingDecision::Adaptive([AdaptiveRoute::Grouped; OPERATOR_COUNT])
         );
         for previous in [0, u64::MAX, 0x9aa1_24bb_bbc7_0220] {
-            assert_eq!(live_router.step(input, previous), graph.step_scalar(input, previous));
-            assert_eq!(static_router.step(input, previous), graph.step_scalar(input, previous));
+            assert_eq!(
+                live_router.step(input, previous),
+                graph.step_scalar(input, previous)
+            );
+            assert_eq!(
+                static_router.step(input, previous),
+                graph.step_scalar(input, previous)
+            );
         }
     }
 
