@@ -15,6 +15,7 @@ pub mod boolean_benchmark_protocol;
 pub mod boolean_coupled_learning;
 pub mod boolean_edge_memory;
 pub mod boolean_indexed_fronts;
+pub mod boolean_neuron_active_shift_cost;
 pub mod boolean_neuron_activity;
 pub mod boolean_neuron_cost_router;
 pub mod boolean_neuron_dispatch;
