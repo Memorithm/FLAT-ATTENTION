@@ -18,6 +18,7 @@ pub mod boolean_indexed_fronts;
 pub mod boolean_neuron_activity;
 pub mod boolean_neuron_dispatch;
 pub mod boolean_neuron_graph;
+pub mod boolean_neuron_stream;
 pub mod boolean_operator_channels;
 pub mod boolean_parallel_rotating_scan;
 pub mod boolean_parallel_scan;
