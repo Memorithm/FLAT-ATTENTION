@@ -82,7 +82,7 @@ impl std::error::Error for IsingAttentionError {}
 
 /// Apply sparse Ising couplings to a normalized attention vector.
 ///
-/// The input must be finite, in [0,1], and sum to one within 1e-10. Exactly
+/// The input must be finite, in `0..=1`, and sum to one within 1e-10. Exactly
 /// zero/one components are frozen at -1/+1: structural zeros can never become
 /// attended positions, and edges touching structural zeros are ignored so a
 /// masked (e.g. future) position cannot indirectly influence valid attention. For an empty or all-zero coupling graph, this is the
