@@ -1077,6 +1077,143 @@ mod tests {
     }
 
     #[test]
+    fn local_budgets_summarize_separated_clusters_global_v1_must_expand() {
+        // Two spatially distinct groups have a 10-unit cross-group resultant
+        // range, but each group varies by only 0.0155. An oracle-backed
+        // comparison isolates the cost of using the root's range at every node.
+        let mut keys = Vec::new();
+        for cluster in 0..2 {
+            for i in 0..32 {
+                keys.push(TorsorKey {
+                    reference: [cluster as f32 * 100.0 + i as f32 * 0.01, 0.0, 0.0],
+                    resultant: [cluster as f32 * 10.0 + i as f32 * 0.0005, 0.0, 0.0],
+                    moment_at_reference: [0.0; 3],
+                });
+            }
+        }
+        let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
+        let q = TorsorQuery {
+            linear: [1.0, 0.0, 0.0],
+            angular: [0.0; 3],
+            evaluation_point: [-10000.0, 0.0, 0.0],
+        };
+        let budget = TorsorOutputErrorBudget {
+            resultant_abs: [4.0e-6; 3],
+            moment_at_query_abs: [0.0; 3],
+        };
+        let global = tree
+            .forward_with_output_budgets(q, 0.01, 0.5, 1.0, budget)
+            .unwrap();
+        let local = tree
+            .forward_with_local_output_budgets(q, 0.01, 0.5, 1.0, budget)
+            .unwrap();
+        let (dense_r, dense_m, dense_lse) = independent_dense(&keys, q, 0.01);
+        assert_eq!(local.attention.covered_keys, keys.len());
+        assert_eq!(local.attention.exact_keys, 0);
+        assert_eq!(local.attention.summarized_nodes, 2);
+        assert!(global.attention.exact_keys > local.attention.exact_keys);
+        assert!(local.analytical_bounds.resultant_abs[0] <= budget.resultant_abs[0]);
+        assert!(local.analytical_bounds.log_sum_exp_abs < 1.0e-7);
+        for axis in 0..3 {
+            let r_err = (local.attention.resultant[axis] - dense_r[axis]).abs();
+            let m_err = (local.attention.moment_at_query[axis] - dense_m[axis]).abs();
+            assert!(
+                r_err <= local.analytical_bounds.resultant_abs[axis] + 1.0e-9,
+                "local R axis {axis}: {r_err} > {}",
+                local.analytical_bounds.resultant_abs[axis]
+            );
+            assert!(
+                m_err <= local.analytical_bounds.moment_at_query_abs[axis] + 1.0e-9,
+                "local M axis {axis}: {m_err} > {}",
+                local.analytical_bounds.moment_at_query_abs[axis]
+            );
+        }
+        assert!(
+            (local.attention.log_sum_exp - dense_lse).abs()
+                <= local.analytical_bounds.log_sum_exp_abs + 1.0e-9
+        );
+    }
+
+    #[test]
+    fn local_budgets_validate_independent_dense_on_varied_torsor_queries() {
+        let keys: Vec<_> = (0..97).map(sample_key).collect();
+        let tree = PreparedTorsorOctree::build(&keys, 2, 24).unwrap();
+        let queries = [
+            sample_query([10000.0, -1200.0, 230.0]),
+            sample_query([1.0, 2.0, -3.0]),
+            TorsorQuery {
+                linear: [0.1, -0.02, 0.05],
+                angular: [0.0; 3],
+                evaluation_point: [-1000.0, 2000.0, 100.0],
+            },
+        ];
+        for query in queries {
+            for limit in [0.0, 0.01, 0.25, 100.0] {
+                for budget_value in [0.0, 0.05, 10.0, 1.0e8] {
+                    let budget = TorsorOutputErrorBudget {
+                        resultant_abs: [budget_value; 3],
+                        moment_at_query_abs: [budget_value; 3],
+                    };
+                    let actual = tree
+                        .forward_with_local_output_budgets(query, 0.02, 0.5, limit, budget)
+                        .unwrap();
+                    let (dense_r, dense_m, dense_lse) = independent_dense(&keys, query, 0.02);
+                    assert_eq!(actual.attention.covered_keys, keys.len());
+                    assert!(actual.analytical_bounds.max_compressed_score_span <= limit);
+                    for axis in 0..3 {
+                        assert!(
+                            (actual.attention.resultant[axis] - dense_r[axis]).abs()
+                                <= actual.analytical_bounds.resultant_abs[axis]
+                                    + 1.0e-8 * (1.0 + dense_r[axis].abs()),
+                            "R axis {axis}, limit {limit}, budget {budget_value}"
+                        );
+                        assert!(
+                            (actual.attention.moment_at_query[axis] - dense_m[axis]).abs()
+                                <= actual.analytical_bounds.moment_at_query_abs[axis]
+                                    + 1.0e-8 * (1.0 + dense_m[axis].abs()),
+                            "M axis {axis}, limit {limit}, budget {budget_value}"
+                        );
+                    }
+                    assert!(
+                        (actual.attention.log_sum_exp - dense_lse).abs()
+                            <= actual.analytical_bounds.log_sum_exp_abs + 1.0e-8
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn local_budgets_fail_closed_for_invalid_inputs_and_overflow() {
+        let tree = PreparedTorsorOctree::build(&[sample_key(0)], 1, 2).unwrap();
+        let query = sample_query([100.0, 0.0, 0.0]);
+        let budget = TorsorOutputErrorBudget {
+            resultant_abs: [1.0; 3],
+            moment_at_query_abs: [1.0; 3],
+        };
+        for invalid in [f64::NAN, f64::INFINITY, -1.0] {
+            assert!(matches!(
+                tree.forward_with_local_output_budgets(query, 0.3, 0.5, invalid, budget),
+                Err(TorsorTreeError::InvalidScoreSpreadLimit)
+            ));
+        }
+        let mut invalid_budget = budget;
+        invalid_budget.moment_at_query_abs[2] = f64::INFINITY;
+        assert!(matches!(
+            tree.forward_with_local_output_budgets(query, 0.3, 0.5, 1.0, invalid_budget),
+            Err(TorsorTreeError::InvalidOutputErrorBudget)
+        ));
+        let root = OutputRanges {
+            resultant: [10.0; 3],
+            moment: [20.0; 3],
+        };
+        let state = LocalBudgetState::default();
+        assert!(state.with_candidate(f64::MAX, root).is_none());
+        let zero = state.with_candidate(0.0, root).unwrap();
+        assert_eq!(zero.bounds(root, 0.0).unwrap().resultant_abs, [0.0; 3]);
+    }
+
+    #[test]
     fn output_budget_reports_componentwise_bounds_against_independent_dense() {
         let keys: Vec<_> = (0..128).map(sample_key).collect();
         let tree = PreparedTorsorOctree::build(&keys, 2, 24).unwrap();
