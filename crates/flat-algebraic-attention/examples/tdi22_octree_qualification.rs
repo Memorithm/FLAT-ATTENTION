@@ -514,6 +514,43 @@ mod tests {
     }
 
     #[test]
+    fn opt_in_subtree_panel_adds_50_oracle_checked_rows_without_changing_v1() {
+        // The frozen default still prints 32 data rows; compare-local
+        // explicitly adds the fifth panel and fifth mode (5 * 2 * 5 = 50).
+        run(64, 1, false).unwrap();
+        run(64, 1, true).unwrap();
+    }
+
+    #[test]
+    fn separated_clusters_are_more_selective_under_local_budgets() {
+        for count in [64, 256, 1024] {
+            let keys = Panel::SeparatedClusters.keys(count);
+            let tree = PreparedTorsorOctree::build(&keys, 4, 20).unwrap();
+            let q = TorsorQuery {
+                linear: [1.0, 0.0, 0.0],
+                angular: [0.0; 3],
+                evaluation_point: [1000.0, 0.0, 0.0],
+            };
+            let v1 = tree
+                .forward_with_output_budgets(q, SCALE, THETA, MAX_SCORE_SPREAD, BUDGET)
+                .unwrap();
+            let v2 = tree
+                .forward_with_local_output_budgets(q, SCALE, THETA, MAX_SCORE_SPREAD, BUDGET)
+                .unwrap();
+            assert_eq!(v1.attention.covered_keys, count);
+            assert_eq!(v2.attention.covered_keys, count);
+            assert_eq!(v2.attention.exact_keys, 0);
+            assert_eq!(v2.attention.summarized_nodes, 2);
+            assert!(v1.attention.exact_keys > v2.attention.exact_keys);
+            let oracle = independent_dense(&keys, q).unwrap();
+            check(oracle, v1.attention, Some(v1.analytical_bounds), Mode::SixOutputBudget, count)
+                .unwrap();
+            check(oracle, v2.attention, Some(v2.analytical_bounds), Mode::SubtreeBudget, count)
+                .unwrap();
+        }
+    }
+
+    #[test]
     fn far_uniform_projected_scores_are_compressible_at_zero_spread() {
         let keys = Panel::UniformProjectedScore.keys(64);
         let tree = PreparedTorsorOctree::build(&keys, 1, 20).unwrap();
