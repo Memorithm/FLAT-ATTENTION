@@ -88,22 +88,29 @@ impl SparseIsingState {
         let mut degrees = vec![0usize; n];
         for (index, edge) in edges.iter().enumerate() {
             let pair = (edge.left, edge.right);
-            if edge.left >= edge.right || edge.right >= n
-                || previous.is_some_and(|old| pair <= old)
+            if edge.left >= edge.right || edge.right >= n || previous.is_some_and(|old| pair <= old)
             {
                 return Err(SparseIsingError::NoncanonicalEdge { index });
             }
             previous = Some(pair);
-            degrees[edge.left] = degrees[edge.left].checked_add(1)
+            degrees[edge.left] = degrees[edge.left]
+                .checked_add(1)
                 .ok_or(SparseIsingError::TooManyEdges)?;
-            degrees[edge.right] = degrees[edge.right].checked_add(1)
+            degrees[edge.right] = degrees[edge.right]
+                .checked_add(1)
                 .ok_or(SparseIsingError::TooManyEdges)?;
         }
         let mut offsets = Vec::with_capacity(n + 1);
         offsets.push(0usize);
         for degree in degrees {
-            offsets.push(offsets.last().copied().unwrap().checked_add(degree)
-                .ok_or(SparseIsingError::TooManyEdges)?);
+            offsets.push(
+                offsets
+                    .last()
+                    .copied()
+                    .unwrap()
+                    .checked_add(degree)
+                    .ok_or(SparseIsingError::TooManyEdges)?,
+            );
         }
         let mut adjacency = vec![(0usize, 0i16); offsets[n]];
         let mut cursor = offsets[..n].to_vec();
@@ -125,7 +132,8 @@ impl SparseIsingState {
             if output.is_eligible(i) {
                 for &(j, weight) in &output.adjacency[output.offsets[i]..output.offsets[i + 1]] {
                     if output.is_eligible(j) {
-                        output.local_fields[i] += i64::from(weight) * i64::from(output.spin_sign(j));
+                        output.local_fields[i] +=
+                            i64::from(weight) * i64::from(output.spin_sign(j));
                     }
                 }
             }
@@ -154,7 +162,9 @@ impl SparseIsingState {
 
     /// Exact integer delta E if vertex i flips; masked vertices return None.
     pub fn flip_energy_delta(&self, i: usize) -> Result<Option<i128>, SparseIsingError> {
-        Ok(self.spin(i)?.map(|s| 2 * i128::from(s) * i128::from(self.local_fields[i])))
+        Ok(self
+            .spin(i)?
+            .map(|s| 2 * i128::from(s) * i128::from(self.local_fields[i])))
     }
 
     /// Flip only if energy decreases strictly. Equal-energy proposals do not flip.
@@ -225,7 +235,11 @@ mod tests {
 
     #[test]
     fn edge_flip_preserves_exact_energy_delta_and_neighbor_fields() {
-        let edges = [SparseIsingEdge { left: 0, right: 1, coupling: 3 }];
+        let edges = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: 3,
+        }];
         let mut state = SparseIsingState::new(&[0, 0], &[0b11], &[0b01], &edges).unwrap();
         assert_eq!(state.energy(), 3);
         assert_eq!(state.flip_energy_delta(0).unwrap(), Some(-6));
@@ -238,7 +252,11 @@ mod tests {
 
     #[test]
     fn masked_spin_does_not_apply_couplings() {
-        let edge = [SparseIsingEdge { left: 0, right: 1, coupling: 20 }];
+        let edge = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: 20,
+        }];
         let mut state = SparseIsingState::new(&[1, 0], &[0b01], &[0b01], &edge).unwrap();
         assert_eq!(state.spin(1).unwrap(), None);
         assert_eq!(state.field(0).unwrap(), Some(1));
@@ -250,8 +268,16 @@ mod tests {
     #[test]
     fn descending_sweep_never_increases_energy() {
         let edges = [
-            SparseIsingEdge { left: 0, right: 1, coupling: 2 },
-            SparseIsingEdge { left: 1, right: 2, coupling: -3 },
+            SparseIsingEdge {
+                left: 0,
+                right: 1,
+                coupling: 2,
+            },
+            SparseIsingEdge {
+                left: 1,
+                right: 2,
+                coupling: -3,
+            },
         ];
         let mut state = SparseIsingState::new(&[0, 0, 1], &[0b111], &[0b111], &edges).unwrap();
         let before = state.energy();
@@ -261,11 +287,30 @@ mod tests {
 
     #[test]
     fn invalid_masks_padding_and_edges_are_rejected() {
-        assert_eq!(SparseIsingState::new(&[], &[], &[], &[]).unwrap_err(), SparseIsingError::EmptyGraph);
-        assert_eq!(SparseIsingState::new(&[0], &[0b1], &[0b10], &[]).unwrap_err(), SparseIsingError::InvalidPaddingBits);
-        assert_eq!(SparseIsingState::new(&[0, 0], &[0b01], &[0b10], &[]).unwrap_err(), SparseIsingError::SpinOutsideEligibility);
         assert_eq!(
-            SparseIsingState::new(&[0, 0], &[0b11], &[0], &[SparseIsingEdge { left: 1, right: 0, coupling: 1 }]).unwrap_err(),
+            SparseIsingState::new(&[], &[], &[], &[]).unwrap_err(),
+            SparseIsingError::EmptyGraph
+        );
+        assert_eq!(
+            SparseIsingState::new(&[0], &[0b1], &[0b10], &[]).unwrap_err(),
+            SparseIsingError::InvalidPaddingBits
+        );
+        assert_eq!(
+            SparseIsingState::new(&[0, 0], &[0b01], &[0b10], &[]).unwrap_err(),
+            SparseIsingError::SpinOutsideEligibility
+        );
+        assert_eq!(
+            SparseIsingState::new(
+                &[0, 0],
+                &[0b11],
+                &[0],
+                &[SparseIsingEdge {
+                    left: 1,
+                    right: 0,
+                    coupling: 1
+                }]
+            )
+            .unwrap_err(),
             SparseIsingError::NoncanonicalEdge { index: 0 }
         );
     }
