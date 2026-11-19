@@ -123,3 +123,39 @@ A reproducible paired Dell comparison must use the exclusive
 `Memorithm/RemoteOps` control plane, pinned V2 SHA, immutable V1
 baseline, matching fixtures, explicit load-admission guards, and
 bounded measurements before claiming speedup or production maturity.
+
+
+## Opt-in paired benchmark panel (research V2)
+
+The existing `tdi22_octree_qualification` executable keeps its original
+**four panels × two queries × four modes** by default, with exactly
+**33 CSV lines including the header**. No existing V1 evidence,
+RemoteOps pin, checksum, or CSV validator is retroactively changed.
+
+The explicit `--compare-local` opt-in adds:
+
+- mode `subtree_local_budget` (V2), adjacent to the original V1
+  `six_output_budget` on the same constructed octree;
+- panel `separated_clusters`: 50% of keys near x=0 and the rest near
+  x=100, a large inter-cluster resultant difference, small intra-group
+  resultant changes, and a distant aligned linear query that does not
+  introduce unrelated moment errors.
+
+Its output has **five panels × two queries × five modes = 50 data
+rows (51 CSV lines)**, with the same 19 columns, identical keys,
+oracle and build provenance within every paired panel/query. Both
+V1 and V2 run against the *independent dense* torsor/softmax oracle,
+and fail if any of the six reported bounds or the LSE bound are
+violated. The optional mode does **not** claim equal execution cost
+or training quality.
+
+```bash
+cargo test -p flat-algebraic-attention --example tdi22_octree_qualification
+cargo run --release -p flat-algebraic-attention --example tdi22_octree_qualification -- --keys 1024 --samples 7 --compare-local > tdi22-v1-v2-paired.csv
+```
+
+Rust CI also requires both the frozen 33-line default and the new
+51-line opt-in shape. The timestamps in the CSV are unpinned per-query
+host observations: they do **not** qualify physical performance
+without RemoteOps admission, a pinned SHA, resource provenance,
+scheduler isolation and multiple paired independent-process runs.
