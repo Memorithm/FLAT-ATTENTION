@@ -45,6 +45,7 @@ pub mod f2;
 pub mod holdout;
 mod holdout_eq;
 pub mod ising_attention;
+pub mod ising_quaternary;
 pub mod ising_sparse_state;
 pub mod max_plus;
 pub mod qk_signature;
