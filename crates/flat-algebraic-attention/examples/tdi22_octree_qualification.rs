@@ -259,13 +259,7 @@ fn evaluate(
         }
         Mode::SubtreeBudget => {
             let output = tree
-                .forward_with_local_output_budgets(
-                    query,
-                    SCALE,
-                    THETA,
-                    MAX_SCORE_SPREAD,
-                    BUDGET,
-                )
+                .forward_with_local_output_budgets(query, SCALE, THETA, MAX_SCORE_SPREAD, BUDGET)
                 .map_err(|error| format!("{error:?}"))?;
             (output.attention, Some(output.analytical_bounds))
         }
@@ -437,16 +431,15 @@ fn run(count: usize, samples: usize, compare_local: bool) -> Result<(), String> 
         for (query_name, query) in queries() {
             // Align the distant cluster fixture with the R-axis so its
             // moment does not inadvertently dominate the six-output budget.
-            let query = if matches!(panel, Panel::SeparatedClusters)
-                && query_name == "distant_linear"
-            {
-                TorsorQuery {
-                    evaluation_point: [1000.0, 0.0, 0.0],
-                    ..query
-                }
-            } else {
-                query
-            };
+            let query =
+                if matches!(panel, Panel::SeparatedClusters) && query_name == "distant_linear" {
+                    TorsorQuery {
+                        evaluation_point: [1000.0, 0.0, 0.0],
+                        ..query
+                    }
+                } else {
+                    query
+                };
             let (reference, dense_ns) = median_timing(samples, || independent_dense(&keys, query))?;
             for &mode in modes {
                 let ((out, bound), mode_ns) =
@@ -543,10 +536,22 @@ mod tests {
             assert_eq!(v2.attention.summarized_nodes, 2);
             assert!(v1.attention.exact_keys > v2.attention.exact_keys);
             let oracle = independent_dense(&keys, q).unwrap();
-            check(oracle, v1.attention, Some(v1.analytical_bounds), Mode::SixOutputBudget, count)
-                .unwrap();
-            check(oracle, v2.attention, Some(v2.analytical_bounds), Mode::SubtreeBudget, count)
-                .unwrap();
+            check(
+                oracle,
+                v1.attention,
+                Some(v1.analytical_bounds),
+                Mode::SixOutputBudget,
+                count,
+            )
+            .unwrap();
+            check(
+                oracle,
+                v2.attention,
+                Some(v2.analytical_bounds),
+                Mode::SubtreeBudget,
+                count,
+            )
+            .unwrap();
         }
     }
 
