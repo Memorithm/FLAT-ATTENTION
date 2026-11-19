@@ -1,8 +1,6 @@
 //! BPS-26: opt-in per-channel cost and topology threshold smoke.
 use flat_algebraic_attention::boolean_neuron_activity::exact_weight_corpus;
-use flat_algebraic_attention::boolean_neuron_cost_router::{
-    ChannelRoutingCost, RoutingCostModel,
-};
+use flat_algebraic_attention::boolean_neuron_cost_router::{ChannelRoutingCost, RoutingCostModel};
 use flat_algebraic_attention::boolean_neuron_graph::{
     BooleanNeuronGraph, NEURON_COUNT, OPERATOR_COUNT,
 };
