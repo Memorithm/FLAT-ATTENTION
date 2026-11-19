@@ -132,7 +132,8 @@ impl PreparedCostRouter<'_> {
     /// Exact synchronous transition using the existing BPS-20/21 executor.
     #[must_use]
     pub fn step(&self, input: u64, previous: u64) -> (u64, u64) {
-        self.graph.step_activity_hybrid(input, previous, self.adaptive)
+        self.graph
+            .step_activity_hybrid(input, previous, self.adaptive)
     }
 
     /// Process any chunk without allocating an output Vec. A size error
@@ -173,10 +174,10 @@ impl BooleanNeuronGraph {
 #[cfg(test)]
 mod tests {
     use super::super::boolean_neuron_activity::exact_weight_corpus;
+    use super::super::boolean_neuron_graph::NEURON_COUNT;
     use super::super::boolean_operator_channels::OperatorChannel;
     use super::super::boolean_scan_lstm::UnaryGate;
     use super::*;
-    use super::super::boolean_neuron_graph::NEURON_COUNT;
 
     fn next(seed: &mut u64) -> u64 {
         *seed ^= *seed << 13;
@@ -226,15 +227,12 @@ mod tests {
 
     #[test]
     fn bps26_validate_costs_and_compile_per_channel_thresholds() {
-        let invalid = [
-            ChannelRoutingCost {
-                direct_lane_units: 1,
-                grouped_shift_units: 1,
-                direct_setup_units: 0,
-                grouped_setup_units: 0,
-            };
-            OPERATOR_COUNT
-        ];
+        let invalid = [ChannelRoutingCost {
+            direct_lane_units: 1,
+            grouped_shift_units: 1,
+            direct_setup_units: 0,
+            grouped_setup_units: 0,
+        }; OPERATOR_COUNT];
         let mut broken = invalid;
         broken[2].direct_lane_units = 0;
         assert_eq!(
@@ -286,7 +284,9 @@ mod tests {
                     let initial = next(&mut seed);
                     let mut state = initial;
                     let mut outputs = vec![0u64; inputs.len()];
-                    prepared.scan_into(&inputs, &mut state, &mut outputs).unwrap();
+                    prepared
+                        .scan_into(&inputs, &mut state, &mut outputs)
+                        .unwrap();
                     let mut scalar = initial;
                     let mut oracle = Vec::new();
                     for &input in &inputs {
@@ -300,9 +300,7 @@ mod tests {
                         let expected = if graph.dense_gate_eligible(input) {
                             CostRoutingDecision::DenseGuard
                         } else {
-                            CostRoutingDecision::Adaptive(
-                                graph.adaptive_route_plan(input, caps)
-                            )
+                            CostRoutingDecision::Adaptive(graph.adaptive_route_plan(input, caps))
                         };
                         assert_eq!(prepared.decision(input), expected);
                     }
@@ -332,9 +330,9 @@ mod tests {
             let ends = [0, 1, 1, 7, 31, 64, 129, inputs.len()];
             let mut start = 0;
             for &end in &ends {
-                prepared.scan_into(
-                    &inputs[start..end], &mut state, &mut outputs[start..end]
-                ).unwrap();
+                prepared
+                    .scan_into(&inputs[start..end], &mut state, &mut outputs[start..end])
+                    .unwrap();
                 start = end;
             }
             assert_eq!(outputs, graph.forward_scalar(&inputs, initial));
