@@ -84,7 +84,8 @@ impl std::error::Error for IsingAttentionError {}
 ///
 /// The input must be finite, in [0,1], and sum to one within 1e-10. Exactly
 /// zero/one components are frozen at -1/+1: structural zeros can never become
-/// attended positions. For an empty or all-zero coupling graph, this is the
+/// attended positions, and edges touching structural zeros are ignored so a
+/// masked (e.g. future) position cannot indirectly influence valid attention. For an empty or all-zero coupling graph, this is the
 /// exact identity transformation (including signed-zero representation).
 ///
 /// Couplings are undirected and ordered with left < right, no duplicates,
@@ -134,7 +135,9 @@ pub fn ising_reweight_attention(
     }
 
     let mut magnetizations: Vec<f64> = attention.iter().map(|p| 2.0 * p - 1.0).collect();
-    if couplings.iter().all(|edge| edge.weight == 0.0) {
+    if couplings.iter().all(|edge| {
+        edge.weight == 0.0 || attention[edge.left] == 0.0 || attention[edge.right] == 0.0
+    }) {
         return Ok(IsingAttentionVector {
             weights: attention.to_vec(),
             magnetizations,
@@ -156,6 +159,10 @@ pub fn ising_reweight_attention(
         .collect();
     let mut neighbors = vec![Vec::<(usize, f64)>::new(); attention.len()];
     for edge in couplings {
+        // Masked positions must not influence valid attention, even indirectly.
+        if attention[edge.left] == 0.0 || attention[edge.right] == 0.0 {
+            continue;
+        }
         neighbors[edge.left].push((edge.right, edge.weight));
         neighbors[edge.right].push((edge.left, edge.weight));
     }
@@ -250,6 +257,7 @@ mod tests {
     fn structural_zeros_and_ones_remain_pinned() {
         let p = [0.0, 0.6, 0.4];
         let out = ising_reweight_attention(&p, &[edge(0.4)], IsingMeanFieldConfig::default()).unwrap();
+        assert_eq!(out.weights, p);
         assert_eq!(out.weights[0], 0.0);
         assert_eq!(out.magnetizations[0], -1.0);
         let certain = ising_reweight_attention(&[1.0, 0.0], &[edge(-2.0)], IsingMeanFieldConfig::default()).unwrap();
