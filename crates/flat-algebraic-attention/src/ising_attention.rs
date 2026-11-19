@@ -165,7 +165,7 @@ pub fn ising_reweight_attention(
     }
 
     let mut next = magnetizations.clone();
-    let mut max_delta = 0.0;
+    let mut max_delta: f64 = 0.0;
     let mut converged = false;
     let mut iterations = 0;
     for sweep in 0..config.max_iterations {
