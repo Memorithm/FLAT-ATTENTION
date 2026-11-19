@@ -534,7 +534,14 @@ mod tests {
             assert_eq!(v2.attention.covered_keys, count);
             assert_eq!(v2.attention.exact_keys, 0);
             assert_eq!(v2.attention.summarized_nodes, 2);
-            assert!(v1.attention.exact_keys > v2.attention.exact_keys);
+            // On 64 keys V1 already accepts both groups; larger groups
+            // expose V1's root-range over-conservatism.
+            if count >= 256 {
+                assert!(
+                    v1.attention.exact_keys > v2.attention.exact_keys,
+                    "expected strictly fewer exact key evaluations for {count} keys"
+                );
+            }
             let oracle = independent_dense(&keys, q).unwrap();
             check(
                 oracle,
