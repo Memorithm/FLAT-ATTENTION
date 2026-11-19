@@ -74,3 +74,47 @@ SML-GENIUS remains **non-attention** by its own architecture contract. Only inde
 - Gilhan Kim & Daniel K. Park, *Boltzmann Attention: Learnable Ising Couplings for Cooperative Attention*, 10 June 2026: https://arxiv.org/abs/2606.12478
 - Rui Wang, *Variational-Ising-Attention (VIA): Tailored Attention Matters for Science*, 26 July 2026: https://arxiv.org/abs/2607.23634
 - FLAT authoritative engineering plan: `ROADMAP.md`; off-main ecosystem and ML maturity overlays must be read before any promotion.
+
+
+## ISING-2 — event-driven packed-spin alternative
+
+The initial f64 mean-field oracle is a **numerical research reference only**. It
+does not constitute a compact spin-state encoding: it stores continuous
+magnetizations, not sampled Ising spins. More fundamentally, a normalized
+softmax vector is a categorical distribution, whereas independent Ising
+Bernoulli marginals do not enforce exactly one selected position. Normalizing
+interacting-spin marginals afterward does not turn them into an exact Ising
+attention posterior. It is an experimental reweighting heuristic.
+
+The second oracle, `ising_sparse_state.rs`, explicitly separates:
+- `eligible: Vec<u64>`: causal/structural admission bitplane (zero means masked,
+  **not** a negative spin).
+- `positive_spins: Vec<u64>`: Ising orientation of eligible vertices (zero means
+  spin -1; one means spin +1).
+- integer biases `i32`, signed couplings `i16` in undirected CSR adjacency,
+  and maintained `i64` local fields.
+- strict energy-lowering flips with exact integer `i128` energy/delta oracle;
+  only neighbors are updated per spin flip.
+
+A 1,000,000-vertex example needs 125,000 bytes **per bitplane** (250,000
+bytes for two), before biases, local fields, CSR offsets, adjacency entries,
+alignment and allocator overhead. Our correctness-first `usize` CSR
+representation is **not** yet a compressed edge representation and can dwarf
+the spin storage. The fixed-point scale, coupling learning method and
+production quantization policy are unspecified research variables.
+
+The intended FLAT application is **candidate/page admission before numerical
+attention**, not interpreting the negative spin as a negative attention weight.
+Attention O/LSE must be evaluated with the existing qualified sparse numerical
+oracle after admission, and compared with density-matched controls. For
+SML-GENIUS, the possible downstream analogy is energetically driven selection
+of circuit atlas pages, without Q/K/V or token-to-token scores.
+
+To test both independent research oracles:
+
+```bash
+cargo test -p flat-algebraic-attention --lib ising_
+```
+
+There is no evidence yet that the event-driven representation beats a simpler
+bitset, scalar sparse mask, or f32/f16 baseline on real hardware.
