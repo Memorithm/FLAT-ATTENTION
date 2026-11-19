@@ -43,6 +43,7 @@ pub mod evidence;
 pub mod experiment;
 pub mod f2;
 pub mod holdout;
+pub mod ising_attention;
 mod holdout_eq;
 pub mod max_plus;
 pub mod qk_signature;
