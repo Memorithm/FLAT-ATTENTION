@@ -6,7 +6,7 @@
 use flat_algebraic_attention::tdi22_torsor_projection::{TorsorKey, TorsorQuery};
 use flat_algebraic_attention::torsor_octree::{
     PreparedTorsorOctree, TorsorAnalyticalErrorBounds, TorsorOutputErrorBudget, TorsorTreeOutput,
-    MAX_OCTREE_KEYS, TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1,
+    MAX_OCTREE_KEYS, TDI22_TORSOR_OCTREE_LOCAL_BUDGET_V2, TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1,
 };
 use std::hint::black_box;
 use std::time::Instant;
@@ -27,6 +27,7 @@ enum Panel {
     SmoothSemantic,
     FarAdversarial,
     CoincidentCoordinates,
+    SeparatedClusters,
 }
 
 impl Panel {
@@ -36,6 +37,13 @@ impl Panel {
         Self::FarAdversarial,
         Self::CoincidentCoordinates,
     ];
+    const COMPARE_LOCAL: [Self; 5] = [
+        Self::UniformProjectedScore,
+        Self::SmoothSemantic,
+        Self::FarAdversarial,
+        Self::CoincidentCoordinates,
+        Self::SeparatedClusters,
+    ];
 
     fn name(self) -> &'static str {
         match self {
@@ -43,15 +51,34 @@ impl Panel {
             Self::SmoothSemantic => "smooth_semantic",
             Self::FarAdversarial => "far_adversarial",
             Self::CoincidentCoordinates => "coincident_coordinates",
+            Self::SeparatedClusters => "separated_clusters",
         }
     }
 
     fn keys(self, count: usize) -> Vec<TorsorKey> {
+        if matches!(self, Self::SeparatedClusters) {
+            let split = count / 2;
+            return (0..count)
+                .map(|i| {
+                    let (cluster, within) = if i < split {
+                        (0.0_f32, i)
+                    } else {
+                        (1.0_f32, i - split)
+                    };
+                    TorsorKey {
+                        reference: [cluster * 100.0 + within as f32 * 0.01, 0.0, 0.0],
+                        resultant: [cluster * 10.0 + within as f32 * 0.0005, 0.0, 0.0],
+                        moment_at_reference: [0.0; 3],
+                    }
+                })
+                .collect();
+        }
         (0..count)
             .map(|i| {
                 let t = i as f32;
                 let reference = match self {
                     Self::CoincidentCoordinates => [0.0; 3],
+                    Self::SeparatedClusters => unreachable!("handled above"),
                     _ => [
                         t * 0.04,
                         ((i * 17) % 37) as f32 * 0.03,
@@ -67,6 +94,7 @@ impl Panel {
                     ],
                     Self::FarAdversarial => [if i % 2 == 0 { 12.0 } else { -12.0 }, 0.01 * t, 0.0],
                     Self::CoincidentCoordinates => [0.1 + 0.02 * t, 0.1 * (t * 0.1).sin(), -0.15],
+                    Self::SeparatedClusters => unreachable!("handled above"),
                 };
                 TorsorKey {
                     reference,
@@ -173,6 +201,7 @@ enum Mode {
     SpatialOnly,
     ScoreGuard,
     SixOutputBudget,
+    SubtreeBudget,
 }
 
 impl Mode {
@@ -182,6 +211,13 @@ impl Mode {
         Self::ScoreGuard,
         Self::SixOutputBudget,
     ];
+    const COMPARE_LOCAL: [Self; 5] = [
+        Self::Exact,
+        Self::SpatialOnly,
+        Self::ScoreGuard,
+        Self::SixOutputBudget,
+        Self::SubtreeBudget,
+    ];
 
     fn name(self) -> &'static str {
         match self {
@@ -189,6 +225,7 @@ impl Mode {
             Self::SpatialOnly => "spatial_only",
             Self::ScoreGuard => "score_guard",
             Self::SixOutputBudget => "six_output_budget",
+            Self::SubtreeBudget => "subtree_local_budget",
         }
     }
 }
@@ -217,6 +254,18 @@ fn evaluate(
         Mode::SixOutputBudget => {
             let output = tree
                 .forward_with_output_budgets(query, SCALE, THETA, MAX_SCORE_SPREAD, BUDGET)
+                .map_err(|error| format!("{error:?}"))?;
+            (output.attention, Some(output.analytical_bounds))
+        }
+        Mode::SubtreeBudget => {
+            let output = tree
+                .forward_with_local_output_budgets(
+                    query,
+                    SCALE,
+                    THETA,
+                    MAX_SCORE_SPREAD,
+                    BUDGET,
+                )
                 .map_err(|error| format!("{error:?}"))?;
             (output.attention, Some(output.analytical_bounds))
         }
@@ -320,11 +369,19 @@ fn check(
     Ok((r_delta, m_delta, lse_delta))
 }
 
-fn parse_args() -> Result<(usize, usize), String> {
+fn parse_args() -> Result<(usize, usize, bool), String> {
     let mut count = 256;
     let mut samples = 5;
+    let mut compare_local = false;
     let mut args = std::env::args().skip(1);
     while let Some(flag) = args.next() {
+        if flag == "--compare-local" {
+            if compare_local {
+                return Err("duplicate --compare-local".into());
+            }
+            compare_local = true;
+            continue;
+        }
         let value = args
             .next()
             .ok_or_else(|| format!("missing value for {flag}"))?;
@@ -343,17 +400,32 @@ fn parse_args() -> Result<(usize, usize), String> {
     if !(1..=25).contains(&samples) {
         return Err("--samples must be between 1 and 25".into());
     }
-    Ok((count, samples))
+    Ok((count, samples, compare_local))
 }
 
-fn run(count: usize, samples: usize) -> Result<(), String> {
+fn run(count: usize, samples: usize, compare_local: bool) -> Result<(), String> {
+    let contract = if compare_local {
+        TDI22_TORSOR_OCTREE_LOCAL_BUDGET_V2
+    } else {
+        TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1
+    };
     eprintln!(
-        "research_only=true;contract={TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1};host_only=true;real_device_qualified=false"
+        "research_only=true;contract={contract};host_only=true;real_device_qualified=false;paired_mode={compare_local}"
     );
     println!(
         "panel,query,mode,keys,nodes,reserved_buffer_bytes,build_ns,dense_median_ns,mode_median_ns,exact_keys,summarized_nodes,summarized_keys,max_resultant_error,max_moment_error,lse_error,bounds_present,max_resultant_bound,max_moment_bound,lse_bound"
     );
-    for panel in Panel::ALL {
+    let panels: &[Panel] = if compare_local {
+        &Panel::COMPARE_LOCAL
+    } else {
+        &Panel::ALL
+    };
+    let modes: &[Mode] = if compare_local {
+        &Mode::COMPARE_LOCAL
+    } else {
+        &Mode::ALL
+    };
+    for &panel in panels {
         let keys = panel.keys(count);
         let started = Instant::now();
         let tree =
@@ -363,8 +435,20 @@ fn run(count: usize, samples: usize) -> Result<(), String> {
             return Err("tree reserved capacity is smaller than key storage".into());
         }
         for (query_name, query) in queries() {
+            // Align the distant cluster fixture with the R-axis so its
+            // moment does not inadvertently dominate the six-output budget.
+            let query = if matches!(panel, Panel::SeparatedClusters)
+                && query_name == "distant_linear"
+            {
+                TorsorQuery {
+                    evaluation_point: [1000.0, 0.0, 0.0],
+                    ..query
+                }
+            } else {
+                query
+            };
             let (reference, dense_ns) = median_timing(samples, || independent_dense(&keys, query))?;
-            for mode in Mode::ALL {
+            for &mode in modes {
                 let ((out, bound), mode_ns) =
                     median_timing(samples, || evaluate(&tree, query, mode))?;
                 let (r, m, lse) = check(reference, out, bound, mode, count).map_err(|error| {
@@ -412,7 +496,8 @@ fn run(count: usize, samples: usize) -> Result<(), String> {
 }
 
 fn main() {
-    let result = parse_args().and_then(|(count, samples)| run(count, samples));
+    let result =
+        parse_args().and_then(|(count, samples, compare_local)| run(count, samples, compare_local));
     if let Err(error) = result {
         eprintln!("tdi22 octree qualification failed: {error}");
         std::process::exit(1);
@@ -425,7 +510,7 @@ mod tests {
 
     #[test]
     fn deterministic_panels_and_independent_oracle_hold_declared_budgets() {
-        run(64, 1).unwrap();
+        run(64, 1, false).unwrap();
     }
 
     #[test]
