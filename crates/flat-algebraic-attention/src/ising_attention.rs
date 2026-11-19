@@ -121,10 +121,7 @@ pub fn ising_reweight_attention(
     }
     let mut previous = None;
     for (edge_index, edge) in couplings.iter().enumerate() {
-        if edge.left >= edge.right
-            || edge.right >= attention.len()
-            || !edge.weight.is_finite()
-        {
+        if edge.left >= edge.right || edge.right >= attention.len() || !edge.weight.is_finite() {
             return Err(IsingAttentionError::InvalidEdge { edge_index });
         }
         let pair = (edge.left, edge.right);
@@ -223,7 +220,11 @@ mod tests {
     use super::*;
 
     fn edge(weight: f64) -> IsingCoupling {
-        IsingCoupling { left: 0, right: 1, weight }
+        IsingCoupling {
+            left: 0,
+            right: 1,
+            weight,
+        }
     }
 
     #[test]
@@ -256,18 +257,24 @@ mod tests {
     #[test]
     fn structural_zeros_and_ones_remain_pinned() {
         let p = [0.0, 0.6, 0.4];
-        let out = ising_reweight_attention(&p, &[edge(0.4)], IsingMeanFieldConfig::default()).unwrap();
+        let out =
+            ising_reweight_attention(&p, &[edge(0.4)], IsingMeanFieldConfig::default()).unwrap();
         assert_eq!(out.weights, p);
         assert_eq!(out.weights[0], 0.0);
         assert_eq!(out.magnetizations[0], -1.0);
-        let certain = ising_reweight_attention(&[1.0, 0.0], &[edge(-2.0)], IsingMeanFieldConfig::default()).unwrap();
+        let certain =
+            ising_reweight_attention(&[1.0, 0.0], &[edge(-2.0)], IsingMeanFieldConfig::default())
+                .unwrap();
         assert_eq!(certain.weights, [1.0, 0.0]);
     }
 
     #[test]
     fn repeated_runs_are_deterministic_and_iteration_is_bounded() {
         let p = [0.7, 0.2, 0.1];
-        let config = IsingMeanFieldConfig { max_iterations: 2, ..Default::default() };
+        let config = IsingMeanFieldConfig {
+            max_iterations: 2,
+            ..Default::default()
+        };
         let first = ising_reweight_attention(&p, &[edge(2.0)], config).unwrap();
         let second = ising_reweight_attention(&p, &[edge(2.0)], config).unwrap();
         assert_eq!(first, second);
@@ -277,12 +284,48 @@ mod tests {
     #[test]
     fn malformed_vectors_edges_and_config_fail_closed() {
         let config = IsingMeanFieldConfig::default();
-        assert_eq!(ising_reweight_attention(&[], &[], config), Err(IsingAttentionError::EmptyVector));
-        assert!(matches!(ising_reweight_attention(&[0.2, 0.2], &[], config), Err(IsingAttentionError::NotNormalized { .. })));
-        assert!(matches!(ising_reweight_attention(&[f64::NAN, 1.0], &[], config), Err(IsingAttentionError::InvalidProbability { .. })));
-        assert!(matches!(ising_reweight_attention(&[0.4, 0.6], &[edge(f64::INFINITY)], config), Err(IsingAttentionError::InvalidEdge { .. })));
-        assert!(matches!(ising_reweight_attention(&[0.4, 0.6], &[edge(0.1), edge(0.2)], config), Err(IsingAttentionError::NonCanonicalEdges { .. })));
-        assert!(matches!(ising_reweight_attention(&[0.4, 0.6], &[IsingCoupling { left: 1, right: 0, weight: 1.0 }], config), Err(IsingAttentionError::InvalidEdge { .. })));
-        assert_eq!(ising_reweight_attention(&[0.4, 0.6], &[], IsingMeanFieldConfig { damping: 0.0, ..config }), Err(IsingAttentionError::InvalidConfig));
+        assert_eq!(
+            ising_reweight_attention(&[], &[], config),
+            Err(IsingAttentionError::EmptyVector)
+        );
+        assert!(matches!(
+            ising_reweight_attention(&[0.2, 0.2], &[], config),
+            Err(IsingAttentionError::NotNormalized { .. })
+        ));
+        assert!(matches!(
+            ising_reweight_attention(&[f64::NAN, 1.0], &[], config),
+            Err(IsingAttentionError::InvalidProbability { .. })
+        ));
+        assert!(matches!(
+            ising_reweight_attention(&[0.4, 0.6], &[edge(f64::INFINITY)], config),
+            Err(IsingAttentionError::InvalidEdge { .. })
+        ));
+        assert!(matches!(
+            ising_reweight_attention(&[0.4, 0.6], &[edge(0.1), edge(0.2)], config),
+            Err(IsingAttentionError::NonCanonicalEdges { .. })
+        ));
+        assert!(matches!(
+            ising_reweight_attention(
+                &[0.4, 0.6],
+                &[IsingCoupling {
+                    left: 1,
+                    right: 0,
+                    weight: 1.0
+                }],
+                config
+            ),
+            Err(IsingAttentionError::InvalidEdge { .. })
+        ));
+        assert_eq!(
+            ising_reweight_attention(
+                &[0.4, 0.6],
+                &[],
+                IsingMeanFieldConfig {
+                    damping: 0.0,
+                    ..config
+                }
+            ),
+            Err(IsingAttentionError::InvalidConfig)
+        );
     }
 }
