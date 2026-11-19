@@ -126,21 +126,27 @@ impl BooleanQuaternary {
         let mut previous = None;
         for (index, edge) in edges.iter().enumerate() {
             let pair = (edge.left, edge.right);
-            if edge.left >= edge.right
-                || edge.right >= n
-                || previous.is_some_and(|p| pair <= p)
-            {
+            if edge.left >= edge.right || edge.right >= n || previous.is_some_and(|p| pair <= p) {
                 return Err(Spin4Error::NoncanonicalEdge(index));
             }
             previous = Some(pair);
-            degrees[edge.left] = degrees[edge.left].checked_add(1).ok_or(Spin4Error::Overflow)?;
-            degrees[edge.right] = degrees[edge.right].checked_add(1).ok_or(Spin4Error::Overflow)?;
+            degrees[edge.left] = degrees[edge.left]
+                .checked_add(1)
+                .ok_or(Spin4Error::Overflow)?;
+            degrees[edge.right] = degrees[edge.right]
+                .checked_add(1)
+                .ok_or(Spin4Error::Overflow)?;
         }
         let mut offsets = Vec::with_capacity(n + 1);
         offsets.push(0usize);
         for degree in degrees {
             offsets.push(
-                offsets.last().copied().unwrap().checked_add(degree).ok_or(Spin4Error::Overflow)?,
+                offsets
+                    .last()
+                    .copied()
+                    .unwrap()
+                    .checked_add(degree)
+                    .ok_or(Spin4Error::Overflow)?,
             );
         }
         let mut adjacency = vec![(0usize, 0i16); offsets[n]];
@@ -211,7 +217,9 @@ impl BooleanQuaternary {
         };
         let da = i128::from(next.active() as i8) - i128::from(previous.active() as i8);
         let dz = i128::from(next.contribution() - previous.contribution());
-        Ok(Some(i128::from(self.costs[i]) * da - i128::from(self.fields[i]) * dz))
+        Ok(Some(
+            i128::from(self.costs[i]) * da - i128::from(self.fields[i]) * dz,
+        ))
     }
 
     /// Strict energy descent. Does not erase a latent polarity on deactivation.
@@ -368,9 +376,21 @@ mod tests {
     #[test]
     fn all_local_deltas_equal_recomputed_energy() {
         let edges = [
-            SparseIsingEdge { left: 0, right: 1, coupling: 5 },
-            SparseIsingEdge { left: 0, right: 2, coupling: -3 },
-            SparseIsingEdge { left: 1, right: 2, coupling: 2 },
+            SparseIsingEdge {
+                left: 0,
+                right: 1,
+                coupling: 5,
+            },
+            SparseIsingEdge {
+                left: 0,
+                right: 2,
+                coupling: -3,
+            },
+            SparseIsingEdge {
+                left: 1,
+                right: 2,
+                coupling: 2,
+            },
         ];
         for a in Spin4::ALL {
             for b in Spin4::ALL {
@@ -382,7 +402,10 @@ mod tests {
                             let mut changed = states;
                             changed[i] = target;
                             let other = build(&changed, &[2, -1, 3], &[1, 2, -1], &edges);
-                            assert_eq!(m.delta(i, target).unwrap(), Some(other.energy() - m.energy()));
+                            assert_eq!(
+                                m.delta(i, target).unwrap(),
+                                Some(other.energy() - m.energy())
+                            );
                         }
                     }
                 }
@@ -392,7 +415,11 @@ mod tests {
 
     #[test]
     fn incremental_fields_and_mask_are_correct() {
-        let edges = [SparseIsingEdge { left: 0, right: 1, coupling: 3 }];
+        let edges = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: 3,
+        }];
         let mut m = build(
             &[Spin4::ActivePositive, Spin4::ActiveNegative],
             &[0, 0],
@@ -403,9 +430,8 @@ mod tests {
         assert!(m.transition(0, Spin4::ActiveNegative).unwrap());
         assert_eq!(m.field(1).unwrap(), Some(-3));
         assert_eq!(m.energy(), -3);
-        let masked = BooleanQuaternary::new(
-            &[1, 0], &[0, 0], &[0b01], &[0b01], &[0b11], &edges,
-        ).unwrap();
+        let masked =
+            BooleanQuaternary::new(&[1, 0], &[0, 0], &[0b01], &[0b01], &[0b11], &edges).unwrap();
         assert_eq!(masked.state(1).unwrap(), None);
         assert_eq!(masked.field(0).unwrap(), Some(1));
     }
