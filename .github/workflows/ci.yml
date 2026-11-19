@@ -175,6 +175,10 @@ jobs:
         run: |
           cargo test -p flat-algebraic-attention bps26_
           cargo run -p flat-algebraic-attention --example bps26_topology_cost_smoke
+      - name: BPS-27 live source groups and exact cost-route scalar oracle
+        run: |
+          cargo test -p flat-algebraic-attention bps27_
+          cargo run -p flat-algebraic-attention --example bps27_live_shift_cost_smoke
       - name: Validate EPG qualification WGSL without a device
         run: cargo test -p flat-epg-wgpu qualification_shader_parses_and_validates_with_naga_020
       - name: Validate EPG Q4 candidate WGSL without a device
