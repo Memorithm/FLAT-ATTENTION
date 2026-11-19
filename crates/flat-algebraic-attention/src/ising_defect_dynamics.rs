@@ -47,7 +47,7 @@ impl DefectTransitions {
 
 /// Exact temporal delta with masks and effective graph changes separated.
 ///
-/// Index [old_state][new_state] in the 4x4 matrix uses the Q4 encoding:
+/// Index `state_transitions[old_state][new_state]` in the 4x4 matrix uses Q4 encoding:
 /// dormant-negative=0, dormant-positive=1, active-negative=2,
 /// active-positive=3. Only vertices eligible in BOTH frames are counted.
 /// Masked vertices never implicitly become dormant or negative.
