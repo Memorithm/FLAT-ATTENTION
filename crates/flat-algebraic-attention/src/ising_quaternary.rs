@@ -186,6 +186,14 @@ impl BooleanQuaternary {
         self.n == 0
     }
 
+    /// Borrow all three frozen state planes for topology and temporal observers.
+    ///
+    /// The returned order is (eligibility, activity, polarity). This is a
+    /// read-only view, and does not expose the cached energetic fields.
+    pub fn bitplanes(&self) -> (&[u64], &[u64], &[u64]) {
+        (&self.eligible, &self.active, &self.positive)
+    }
+
     /// None means structurally excluded, not a negative spin.
     pub fn state(&self, i: usize) -> Result<Option<Spin4>, Spin4Error> {
         if i >= self.n {
