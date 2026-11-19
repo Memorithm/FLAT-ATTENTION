@@ -99,6 +99,11 @@ jobs:
           cargo run -p flat-algebraic-attention --example tdi22_octree_qualification -- --keys 128 --samples 3 > "$RUNNER_TEMP/tdi22-octree-qualification.csv"
           test "$(wc -l < "$RUNNER_TEMP/tdi22-octree-qualification.csv")" -eq 33
           cat "$RUNNER_TEMP/tdi22-octree-qualification.csv"
+          # Opt-in V2 mode is independent of the frozen 33-line V1 evidence.
+          cargo run -p flat-algebraic-attention --example tdi22_octree_qualification -- --keys 128 --samples 1 --compare-local > "$RUNNER_TEMP/tdi22-subtree-local.csv"
+          test "$(wc -l < "$RUNNER_TEMP/tdi22-subtree-local.csv")" -eq 51
+          test "$(grep -c ',subtree_local_budget,' "$RUNNER_TEMP/tdi22-subtree-local.csv")" -eq 10
+          test "$(grep -c '^separated_clusters,' "$RUNNER_TEMP/tdi22-subtree-local.csv")" -eq 10
       - name: RAE-9 model QKV snapshot protocol and grouped-head oracle
         run: |
           cargo test -p flat-algebraic-attention --example rae9_real_model_bridge
