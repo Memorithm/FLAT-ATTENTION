@@ -115,9 +115,7 @@ pub fn analyze_topological_defects(
     }
     if vertices % 64 != 0 {
         let invalid = !((1_u64 << (vertices % 64)) - 1);
-        if (eligibility[words - 1] | active[words - 1] | polarity[words - 1])
-            & invalid != 0
-        {
+        if (eligibility[words - 1] | active[words - 1] | polarity[words - 1]) & invalid != 0 {
             return Err(TopologicalDefectError::InvalidPaddingBits);
         }
     }
@@ -172,7 +170,11 @@ pub fn analyze_topological_defects(
                 if gauge[v] != 0 {
                     continue;
                 }
-                let sign = if edges[edge_index].coupling > 0 { 1 } else { -1 };
+                let sign = if edges[edge_index].coupling > 0 {
+                    1
+                } else {
+                    -1
+                };
                 gauge[v] = gauge[u] * sign;
                 tree_edge[edge_index] = true;
                 queue.push_back(v);
@@ -200,8 +202,7 @@ pub fn analyze_topological_defects(
         let active_polarity_wall = active_u && active_v && unequal_polarity;
         let latent_polarity_boundary = (!active_u || !active_v) && unequal_polarity;
         let sign = if edge.coupling > 0 { 1_i8 } else { -1_i8 };
-        let negative_basis_cycle_closure = !tree_edge[index]
-            && gauge[u] * gauge[v] * sign < 0;
+        let negative_basis_cycle_closure = !tree_edge[index] && gauge[u] * gauge[v] * sign < 0;
         if !tree_edge[index] {
             cycle_rank += 1;
             if negative_basis_cycle_closure {
@@ -224,8 +225,11 @@ pub fn analyze_topological_defects(
             active_coupling_excess_energy +=
                 2 * u128::from(i32::from(edge.coupling).unsigned_abs());
         }
-        if activity_boundary || active_polarity_wall || latent_polarity_boundary
-            || unsatisfied_active_coupling || negative_basis_cycle_closure
+        if activity_boundary
+            || active_polarity_wall
+            || latent_polarity_boundary
+            || unsatisfied_active_coupling
+            || negative_basis_cycle_closure
         {
             defect_edges.push(TopologicalDefectEdge {
                 left: u,
@@ -305,8 +309,12 @@ pub fn analyze_quaternary_head_at_query(
             }
         }
     }
-    let active: Vec<u64> = plan.active.iter().zip(&eligible)
-        .map(|(&a, &allowed)| a & allowed).collect();
+    let active: Vec<u64> = plan
+        .active
+        .iter()
+        .zip(&eligible)
+        .map(|(&a, &allowed)| a & allowed)
+        .collect();
     analyze_topological_defects(vertices, &eligible, &active, plan.polarity, plan.couplings)
 }
 
@@ -315,20 +323,26 @@ mod tests {
     use super::*;
 
     fn edge(u: usize, v: usize, w: i16) -> SparseIsingEdge {
-        SparseIsingEdge { left: u, right: v, coupling: w }
+        SparseIsingEdge {
+            left: u,
+            right: v,
+            coupling: w,
+        }
     }
 
     #[test]
     fn negative_triangle_is_structurally_frustrated_in_every_spin_state() {
         let edges = [edge(0, 1, 1), edge(0, 2, 1), edge(1, 2, -1)];
         for polarity in 0_u64..8 {
-            let report = analyze_topological_defects(3, &[0b111], &[0b111], &[polarity], &edges).unwrap();
+            let report =
+                analyze_topological_defects(3, &[0b111], &[0b111], &[polarity], &edges).unwrap();
             assert_eq!(report.eligible_vertices, 3);
             assert_eq!(report.cycle_rank, 1);
             assert_eq!(report.negative_fundamental_cycles, 1);
-            assert_eq!(report.unsatisfied_active_couplings, 1 + 2 * usize::from(
-                report.unsatisfied_active_couplings == 3
-            ));
+            assert_eq!(
+                report.unsatisfied_active_couplings,
+                1 + 2 * usize::from(report.unsatisfied_active_couplings == 3)
+            );
             assert!(!report.structurally_balanced());
         }
     }
@@ -341,8 +355,14 @@ mod tests {
         let a = analyze_topological_defects(3, &[0b111], &[0b111], &[0b111], &graph).unwrap();
         let b = analyze_topological_defects(3, &[0b111], &[0b111], &[0b110], &switched).unwrap();
         assert_eq!(a.negative_fundamental_cycles, b.negative_fundamental_cycles);
-        assert_eq!(a.unsatisfied_active_couplings, b.unsatisfied_active_couplings);
-        assert_eq!(a.active_coupling_excess_energy, b.active_coupling_excess_energy);
+        assert_eq!(
+            a.unsatisfied_active_couplings,
+            b.unsatisfied_active_couplings
+        );
+        assert_eq!(
+            a.active_coupling_excess_energy,
+            b.active_coupling_excess_energy
+        );
         assert_eq!(a.cycle_rank, b.cycle_rank);
     }
 
@@ -360,7 +380,8 @@ mod tests {
     #[test]
     fn masks_and_zero_couplings_remove_edges_before_topology() {
         let graph = [edge(0, 1, -2), edge(0, 2, 1), edge(1, 2, -2), edge(2, 3, 0)];
-        let report = analyze_topological_defects(4, &[0b1011], &[0b0011], &[0b1010], &graph).unwrap();
+        let report =
+            analyze_topological_defects(4, &[0b1011], &[0b0011], &[0b1010], &graph).unwrap();
         assert_eq!(report.eligible_vertices, 3);
         assert_eq!(report.effective_edges, 1);
         assert_eq!(report.connected_components, 2);
@@ -384,8 +405,11 @@ mod tests {
     fn causal_mask_excludes_future_negative_cycle_before_diagnosis() {
         let graph = [edge(0, 1, 1), edge(0, 2, 1), edge(1, 2, -1)];
         let plan = QuaternaryHeadPlan {
-            biases: &[0; 3], activation_costs: &[0; 3],
-            eligible: &[0b111], active: &[0b111], polarity: &[0b111],
+            biases: &[0; 3],
+            activation_costs: &[0; 3],
+            eligible: &[0b111],
+            active: &[0b111],
+            polarity: &[0b111],
             couplings: &graph,
         };
         let before = analyze_quaternary_head_at_query(&plan, 3, 1, true).unwrap();
