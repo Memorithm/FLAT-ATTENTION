@@ -15,6 +15,8 @@ pub const TDI22_TORSOR_OCTREE_V1: &str = "tdi22-spatial-octree-f64-reference-v1"
 pub const TDI22_TORSOR_OCTREE_SCORE_GUARD_V1: &str = "tdi22-octree-score-spread-guard-v1";
 /// Optional absolute componentwise output-error screen in exact arithmetic.
 pub const TDI22_TORSOR_OCTREE_OUTPUT_BUDGET_V1: &str = "tdi22-octree-output-budget-v1";
+/// Research-only local subtree envelopes plus a separate softmax-mass bound.
+pub const TDI22_TORSOR_OCTREE_LOCAL_BUDGET_V2: &str = "tdi22-octree-local-output-budget-v2";
 /// Bound construction memory and prohibit accidental unbounded experiments.
 pub const MAX_OCTREE_KEYS: usize = 4096;
 const MAX_DEPTH: usize = 32;
@@ -247,6 +249,81 @@ pub struct TorsorAnalyticalErrorBounds {
 pub struct TorsorBudgetedOutput {
     pub attention: TorsorTreeOutput,
     pub analytical_bounds: TorsorAnalyticalErrorBounds,
+}
+
+/// Tracks two independent sources of exact-arithmetic approximation error:
+/// (1) each summarized node's conditional output reweighting relative to its
+/// uniform mean, and (2) global renormalization when its partition mass
+/// differs from the mass-aware mean-score surrogate.
+///
+/// For a node's score spread S, Hoeffding's lemma gives
+/// 0 <= ln(E exp(score - E score)) <= S*S/8. The LSE perturbation is at
+/// most the maximum of these log-partition gaps, including exact leaves
+/// whose gap is zero. Reweighting of normalized group masses has
+/// total-variation distance <= tanh(max_gap/2). For conditional key weights,
+/// the corresponding bound is <= tanh(S/2). Both estimates are conservative;
+/// they are not directed-rounding floating-point certificates.
+#[derive(Clone, Copy, Debug, Default)]
+struct LocalBudgetState {
+    max_local_resultant: Vec3,
+    max_local_moment: Vec3,
+    max_log_partition_gap: f64,
+}
+
+impl LocalBudgetState {
+    fn with_candidate(self, score_span: f64, local: OutputRanges) -> Option<Self> {
+        let gap = 0.125 * score_span * score_span;
+        if !gap.is_finite() || gap < 0.0 {
+            return None;
+        }
+        let conditional_tv = (0.5 * score_span).tanh();
+        let mut next = self;
+        next.max_log_partition_gap = next.max_log_partition_gap.max(gap);
+        for axis in 0..3 {
+            let r = local.resultant[axis] * conditional_tv;
+            let m = local.moment[axis] * conditional_tv;
+            if !r.is_finite() || !m.is_finite() {
+                return None;
+            }
+            next.max_local_resultant[axis] = next.max_local_resultant[axis].max(r);
+            next.max_local_moment[axis] = next.max_local_moment[axis].max(m);
+        }
+        Some(next)
+    }
+
+    fn bounds(self, root: OutputRanges, score_span: f64) -> Option<TorsorAnalyticalErrorBounds> {
+        let mass_tv = (self.max_log_partition_gap * 0.5).tanh();
+        let mut resultant_abs = [0.0; 3];
+        let mut moment_at_query_abs = [0.0; 3];
+        for axis in 0..3 {
+            resultant_abs[axis] =
+                self.max_local_resultant[axis] + root.resultant[axis] * mass_tv;
+            moment_at_query_abs[axis] =
+                self.max_local_moment[axis] + root.moment[axis] * mass_tv;
+        }
+        if !resultant_abs
+            .iter()
+            .chain(moment_at_query_abs.iter())
+            .all(|value| value.is_finite() && *value >= 0.0)
+        {
+            return None;
+        }
+        Some(TorsorAnalyticalErrorBounds {
+            resultant_abs,
+            moment_at_query_abs,
+            log_sum_exp_abs: self.max_log_partition_gap,
+            max_compressed_score_span: score_span,
+        })
+    }
+
+    fn admitted(self, root: OutputRanges, budget: TorsorOutputErrorBudget) -> bool {
+        self.bounds(root, 0.0).is_some_and(|bounds| {
+            (0..3).all(|axis| {
+                bounds.resultant_abs[axis] <= budget.resultant_abs[axis]
+                    && bounds.moment_at_query_abs[axis] <= budget.moment_at_query_abs[axis]
+            })
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -508,8 +585,8 @@ impl PreparedTorsorOctree {
         scale: f64,
         theta: f64,
     ) -> Result<TorsorTreeOutput, TorsorTreeError> {
-        self.forward_internal(query, scale, theta, None, None)
-            .map(|(output, _)| output)
+        self.forward_internal(query, scale, theta, None, None, None)
+            .map(|(output, _, _)| output)
     }
 
     /// Optional semantic score-spread guard on top of the spatial opening test.
@@ -532,8 +609,8 @@ impl PreparedTorsorOctree {
         if !max_score_spread.is_finite() || max_score_spread < 0.0 {
             return Err(TorsorTreeError::InvalidScoreSpreadLimit);
         }
-        self.forward_internal(query, scale, theta, Some(max_score_spread), None)
-            .map(|(output, _)| output)
+        self.forward_internal(query, scale, theta, Some(max_score_spread), None, None)
+            .map(|(output, _, _)| output)
     }
 
     /// Require both a score-spread limit and six normalized output-error
@@ -566,12 +643,13 @@ impl PreparedTorsorOctree {
             .score_envelope
             .output_ranges(convert(query.evaluation_point))
             .ok_or(TorsorTreeError::NonFiniteOutputRange)?;
-        let (attention, accepted_span) = self.forward_internal(
+        let (attention, accepted_span, _) = self.forward_internal(
             query,
             scale,
             theta,
             Some(max_score_spread),
             Some((budget, ranges)),
+            None,
         )?;
         let tv_bound = accepted_span.tanh();
         Ok(TorsorBudgetedOutput {
@@ -585,6 +663,51 @@ impl PreparedTorsorOctree {
         })
     }
 
+    /// Opt-in tighter six-coordinate screen using each node's stored R/C
+    /// envelope and a separate global mass-renormalization budget.
+    ///
+    /// Compared with the root-range-only V1 screen, this can retain safe
+    /// within-cluster summaries even when distant clusters have very different
+    /// output values. The mathematical estimate is exact-arithmetic only.
+    /// It does not alter the V1 method, production routing or GPU execution.
+    pub fn forward_with_local_output_budgets(
+        &self,
+        query: TorsorQuery,
+        scale: f64,
+        theta: f64,
+        max_score_spread: f64,
+        budget: TorsorOutputErrorBudget,
+    ) -> Result<TorsorBudgetedOutput, TorsorTreeError> {
+        if !max_score_spread.is_finite() || max_score_spread < 0.0 {
+            return Err(TorsorTreeError::InvalidScoreSpreadLimit);
+        }
+        if !budget.valid() {
+            return Err(TorsorTreeError::InvalidOutputErrorBudget);
+        }
+        if !finite(query.evaluation_point) {
+            return Err(TorsorTreeError::NonFiniteQuery);
+        }
+        let root = self.nodes[0]
+            .score_envelope
+            .output_ranges(convert(query.evaluation_point))
+            .ok_or(TorsorTreeError::NonFiniteOutputRange)?;
+        let (attention, accepted_span, local) = self.forward_internal(
+            query,
+            scale,
+            theta,
+            Some(max_score_spread),
+            None,
+            Some((budget, root)),
+        )?;
+        let analytical_bounds = local
+            .bounds(root, accepted_span)
+            .ok_or(TorsorTreeError::NonFiniteOutputRange)?;
+        Ok(TorsorBudgetedOutput {
+            attention,
+            analytical_bounds,
+        })
+    }
+
     fn forward_internal(
         &self,
         query: TorsorQuery,
@@ -592,7 +715,8 @@ impl PreparedTorsorOctree {
         theta: f64,
         max_score_spread: Option<f64>,
         output_guard: Option<(TorsorOutputErrorBudget, OutputRanges)>,
-    ) -> Result<(TorsorTreeOutput, f64), TorsorTreeError> {
+        local_guard: Option<(TorsorOutputErrorBudget, OutputRanges)>,
+    ) -> Result<(TorsorTreeOutput, f64, LocalBudgetState), TorsorTreeError> {
         if !scale.is_finite() || scale <= 0.0 {
             return Err(TorsorTreeError::InvalidScale);
         }
@@ -612,6 +736,7 @@ impl PreparedTorsorOctree {
         let mut summarized_nodes = 0;
         let mut covered_keys = 0;
         let mut accepted_max_score_span = 0.0_f64;
+        let mut local_state = LocalBudgetState::default();
         while let Some(index) = stack.pop() {
             let node = &self.nodes[index];
             let has_children = node.children.iter().any(Option::is_some);
@@ -625,10 +750,19 @@ impl PreparedTorsorOctree {
                 && !inside
                 && distance > 0.0
                 && node.extent / distance < theta;
-            let gated = max_score_spread.is_some() || output_guard.is_some();
+            let gated = max_score_spread.is_some() || output_guard.is_some() || local_guard.is_some();
             let span = if is_distant && gated {
                 node.score_envelope
                     .score_span(projected_linear, angular, scale)
+            } else {
+                None
+            };
+            let next_local_state = if let Some((budget, root)) = local_guard {
+                span.and_then(|value| {
+                    let local = node.score_envelope.output_ranges(point)?;
+                    let candidate = local_state.with_candidate(value, local)?;
+                    candidate.admitted(root, budget).then_some(candidate)
+                })
             } else {
                 None
             };
@@ -636,8 +770,12 @@ impl PreparedTorsorOctree {
                 && max_score_spread.is_none_or(|limit| span.is_some_and(|value| value <= limit))
                 && output_guard.is_none_or(|(budget, ranges)| {
                     span.is_some_and(|value| budget.admits(value, ranges))
-                });
+                })
+                && (local_guard.is_none() || next_local_state.is_some());
             if collapse {
+                if let Some(next) = next_local_state {
+                    local_state = next;
+                }
                 if let Some(value) = span {
                     accepted_max_score_span = accepted_max_score_span.max(value);
                 }
@@ -690,7 +828,7 @@ impl PreparedTorsorOctree {
         {
             return Err(TorsorTreeError::NonFiniteScore);
         }
-        Ok((result, accepted_max_score_span))
+        Ok((result, accepted_max_score_span, local_state))
     }
 
     pub fn forward_batch(
