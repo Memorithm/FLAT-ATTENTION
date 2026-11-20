@@ -43,7 +43,7 @@ The next honest experiment is a preregistered matched panel with graph-degree-pr
 
 Sources for the **pathwise energy-barrier definition**, not for model performance:
 
-- Exploring Metastability in Ising Models: Critical Droplets, Energy Barriers and Exit Time (2025), Mathematics of Operations Research / Springer article https://doi.org/10.1007/s11040-025-09514-2
+- Vanessa Jacquier (24 July 2025), Exploring Metastability in Ising Models: Critical Droplets, Energy Barriers and Exit Time, Mathematical Physics, Analysis and Geometry https://doi.org/10.1007/s11040-025-09514-2
 - Facchetti, Iacono & Altafini (2011), Computing global structural balance in large-scale signed social networks, PNAS https://pubmed.ncbi.nlm.nih.gov/22167802/
 
 Related contracts:
