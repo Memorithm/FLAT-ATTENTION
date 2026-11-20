@@ -13,7 +13,7 @@
 //! establishes stochastic retention times or topologically protected memory.
 
 use core::cmp::{max, Reverse};
-use core::collections::BinaryHeap;
+use std::collections::BinaryHeap;
 use core::fmt;
 
 use crate::ising_quaternary::{BooleanQuaternary, Spin4, Spin4Error};
@@ -412,11 +412,11 @@ mod tests {
         assert_eq!(result.communication_height, 0);
         assert_eq!(result.barrier_above_initial, 3);
         assert_eq!(result.enumerated_states, 16);
-        assert_eq!(result.witness.first().unwrap(), &initial);
-        assert_eq!(result.witness.last().unwrap(), &target);
+        assert_eq!(result.witness.first().unwrap().as_slice(), initial.as_slice());
+        assert_eq!(result.witness.last().unwrap().as_slice(), target.as_slice());
         let mut witness_peak = i128::MIN;
         for state in &result.witness {
-            let mut controller = controller_for(problem, state).unwrap();
+            let controller = controller_for(problem, state).unwrap();
             witness_peak = witness_peak.max(controller.energy());
             // Every witness vertex assignment is already a valid controller.
             assert_eq!(controller.len(), 2);
