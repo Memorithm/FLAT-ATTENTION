@@ -13,8 +13,8 @@
 //! establishes stochastic retention times or topologically protected memory.
 
 use core::cmp::{max, Reverse};
-use std::collections::BinaryHeap;
 use core::fmt;
+use std::collections::BinaryHeap;
 
 use crate::ising_quaternary::{BooleanQuaternary, Spin4, Spin4Error};
 use crate::ising_sparse_state::SparseIsingEdge;
@@ -107,10 +107,7 @@ fn validate(problem: Q4Landscape<'_>) -> Result<Vec<usize>, Q4LandscapeError> {
     Ok(positions)
 }
 
-fn check_state(
-    problem: Q4Landscape<'_>,
-    states: &[Spin4],
-) -> Result<(), Q4LandscapeError> {
+fn check_state(problem: Q4Landscape<'_>, states: &[Spin4]) -> Result<(), Q4LandscapeError> {
     if states.len() != problem.biases.len() {
         return Err(Q4LandscapeError::EndpointLength);
     }
@@ -158,9 +155,7 @@ fn energy_for_code(
         energy -= i128::from(problem.biases[vertex]) * spin_value(state);
     }
     for edge in problem.edges {
-        if let (Some(left), Some(right)) =
-            (vertex_to_slot[edge.left], vertex_to_slot[edge.right])
-        {
+        if let (Some(left), Some(right)) = (vertex_to_slot[edge.left], vertex_to_slot[edge.right]) {
             let z_left = spin_value(Spin4::ALL[(code >> (2 * left)) & 3]);
             let z_right = spin_value(Spin4::ALL[(code >> (2 * right)) & 3]);
             energy -= i128::from(edge.coupling) * z_left * z_right;
@@ -365,8 +360,7 @@ pub fn single_bit_perturbation_recall(
             for &i in &positions {
                 let current = controller.state(i)?.expect("eligible vertex");
                 exact_recall &= current == baseline[i];
-                effective_state_recall &=
-                    current.contribution() == baseline[i].contribution();
+                effective_state_recall &= current.contribution() == baseline[i].contribution();
             }
             exact_recall_count += usize::from(exact_recall);
             effective_state_recall_count += usize::from(effective_state_recall);
@@ -399,10 +393,16 @@ mod tests {
 
     #[test]
     fn two_ferromagnetic_spins_have_exact_dormancy_assisted_barrier() {
-        let edges = [SparseIsingEdge { left: 0, right: 1, coupling: 3 }];
+        let edges = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: 3,
+        }];
         let problem = Q4Landscape {
-            biases: &[0, 0], activation_costs: &[0, 0],
-            eligibility: &[0b11], edges: &edges,
+            biases: &[0, 0],
+            activation_costs: &[0, 0],
+            eligibility: &[0b11],
+            edges: &edges,
         };
         let initial = [Spin4::ActivePositive; 2];
         let target = [Spin4::ActiveNegative; 2];
@@ -412,7 +412,10 @@ mod tests {
         assert_eq!(result.communication_height, 0);
         assert_eq!(result.barrier_above_initial, 3);
         assert_eq!(result.enumerated_states, 16);
-        assert_eq!(result.witness.first().unwrap().as_slice(), initial.as_slice());
+        assert_eq!(
+            result.witness.first().unwrap().as_slice(),
+            initial.as_slice()
+        );
         assert_eq!(result.witness.last().unwrap().as_slice(), target.as_slice());
         let mut witness_peak = i128::MIN;
         for state in &result.witness {
@@ -423,21 +426,33 @@ mod tests {
         }
         assert_eq!(witness_peak, result.communication_height);
         for pair in result.witness.windows(2) {
-            let differences = pair[0].iter().zip(&pair[1])
-                .filter(|(a, b)| a != b).count();
+            let differences = pair[0].iter().zip(&pair[1]).filter(|(a, b)| a != b).count();
             assert_eq!(differences, 1);
         }
     }
 
     #[test]
     fn energy_barrier_is_gauge_invariant_with_switched_coupling() {
-        let positive = [SparseIsingEdge { left: 0, right: 1, coupling: 3 }];
-        let negative = [SparseIsingEdge { left: 0, right: 1, coupling: -3 }];
+        let positive = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: 3,
+        }];
+        let negative = [SparseIsingEdge {
+            left: 0,
+            right: 1,
+            coupling: -3,
+        }];
         let a = Q4Landscape {
-            biases: &[0, 0], activation_costs: &[0, 0],
-            eligibility: &[0b11], edges: &positive,
+            biases: &[0, 0],
+            activation_costs: &[0, 0],
+            eligibility: &[0b11],
+            edges: &positive,
         };
-        let b = Q4Landscape { edges: &negative, ..a };
+        let b = Q4Landscape {
+            edges: &negative,
+            ..a
+        };
         let x = [Spin4::ActivePositive; 2];
         let y = [Spin4::ActiveNegative; 2];
         let x_switched = [Spin4::ActiveNegative, Spin4::ActivePositive];
@@ -452,8 +467,10 @@ mod tests {
     #[test]
     fn dormant_polarity_retains_latent_bit_without_exact_autorecall() {
         let p = Q4Landscape {
-            biases: &[0], activation_costs: &[5],
-            eligibility: &[1], edges: &[],
+            biases: &[0],
+            activation_costs: &[5],
+            eligibility: &[1],
+            edges: &[],
         };
         let base = [Spin4::DormantPositive];
         let panel = single_bit_perturbation_recall(p, &base, 4).unwrap();
@@ -469,8 +486,10 @@ mod tests {
     #[test]
     fn biased_active_spin_recovers_both_bit_perturbations() {
         let p = Q4Landscape {
-            biases: &[5], activation_costs: &[0],
-            eligibility: &[1], edges: &[],
+            biases: &[5],
+            activation_costs: &[0],
+            eligibility: &[1],
+            edges: &[],
         };
         let panel = single_bit_perturbation_recall(p, &[Spin4::ActivePositive], 4).unwrap();
         assert_eq!(panel.baseline_energy, -5);
@@ -482,20 +501,49 @@ mod tests {
     #[test]
     fn negative_triangle_has_structural_defect_but_no_recall_claim() {
         let balanced = [
-            SparseIsingEdge { left: 0, right: 1, coupling: 2 },
-            SparseIsingEdge { left: 0, right: 2, coupling: 2 },
-            SparseIsingEdge { left: 1, right: 2, coupling: 2 },
+            SparseIsingEdge {
+                left: 0,
+                right: 1,
+                coupling: 2,
+            },
+            SparseIsingEdge {
+                left: 0,
+                right: 2,
+                coupling: 2,
+            },
+            SparseIsingEdge {
+                left: 1,
+                right: 2,
+                coupling: 2,
+            },
         ];
         let frustrated = [
-            SparseIsingEdge { left: 0, right: 1, coupling: 2 },
-            SparseIsingEdge { left: 0, right: 2, coupling: 2 },
-            SparseIsingEdge { left: 1, right: 2, coupling: -2 },
+            SparseIsingEdge {
+                left: 0,
+                right: 1,
+                coupling: 2,
+            },
+            SparseIsingEdge {
+                left: 0,
+                right: 2,
+                coupling: 2,
+            },
+            SparseIsingEdge {
+                left: 1,
+                right: 2,
+                coupling: -2,
+            },
         ];
         let b = Q4Landscape {
-            biases: &[0; 3], activation_costs: &[0; 3],
-            eligibility: &[0b111], edges: &balanced,
+            biases: &[0; 3],
+            activation_costs: &[0; 3],
+            eligibility: &[0b111],
+            edges: &balanced,
         };
-        let f = Q4Landscape { edges: &frustrated, ..b };
+        let f = Q4Landscape {
+            edges: &frustrated,
+            ..b
+        };
         let source = [Spin4::ActivePositive; 3];
         let target = [Spin4::ActiveNegative; 3];
         let br = exact_quaternary_barrier(b, &source, &target).unwrap();
@@ -504,12 +552,10 @@ mod tests {
         assert_eq!(fr.enumerated_states, 64);
         assert!(br.barrier_above_initial >= 0);
         assert!(fr.barrier_above_initial >= 0);
-        let balanced_topology = analyze_topological_defects(
-            3, &[0b111], &[0b111], &[0b111], &balanced,
-        ).unwrap();
-        let frustrated_topology = analyze_topological_defects(
-            3, &[0b111], &[0b111], &[0b111], &frustrated,
-        ).unwrap();
+        let balanced_topology =
+            analyze_topological_defects(3, &[0b111], &[0b111], &[0b111], &balanced).unwrap();
+        let frustrated_topology =
+            analyze_topological_defects(3, &[0b111], &[0b111], &[0b111], &frustrated).unwrap();
         assert!(balanced_topology.structurally_balanced());
         assert!(!frustrated_topology.structurally_balanced());
         // This fixture intentionally does not assert one topology has better recall.
@@ -518,15 +564,20 @@ mod tests {
     #[test]
     fn invalid_inputs_and_non_attractors_fail_closed() {
         let invalid = Q4Landscape {
-            biases: &[0; 9], activation_costs: &[0; 9],
-            eligibility: &[0x1ff], edges: &[],
+            biases: &[0; 9],
+            activation_costs: &[0; 9],
+            eligibility: &[0x1ff],
+            edges: &[],
         };
         assert!(matches!(
             exact_quaternary_barrier(invalid, &[], &[]),
             Err(Q4LandscapeError::TooManyVertices { .. })
         ));
         let p = Q4Landscape {
-            biases: &[2], activation_costs: &[0], eligibility: &[1], edges: &[],
+            biases: &[2],
+            activation_costs: &[0],
+            eligibility: &[1],
+            edges: &[],
         };
         assert_eq!(
             single_bit_perturbation_recall(p, &[Spin4::ActiveNegative], 3).unwrap_err(),
@@ -537,12 +588,18 @@ mod tests {
             Q4LandscapeError::InvalidSweepBudget
         );
         let masked = Q4Landscape {
-            biases: &[0, 0], activation_costs: &[0, 0],
-            eligibility: &[0b01], edges: &[],
+            biases: &[0, 0],
+            activation_costs: &[0, 0],
+            eligibility: &[0b01],
+            edges: &[],
         };
         assert_eq!(
-            exact_quaternary_barrier(masked, &[Spin4::DormantNegative, Spin4::ActivePositive],
-                                      &[Spin4::DormantNegative; 2]).unwrap_err(),
+            exact_quaternary_barrier(
+                masked,
+                &[Spin4::DormantNegative, Spin4::ActivePositive],
+                &[Spin4::DormantNegative; 2]
+            )
+            .unwrap_err(),
             Q4LandscapeError::NonneutralMaskedState { vertex: 1 }
         );
     }
