@@ -46,6 +46,7 @@ pub mod holdout;
 mod holdout_eq;
 pub mod ising_attention;
 pub mod ising_defect_dynamics;
+pub mod ising_energy_barriers;
 pub mod ising_quaternary;
 pub mod ising_quaternary_routing;
 pub mod ising_sparse_state;
