@@ -24,9 +24,7 @@ use crate::ising_energy_barriers::{
 };
 use crate::ising_quaternary::{BooleanQuaternary, Spin4, Spin4Error};
 use crate::ising_sparse_state::SparseIsingEdge;
-use crate::ising_topological_defects::{
-    analyze_topological_defects, TopologicalDefectError,
-};
+use crate::ising_topological_defects::{analyze_topological_defects, TopologicalDefectError};
 
 pub const MATCHED_PANEL_SCHEMA: &str = "Q4-TOPO-4-v1";
 pub const MATCHED_PANEL_VERTICES: usize = 5;
@@ -38,8 +36,7 @@ pub const MATCHED_PANEL_COSTS: [i32; 3] = [-1, 0, 2];
 
 /// Edges: 0-1, 0-3, 1-2, 2-3 (square), and 3-4 (pendant bridge).
 /// Edge index 3 is the sole non-tree fundamental-cycle closure under BFS.
-const LINKS: [(usize, usize); MATCHED_PANEL_EDGES] =
-    [(0, 1), (0, 3), (1, 2), (2, 3), (3, 4)];
+const LINKS: [(usize, usize); MATCHED_PANEL_EDGES] = [(0, 1), (0, 3), (1, 2), (2, 3), (3, 4)];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SignedCycleFamily {
@@ -325,9 +322,7 @@ pub fn run_matched_signed_cycle_panel() -> Result<MatchedCyclePanel, MatchedPane
 ///
 /// No normalization, p-value, causal interpretation, holdout claim or hardware
 /// measurement is calculated by this accounting helper.
-pub fn aggregate_matched_cycle_cases(
-    cases: &[MatchedCycleCase],
-) -> Vec<MatchedCycleAggregate> {
+pub fn aggregate_matched_cycle_cases(cases: &[MatchedCycleCase]) -> Vec<MatchedCycleAggregate> {
     let mut groups = Vec::with_capacity(6);
     for activation_cost in MATCHED_PANEL_COSTS {
         for family in [SignedCycleFamily::Balanced, SignedCycleFamily::Frustrated] {
@@ -344,18 +339,17 @@ pub fn aggregate_matched_cycle_cases(
                 binary_comparable_graphs: 0,
                 exact_binary_forward_barrier_sum: 0,
             };
-            for case in cases.iter().filter(|case| {
-                case.activation_cost == activation_cost && case.family == family
-            }) {
+            for case in cases
+                .iter()
+                .filter(|case| case.activation_cost == activation_cost && case.family == family)
+            {
                 record.graph_count += 1;
-                record.exact_q4_forward_barrier_sum +=
-                    case.exact_q4.barrier_above_initial;
+                record.exact_q4_forward_barrier_sum += case.exact_q4.barrier_above_initial;
                 record.exact_q4_backward_barrier_sum +=
                     case.exact_q4.communication_height - case.exact_q4.target_energy;
                 if let Some(binary) = &case.exact_binary {
                     record.binary_comparable_graphs += 1;
-                    record.exact_binary_forward_barrier_sum +=
-                        binary.barrier_above_initial;
+                    record.exact_binary_forward_barrier_sum += binary.barrier_above_initial;
                 }
                 for recall in [&case.positive_root_recall, &case.negative_root_recall] {
                     record.perturbation_trials += recall.trials.len();
@@ -381,14 +375,24 @@ mod tests {
         assert_eq!(panel.cases.len(), 30);
         assert_eq!(panel.aggregates.len(), 6);
         for cost in MATCHED_PANEL_COSTS {
-            let matched: Vec<_> = panel.cases.iter().filter(|r| r.activation_cost == cost).collect();
+            let matched: Vec<_> = panel
+                .cases
+                .iter()
+                .filter(|r| r.activation_cost == cost)
+                .collect();
             assert_eq!(matched.len(), 10);
             assert_eq!(
-                matched.iter().filter(|r| r.family == SignedCycleFamily::Balanced).count(),
+                matched
+                    .iter()
+                    .filter(|r| r.family == SignedCycleFamily::Balanced)
+                    .count(),
                 6
             );
             assert_eq!(
-                matched.iter().filter(|r| r.family == SignedCycleFamily::Frustrated).count(),
+                matched
+                    .iter()
+                    .filter(|r| r.family == SignedCycleFamily::Frustrated)
+                    .count(),
                 4
             );
         }
@@ -410,15 +414,17 @@ mod tests {
                 assert_eq!(binary.initial_energy, row.exact_q4.initial_energy);
                 assert_eq!(binary.target_energy, row.exact_q4.target_energy);
                 // Binary paths are a proper subset of the allowed Q4 paths.
-                assert!(
-                    row.exact_q4.communication_height <= binary.communication_height
-                );
+                assert!(row.exact_q4.communication_height <= binary.communication_height);
             }
         }
         for summary in &panel.aggregates {
             assert_eq!(
                 summary.graph_count,
-                if summary.family == SignedCycleFamily::Balanced { 6 } else { 4 },
+                if summary.family == SignedCycleFamily::Balanced {
+                    6
+                } else {
+                    4
+                },
             );
             assert_eq!(summary.perturbation_trials, summary.graph_count * 20);
             assert!(summary.exact_bit_recalls <= summary.effective_spin_recalls);
