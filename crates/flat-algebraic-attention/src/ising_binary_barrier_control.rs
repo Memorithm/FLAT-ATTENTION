@@ -100,9 +100,12 @@ fn validate(
 }
 
 fn code_from_states(states: &[Spin4], positions: &[usize]) -> usize {
-    positions.iter().enumerate().fold(0_usize, |acc, (slot, &vertex)| {
-        acc | (usize::from(states[vertex].positive()) << slot)
-    })
+    positions
+        .iter()
+        .enumerate()
+        .fold(0_usize, |acc, (slot, &vertex)| {
+            acc | (usize::from(states[vertex].positive()) << slot)
+        })
 }
 
 fn states_from_code(code: usize, positions: &[usize], n: usize) -> Vec<Spin4> {
@@ -125,14 +128,26 @@ fn energy(
 ) -> i128 {
     let mut result = 0_i128;
     for (slot, &vertex) in positions.iter().enumerate() {
-        let z = if (code >> slot) & 1 == 1 { 1_i128 } else { -1_i128 };
+        let z = if (code >> slot) & 1 == 1 {
+            1_i128
+        } else {
+            -1_i128
+        };
         result += i128::from(problem.activation_costs[vertex]);
         result -= i128::from(problem.biases[vertex]) * z;
     }
     for edge in problem.edges {
         if let (Some(i), Some(j)) = (slots[edge.left], slots[edge.right]) {
-            let zi = if (code >> i) & 1 == 1 { 1_i128 } else { -1_i128 };
-            let zj = if (code >> j) & 1 == 1 { 1_i128 } else { -1_i128 };
+            let zi = if (code >> i) & 1 == 1 {
+                1_i128
+            } else {
+                -1_i128
+            };
+            let zj = if (code >> j) & 1 == 1 {
+                1_i128
+            } else {
+                -1_i128
+            };
             result -= i128::from(edge.coupling) * zi * zj;
         }
     }
@@ -190,8 +205,8 @@ pub fn exact_active_binary_barrier(
     let communication_height = heights[destination];
     let mut codes = vec![destination];
     while *codes.last().expect("nonempty path") != origin {
-        let previous = parents[*codes.last().expect("nonempty path")]
-            .expect("binary hypercube is connected");
+        let previous =
+            parents[*codes.last().expect("nonempty path")].expect("binary hypercube is connected");
         codes.push(previous);
     }
     codes.reverse();
