@@ -442,6 +442,38 @@ mod tests {
     }
 
     #[test]
+    fn frozen_reference_aggregates_match_independent_scalar_recomputation() {
+        // Golden values from an independent, explicit scalar enumeration of
+        // the fixed 5-vertex signed panel. These are regression fixtures,
+        // NOT training targets, tuned thresholds, or statistical inference.
+        let expected = [
+            (-1, SignedCycleFamily::Balanced, 6, 120, 120, 48, 6, 48),
+            (-1, SignedCycleFamily::Frustrated, 4, 64, 64, 12, 4, 16),
+            (0, SignedCycleFamily::Balanced, 6, 120, 120, 48, 6, 48),
+            (0, SignedCycleFamily::Frustrated, 4, 56, 56, 8, 4, 16),
+            (2, SignedCycleFamily::Balanced, 6, 60, 60, 12, 6, 48),
+            (2, SignedCycleFamily::Frustrated, 4, 32, 40, 0, 0, 0),
+        ];
+        let panel = run_matched_signed_cycle_panel().unwrap();
+        for (cost, family, graphs, exact, effective, q4_sum, binary_graphs, binary_sum) in expected {
+            let actual = panel
+                .aggregates
+                .iter()
+                .find(|r| r.activation_cost == cost && r.family == family)
+                .unwrap();
+            assert_eq!(actual.graph_count, graphs);
+            assert_eq!(actual.perturbation_trials, graphs * 20);
+            assert_eq!(actual.exact_bit_recalls, exact);
+            assert_eq!(actual.effective_spin_recalls, effective);
+            assert_eq!(actual.fixed_point_trials, graphs * 20);
+            assert_eq!(actual.exact_q4_forward_barrier_sum, q4_sum);
+            assert_eq!(actual.exact_q4_backward_barrier_sum, q4_sum);
+            assert_eq!(actual.binary_comparable_graphs, binary_graphs);
+            assert_eq!(actual.exact_binary_forward_barrier_sum, binary_sum);
+        }
+    }
+
+    #[test]
     fn rooted_tree_signs_are_gauge_covariant() {
         // A switch at vertex 1 toggles both incident edge signs.
         // The resulting tree-aligned spin at vertex 1 switches, but other
