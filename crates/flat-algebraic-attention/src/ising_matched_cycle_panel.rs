@@ -455,7 +455,8 @@ mod tests {
             (2, SignedCycleFamily::Frustrated, 4, 32, 40, 0, 0, 0),
         ];
         let panel = run_matched_signed_cycle_panel().unwrap();
-        for (cost, family, graphs, exact, effective, q4_sum, binary_graphs, binary_sum) in expected {
+        for (cost, family, graphs, exact, effective, q4_sum, binary_graphs, binary_sum) in expected
+        {
             let actual = panel
                 .aggregates
                 .iter()
